@@ -1,0 +1,19 @@
+# https://goframe.org/docs/web/server-config-file-template
+server:
+  address:     ":8000"
+  openapiPath: "/api.json"
+  swaggerPath: "/swagger"
+
+# https://goframe.org/docs/core/glog-config
+logger:
+  path: "./logs"
+  file: "{Y-m-d}.log"
+  level: "all"
+  stdout: true  # 可选：是否同时输出到控制台
+
+# https://goframe.org/docs/core/gdb-config-file
+database:
+  default:
+    type: "mysql"
+    link: "root:root@tcp(127.0.0.1:3306)/easyadmin8?charset=utf8mb4&parseTime=True&loc=Local"
+    debug: true
