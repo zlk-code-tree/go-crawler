@@ -1,0 +1,289 @@
+package crawler
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/go-rod/rod"
+
+	"github.com/go-rod/rod/lib/launcher"
+	"github.com/gogf/gf/v2/errors/gerror"
+	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/os/glog"
+	"github.com/gogf/gf/v2/util/grand"
+
+	v1 "go-crawler/api/hello/v1"
+	"go-crawler/internal/model"
+	"go-crawler/internal/service"
+)
+
+// TikTokProduct 是从排行榜列表中获取的单个产品记录的数据结构。
+// 最好在公共模型包中定义它。
+type TikTokProduct struct {
+	Rank             int    `json:"rank"`               // 排名
+	Product          string `json:"product"`            // 商品
+	ShortVideo       string `json:"short_video"`        // 带货短视频
+	ShopName         string `json:"shop_name"`          // 店铺名称
+	PaymentAmount    string `json:"payment_amount"`     // 短视频用户支付金额
+	ClickCount       string `json:"click_count"`        // 短视频点击次数
+	SalesVolume      string `json:"sales_volume"`       // 短视频成交件数
+	DeliveryVideoNum string `json:"delivery_video_num"` // 带货视频数
+}
+
+// sCrawler 是爬虫服务的结构体。
+type sCrawler struct{}
+
+// 初始化时注册爬虫服务。
+func init() {
+	service.RegisterCrawler(New())
+}
+
+// New 创建一个新的爬虫服务实例。
+func New() *sCrawler {
+	return &sCrawler{}
+}
+
+// RunBrowserTask 实现了 service.ICrawler 接口。
+// 它协调启动浏览器、等待登录、导航到目标页面、抓取数据和保存数据的整个过程。
+func (s *sCrawler) RunBrowserTask(ctx context.Context, req *v1.CrawlReq) (res []v1.Result, err error) {
+	if req == nil || req.TargetUrl == "" {
+		return nil, gerror.New("目标 URL 不能为空")
+	}
+	targetUrl := req.TargetUrl
+	// 修复：glog 直接调用
+	glog.Info(ctx, "开始启动浏览器任务，准备登录，请手动完成登录操作...")
+
+	// 1. 启动浏览器
+	controlURL, err := launcher.New().
+		Headless(false).
+		NoSandbox(true).
+		Set("disable-blink-features", "AutomationControlled").
+		Set("disable-dev-shm-usage", "").
+		Set("window-size", "1920,1080").
+		Launch()
+	if err != nil {
+		glog.Error(ctx, "浏览器启动失败:", err)
+		return nil, gerror.Wrap(err, "启动浏览器失败")
+	}
+	browser := rod.New().ControlURL(controlURL).MustConnect()
+	defer browser.Close()
+
+	// 打开初始页面
+	page := browser.MustPage(targetUrl).Timeout(120 * time.Second)
+
+	// 2. 设置反检测机制
+	headers := []string{
+		"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+		"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+		"accept-language", "zh-CN,zh;q=0.9,en;q=0.8",
+	}
+	page.SetExtraHeaders(headers)
+	page.Eval(`() => {
+		Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+	}`)
+
+	// 提示手动登录
+	fmt.Println("\n--- 重要提示 ---")
+	fmt.Println("请在打开的浏览器中完成抖音电商罗盘的登录操作。")
+	fmt.Println("登录完成后，请确保您能看到首页或导航菜单。")
+	fmt.Print("完成后请输入任意字符并按回车键继续: ")
+	var input_continue string
+	fmt.Scanln(&input_continue)
+	fmt.Println("继续执行后续操作...")
+
+	// 3. 导航到排行榜页面
+	douyinRankingUrl := "https://fxg.jinritemai.com/compass/rank/product-overview"
+	glog.Info(ctx, "正在导航至商品榜单页面:", douyinRankingUrl)
+	page.MustNavigate(douyinRankingUrl)
+
+	// 智能等待页面加载
+	glog.Info(ctx, "等待页面加载...")
+	page.MustWaitLoad()
+	page.MustWaitRequestIdle()
+
+	// ==================== 修复：稳定点击 短视频榜 ====================
+	glog.Info(ctx, "尝试查找并点击 '短视频榜' 按钮...")
+	// XPath 文本匹配（永不失效）
+	videoRankXPath := `//div[contains(text(),'短视频榜') and @class*='ecom-tabs-tab']`
+	targetElement, err := page.Timeout(15 * time.Second).ElementX(videoRankXPath)
+	if err != nil || targetElement == nil {
+		glog.Error(ctx, "未找到短视频榜按钮，请检查登录状态/页面")
+		return nil, gerror.New("未能找到 '短视频榜' 按钮")
+	}
+
+	// 等待元素可点击并执行
+	targetElement.MustWaitVisible().MustClick()
+	glog.Info(ctx, "'短视频榜' 按钮点击成功")
+	page.MustWaitRequestIdle()
+
+	// 5. 抓取数据
+	products, err := s.scrapeVideoRankingTable(page)
+	if err != nil {
+		return nil, err
+	}
+
+	// 6. 保存数据
+	err = s.saveProductsToDB(ctx, products)
+	if err != nil {
+		return nil, err
+	}
+
+	// 7. 返回结果
+	resultMsg := fmt.Sprintf("成功抓取并保存 %d 条短视频榜数据。", len(products))
+	glog.Info(ctx, resultMsg)
+	return []v1.Result{{
+		URL:   douyinRankingUrl,
+		Title: fmt.Sprintf("抖音短视频榜抓取任务完成 (%d 条数据)", len(products)),
+	}}, nil
+}
+
+// scrapeVideoRankingTable 处理短视频排行榜表格的核心抓取逻辑。
+func (s *sCrawler) scrapeVideoRankingTable(page *rod.Page) (products []TikTokProduct, err error) {
+	// 包含项目列表的表格主体。需要根据实际情况调整选择器。
+	tableBodySelector := `[data-testid="rank-list"] tbody tr` // 示例选择器
+
+	// 滚动页面以加载全部 200 条数据。对于无限滚动或分页加载通常需要这样做。
+	g.Log().Info(context.Background(), "开始滚动页面以加载全部数据...")
+	lastHeight := 0
+	scrollPauseTime := 2 * time.Second
+
+	for len(products) < 200 {
+		// 获取当前滚动高度
+		// 修正点：使用 res.Value.Int() 获取整数值，只接收一个返回值
+		res, _ := page.Eval(`() => document.body.scrollHeight`)
+
+		// res.Value 是 gson.JSON 对象，使用 Int() 方法获取整数值
+		// 当前版本的 rod 中，该方法只返回一个 int 值
+		currentHeight := res.Value.Int()
+
+		// 如果无法再滚动（已到达底部），则退出循环
+		if currentHeight == lastHeight {
+			g.Log().Info(context.Background(), "已滚动到底部，停止滚动。")
+			break
+		}
+
+		// 滚动到底部
+		page.MustEval(fmt.Sprintf(`() => window.scrollTo(0, %d);`, currentHeight))
+		time.Sleep(scrollPauseTime)
+
+		// 更新上次的高度
+		lastHeight = currentHeight
+
+		// 尝试解析当前页面上可见的数据项
+		currentItems, parseErr := s.parseCurrentItems(page, tableBodySelector)
+		if parseErr != nil {
+			g.Log().Warning(context.Background(), "解析当前页面数据时出错:", parseErr)
+			continue // 即使本次解析失败，也继续滚动
+		}
+		// 合并新数据项，通过排名去重，防止重复抓取
+		seenRanks := make(map[int]bool)
+		for _, p := range products {
+			seenRanks[p.Rank] = true
+		}
+		for _, item := range currentItems {
+			if !seenRanks[item.Rank] {
+				products = append(products, item)
+				seenRanks[item.Rank] = true
+			}
+		}
+		// 按排名排序
+		sort.Slice(products, func(i, j int) bool { return products[i].Rank < products[j].Rank })
+
+		g.Log().Info(context.Background(), fmt.Sprintf("已加载 %d / 200 条数据...", len(products)))
+	}
+
+	if len(products) < 200 {
+		g.Log().Warning(context.Background(), fmt.Sprintf("警告: 只加载了 %d 条数据，少于预期的 200 条。可能页面结构有变或网络问题。", len(products)))
+	} else {
+		g.Log().Info(context.Background(), "已成功加载全部 200 条数据。")
+	}
+
+	return products, nil
+}
+
+// parseCurrentItems 解析当前可见的表格行，将其转换为 TikTokProduct 结构体。
+func (s *sCrawler) parseCurrentItems(page *rod.Page, tableBodySelector string) ([]TikTokProduct, error) {
+	var products []TikTokProduct
+
+	// 查找所有表格行元素
+	elements := page.MustElements(tableBodySelector)
+	for _, row := range elements {
+		// 获取行内的所有单元格
+		cells := row.MustElements("td")
+		// 确保单元格数量足够，至少需要8个字段
+		if len(cells) < 8 {
+			continue
+		}
+
+		product := TikTokProduct{}
+
+		// 单元格 0: 排名 (通常是文本)
+		rankText := strings.TrimSpace(cells[0].MustText())
+		product.Rank, _ = strconv.Atoi(strings.Trim(rankText, ".")) // 清理掉可能存在的点号
+
+		// 单元格 1: 商品 (通常包含图片和名称)
+		product.Product = strings.TrimSpace(cells[1].MustText())
+
+		// 单元格 2: 带货短视频 (通常包含缩略图和描述)
+		product.ShortVideo = strings.TrimSpace(cells[2].MustText())
+
+		// 单元格 3: 店铺名称
+		product.ShopName = strings.TrimSpace(cells[3].MustText())
+
+		// 单元格 4: 用户支付金额
+		product.PaymentAmount = strings.TrimSpace(cells[4].MustText())
+
+		// 单元格 5: 点击次数
+		product.ClickCount = strings.TrimSpace(cells[5].MustText())
+
+		// 单元格 6: 成交件数
+		product.SalesVolume = strings.TrimSpace(cells[6].MustText())
+
+		// 单元格 7: 带货视频数
+		product.DeliveryVideoNum = strings.TrimSpace(cells[7].MustText())
+
+		products = append(products, product)
+	}
+
+	return products, nil
+}
+
+// saveProductsToDB 调用数据库服务，将抓取到的数据存储起来。
+func (s *sCrawler) saveProductsToDB(ctx context.Context, products []TikTokProduct) error {
+	if len(products) == 0 {
+		return gerror.New("没有数据可保存")
+	}
+
+	// 将 TikTokProduct 结构体转换为数据库输入模型
+	var records []*model.TikTokRankingListInput
+	for _, p := range products {
+		record := &model.TikTokRankingListInput{
+			TaskId:           grand.S(10), // 或者使用从请求中传入的正确任务ID
+			Rank:             p.Rank,
+			ProductName:      p.Product,
+			ShortVideoDesc:   p.ShortVideo,
+			ShopName:         p.ShopName,
+			PaymentAmount:    p.PaymentAmount,
+			ClickCount:       p.ClickCount,
+			SalesVolume:      p.SalesVolume,
+			DeliveryVideoNum: p.DeliveryVideoNum,
+			CreatedAt:        time.Now(), // 设置创建时间为当前时间
+		}
+		records = append(records, record)
+	}
+
+	// 修正点：先调用 service.TikTokRankingList() 获取实例，再调用其方法
+	tiktokService := service.TikTokRankingList()
+	err := tiktokService.CreateBatch(ctx, records)
+	if err != nil {
+		g.Log().Error(ctx, "保存数据到数据库失败:", err)
+		return gerror.Wrap(err, "保存数据失败")
+	}
+
+	g.Log().Info(ctx, fmt.Sprintf("成功将 %d 条数据保存到数据库。", len(records)))
+	return nil
+}

@@ -1,0 +1,6 @@
+2026/03/28-14:02:17.662 3603 Reusing MANIFEST /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/.compass_login/Default/Local Storage/leveldb/MANIFEST-000001
+2026/03/28-14:02:17.664 3603 Recovering log #19
+2026/03/28-14:02:17.664 3603 Reusing old log /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/.compass_login/Default/Local Storage/leveldb/000019.log 
+2026/03/28-14:03:21.901 3603 Level-0 table #23: started
+2026/03/28-14:03:21.903 3603 Level-0 table #23: 15313 bytes OK
+2026/03/28-14:03:21.904 3603 Delete type=0 #19

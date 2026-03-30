@@ -1,0 +1,8 @@
+2026/03/28-11:57:45.448 3503 Creating DB /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/.douyin_compass_login/Default/Local Storage/leveldb since it was missing.
+2026/03/28-11:57:45.453 3503 Reusing MANIFEST /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/.douyin_compass_login/Default/Local Storage/leveldb/MANIFEST-000001
+2026/03/28-11:58:19.249 3503 Level-0 table #5: started
+2026/03/28-11:58:19.252 3503 Level-0 table #5: 41421 bytes OK
+2026/03/28-11:58:19.252 3503 Delete type=0 #3
+2026/03/28-12:00:25.914 4d93 Level-0 table #7: started
+2026/03/28-12:00:25.916 4d93 Level-0 table #7: 19816 bytes OK
+2026/03/28-12:00:25.917 4d93 Delete type=0 #4
