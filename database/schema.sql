@@ -23,6 +23,7 @@ CREATE TABLE `tiktok_ranking_list` (
   `delivery_video_num` VARCHAR(64) DEFAULT '' COMMENT '带货视频数',
   `first_shelf_time` VARCHAR(64) DEFAULT '' COMMENT '首次上架时间',
   `min_price` VARCHAR(64) DEFAULT '' COMMENT '最低到手价',
+  `first_list` TINYINT NOT NULL DEFAULT 0 COMMENT '是否首次上榜：0-否 1-是',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_task_id` (`task_id`),

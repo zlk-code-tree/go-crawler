@@ -52,7 +52,7 @@ func (s *sTikTokRankingList) CreateBatch(ctx context.Context, data []*model.TikT
 	sqlLogger.Info("Database connection: SUCCESS")
 
 	// 指定要操作的实体表
-	entity := (*model.TikTokRankingListEntity)(nil)
+	entity := (*model.TiktokRankingList)(nil)
 
 	// 使用事务来保证数据一致性
 	return db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {

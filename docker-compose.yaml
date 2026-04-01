@@ -1,0 +1,59 @@
+# =====================================================
+# 抖音电商罗盘爬虫系统 - Docker Compose 配置
+# =====================================================
+
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: crawler_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+      MYSQL_DATABASE: "go_crawler"
+      MYSQL_CHARSET: "utf8mb4"
+      MYSQL_COLLATION: "utf8mb4_unicode_ci"
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql_data:/var/lib/mysql
+    command: 
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+    networks:
+      - crawler_network
+
+  # Go 应用服务
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crawler_app
+    restart: on-failure
+    depends_on:
+      - mysql
+    environment:
+      GF_GLOG_PATH: "./logs/server"
+      GF_DATABASE_DEFAULT_LINK: "mysql://root:123456@tcp(mysql:3306)/go_crawler?charset=utf8mb4&parseTime=True&loc=Local"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./cookies:/app/cookies
+      - ./checkpoints:/app/checkpoints
+      - ./exports:/app/exports
+    networks:
+      - crawler_network
+    # 注意：浏览器自动化需要在宿主机运行，不建议容器化
+
+networks:
+  crawler_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local

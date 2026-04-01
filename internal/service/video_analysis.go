@@ -32,7 +32,7 @@ func (s *sVideoAnalysis) CreateBatch(ctx context.Context, data []*model.VideoAna
 	}
 
 	db := g.DB()
-	entity := (*model.VideoAnalysisEntity)(nil)
+	entity := (*model.VideoAnalysis)(nil)
 
 	return db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		_, err := tx.Model(entity).Ctx(ctx).Insert(data)

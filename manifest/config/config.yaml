@@ -15,5 +15,5 @@ logger:
 database:
   default:
     type: "mysql"
-    link: "root:root@tcp(127.0.0.1:3306)/easyadmin8?charset=utf8mb4&parseTime=True&loc=Local"
+    link: "admin:admin@tcp(127.0.0.1:3306)/easyadmin8?charset=utf8mb4&parseTime=True&loc=Local"
     debug: true

@@ -1,0 +1,14 @@
+- 用户名为张立昆。
+- 项目技术栈：Go + GoFrame + go-rod，用于开发抖音电商罗盘自动化爬虫。
+- 项目架构：标准三层架构 (API → Controller → Logic → Service → Model/DAO)。
+- 核心功能：模拟真人操作抓取商品榜单和视频分析数据，支持扫码/账号密码登录。
+- 数据策略：采用每页保存模式 (20 页×10 条) 以降低数据丢失风险；排名 ID 优先解析页面真实值，失败时回退使用公式 `(页码 - 1) × 10 + 行序号` 计算全局连续排名。
+- 关键组件：CookieManager (自动登录), CheckpointManager (断点续爬), ExportManager (CSV/Excel 导出)。
+- 数据库配置：MySQL 运行于 Docker 容器，包含 tiktok_ranking_list, video_analysis_data, crawler_task_log 三张表，统一使用 utf8mb4_unicode_ci 字符集；配置文件统一为 manifest/config/config.yaml。
+- 日志系统：自定义 SimpleLogger，文件按天轮转，保留 7 天，SQL 日志独立存储。
+- 防反爬措施：设置 User-Agent，禁用自动化特征，多选择器容错定位。
+- 业务规则：检测到"首次上榜"标识的商品需标记 first_list=1，采用 XPath `//*[contains(., '首次上榜')]` 进行文本匹配（`.` 匹配所有子元素文本），严格限制在排名列单元格内以避免误判。
+- 去重策略：商品数据去重基于商品名称而非排名，避免跨页重复问题。
+- 客户端工具注意：Navicat 连接 Docker MySQL 时需手动设置字符集为 utf8mb4，否则中文注释显示乱码。
+- 新系统规划：正在构建独立的多公司 RBAC 后台管理系统，前端选定 Vue Vben Admin 5.0 (Vue 3 + TS)，以实现复杂的公司阶级与角色权限控制。
+- 技术决策：放弃纯 HTTP 接口抓取抖音数据方案，因签名逆向难度高、法律风险大且维护成本高；确认维持 go-rod 浏览器自动化方案以确保稳定性和合规性。

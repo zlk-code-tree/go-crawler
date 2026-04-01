@@ -1,0 +1,62 @@
+# =====================================================
+# 抖音电商罗盘爬虫系统 - 配置文件
+# =====================================================
+
+server:
+  address: ":8000"
+  openapiPath: "/api.json"
+  swaggerPath: "/swagger"
+
+database:
+  default:
+    type: "mysql"
+    link: "admin:admin@tcp(127.0.0.1:3306)/easyadmin8?charset=utf8mb4&parseTime=True&loc=Local"
+    debug: true
+    maxIdle: 10
+    maxOpen: 100
+    maxLifetime: "30s"
+
+logger:
+  path: "./logs/server"
+  file: "{Y-m-d}.log"
+  level: "all"
+  stdout: true
+  rotateSize: "100M"
+  rotateBackupLimit: 7
+  rotateBackupExpire: "30d"
+  rotateCheckInterval: "1h"
+
+crawler:
+  # 浏览器配置
+  browser:
+    headless: false
+    timeout: 300
+    slowMotion: 100
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+  
+  # 爬取配置
+  scrape:
+    totalPages: 20
+    itemsPerPage: 10
+    retryTimes: 3
+    retryDelay: 2000
+  
+  # Cookie 管理
+  cookie:
+    enabled: true
+    expireCheck: true
+  
+  # 断点续爬
+  checkpoint:
+    enabled: true
+    autoSave: true
+    saveInterval: 1
+
+# 数据导出配置
+export:
+  csv:
+    enabled: true
+    encoding: "utf-8-bom"
+  excel:
+    enabled: true
+    autoFilter: true

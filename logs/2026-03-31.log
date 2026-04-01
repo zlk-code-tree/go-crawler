@@ -1,0 +1,67 @@
+2026-03-31T10:28:33.490+08:00 [ERRO] {78e402d904cca118376d4d718332db1b} 批量插入失败: SHOW FULL COLUMNS FROM `tiktok_ranking_list`: Error 1146 (42S02): Table 'easyadmin8.tiktok_ranking_list' doesn't exist 
+Stack:
+1.  go-crawler/internal/service.(*sTikTokRankingList).CreateBatch.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/tiktok_ranking_list.go:85
+2.  go-crawler/internal/service.(*sTikTokRankingList).CreateBatch
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/tiktok_ranking_list.go:58
+3.  go-crawler/internal/logic/crawler.(*sCrawler).savePageData
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:941
+4.  go-crawler/internal/logic/crawler.(*sCrawler).scrapeAllPagesWithCheckpoint
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:890
+5.  go-crawler/internal/logic/crawler.(*sCrawler).RunBrowserTask
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:220
+6.  go-crawler/internal/controller/crawler.(*ControllerV1).Crawl
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/crawler/crawler.go:33
+
+2026-03-31T10:28:52.952+08:00 [ERRO] {78e402d904cca118376d4d718332db1b} 批量插入失败: SHOW FULL COLUMNS FROM `tiktok_ranking_list`: Error 1146 (42S02): Table 'easyadmin8.tiktok_ranking_list' doesn't exist 
+Stack:
+1.  go-crawler/internal/service.(*sTikTokRankingList).CreateBatch.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/tiktok_ranking_list.go:85
+2.  go-crawler/internal/service.(*sTikTokRankingList).CreateBatch
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/tiktok_ranking_list.go:58
+3.  go-crawler/internal/logic/crawler.(*sCrawler).savePageData
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:941
+4.  go-crawler/internal/logic/crawler.(*sCrawler).scrapeAllPagesWithCheckpoint
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:890
+5.  go-crawler/internal/logic/crawler.(*sCrawler).RunBrowserTask
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:220
+6.  go-crawler/internal/controller/crawler.(*ControllerV1).Crawl
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/crawler/crawler.go:33
+
+2026-03-31T10:29:12.388+08:00 [ERRO] {78e402d904cca118376d4d718332db1b} 批量插入失败: SHOW FULL COLUMNS FROM `tiktok_ranking_list`: Error 1146 (42S02): Table 'easyadmin8.tiktok_ranking_list' doesn't exist 
+Stack:
+1.  go-crawler/internal/service.(*sTikTokRankingList).CreateBatch.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/tiktok_ranking_list.go:85
+2.  go-crawler/internal/service.(*sTikTokRankingList).CreateBatch
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/tiktok_ranking_list.go:58
+3.  go-crawler/internal/logic/crawler.(*sCrawler).savePageData
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:941
+4.  go-crawler/internal/logic/crawler.(*sCrawler).scrapeAllPagesWithCheckpoint
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:890
+5.  go-crawler/internal/logic/crawler.(*sCrawler).RunBrowserTask
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:220
+6.  go-crawler/internal/controller/crawler.(*ControllerV1).Crawl
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/crawler/crawler.go:33
+
+2026-03-31T10:29:31.823+08:00 [ERRO] {78e402d904cca118376d4d718332db1b} 批量插入失败: SHOW FULL COLUMNS FROM `tiktok_ranking_list`: Error 1146 (42S02): Table 'easyadmin8.tiktok_ranking_list' doesn't exist 
+Stack:
+1.  go-crawler/internal/service.(*sTikTokRankingList).CreateBatch.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/tiktok_ranking_list.go:85
+2.  go-crawler/internal/service.(*sTikTokRankingList).CreateBatch
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/tiktok_ranking_list.go:58
+3.  go-crawler/internal/logic/crawler.(*sCrawler).savePageData
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:941
+4.  go-crawler/internal/logic/crawler.(*sCrawler).scrapeAllPagesWithCheckpoint
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:890
+5.  go-crawler/internal/logic/crawler.(*sCrawler).RunBrowserTask
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:220
+6.  go-crawler/internal/controller/crawler.(*ControllerV1).Crawl
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/crawler/crawler.go:33
+
+2026-03-31T10:32:16.319+08:00 [INFO] {58fd494a3fcca118d2c977760233196e} 成功插入 10 条记录。
+2026-03-31T10:32:35.751+08:00 [INFO] {58fd494a3fcca118d2c977760233196e} 成功插入 10 条记录。
+2026-03-31T10:40:36.041+08:00 [INFO] {9870388daacca118b9ff6958065d286a} 成功插入 10 条记录。
+2026-03-31T10:41:05.483+08:00 [INFO] {9870388daacca118b9ff6958065d286a} 成功插入 10 条记录。
+2026-03-31T10:41:34.939+08:00 [INFO] {9870388daacca118b9ff6958065d286a} 成功插入 10 条记录。
+2026-03-31T11:15:33.997+08:00 [INFO] {e0c91b8a95cea11815217260d8fa86bb} 成功插入 10 条记录。
+2026-03-31T11:16:03.472+08:00 [INFO] {e0c91b8a95cea11815217260d8fa86bb} 成功插入 10 条记录。

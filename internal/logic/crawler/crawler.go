@@ -29,6 +29,8 @@ type ProductInfo struct {
 	SalesVolume      string // 短视频成交件数
 	DeliveryVideoNum string // 带货视频数
 	ProductURL       string // 商品详情页 URL
+	FirstList        int    // 是否首次上榜：0-否 1-是
+	PriceRange       string // 价格带
 }
 
 // ProductDetail 商品详情数据
@@ -36,6 +38,7 @@ type ProductDetail struct {
 	ProductName    string // 商品名称
 	FirstShelfTime string // 首次上架时间
 	MinPrice       string // 最低到手价
+	PriceRange     string // 价格带
 }
 
 // VideoAnalysis 视频分析数据
@@ -410,8 +413,8 @@ func (s *sCrawler) scrapeAllPages(ctx context.Context, page *rod.Page, taskId st
 	for currentPage <= totalPages {
 		logInfo(ctx, taskId, fmt.Sprintf("📄 正在抓取第 %d/%d 页", currentPage, totalPages))
 
-		// 抓取当前页数据
-		products := s.scrapeCurrentPage(ctx, page, taskId)
+		// 抓取当前页数据（传递页码参数）
+		products := s.scrapeCurrentPage(ctx, page, taskId, currentPage)
 		if len(products) > 0 {
 			allProducts = append(allProducts, products...)
 			logInfo(ctx, taskId, fmt.Sprintf("✅ 第 %d 页抓取完成：获取 %d 条数据", currentPage, len(products)))
@@ -436,7 +439,7 @@ func (s *sCrawler) scrapeAllPages(ctx context.Context, page *rod.Page, taskId st
 }
 
 // scrapeCurrentPage 抓取当前页数据
-func (s *sCrawler) scrapeCurrentPage(ctx context.Context, page *rod.Page, taskId string) []ProductInfo {
+func (s *sCrawler) scrapeCurrentPage(ctx context.Context, page *rod.Page, taskId string, currentPage int) []ProductInfo {
 	var products []ProductInfo
 
 	// 等待表格加载
@@ -460,7 +463,11 @@ func (s *sCrawler) scrapeCurrentPage(ctx context.Context, page *rod.Page, taskId
 		return products
 	}
 
+	// 使用传入的页码参数
+	logDebug(ctx, taskId, fmt.Sprintf("📄 当前页码：%d", currentPage))
+
 	// 解析每行数据
+	dataRowIdx := 0 // 用于跟踪实际数据行的索引（不包括表头）
 	for rowIdx, row := range rows {
 		// 跳过表头
 		if rowIdx == 0 {
@@ -471,15 +478,13 @@ func (s *sCrawler) scrapeCurrentPage(ctx context.Context, page *rod.Page, taskId
 			}
 		}
 
-		product := s.parseProductRow(ctx, row, taskId, rowIdx)
+		product := s.parseProductRow(ctx, row, taskId, dataRowIdx, currentPage)
 		if product != nil && product.ProductName != "" {
-			// 如果排名解析失败，使用行号作为排名
-			if product.Rank == 0 {
-				product.Rank = rowIdx + 1
-			}
 			logDebug(ctx, taskId, fmt.Sprintf("✅ 解析商品：排名=%d, 名称=%s", product.Rank, product.ProductName))
 			products = append(products, *product)
 		}
+
+		dataRowIdx++ // 每处理一行数据，增加数据行索引
 	}
 
 	logInfo(ctx, taskId, fmt.Sprintf("📊 当前页解析完成：获取 %d 条商品", len(products)))
@@ -487,7 +492,7 @@ func (s *sCrawler) scrapeCurrentPage(ctx context.Context, page *rod.Page, taskId
 }
 
 // parseProductRow 解析商品行数据
-func (s *sCrawler) parseProductRow(ctx context.Context, row *rod.Element, taskId string, rowIdx int) *ProductInfo {
+func (s *sCrawler) parseProductRow(ctx context.Context, row *rod.Element, taskId string, rowIdx int, currentPage int) *ProductInfo {
 	cellSelectors := []string{".el-table__cell", ".ant-table-cell", ".table-cell", "td"}
 	var cells []*rod.Element
 
@@ -504,21 +509,96 @@ func (s *sCrawler) parseProductRow(ctx context.Context, row *rod.Element, taskId
 		return nil
 	}
 
-	// 获取排名（处理 "#" 符号和纯文本）
+	// 获取排名（优先从页面 DOM 元素中提取真实排名）
 	rankText := s.getText(cells[0])
 	rank := s.parseRank(rankText)
-	if rank == 0 {
-		rank = rowIdx + 1 // 使用行号作为排名
+
+	// 计算全局排名（确保跨页面连续，不循环）
+	// 全局排名 = (页码 - 1) * 每页数量 (10) + 当前数据行号 (rowIdx + 1)
+	globalRank := (currentPage-1)*10 + (rowIdx + 1)
+
+	// 调试日志：输出第一个单元格的实际内容
+	logDebug(ctx, taskId, fmt.Sprintf("🔍 数据行 %d - 单元格内容：%q, 页面排名=%d, 计算全局排名=%d", rowIdx, rankText, rank, globalRank))
+
+	// 使用计算出的全局排名，覆盖任何页面排名
+	rank = globalRank
+	logDebug(ctx, taskId, fmt.Sprintf("✔️ 最终使用全局排名：%d (页码=%d, 行号=%d)", rank, currentPage, rowIdx))
+
+	// 检测是否包含"首次上榜"标识（仅在排名列单元格内查找）
+	firstList := 0
+
+	// ===== 多维度选择器策略（借鉴 Tab 定位思路）=====
+
+	// 策略 1: XPath 文本匹配（兼容多种 DOM 结构）- 使用相对路径避免全局匹配
+	xpathSelectors := []string{
+		".//text()[normalize-space()='首次上榜']",                         // 精确匹配
+		".//span[contains(text(), '首次上榜')]",                           // 模糊匹配
+		".//span[contains(@class, 'tag') and contains(text(), '首次')]", // 标签元素
 	}
+
+	for _, selector := range xpathSelectors {
+		_, err := cells[0].Timeout(500 * time.Millisecond).ElementX(selector)
+		if err == nil {
+			firstList = 1
+			logDebug(ctx, taskId, fmt.Sprintf("🏆 [XPath] 检测到首次上榜标识 [%s]：排名=%d", selector, rank))
+			break
+		}
+	}
+
+	// 策略 2: CSS 类名匹配（ElementUI 标签样式）
+	if firstList == 0 {
+		cssSelectors := []string{
+			".el-tag",               // ElementUI 标签
+			"[class*='first-list']", // first-list 类名标签
+			"[class*='first-time']", // first-time 类名标签
+			"[data-tag='首次上榜']",     // data 属性标记
+		}
+
+		for _, selector := range cssSelectors {
+			elems, err := cells[0].Timeout(500 * time.Millisecond).Elements(selector)
+			if err == nil && len(elems) > 0 {
+				for _, elem := range elems {
+					if text, _ := elem.Text(); strings.Contains(text, "首次") {
+						firstList = 1
+						logDebug(ctx, taskId, fmt.Sprintf("🏆 [CSS] 检测到首次上榜标识 [%s]：排名=%d", selector, rank))
+						break
+					}
+				}
+				if firstList == 1 {
+					break
+				}
+			}
+		}
+	}
+
+	// 获取商品名称，同时提取价格带
+	productName := s.getText(cells[1])
+	priceRange := ""
+
+	// 从商品名称中提取价格带（如果包含"价格带"关键字）
+	if strings.Contains(productName, "价格带") {
+		parts := strings.SplitN(productName, "价格带", 2)
+		if len(parts) == 2 {
+			productName = strings.TrimSpace(parts[0]) // 移除价格带部分
+			priceRange = strings.TrimSpace(parts[1])  // 提取价格带值
+		}
+	}
+
+	// 调试日志：输出最终检测结果
+	cellText := s.getText(cells[0])
+	logDebug(ctx, taskId, fmt.Sprintf("📊 首次上榜检测完成 | 排名=%d | first_list=%d | 单元格文本=%q",
+		rank, firstList, cellText))
 
 	product := &ProductInfo{
 		Rank:             rank,
-		ProductName:      s.getText(cells[1]),
+		ProductName:      productName,
 		ShopName:         s.getText(cells[2]),
 		SalesVolume:      s.getText(cells[3]),
 		PaymentAmount:    s.getText(cells[4]),
 		ClickCount:       s.getText(cells[5]),
 		DeliveryVideoNum: "0",
+		FirstList:        firstList,
+		PriceRange:       priceRange,
 	}
 
 	if len(cells) > 6 {
@@ -534,7 +614,7 @@ func (s *sCrawler) parseProductRow(ctx context.Context, row *rod.Element, taskId
 		}
 	}
 
-	logDebug(ctx, taskId, fmt.Sprintf("✅ 解析商品行 %d: 排名=%d, 名称=%s", rowIdx, product.Rank, product.ProductName))
+	logDebug(ctx, taskId, fmt.Sprintf("✅ 解析商品行 %d: 排名=%d, 名称=%s, 首次上榜=%d", rowIdx, product.Rank, product.ProductName, product.FirstList))
 	return product
 }
 
@@ -588,6 +668,57 @@ func (s *sCrawler) clickNextPage(ctx context.Context, page *rod.Page, taskId str
 	// 如果所有选择器都失败，尝试通过 URL 参数翻页
 	logWarn(ctx, taskId, "⚠️ 未找到下一页按钮，尝试 URL 翻页")
 	return false
+}
+
+// getCurrentPage 获取当前页码
+func (s *sCrawler) getCurrentPage(page *rod.Page, taskId string) int {
+	// 尝试从页面元素中获取当前页码
+	pageSelectors := []string{
+		".el-pagination .el-pager li.is-active",
+		".el-pager li.active",
+		".ant-pagination-item-active",
+		".pagination-item.active",
+		"li[aria-current='page']",
+	}
+
+	for _, selector := range pageSelectors {
+		var element *rod.Element
+		var err error
+
+		if strings.HasPrefix(selector, "//") {
+			element, err = page.Timeout(2 * time.Second).ElementX(selector)
+		} else {
+			element, err = page.Timeout(2 * time.Second).Element(selector)
+		}
+
+		if err == nil {
+			text := s.getText(element)
+			if pageNum := s.parseRank(text); pageNum > 0 {
+				fmt.Printf("[DEBUG] 📄 从页面获取当前页码：%d (选择器：%s)\n", pageNum, selector)
+				return pageNum
+			}
+		}
+	}
+
+	// 如果无法从页面获取，尝试从 URL 参数中解析
+	if url := page.MustInfo().URL; url != "" {
+		// 尝试解析 URL 中的 page 参数（如果有）
+		// 例如：?page=2 或 ?p=2
+		if strings.Contains(url, "page=") {
+			parts := strings.Split(url, "page=")
+			if len(parts) > 1 {
+				pageNumStr := strings.Split(parts[1], "&")[0]
+				if pageNum := s.parseRank(pageNumStr); pageNum > 0 {
+					fmt.Printf("[DEBUG] 📄 从 URL 获取当前页码：%d\n", pageNum)
+					return pageNum
+				}
+			}
+		}
+	}
+
+	// 默认返回 1
+	fmt.Printf("[WARN] ⚠️ 无法获取当前页码，使用默认值 1\n")
+	return 1
 }
 
 // scrapeProductDetails 获取商品详情数据
@@ -844,6 +975,7 @@ func (s *sCrawler) convertToModelProducts(products []ProductInfo, details []Prod
 			ClickCount:       p.ClickCount,
 			SalesVolume:      p.SalesVolume,
 			DeliveryVideoNum: p.DeliveryVideoNum,
+			FirstList:        p.FirstList,
 			CreatedAt:        time.Now(),
 		}
 		if i < len(details) {
@@ -864,11 +996,13 @@ func (s *sCrawler) scrapeAllPagesWithCheckpoint(ctx context.Context, page *rod.P
 	for currentPage <= totalPages {
 		logInfo(ctx, taskId, fmt.Sprintf("📄 正在抓取第 %d/%d 页", currentPage, totalPages))
 
-		// 抓取当前页数据
-		products := s.scrapeCurrentPage(ctx, page, taskId)
+		// 抓取当前页数据（传递页码参数）
+		products := s.scrapeCurrentPage(ctx, page, taskId, currentPage)
 		if len(products) > 0 {
 			allProducts = append(allProducts, products...)
 			logInfo(ctx, taskId, fmt.Sprintf("✅ 第 %d 页抓取完成：获取 %d 条数据", currentPage, len(products)))
+			// 【新增修改点】每抓取完一页，立即将数据保存到数据库，修复写入不成功的问题
+			s.savePageData(ctx, taskId, products, currentPage)
 		}
 
 		// 保存进度
@@ -898,6 +1032,14 @@ func (s *sCrawler) savePageData(ctx context.Context, taskId string, products []P
 		return
 	}
 
+	// 统计价格带信息
+	priceRangeCount := 0
+	for _, p := range products {
+		if p.PriceRange != "" {
+			priceRangeCount++
+		}
+	}
+
 	// 转换为数据库模型
 	var rankingList []*model.TikTokRankingListInput
 	for _, p := range products {
@@ -910,6 +1052,10 @@ func (s *sCrawler) savePageData(ctx context.Context, taskId string, products []P
 			ClickCount:       p.ClickCount,
 			SalesVolume:      p.SalesVolume,
 			DeliveryVideoNum: p.DeliveryVideoNum,
+			FirstShelfTime:   "",
+			MinPrice:         "",
+			FirstList:        p.FirstList,  // 首次上榜标识
+			PriceRange:       p.PriceRange, // 从表格提取的价格带
 			CreatedAt:        time.Now(),
 		}
 		rankingList = append(rankingList, record)
@@ -919,7 +1065,7 @@ func (s *sCrawler) savePageData(ctx context.Context, taskId string, products []P
 	if err := service.TikTokRankingList().CreateBatch(ctx, rankingList); err != nil {
 		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 保存第 %d 页数据失败：%v", pageNum, err))
 	} else {
-		logInfo(ctx, taskId, fmt.Sprintf("💾 第 %d 页数据已保存：%d 条", pageNum, len(rankingList)))
+		logInfo(ctx, taskId, fmt.Sprintf("💾 第 %d 页数据已保存：%d 条 (其中 %d 条包含价格带)", pageNum, len(rankingList), priceRangeCount))
 	}
 }
 
@@ -931,9 +1077,9 @@ func (s *sCrawler) getText(el *rod.Element) string {
 	return strings.TrimSpace(text)
 }
 
-// parseRank 解析排名（处理 "#" 符号、纯文本、行号等）
+// parseRank 解析排名（处理 "#" 符号、纯文本等）
 func (s *sCrawler) parseRank(str string) int {
-	// 移除常见符号
+	// 移除常见符号和空格
 	str = strings.ReplaceAll(str, "#", "")
 	str = strings.ReplaceAll(str, " ", "")
 	str = strings.TrimSpace(str)
@@ -944,7 +1090,8 @@ func (s *sCrawler) parseRank(str string) int {
 		return val
 	}
 
-	// 如果转换失败，返回 0（调用方会使用行号）
+	// 如果转换失败，返回 0，表示无法从页面获取真实排名
+	// 调用方应该跳过这条数据或使用其他逻辑处理
 	return 0
 }
 
@@ -953,16 +1100,19 @@ func (s *sCrawler) toInt(str string) int {
 }
 
 func (s *sCrawler) uniqueProducts(products []ProductInfo) []ProductInfo {
-	rankMap := make(map[int]bool)
+	// 使用商品名称去重（因为排名是页内排名，每页都是 1-10）
+	productMap := make(map[string]bool)
 	var unique []ProductInfo
 
 	for _, item := range products {
-		if !rankMap[item.Rank] {
-			rankMap[item.Rank] = true
+		// 使用商品名称作为去重 key
+		if !productMap[item.ProductName] {
+			productMap[item.ProductName] = true
 			unique = append(unique, item)
 		}
 	}
 
+	// 按排名排序
 	sort.Slice(unique, func(i, j int) bool {
 		return unique[i].Rank < unique[j].Rank
 	})

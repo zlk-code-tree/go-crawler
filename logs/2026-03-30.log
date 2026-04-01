@@ -1,0 +1,70 @@
+2026-03-30T17:00:41.937+08:00 [ERRO] {406ad417db92a118d30f957ec2601b98} 批量插入失败: SHOW FULL COLUMNS FROM `tik_tok_ranking_list_entity`: Error 1146 (42S02): Table 'easyadmin8.tik_tok_ranking_list_entity' doesn't exist 
+Stack:
+1.  go-crawler/internal/service.(*sTikTokRankingList).CreateBatch.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/tiktok_ranking_list.go:85
+2.  go-crawler/internal/service.(*sTikTokRankingList).CreateBatch
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/tiktok_ranking_list.go:58
+3.  go-crawler/internal/logic/crawler.(*sCrawler).savePageData
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:921
+4.  go-crawler/internal/logic/crawler.(*sCrawler).scrapeAllPagesWithCheckpoint
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:873
+5.  go-crawler/internal/logic/crawler.(*sCrawler).RunBrowserTask
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:219
+6.  go-crawler/internal/controller/crawler.(*ControllerV1).Crawl
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/crawler/crawler.go:33
+
+2026-03-30T17:01:01.375+08:00 [ERRO] {406ad417db92a118d30f957ec2601b98} 批量插入失败: SHOW FULL COLUMNS FROM `tik_tok_ranking_list_entity`: Error 1146 (42S02): Table 'easyadmin8.tik_tok_ranking_list_entity' doesn't exist 
+Stack:
+1.  go-crawler/internal/service.(*sTikTokRankingList).CreateBatch.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/tiktok_ranking_list.go:85
+2.  go-crawler/internal/service.(*sTikTokRankingList).CreateBatch
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/tiktok_ranking_list.go:58
+3.  go-crawler/internal/logic/crawler.(*sCrawler).savePageData
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:921
+4.  go-crawler/internal/logic/crawler.(*sCrawler).scrapeAllPagesWithCheckpoint
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:873
+5.  go-crawler/internal/logic/crawler.(*sCrawler).RunBrowserTask
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/logic/crawler/crawler.go:219
+6.  go-crawler/internal/controller/crawler.(*ControllerV1).Crawl
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/crawler/crawler.go:33
+
+2026-03-30T17:16:39.804+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:16:59.285+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:17:18.726+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:17:38.166+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:17:57.603+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:18:17.024+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:18:36.463+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:18:55.902+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:19:15.338+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:19:34.775+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:19:54.204+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:20:13.629+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:20:33.081+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:20:52.565+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:21:12.001+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:21:31.438+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:21:50.877+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:22:10.305+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:22:29.732+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T17:22:49.168+08:00 [INFO] {389ed71cba93a118bace5126960cf243} 成功插入 10 条记录。
+2026-03-30T22:53:58.833+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:54:18.287+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:54:37.722+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:54:57.160+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:55:16.608+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:55:36.021+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:55:55.471+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:56:14.901+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:56:34.343+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:56:53.782+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:57:13.219+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:57:32.657+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:57:52.077+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:58:11.537+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:58:30.992+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:58:50.427+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:59:09.893+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:59:29.325+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T22:59:48.740+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
+2026-03-30T23:00:08.166+08:00 [INFO] {5060e39a16a6a11880508b2966975c2f} 成功插入 10 条记录。
