@@ -17,7 +17,6 @@ import (
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/gogf/gf/v2/errors/gerror"
-	"github.com/gogf/gf/v2/os/gfile"
 	"github.com/gogf/gf/v2/util/grand"
 )
 
@@ -179,70 +178,128 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 		}
 	}()
 
-	// ==================== 步骤 1: 启动浏览器 ====================
-	logInfo(ctx, taskId, "🚀 步骤 1: 启动浏览器")
-	browser, err := s.startBrowser(ctx, taskId)
-	if err != nil {
-		checkpointManager.FailTask(ctx, taskId, err.Error())
-		return res, gerror.Wrap(err, "浏览器启动失败")
-	}
-	defer browser.Close()
-
-	// ==================== 步骤 2: 打开首页并加载 Cookie ====================
-	logInfo(ctx, taskId, "🔐 步骤 2: 加载 Cookie 并检测登录状态")
+	// ==================== 步骤 1: 尝试 Cookie 自动登录（无头模式） ====================
 	homeURL := "https://compass.jinritemai.com/shop"
-	page, err := browser.Page(proto.TargetCreateTarget{URL: homeURL})
-	if err != nil {
-		checkpointManager.FailTask(ctx, taskId, err.Error())
-		return res, gerror.Wrap(err, "打开首页失败")
-	}
-	page = page.Timeout(15 * time.Minute)
+	var browser *rod.Browser
+	var page *rod.Page
+	isLoggedIn := false
 
-	// 检测是否已登录
-	isLoggedIn := s.checkIsLoggedIn(ctx, page, taskId)
+	// 检查是否有已保存的 Cookie
+	hasSavedCookies := cookieManager.HasCompassCookies(ctx, taskId)
 
-	// 如果未登录，尝试使用 Cookie
-	if !isLoggedIn {
-		cookieFile := "cookies/cookies.json"
-		if gfile.Exists(cookieFile) {
-			logInfo(ctx, taskId, "🍪 发现 Cookie 文件，尝试自动登录...")
-			// 等待页面完全加载
-			time.Sleep(5 * time.Second)
-			// 再次检查登录状态（有时页面加载慢）
-			isLoggedIn = s.checkIsLoggedIn(ctx, page, taskId)
-			if isLoggedIn {
-				logInfo(ctx, taskId, "✅ Cookie 自动登录成功！")
-			} else {
-				logWarn(ctx, taskId, "⚠️ Cookie 已过期或无效，需要重新登录")
-			}
+	if hasSavedCookies {
+		logInfo(ctx, taskId, "🚀 步骤 1: 检测到已保存的 Cookie，以无头模式启动浏览器尝试自动登录")
+		browser, err = s.startBrowser(ctx, taskId, true)
+		if err != nil {
+			checkpointManager.FailTask(ctx, taskId, err.Error())
+			return res, gerror.Wrap(err, "无头浏览器启动失败")
 		}
+
+		page, err = browser.Page(proto.TargetCreateTarget{URL: homeURL})
+		if err != nil {
+			browser.Close()
+			checkpointManager.FailTask(ctx, taskId, err.Error())
+			return res, gerror.Wrap(err, "打开首页失败")
+		}
+		page = page.Timeout(15 * time.Minute)
+		page.WaitLoad()
+
+		// 注入 Cookie 并刷新页面
+		if s.injectCookies(ctx, page, cookieManager, taskId) {
+			isLoggedIn = s.checkIsLoggedIn(ctx, page, taskId)
+		}
+
+		if isLoggedIn {
+			logSuccess(ctx, taskId, "✅ Cookie 自动登录成功！继续无头模式爬取")
+			// 更新 Cookie（刷新过期时间）
+			allCookies, _ := page.Cookies(nil)
+			if len(allCookies) > 0 {
+				cookieManager.SaveCookies(ctx, allCookies, taskId)
+				logInfo(ctx, taskId, "💾 Cookie 已更新")
+			}
+		} else {
+			logWarn(ctx, taskId, "⚠️ Cookie 已过期或无效，关闭无头浏览器，准备有头模式登录")
+			page = nil
+			browser.Close()
+			browser = nil
+		}
+	} else {
+		logInfo(ctx, taskId, "🚀 步骤 1: 无已保存的 Cookie，需要人工登录")
 	}
+
+	// ==================== 步骤 2: 需要人工登录时，以有头模式启动 ====================
 	if !isLoggedIn {
-		// ==================== 步骤 3: 执行登录 ====================
-		logInfo(ctx, taskId, "📝 步骤 3: Cookie 失效或未登录，执行登录流程")
-		loginSuccess := s.performLogin(ctx, page, taskId, req.LoginType, req.Username, req.Password)
+		logInfo(ctx, taskId, "🖥️ 步骤 2: 以有头模式（显示浏览器窗口）启动，等待人工登录")
+		headedBrowser, startErr := s.startBrowser(ctx, taskId, false)
+		if startErr != nil {
+			checkpointManager.FailTask(ctx, taskId, startErr.Error())
+			return res, gerror.Wrap(startErr, "有头浏览器启动失败")
+		}
+
+		headedPage, pageErr := headedBrowser.Page(proto.TargetCreateTarget{URL: homeURL})
+		if pageErr != nil {
+			headedBrowser.Close()
+			checkpointManager.FailTask(ctx, taskId, pageErr.Error())
+			return res, gerror.Wrap(pageErr, "打开首页失败")
+		}
+		headedPage = headedPage.Timeout(15 * time.Minute)
+		headedPage.WaitLoad()
+
+		// 执行登录（等待用户扫码或输入账号密码）
+		logInfo(ctx, taskId, "📝 步骤 3: 请在浏览器窗口中完成登录（扫码或账号密码）")
+		loginSuccess := s.performLogin(ctx, headedPage, taskId, req.LoginType, req.Username, req.Password)
 		if !loginSuccess {
+			headedBrowser.Close()
 			checkpointManager.FailTask(ctx, taskId, "登录失败")
 			return res, gerror.New("登录失败，请检查账号密码或重新尝试")
 		}
-		logInfo(ctx, taskId, "✅ 登录成功")
+		logSuccess(ctx, taskId, "✅ 登录成功")
 
-		// 保存新的 Cookie
-		allCookies, _ := page.Cookies(nil)
+		// 保存 Cookie
+		allCookies, _ := headedPage.Cookies(nil)
 		if err := cookieManager.SaveCookies(ctx, allCookies, taskId); err != nil {
 			logWarn(ctx, taskId, fmt.Sprintf("⚠️ 保存 Cookie 失败：%v", err))
 		} else {
 			logInfo(ctx, taskId, fmt.Sprintf("💾 已保存 %d 个 Cookie 到文件", len(allCookies)))
 		}
-	} else {
-		logInfo(ctx, taskId, "✅ 已登录（Cookie 自动登录成功），跳过登录步骤")
-		// 更新 Cookie（刷新过期时间）
-		allCookies, _ := page.Cookies(nil)
-		if len(allCookies) > 0 {
-			cookieManager.SaveCookies(ctx, allCookies, taskId)
-			logInfo(ctx, taskId, "💾 Cookie 已更新")
+
+		// 关闭有头浏览器
+		headedBrowser.Close()
+		logInfo(ctx, taskId, "🖥️ 有头浏览器已关闭")
+
+		// 以无头模式重新启动浏览器
+		logInfo(ctx, taskId, "🔄 切换到无头模式继续爬取...")
+		browser, err = s.startBrowser(ctx, taskId, true)
+		if err != nil {
+			checkpointManager.FailTask(ctx, taskId, err.Error())
+			return res, gerror.Wrap(err, "无头浏览器启动失败")
 		}
+
+		page, err = browser.Page(proto.TargetCreateTarget{URL: homeURL})
+		if err != nil {
+			browser.Close()
+			checkpointManager.FailTask(ctx, taskId, err.Error())
+			return res, gerror.Wrap(err, "无头模式打开首页失败")
+		}
+		page = page.Timeout(15 * time.Minute)
+		page.WaitLoad()
+
+		// 注入刚保存的 Cookie
+		if !s.injectCookies(ctx, page, cookieManager, taskId) {
+			browser.Close()
+			checkpointManager.FailTask(ctx, taskId, "无头模式注入Cookie失败")
+			return res, gerror.New("切换无头模式后注入 Cookie 失败")
+		}
+
+		// 验证无头模式下登录状态
+		if !s.checkIsLoggedIn(ctx, page, taskId) {
+			browser.Close()
+			checkpointManager.FailTask(ctx, taskId, "无头模式登录验证失败")
+			return res, gerror.New("切换无头模式后登录状态验证失败")
+		}
+		logSuccess(ctx, taskId, "✅ 无头模式登录验证成功，开始后台爬取")
 	}
+	defer browser.Close()
 
 	// ==================== 步骤 4: 导航到商品榜单页面 ====================
 	logInfo(ctx, taskId, "📊 步骤 4: 导航到商品榜单页面")
@@ -335,9 +392,10 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 }
 
 // startBrowser 启动浏览器
-func (s *sCrawler) startBrowser(ctx context.Context, taskId string) (*rod.Browser, error) {
+// startBrowser 启动浏览器 - headless: true表示无头模式，false表示有头模式（显示窗口）
+func (s *sCrawler) startBrowser(ctx context.Context, taskId string, headless bool) (*rod.Browser, error) {
 	l := launcher.New().
-		Headless(false).
+		Headless(headless).
 		NoSandbox(true).
 		Append("--start-maximized").
 		Append("--disable-dev-shm-usage").
@@ -1236,4 +1294,54 @@ func (s *sCrawler) uniqueProducts(products []ProductInfo) []ProductInfo {
 	})
 
 	return unique
+}
+
+// injectCookies 将保存的 Cookie 注入浏览器页面
+func (s *sCrawler) injectCookies(ctx context.Context, page *rod.Page, cookieManager *service.CookieManager, taskId string) bool {
+	cookies, hasCookies, err := cookieManager.LoadCookies(ctx, taskId)
+	if err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 加载 Cookie 失败：%v", err))
+		return false
+	}
+	if !hasCookies || len(cookies) == 0 {
+		logInfo(ctx, taskId, "ℹ️ 没有可用的 Cookie")
+		return false
+	}
+
+	// 转换为 CookieParam 格式用于注入
+	var cookieParams []*proto.NetworkCookieParam
+	for _, c := range cookies {
+		param := &proto.NetworkCookieParam{
+			Name:     c.Name,
+			Value:    c.Value,
+			Domain:   c.Domain,
+			Path:     c.Path,
+			HTTPOnly: c.HTTPOnly,
+			Secure:   c.Secure,
+		}
+		// 只设置有过期时间的 Cookie
+		if c.Expires > 0 {
+			param.Expires = c.Expires
+		}
+		cookieParams = append(cookieParams, param)
+	}
+
+	// 注入 Cookie 到浏览器
+	err = proto.NetworkSetCookies{Cookies: cookieParams}.Call(page)
+	if err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 注入 Cookie 失败：%v", err))
+		return false
+	}
+
+	logInfo(ctx, taskId, fmt.Sprintf("🍪 成功注入 %d 个 Cookie", len(cookieParams)))
+
+	// 刷新页面让 Cookie 生效
+	if err := page.Reload(); err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 刷新页面失败：%v", err))
+		return false
+	}
+	page.WaitLoad()
+	time.Sleep(3 * time.Second)
+
+	return true
 }

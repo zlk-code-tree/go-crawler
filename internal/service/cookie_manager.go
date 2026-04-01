@@ -19,14 +19,14 @@ type CookieManager struct {
 
 // CookieData Cookie 数据结构
 type CookieData struct {
-	Domain      string  `json:"domain"`
-	Path        string  `json:"path"`
-	Name        string  `json:"name"`
-	Value       string  `json:"value"`
-	Expires     float64 `json:"expires"`
-	HTTPOnly    bool    `json:"httpOnly"`
-	Secure      bool    `json:"secure"`
-	Session     bool    `json:"session"`
+	Domain   string  `json:"domain"`
+	Path     string  `json:"path"`
+	Name     string  `json:"name"`
+	Value    string  `json:"value"`
+	Expires  float64 `json:"expires"`
+	HTTPOnly bool    `json:"httpOnly"`
+	Secure   bool    `json:"secure"`
+	Session  bool    `json:"session"`
 }
 
 // NewCookieManager 创建 Cookie 管理器
@@ -137,7 +137,13 @@ func (cm *CookieManager) filterValidCookies(ctx context.Context, cookies []Cooki
 	var valid []CookieData
 
 	for _, c := range cookies {
-		// 如果没有过期时间，认为是会话 Cookie，仍然有效
+		// Session Cookie（无过期时间）在浏览器关闭后失效，跳过
+		if c.Session && c.Expires == 0 {
+			glog.Debug(ctx, fmt.Sprintf("[%s] 🗑️ 跳过 Session Cookie（浏览器关闭后失效）: %s", taskId, c.Name))
+			continue
+		}
+
+		// 如果没有过期时间但不是 Session Cookie，保留
 		if c.Expires == 0 {
 			valid = append(valid, c)
 			continue
@@ -208,9 +214,9 @@ func (cm *CookieManager) HasCompassCookies(ctx context.Context, taskId string) b
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && 
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || 
-		 findSubstring(s, substr)))
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+			findSubstring(s, substr)))
 }
 
 func findSubstring(s, substr string) bool {
