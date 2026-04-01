@@ -3,9 +3,11 @@ package crawler
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"go-crawler/internal/model"
@@ -18,6 +20,57 @@ import (
 	"github.com/gogf/gf/v2/os/gfile"
 	"github.com/gogf/gf/v2/util/grand"
 )
+
+// ===== 并发处理工具类 =====
+
+// WorkerPool 工作池实现（基于 semaphore channel）
+type WorkerPool struct {
+	sem chan struct{}
+	wg  sync.WaitGroup
+}
+
+// NewWorkerPool 创建新的工作池
+func NewWorkerPool(maxWorkers int) *WorkerPool {
+	return &WorkerPool{
+		sem: make(chan struct{}, maxWorkers),
+	}
+}
+
+// Submit 提交任务到工作池
+func (wp *WorkerPool) Submit(fn func()) {
+	wp.wg.Add(1)
+	go func() {
+		defer wp.wg.Done()
+		wp.sem <- struct{}{}        // 获取许可证
+		defer func() { <-wp.sem }() // 释放许可证
+		fn()
+	}()
+}
+
+// Wait 等待所有任务完成
+func (wp *WorkerPool) Wait() {
+	wp.wg.Wait()
+}
+
+// ===== 重试函数 =====
+
+// retryWithBackoff 带指数级退避的重试函数
+func (s *sCrawler) retryWithBackoff(fn func() error, maxRetries int) error {
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		if err := fn(); err == nil {
+			return nil
+		} else {
+			lastErr = err
+			if i < maxRetries-1 {
+				// 指数级退避：1秒、2秒、4秒
+				wait := time.Duration(math.Pow(2, float64(i))) * time.Second
+				time.Sleep(wait)
+			}
+		}
+	}
+	return lastErr
+}
 
 // ProductInfo 商品基本信息
 type ProductInfo struct {
@@ -721,112 +774,178 @@ func (s *sCrawler) getCurrentPage(page *rod.Page, taskId string) int {
 	return 1
 }
 
-// scrapeProductDetails 获取商品详情数据
+// scrapeProductDetails 获取商品详情数据（并发版本）
 func (s *sCrawler) scrapeProductDetails(ctx context.Context, browser *rod.Browser, products []ProductInfo, taskId string) []ProductDetail {
 	var details []ProductDetail
+	var mu sync.Mutex
+
+	// 创建工作池：5个并发工作者
+	pool := NewWorkerPool(5)
+
+	startTime := time.Now()
+	logInfo(ctx, taskId, fmt.Sprintf("🚀 开始并发获取商品详情（并发数=5，总数=%d）", len(products)))
 
 	for i, product := range products {
-		logInfo(ctx, taskId, fmt.Sprintf("🔍 获取商品详情 %d/%d: %s", i+1, len(products), product.ProductName))
+		// 复制循环变量，避免闭包问题
+		index := i
+		p := product
 
-		detail := s.scrapeSingleProductDetail(ctx, browser, product, taskId)
-		if detail != nil {
-			details = append(details, *detail)
-		}
-
-		// 避免请求过快
-		time.Sleep(1 * time.Second)
+		pool.Submit(func() {
+			detail := s.scrapeSingleProductDetail(ctx, browser, p, taskId)
+			if detail != nil {
+				mu.Lock()
+				details = append(details, *detail)
+				mu.Unlock()
+				logDebug(ctx, taskId, fmt.Sprintf("✅ [%d/%d] 详情获取完成：%s", index+1, len(products), p.ProductName))
+			} else {
+				logWarn(ctx, taskId, fmt.Sprintf("⚠️ [%d/%d] 详情获取失败：%s", index+1, len(products), p.ProductName))
+			}
+		})
 	}
+
+	// 等待所有任务完成
+	pool.Wait()
+
+	elapsed := time.Since(startTime)
+	logInfo(ctx, taskId, fmt.Sprintf("✅ 商品详情获取完成：%d 条，耗时 %.1f 秒（相比串行节省 %.0f 秒）",
+		len(details), elapsed.Seconds(), float64(len(products))*2-elapsed.Seconds()))
 
 	return details
 }
 
-// scrapeSingleProductDetail 获取单个商品详情
+// scrapeSingleProductDetail 获取单个商品详情（改进版）
 func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.Browser, product ProductInfo, taskId string) *ProductDetail {
-	// 打开新页面
-	page, err := browser.Page(proto.TargetCreateTarget{URL: ""})
-	if err != nil {
+	var page *rod.Page
+
+	// 重试打开页面（最多3次）
+	retryErr := s.retryWithBackoff(func() error {
+		var pageErr error
+		page, pageErr = browser.Page(proto.TargetCreateTarget{URL: ""})
+		return pageErr
+	}, 3)
+
+	if retryErr != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 无法打开浏览器页面：%v", retryErr))
 		return nil
 	}
 	defer page.Close()
 
-	// 导航到商品详情页（这里需要根据实际 URL 调整）
-	// 示例：https://detail.jinritemai.com/xxx
+	// 导航到商品详情页
 	detailURL := product.ProductURL
 	if detailURL == "" {
-		// 构造详情页 URL（需要根据实际情况调整）
 		detailURL = fmt.Sprintf("https://detail.jinritemai.com/product/%s", product.ProductName)
 	}
 
-	if err := page.Navigate(detailURL); err != nil {
+	if err := s.retryWithBackoff(func() error {
+		return page.Navigate(detailURL)
+	}, 3); err != nil {
 		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 打开商品详情失败：%v", err))
 		return nil
 	}
 
 	page.WaitLoad()
-	time.Sleep(2 * time.Second)
+	time.Sleep(1 * time.Second) // 减少等待时间（从2秒改为1秒）
 
 	// 提取详情数据
 	detail := &ProductDetail{
 		ProductName: product.ProductName,
 	}
 
-	// 获取首次上架时间
-	if elem, err := page.Timeout(3 * time.Second).Element("//*[contains(text(), '上架时间')]"); err == nil {
-		if parent, err := elem.Parent(); err == nil {
-			if text, err := parent.Text(); err == nil {
+	// 获取首次上架时间（多选择器降级）
+	shelfTimeSelectors := []string{
+		"//*[contains(text(), '上架时间')]/following-sibling::*[1]",
+		"//div[contains(text(), '上架时间')]/following-sibling::*",
+		"[data-field='shelf_time']",
+	}
+	for _, selector := range shelfTimeSelectors {
+		if elem, err := page.Timeout(2 * time.Second).Element(selector); err == nil {
+			if text, err := elem.Text(); err == nil {
 				detail.FirstShelfTime = strings.TrimSpace(text)
+				break
 			}
 		}
 	}
 
-	// 获取最低到手价
-	if elem, err := page.Timeout(3 * time.Second).Element("//*[contains(text(), '最低到手价')]/following-sibling::*"); err == nil {
-		if text, err := elem.Text(); err == nil {
-			detail.MinPrice = strings.TrimSpace(text)
+	// 获取最低到手价（多选择器降级）
+	priceSelectors := []string{
+		"//*[contains(text(), '最低到手价')]/following-sibling::*",
+		"//*[contains(text(), '最低价')]/following-sibling::*",
+		"[data-field='min_price']",
+	}
+	for _, selector := range priceSelectors {
+		if elem, err := page.Timeout(2 * time.Second).Element(selector); err == nil {
+			if text, err := elem.Text(); err == nil {
+				detail.MinPrice = strings.TrimSpace(text)
+				break
+			}
 		}
 	}
 
-	logDebug(ctx, taskId, fmt.Sprintf("✅ 获取商品详情：名称=%s, 上架时间=%s, 最低价=%s",
-		detail.ProductName, detail.FirstShelfTime, detail.MinPrice))
 	return detail
 }
 
-// scrapeVideoAnalysis 获取视频分析数据
+// scrapeVideoAnalysis 获取视频分析数据（并发版本）
 func (s *sCrawler) scrapeVideoAnalysis(ctx context.Context, browser *rod.Browser, products []ProductInfo, taskId string) []VideoAnalysis {
 	var allVideos []VideoAnalysis
+	var mu sync.Mutex
+
+	// 创建工作池：5个并发工作者
+	pool := NewWorkerPool(5)
+
+	startTime := time.Now()
+	logInfo(ctx, taskId, fmt.Sprintf("🚀 开始并发获取视频分析（并发数=5，总数=%d）", len(products)))
 
 	for i, product := range products {
-		logInfo(ctx, taskId, fmt.Sprintf("📹 获取视频分析 %d/%d: %s", i+1, len(products), product.ProductName))
+		// 复制循环变量
+		index := i
+		p := product
 
-		videos := s.scrapeSingleProductVideos(ctx, browser, product, taskId)
-		allVideos = append(allVideos, videos...)
-
-		time.Sleep(1 * time.Second)
+		pool.Submit(func() {
+			videos := s.scrapeSingleProductVideos(ctx, browser, p, taskId)
+			if len(videos) > 0 {
+				mu.Lock()
+				allVideos = append(allVideos, videos...)
+				mu.Unlock()
+				logDebug(ctx, taskId, fmt.Sprintf("✅ [%d/%d] 视频分析完成：%s (%d 条视频)", index+1, len(products), p.ProductName, len(videos)))
+			} else {
+				logWarn(ctx, taskId, fmt.Sprintf("⚠️ [%d/%d] 视频分析失败：%s", index+1, len(products), p.ProductName))
+			}
+		})
 	}
+
+	// 等待所有任务完成
+	pool.Wait()
+
+	elapsed := time.Since(startTime)
+	logInfo(ctx, taskId, fmt.Sprintf("✅ 视频分析获取完成：%d 条，耗时 %.1f 秒（相比串行节省 %.0f 秒）",
+		len(allVideos), elapsed.Seconds(), float64(len(products))*3-elapsed.Seconds()))
 
 	return allVideos
 }
 
-// scrapeSingleProductVideos 获取单个商品的视频分析数据
+// scrapeSingleProductVideos 获取单个商品的视频分析数据（改进版）
 func (s *sCrawler) scrapeSingleProductVideos(ctx context.Context, browser *rod.Browser, product ProductInfo, taskId string) []VideoAnalysis {
 	var videos []VideoAnalysis
 
-	// 打开新页面
+	// 重试打开页面
 	page, err := browser.Page(proto.TargetCreateTarget{URL: ""})
 	if err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 无法打开浏览器页面：%v", err))
 		return videos
 	}
 	defer page.Close()
 
-	// 导航到视频分析页面
+	// 导航到视频分析页面（带重试）
 	analysisURL := fmt.Sprintf("https://compass.jinritemai.com/shop/product/product-detail?product_id=%s&tab=video", product.ProductName)
-	if err := page.Navigate(analysisURL); err != nil {
+	if err := s.retryWithBackoff(func() error {
+		return page.Navigate(analysisURL)
+	}, 3); err != nil {
 		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 打开视频分析失败：%v", err))
 		return videos
 	}
 
 	page.WaitLoad()
-	time.Sleep(3 * time.Second)
+	time.Sleep(2 * time.Second) // 减少等待时间（从3秒改为2秒）
 
 	// 获取核心数据
 	coreData := s.scrapeVideoCoreData(ctx, page, taskId)
@@ -838,7 +957,6 @@ func (s *sCrawler) scrapeSingleProductVideos(ctx context.Context, browser *rod.B
 		videos = append(videos, v)
 	}
 
-	logInfo(ctx, taskId, fmt.Sprintf("✅ 获取视频分析：商品=%s, 视频数=%d", product.ProductName, len(videos)))
 	return videos
 }
 
