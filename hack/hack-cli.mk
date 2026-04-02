@@ -143,6 +143,46 @@ docker-down:
 docker-logs:
 	@docker-compose logs -f
 
+# ==================== 前端相关（Docker） ====================
+
+# 启动前端开发服务器
+.PHONY: web-dev
+web-dev:
+	@echo "🌐 启动前端开发服务器 (Docker)..."
+	@docker-compose up -d web
+	@echo "✅ 前端已启动: http://localhost:5555"
+
+# 停止前端开发服务器
+.PHONY: web-stop
+web-stop:
+	@echo "🛑 停止前端开发服务器..."
+	@docker-compose stop web
+	@echo "✅ 前端已停止"
+
+# 查看前端日志
+.PHONY: web-logs
+web-logs:
+	@docker-compose logs -f web
+
+# 前端安装依赖
+.PHONY: web-install
+web-install:
+	@echo "📦 安装前端依赖..."
+	@docker-compose run --rm web sh -c "corepack enable && corepack prepare pnpm@latest --activate && pnpm install --ignore-scripts && pnpm run -r stub"
+	@echo "✅ 前端依赖安装完成"
+
+# 前端构建
+.PHONY: web-build
+web-build:
+	@echo "📦 构建前端..."
+	@docker-compose run --rm web sh -c "corepack enable && corepack prepare pnpm@latest --activate && pnpm install --ignore-scripts && pnpm run -r stub && pnpm build:ele"
+	@echo "✅ 前端构建完成"
+
+# 前端 shell（进入容器）
+.PHONY: web-shell
+web-shell:
+	@docker-compose run --rm web sh
+
 # ==================== 数据库相关 ====================
 
 # 初始化数据库
@@ -193,6 +233,14 @@ help:
 	@echo "  make docker-up      - 启动 Docker Compose"
 	@echo "  make docker-down    - 停止 Docker Compose"
 	@echo "  make docker-logs    - 查看 Docker 日志"
+	@echo ""
+	@echo "🌐 前端命令 (Docker):"
+	@echo "  make web-dev        - 启动前端开发服务器"
+	@echo "  make web-stop       - 停止前端开发服务器"
+	@echo "  make web-logs       - 查看前端日志"
+	@echo "  make web-install    - 安装前端依赖"
+	@echo "  make web-build      - 构建前端"
+	@echo "  make web-shell      - 进入前端容器"
 	@echo ""
 	@echo "🗄️  数据库命令:"
 	@echo "  make db-init        - 初始化数据库"

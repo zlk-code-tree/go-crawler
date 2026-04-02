@@ -1,150 +1,20 @@
 [
   {
-    "domain": ".jinritemai.com",
-    "path": "/",
-    "name": "uid_tt_ss",
-    "value": "c39304b6066ae2c1d015128173dfba51",
-    "expires": 1780210467.25816,
-    "httpOnly": true,
-    "secure": true,
-    "session": false
-  },
-  {
-    "domain": "compass.jinritemai.com",
-    "path": "/",
-    "name": "s_v_web_id",
-    "value": "verify_mnfowxc1_UsAJmicZ_D4bS_4F6e_BXMy_PmZYQAK8Qxy9",
-    "expires": 1780210443,
-    "httpOnly": false,
-    "secure": false,
-    "session": false
-  },
-  {
-    "domain": ".jinritemai.com",
-    "path": "/",
-    "name": "passport_csrf_token",
-    "value": "20e38d6bca663244d210f2c824065c01",
-    "expires": 1780210446.324731,
-    "httpOnly": false,
-    "secure": true,
-    "session": false
-  },
-  {
-    "domain": "compass.jinritemai.com",
-    "path": "/",
-    "name": "ttcid",
-    "value": "fd5b71cc31e54b5ba27e9df896c792fc15",
-    "expires": 1775631256,
-    "httpOnly": false,
-    "secure": false,
-    "session": false
-  },
-  {
-    "domain": ".jinritemai.com",
-    "path": "/",
-    "name": "sid_ucp_v1",
-    "value": "1.0.0-KDMyNjA1MzNlNjQzNzBmZDRjYmNiODk1YTY0N2E3ZmYxNzU1MDFkNTAKGQjTqaDih_XPBhCjgrPOBhiwISAMOAFA6wcaAmhsIiA5NTdmYzA4NTdhODYwMTY3YWFmMDllZmZiODQ3YzIyNA",
-    "expires": 1780210467.258308,
-    "httpOnly": true,
-    "secure": true,
-    "session": false
-  },
-  {
-    "domain": ".jinritemai.com",
-    "path": "/",
-    "name": "passport_mfa_token",
-    "value": "CjHegPwAXweicAEnVNJUng4IVQAnsMbT21PCz6nn6HmqX02naET5IFt2SGi3HFBQloprGkoKPAAAAAAAAAAAAABQQEV%2FY7B4FNihGrafQMlJYXq1pHazHtQ5V3SzQ7ONMcHKvukBPkRP5bRtPxf2zH0aqxDj0Y0OGPax0WwgAiIBA5HdpR0%3D",
-    "expires": 1780210466.100286,
-    "httpOnly": true,
-    "secure": true,
-    "session": false
-  },
-  {
-    "domain": "compass.jinritemai.com",
-    "path": "/",
-    "name": "tt_scid",
-    "value": "Hg0Aos-Z5ZPM7kkXOk4bgljv5GB99KI7fvptpFtRkA.Zx8WihMJmlFKXTuaqxmud2b6a",
-    "expires": 1775631257,
-    "httpOnly": false,
-    "secure": false,
-    "session": false
-  },
-  {
     "domain": ".compass.jinritemai.com",
     "path": "/",
-    "name": "LUOPAN_DT",
-    "value": "session_7623680390612009267",
-    "expires": 1780210467.574957,
-    "httpOnly": false,
-    "secure": false,
-    "session": false
-  },
-  {
-    "domain": ".jinritemai.com",
-    "path": "/",
-    "name": "odin_tt",
-    "value": "edb2169a6ec30ec15118a9d2cada1e7244c52e4c5449ef725240fdf659acd1a197f209f1660cd772b5f4859bac5c99d1857c419e3125606f51506c89d913eb55",
-    "expires": 1806562466.302705,
-    "httpOnly": true,
-    "secure": false,
-    "session": false
-  },
-  {
-    "domain": ".jinritemai.com",
-    "path": "/",
-    "name": "uid_tt",
-    "value": "c39304b6066ae2c1d015128173dfba51",
-    "expires": 1780210467.258134,
-    "httpOnly": true,
-    "secure": false,
-    "session": false
-  },
-  {
-    "domain": ".jinritemai.com",
-    "path": "/",
-    "name": "sessionid",
-    "value": "957fc0857a860167aaf09effb847c224",
-    "expires": 1780210467.258203,
-    "httpOnly": true,
-    "secure": false,
-    "session": false
-  },
-  {
-    "domain": ".jinritemai.com",
-    "path": "/",
-    "name": "sid_tt",
-    "value": "957fc0857a860167aaf09effb847c224",
-    "expires": 1780210467.258183,
-    "httpOnly": true,
-    "secure": false,
-    "session": false
-  },
-  {
-    "domain": ".compass.jinritemai.com",
-    "path": "/",
-    "name": "ucas_c0_compass",
-    "value": "CkEKBTEuMC4wEJOIgrqPpLDmaRjmJiCZp4DUm82-AyiwITDTqaDih_XPBkCjgrPOBkijtu_QBlCKvLT8vd_bzWVYbhIUxGaKvUw18rWjo42a88mfJUmC4bc",
-    "expires": 1780210467.257997,
-    "httpOnly": true,
-    "secure": false,
-    "session": false
-  },
-  {
-    "domain": ".jinritemai.com",
-    "path": "/",
-    "name": "sid_guard",
-    "value": "957fc0857a860167aaf09effb847c224%7C1775026467%7C5184000%7CSun%2C+31-May-2026+06%3A54%3A27+GMT",
-    "expires": 1806130467.258103,
-    "httpOnly": true,
-    "secure": false,
-    "session": false
-  },
-  {
-    "domain": ".compass.jinritemai.com",
-    "path": "/",
-    "name": "ecom_us_lt_compass",
+    "name": "ecom_us_lt_ss_compass",
     "value": "89f39706a74adfab84f0c7cc4b8f48584022cbaeab9b4efc6f2ad38ff8afb97c",
-    "expires": 1777653697.575144,
+    "expires": 1777653697.575192,
+    "httpOnly": false,
+    "secure": true,
+    "session": false
+  },
+  {
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "name": "COMPASS_LUOPAN_DT",
+    "value": "session_7623680390612009267",
+    "expires": 1780210467.575089,
     "httpOnly": false,
     "secure": false,
     "session": false
@@ -152,31 +22,41 @@
   {
     "domain": ".jinritemai.com",
     "path": "/",
-    "name": "sessionid_ss",
-    "value": "957fc0857a860167aaf09effb847c224",
-    "expires": 1780210467.258225,
+    "name": "passport_csrf_token_default",
+    "value": "20e38d6bca663244d210f2c824065c01",
+    "expires": 1780210446.32477,
+    "httpOnly": false,
+    "secure": false,
+    "session": false
+  },
+  {
+    "domain": ".compass.jinritemai.com",
+    "path": "/",
+    "name": "ucas_c0_ss_compass",
+    "value": "CkEKBTEuMC4wEJOIgrqPpLDmaRjmJiCZp4DUm82-AyiwITDTqaDih_XPBkCjgrPOBkijtu_QBlCKvLT8vd_bzWVYbhIUxGaKvUw18rWjo42a88mfJUmC4bc",
+    "expires": 1780210467.258077,
     "httpOnly": true,
     "secure": true,
     "session": false
   },
   {
-    "domain": "compass.jinritemai.com",
+    "domain": ".jinritemai.com",
     "path": "/",
-    "name": "x-web-secsdk-uid",
-    "value": "4a98e11f-d9cc-4cb7-bfdf-9b37718dce38",
-    "expires": -1,
-    "httpOnly": false,
+    "name": "has_biz_token",
+    "value": "false",
+    "expires": 1780210467.258288,
+    "httpOnly": true,
     "secure": false,
-    "session": true
+    "session": false
   },
   {
     "domain": ".jinritemai.com",
     "path": "/",
-    "name": "is_staff_user",
-    "value": "false",
-    "expires": 1780210467.258268,
+    "name": "ssid_ucp_v1",
+    "value": "1.0.0-KDMyNjA1MzNlNjQzNzBmZDRjYmNiODk1YTY0N2E3ZmYxNzU1MDFkNTAKGQjTqaDih_XPBhCjgrPOBhiwISAMOAFA6wcaAmhsIiA5NTdmYzA4NTdhODYwMTY3YWFmMDllZmZiODQ3YzIyNA",
+    "expires": 1780210467.25833,
     "httpOnly": true,
-    "secure": false,
+    "secure": true,
     "session": false
   },
   {
@@ -200,63 +80,173 @@
     "session": false
   },
   {
-    "domain": ".jinritemai.com",
+    "domain": "compass.jinritemai.com",
     "path": "/",
-    "name": "ssid_ucp_v1",
-    "value": "1.0.0-KDMyNjA1MzNlNjQzNzBmZDRjYmNiODk1YTY0N2E3ZmYxNzU1MDFkNTAKGQjTqaDih_XPBhCjgrPOBhiwISAMOAFA6wcaAmhsIiA5NTdmYzA4NTdhODYwMTY3YWFmMDllZmZiODQ3YzIyNA",
-    "expires": 1780210467.25833,
-    "httpOnly": true,
-    "secure": true,
-    "session": false
+    "name": "x-web-secsdk-uid",
+    "value": "8e984a84-56ea-4904-b4f1-db5ab2ad5987",
+    "expires": -1,
+    "httpOnly": false,
+    "secure": false,
+    "session": true
   },
   {
     "domain": ".jinritemai.com",
     "path": "/",
-    "name": "has_biz_token",
+    "name": "is_staff_user",
     "value": "false",
-    "expires": 1780210467.258288,
+    "expires": 1780210467.258268,
     "httpOnly": true,
     "secure": false,
     "session": false
   },
   {
-    "domain": ".compass.jinritemai.com",
+    "domain": ".jinritemai.com",
     "path": "/",
-    "name": "ucas_c0_ss_compass",
-    "value": "CkEKBTEuMC4wEJOIgrqPpLDmaRjmJiCZp4DUm82-AyiwITDTqaDih_XPBkCjgrPOBkijtu_QBlCKvLT8vd_bzWVYbhIUxGaKvUw18rWjo42a88mfJUmC4bc",
-    "expires": 1780210467.258077,
+    "name": "sessionid_ss",
+    "value": "957fc0857a860167aaf09effb847c224",
+    "expires": 1780210467.258225,
     "httpOnly": true,
     "secure": true,
     "session": false
   },
   {
-    "domain": ".jinritemai.com",
-    "path": "/",
-    "name": "passport_csrf_token_default",
-    "value": "20e38d6bca663244d210f2c824065c01",
-    "expires": 1780210446.32477,
-    "httpOnly": false,
-    "secure": false,
-    "session": false
-  },
-  {
-    "domain": ".jinritemai.com",
-    "path": "/",
-    "name": "COMPASS_LUOPAN_DT",
-    "value": "session_7623680390612009267",
-    "expires": 1780210467.575089,
-    "httpOnly": false,
-    "secure": false,
-    "session": false
-  },
-  {
     "domain": ".compass.jinritemai.com",
     "path": "/",
-    "name": "ecom_us_lt_ss_compass",
+    "name": "ecom_us_lt_compass",
     "value": "89f39706a74adfab84f0c7cc4b8f48584022cbaeab9b4efc6f2ad38ff8afb97c",
-    "expires": 1777653697.575192,
+    "expires": 1777653697.575144,
+    "httpOnly": false,
+    "secure": false,
+    "session": false
+  },
+  {
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "name": "sid_guard",
+    "value": "957fc0857a860167aaf09effb847c224%7C1775026467%7C5184000%7CSun%2C+31-May-2026+06%3A54%3A27+GMT",
+    "expires": 1806130467.258103,
+    "httpOnly": true,
+    "secure": false,
+    "session": false
+  },
+  {
+    "domain": ".compass.jinritemai.com",
+    "path": "/",
+    "name": "ucas_c0_compass",
+    "value": "CkEKBTEuMC4wEJOIgrqPpLDmaRjmJiCZp4DUm82-AyiwITDTqaDih_XPBkCjgrPOBkijtu_QBlCKvLT8vd_bzWVYbhIUxGaKvUw18rWjo42a88mfJUmC4bc",
+    "expires": 1780210467.257997,
+    "httpOnly": true,
+    "secure": false,
+    "session": false
+  },
+  {
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "name": "sid_tt",
+    "value": "957fc0857a860167aaf09effb847c224",
+    "expires": 1780210467.258183,
+    "httpOnly": true,
+    "secure": false,
+    "session": false
+  },
+  {
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "name": "sessionid",
+    "value": "957fc0857a860167aaf09effb847c224",
+    "expires": 1780210467.258203,
+    "httpOnly": true,
+    "secure": false,
+    "session": false
+  },
+  {
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "name": "uid_tt",
+    "value": "c39304b6066ae2c1d015128173dfba51",
+    "expires": 1780210467.258134,
+    "httpOnly": true,
+    "secure": false,
+    "session": false
+  },
+  {
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "name": "odin_tt",
+    "value": "edb2169a6ec30ec15118a9d2cada1e7244c52e4c5449ef725240fdf659acd1a197f209f1660cd772b5f4859bac5c99d1857c419e3125606f51506c89d913eb55",
+    "expires": 1806562466.302705,
+    "httpOnly": true,
+    "secure": false,
+    "session": false
+  },
+  {
+    "domain": ".compass.jinritemai.com",
+    "path": "/",
+    "name": "LUOPAN_DT",
+    "value": "session_7623680390612009267",
+    "expires": 1780210467.574957,
+    "httpOnly": false,
+    "secure": false,
+    "session": false
+  },
+  {
+    "domain": "compass.jinritemai.com",
+    "path": "/",
+    "name": "tt_scid",
+    "value": "Hg0Aos-Z5ZPM7kkXOk4bgljv5GB99KI7fvptpFtRkA.Zx8WihMJmlFKXTuaqxmud2b6a",
+    "expires": 1775631257,
+    "httpOnly": false,
+    "secure": false,
+    "session": false
+  },
+  {
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "name": "passport_mfa_token",
+    "value": "CjHegPwAXweicAEnVNJUng4IVQAnsMbT21PCz6nn6HmqX02naET5IFt2SGi3HFBQloprGkoKPAAAAAAAAAAAAABQQEV%2FY7B4FNihGrafQMlJYXq1pHazHtQ5V3SzQ7ONMcHKvukBPkRP5bRtPxf2zH0aqxDj0Y0OGPax0WwgAiIBA5HdpR0%3D",
+    "expires": 1780210466.100286,
+    "httpOnly": true,
+    "secure": true,
+    "session": false
+  },
+  {
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "name": "sid_ucp_v1",
+    "value": "1.0.0-KDMyNjA1MzNlNjQzNzBmZDRjYmNiODk1YTY0N2E3ZmYxNzU1MDFkNTAKGQjTqaDih_XPBhCjgrPOBhiwISAMOAFA6wcaAmhsIiA5NTdmYzA4NTdhODYwMTY3YWFmMDllZmZiODQ3YzIyNA",
+    "expires": 1780210467.258308,
+    "httpOnly": true,
+    "secure": true,
+    "session": false
+  },
+  {
+    "domain": "compass.jinritemai.com",
+    "path": "/",
+    "name": "ttcid",
+    "value": "fd5b71cc31e54b5ba27e9df896c792fc15",
+    "expires": 1775631256,
+    "httpOnly": false,
+    "secure": false,
+    "session": false
+  },
+  {
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "name": "passport_csrf_token",
+    "value": "20e38d6bca663244d210f2c824065c01",
+    "expires": 1780210446.324731,
     "httpOnly": false,
     "secure": true,
+    "session": false
+  },
+  {
+    "domain": "compass.jinritemai.com",
+    "path": "/",
+    "name": "s_v_web_id",
+    "value": "verify_mnfowxc1_UsAJmicZ_D4bS_4F6e_BXMy_PmZYQAK8Qxy9",
+    "expires": 1780210443,
+    "httpOnly": false,
+    "secure": false,
     "session": false
   },
   {
@@ -286,6 +276,16 @@
     "value": "4499,20590",
     "expires": 1775285642,
     "httpOnly": false,
+    "secure": true,
+    "session": false
+  },
+  {
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "name": "uid_tt_ss",
+    "value": "c39304b6066ae2c1d015128173dfba51",
+    "expires": 1780210467.25816,
+    "httpOnly": true,
     "secure": true,
     "session": false
   }

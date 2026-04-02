@@ -7,6 +7,11 @@ server:
   openapiPath: "/api.json"
   swaggerPath: "/swagger"
 
+# JWT 配置
+jwt:
+  secret: "go-crawler-jwt-secret-2024-change-in-production"
+  expire: 86400  # 24小时
+
 database:
   default:
     type: "mysql"

@@ -716,16 +716,20 @@ func (s *sCrawler) parseProductRow(ctx context.Context, row *rod.Element, taskId
 		product.DeliveryVideoNum = s.getText(cells[6])
 	}
 
-	// 尝试获取商品详情 URL
-	if len(cells) > 7 {
-		if link, err := cells[1].Element("a"); err == nil {
-			if href, _ := link.Attribute("href"); href != nil {
-				product.ProductURL = *href
+	// 尝试获取商品详情 URL（从商品名称列的链接中提取）
+	if link, err := cells[1].Element("a"); err == nil {
+		if href, _ := link.Attribute("href"); href != nil && *href != "" {
+			detailHref := *href
+			// 如果是相对路径，补全为完整 URL
+			if strings.HasPrefix(detailHref, "/") {
+				detailHref = "https://compass.jinritemai.com" + detailHref
 			}
+			product.ProductURL = detailHref
+			logDebug(ctx, taskId, fmt.Sprintf("🔗 获取到商品详情 URL：%s", detailHref))
 		}
 	}
 
-	logDebug(ctx, taskId, fmt.Sprintf("✅ 解析商品行 %d: 排名=%d, 名称=%s, 首次上榜=%d", rowIdx, product.Rank, product.ProductName, product.FirstList))
+	logDebug(ctx, taskId, fmt.Sprintf("✅ 解析商品行 %d: 排名=%d, 名称=%s, 首次上榜=%d, URL=%s", rowIdx, product.Rank, product.ProductName, product.FirstList, product.ProductURL))
 	return product
 }
 
@@ -873,6 +877,12 @@ func (s *sCrawler) scrapeProductDetails(ctx context.Context, browser *rod.Browse
 
 // scrapeSingleProductDetail 获取单个商品详情（改进版）
 func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.Browser, product ProductInfo, taskId string) *ProductDetail {
+	// 如果没有有效的详情 URL，跳过
+	if product.ProductURL == "" {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 商品 [%s] 无详情 URL，跳过详情获取", product.ProductName))
+		return &ProductDetail{ProductName: product.ProductName}
+	}
+
 	var page *rod.Page
 
 	// 重试打开页面（最多3次）
@@ -888,11 +898,9 @@ func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.B
 	}
 	defer page.Close()
 
-	// 导航到商品详情页
+	// 导航到商品详情页（使用从排行榜提取的真实 URL）
 	detailURL := product.ProductURL
-	if detailURL == "" {
-		detailURL = fmt.Sprintf("https://detail.jinritemai.com/product/%s", product.ProductName)
-	}
+	logDebug(ctx, taskId, fmt.Sprintf("🔗 正在打开商品详情：%s", detailURL))
 
 	if err := s.retryWithBackoff(func() error {
 		return page.Navigate(detailURL)
@@ -902,7 +910,7 @@ func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.B
 	}
 
 	page.WaitLoad()
-	time.Sleep(1 * time.Second) // 减少等待时间（从2秒改为1秒）
+	time.Sleep(2 * time.Second)
 
 	// 提取详情数据
 	detail := &ProductDetail{
@@ -911,14 +919,23 @@ func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.B
 
 	// 获取首次上架时间（多选择器降级）
 	shelfTimeSelectors := []string{
+		"//*[contains(text(), '首次上架')]/following-sibling::*[1]",
 		"//*[contains(text(), '上架时间')]/following-sibling::*[1]",
+		"//span[contains(text(), '首次上架')]/../following-sibling::*[1]",
 		"//div[contains(text(), '上架时间')]/following-sibling::*",
-		"[data-field='shelf_time']",
 	}
 	for _, selector := range shelfTimeSelectors {
-		if elem, err := page.Timeout(2 * time.Second).Element(selector); err == nil {
-			if text, err := elem.Text(); err == nil {
+		var elem *rod.Element
+		var err error
+		if strings.HasPrefix(selector, "//") {
+			elem, err = page.Timeout(2 * time.Second).ElementX(selector)
+		} else {
+			elem, err = page.Timeout(2 * time.Second).Element(selector)
+		}
+		if err == nil {
+			if text, textErr := elem.Text(); textErr == nil && strings.TrimSpace(text) != "" {
 				detail.FirstShelfTime = strings.TrimSpace(text)
+				logDebug(ctx, taskId, fmt.Sprintf("📅 获取到上架时间：%s", detail.FirstShelfTime))
 				break
 			}
 		}
@@ -926,17 +943,30 @@ func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.B
 
 	// 获取最低到手价（多选择器降级）
 	priceSelectors := []string{
-		"//*[contains(text(), '最低到手价')]/following-sibling::*",
-		"//*[contains(text(), '最低价')]/following-sibling::*",
-		"[data-field='min_price']",
+		"//*[contains(text(), '最低到手价')]/following-sibling::*[1]",
+		"//*[contains(text(), '到手价')]/following-sibling::*[1]",
+		"//*[contains(text(), '最低价')]/following-sibling::*[1]",
+		"//span[contains(text(), '最低到手价')]/../following-sibling::*[1]",
 	}
 	for _, selector := range priceSelectors {
-		if elem, err := page.Timeout(2 * time.Second).Element(selector); err == nil {
-			if text, err := elem.Text(); err == nil {
+		var elem *rod.Element
+		var err error
+		if strings.HasPrefix(selector, "//") {
+			elem, err = page.Timeout(2 * time.Second).ElementX(selector)
+		} else {
+			elem, err = page.Timeout(2 * time.Second).Element(selector)
+		}
+		if err == nil {
+			if text, textErr := elem.Text(); textErr == nil && strings.TrimSpace(text) != "" {
 				detail.MinPrice = strings.TrimSpace(text)
+				logDebug(ctx, taskId, fmt.Sprintf("💰 获取到最低到手价：%s", detail.MinPrice))
 				break
 			}
 		}
+	}
+
+	if detail.FirstShelfTime == "" && detail.MinPrice == "" {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 商品 [%s] 详情页未提取到数据，可能需要更新选择器", product.ProductName))
 	}
 
 	return detail
