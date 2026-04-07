@@ -162,6 +162,9 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 	checkpointManager := service.NewCheckpointManager("checkpoints")
 	exportManager := service.NewExportManager("exports")
 
+	// 注册全局爬虫服务状态（支持外部查询和强制下线）
+	statusMgr := service.GetCrawlerStatusManager()
+
 	// 检查是否有未完成的任务（断点续爬）
 	existingTask, _ := checkpointManager.LoadCheckpoint(ctx, taskId)
 	if existingTask != nil && existingTask.Status == "running" {
@@ -177,6 +180,18 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 			err = panicErr
 		}
 	}()
+
+	// checkCancelled 检查 context 是否已取消（用于强制下线）
+	checkCancelled := func() bool {
+		select {
+		case <-ctx.Done():
+			logWarn(ctx, taskId, "⚠️ 任务已被取消（强制下线）")
+			checkpointManager.FailTask(ctx, taskId, "强制下线")
+			return true
+		default:
+			return false
+		}
+	}
 
 	// ==================== 步骤 1: 尝试 Cookie 自动登录（无头模式） ====================
 	homeURL := "https://compass.jinritemai.com/shop"
@@ -301,6 +316,14 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 	}
 	defer browser.Close()
 
+	// 更新状态消息
+	statusMgr.SetMessage("爬取数据中")
+
+	// 检查是否已取消
+	if checkCancelled() {
+		return res, gerror.New("任务已取消")
+	}
+
 	// ==================== 步骤 4: 导航到商品榜单页面 ====================
 	logInfo(ctx, taskId, "📊 步骤 4: 导航到商品榜单页面")
 	productRankURL := "https://compass.jinritemai.com/shop/chance/product-rank"
@@ -318,6 +341,10 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 		return res, gerror.Wrap(err, "点击短视频榜失败")
 	}
 	time.Sleep(2 * time.Second)
+
+	if checkCancelled() {
+		return res, gerror.New("任务已取消")
+	}
 
 	// ==================== 步骤 6: 分页抓取 200 条数据（支持断点续爬） ====================
 	logInfo(ctx, taskId, "📈 步骤 6: 分页抓取商品榜单数据（20 页×10 条=200 条）")
@@ -337,15 +364,27 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 	}
 	logInfo(ctx, taskId, fmt.Sprintf("✅ 抓取完成，共获取 %d 条商品数据", len(products)))
 
+	if checkCancelled() {
+		return res, gerror.New("任务已取消")
+	}
+
 	// ==================== 步骤 7: 获取商品详情数据 ====================
 	logInfo(ctx, taskId, "🔍 步骤 7: 获取商品详情数据（首次上架时间、最低到手价）")
 	productDetails := s.scrapeProductDetails(ctx, browser, products, taskId)
 	logInfo(ctx, taskId, fmt.Sprintf("✅ 详情抓取完成，共获取 %d 条详情数据", len(productDetails)))
 
+	if checkCancelled() {
+		return res, gerror.New("任务已取消")
+	}
+
 	// ==================== 步骤 8: 获取视频分析数据 ====================
 	logInfo(ctx, taskId, "📹 步骤 8: 获取视频分析数据")
 	videoAnalysisList := s.scrapeVideoAnalysis(ctx, browser, products, taskId)
 	logInfo(ctx, taskId, fmt.Sprintf("✅ 视频分析抓取完成，共获取 %d 条视频数据", len(videoAnalysisList)))
+
+	if checkCancelled() {
+		return res, gerror.New("任务已取消")
+	}
 
 	// ==================== 步骤 9: 保存数据到数据库 ====================
 	logInfo(ctx, taskId, "💾 步骤 9: 保存数据到数据库")

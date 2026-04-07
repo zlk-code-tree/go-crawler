@@ -50,6 +50,20 @@ type SysPermission struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+// SysCompany 公司
+type SysCompany struct {
+	Id        int64     `json:"id"`
+	Name      string    `json:"name"`
+	Code      string    `json:"code"`
+	ParentId  int64     `json:"parentId"`
+	Level     int       `json:"level"`
+	Status    int       `json:"status"`
+	Sort      int       `json:"sort"`
+	Remark    string    `json:"remark"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 // LoginReq 登录请求
 type LoginReq struct {
 	Username string `json:"username" v:"required#用户名不能为空"`

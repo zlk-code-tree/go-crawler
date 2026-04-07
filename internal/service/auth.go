@@ -120,10 +120,14 @@ func buildMenuTree(perms []menuPermRow, parentId int64) []model.MenuItem {
 	var items []model.MenuItem
 	for _, p := range perms {
 		if p.ParentId == parentId {
+			component := p.Component
+			if component == "Layout" {
+				component = "BasicLayout"
+			}
 			item := model.MenuItem{
 				Name:      p.Code,
 				Path:      p.Path,
-				Component: p.Component,
+				Component: component,
 				Meta: model.MenuMeta{
 					Title: p.Name,
 					Icon:  p.Icon,

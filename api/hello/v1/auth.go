@@ -35,6 +35,7 @@ type AuthUserInfoRes struct {
 	Avatar   string   `json:"avatar"`
 	Roles    []string `json:"roles"`
 	HomePath string   `json:"homePath"`
+	Desc     string   `json:"desc"`
 }
 
 type AuthAccessCodesReq struct {
