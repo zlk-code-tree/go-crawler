@@ -3,7 +3,7 @@
 # =====================================================
 
 server:
-  address: ":8000"
+  address: ":8081"
   openapiPath: "/api.json"
   swaggerPath: "/swagger"
 
@@ -15,7 +15,7 @@ jwt:
 database:
   default:
     type: "mysql"
-    link: "admin:admin@tcp(127.0.0.1:3306)/easyadmin8?charset=utf8mb4&parseTime=True&loc=Local"
+    link: "ly_admin:4qPbP%dd#aQs8wR@tcp(rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com:3306)/ly_crawler?charset=utf8mb4&parseTime=True&loc=Local"
     debug: true
     maxIdle: 10
     maxOpen: 100

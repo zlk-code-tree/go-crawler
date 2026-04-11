@@ -47,8 +47,18 @@ type AuthAccessCodesRes struct {
 	Codes  []string `json:"codes"`
 }
 
+// --- Auth APIs ---
+
 type AuthMenusReq struct {
 	g.Meta `path:"/menu/all" method:"get" tags:"Auth" summary:"获取用户菜单"`
+}
+
+type AuthPublicMenusReq struct {
+	g.Meta `path:"/menu/public" method:"get" tags:"Auth" summary:"获取公开菜单树"`
+}
+
+type AuthMenuTreeReq struct {
+	g.Meta `path:"/menu-tree" method:"get" tags:"Auth" summary:"获取菜单树"`
 }
 
 type AuthMenusRes struct {

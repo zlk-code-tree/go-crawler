@@ -35,6 +35,7 @@ type MenuCreateReq struct {
 	Hide      int    `json:"hide" d:"0" dc:"是否隐藏：0-显示 1-隐藏"`
 	Method    string `json:"method" dc:"HTTP方法(按钮/接口类型)"`
 	Api       string `json:"api" dc:"API路径(接口类型)"`
+	ExtUrl    string `json:"extUrl" dc:"外链地址"`
 }
 
 type MenuCreateRes struct {
@@ -57,6 +58,7 @@ type MenuUpdateReq struct {
 	Hide      *int   `json:"hide" dc:"是否隐藏：0-显示 1-隐藏"`
 	Method    string `json:"method" dc:"HTTP方法"`
 	Api       string `json:"api" dc:"API路径"`
+	ExtUrl    string `json:"extUrl" dc:"外链地址"`
 }
 
 type MenuUpdateRes struct {

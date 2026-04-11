@@ -17,20 +17,22 @@ var (
 
 // JwtClaims represents the claims in a JWT token.
 type JwtClaims struct {
-	UserId   int64  `json:"userId"`
-	Username string `json:"username"`
-	Exp      int64  `json:"exp"`
-	Iat      int64  `json:"iat"`
+	UserId    int64  `json:"userId"`
+	Username  string `json:"username"`
+	CompanyId int64  `json:"companyId"`
+	Exp       int64  `json:"exp"`
+	Iat       int64  `json:"iat"`
 }
 
 // GenerateToken creates a JWT token.
-func GenerateToken(userId int64, username string, secret string, expireSeconds int64) (string, error) {
+func GenerateToken(userId int64, username string, companyId int64, secret string, expireSeconds int64) (string, error) {
 	now := time.Now().Unix()
 	claims := JwtClaims{
-		UserId:   userId,
-		Username: username,
-		Exp:      now + expireSeconds,
-		Iat:      now,
+		UserId:    userId,
+		Username:  username,
+		CompanyId: companyId,
+		Exp:       now + expireSeconds,
+		Iat:       now,
 	}
 
 	headerJSON := `{"alg":"HS256","typ":"JWT"}`

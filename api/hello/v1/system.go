@@ -89,10 +89,13 @@ type SystemRoleListRes struct {
 }
 
 type SystemRoleCreateReq struct {
-	g.Meta `path:"/system/role/create" method:"post" tags:"System-Role" summary:"创建角色"`
-	Name   string `json:"name" v:"required" dc:"角色名称"`
-	Code   string `json:"code" v:"required" dc:"角色编码"`
-	Remark string `json:"remark" dc:"备注"`
+	g.Meta   `path:"/system/role/create" method:"post" tags:"System-Role" summary:"创建角色"`
+	Name     string  `json:"name" v:"required" dc:"角色名称"`
+	Code     string  `json:"code" v:"required" dc:"角色编码"`
+	OrderNum int     `json:"orderNum" dc:"排序号"`
+	Status   string  `json:"status" dc:"状态"`
+	MenuIds  []int64 `json:"menuIds" dc:"菜单权限ID列表"`
+	Remark   string  `json:"remark" dc:"备注"`
 }
 
 type SystemRoleCreateRes struct {

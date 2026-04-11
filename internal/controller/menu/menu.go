@@ -63,6 +63,7 @@ func (c *Controller) Create(ctx context.Context, req *v1.MenuCreateReq) (res *v1
 		"hide":      req.Hide,
 		"method":    req.Method,
 		"api":       req.Api,
+		"ext_url":   req.ExtUrl,
 	})
 	if e != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
@@ -83,6 +84,7 @@ func (c *Controller) Update(ctx context.Context, req *v1.MenuUpdateReq) (res *v1
 		"icon":      req.Icon,
 		"method":    req.Method,
 		"api":       req.Api,
+		"ext_url":   req.ExtUrl,
 	}
 	if req.Type != nil {
 		update["type"] = *req.Type

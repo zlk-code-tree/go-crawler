@@ -15,10 +15,12 @@ import (
 	ctrlData "go-crawler/internal/controller/data"
 	"go-crawler/internal/controller/hello"
 	ctrlMenu "go-crawler/internal/controller/menu"
-	ctrlSystem "go-crawler/internal/controller/system"
+	permissionCtrl "go-crawler/internal/controller/permission"
+	system "go-crawler/internal/controller/system"
 	ctrlTask "go-crawler/internal/controller/task"
 	ctrlWs "go-crawler/internal/controller/ws"
 	"go-crawler/internal/middleware"
+	"go-crawler/internal/service"
 )
 
 var (
@@ -43,20 +45,38 @@ var (
 				group.Bind(
 					auth.NewPublic(),
 				)
+				// 手动注册公开菜单树接口，确保无需认证
+				group.GET("/public/menu-tree", func(r *ghttp.Request) {
+					// 调用服务层方法获取菜单树
+					menuService := service.NewMenuService()
+					tree, err := menuService.GetMenuTree(r.Context())
+					if err != nil {
+						r.Response.WriteJson(g.Map{"code": 500, "data": nil, "msg": "获取菜单树失败"})
+						return
+					}
+					r.Response.WriteJson(g.Map{"code": 0, "data": tree, "msg": "ok"})
+				})
 			})
 
 			// 需要认证的 API 路由
 			s.Group("/api", func(group *ghttp.RouterGroup) {
 				group.Middleware(middleware.JwtAuth)
+				group.Middleware(middleware.OperationLog)
 				group.Middleware(ghttp.MiddlewareHandlerResponse)
 				group.Bind(
 					auth.New(),
 					ctrlTask.New(),
 					ctrlData.New(),
-					ctrlSystem.New(),
 					ctrlMenu.New(),
 					ctrlCompany.New(),
 					ctrlCrawlerSvc.New(),
+					system.NewRoleController(),
+					system.NewUserController(),
+					system.NewMenuController(),
+					system.NewDeptController(),
+					system.NewProfileController(),
+					system.NewExternalController(),
+					permissionCtrl.New(),
 				)
 			})
 
@@ -65,6 +85,19 @@ var (
 			s.Group("/api", func(group *ghttp.RouterGroup) {
 				group.GET("/ws/log/{taskId}", wsCtrl.Log)
 				group.GET("/ws/crawl-assist/{taskId}", wsCtrl.CrawlAssist)
+			})
+
+			// 日志管理接口（手动注册）
+			s.Group("/api", func(group *ghttp.RouterGroup) {
+				group.Middleware(middleware.JwtAuth)
+				group.Middleware(middleware.OperationLog)
+				group.Middleware(ghttp.MiddlewareHandlerResponse)
+
+				operationLogCtrl := system.NewOperationLogController()
+				loginLogCtrl := system.NewLoginLogController()
+
+				group.GET("/operation-log-list", operationLogCtrl.OperationLogList)
+				group.GET("/login-log-list", loginLogCtrl.LoginLogList)
 			})
 
 			// 原有路由 (保持兼容)

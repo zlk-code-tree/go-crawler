@@ -36,6 +36,15 @@ func (s *AuthService) GetUserByUsername(ctx context.Context, username string) (*
 		return nil, err
 	}
 	user.Password = password.String()
+
+	// 获取用户的主公司ID
+	companyId, err := g.DB().Model("sys_user_company").
+		Where("user_id", user.Id).
+		Where("is_primary", 1).
+		Value("company_id")
+	if err == nil && !companyId.IsNil() {
+		user.CompanyId = companyId.Int64()
+	}
 	return &user, nil
 }
 
@@ -84,12 +93,13 @@ type menuPermRow struct {
 	Component string
 	Icon      string
 	Sort      int
+	ExtUrl    string
 }
 
 // GetUserMenus 获取用户菜单树 (适配 Vben Admin 格式)
 func (s *AuthService) GetUserMenus(ctx context.Context, userId int64) ([]model.MenuItem, error) {
 	result, err := g.DB().GetAll(ctx,
-		`SELECT DISTINCT p.id, p.name, p.code, p.parent_id, p.path, p.component, p.icon, p.sort
+		`SELECT DISTINCT p.id, p.name, p.code, p.parent_id, p.path, p.component, p.icon, p.sort, p.ext_url
 		 FROM sys_user_role ur
 		 JOIN sys_role_permission rp ON ur.role_id = rp.role_id
 		 JOIN sys_permission p ON rp.permission_id = p.id
@@ -110,6 +120,7 @@ func (s *AuthService) GetUserMenus(ctx context.Context, userId int64) ([]model.M
 			Component: row["component"].String(),
 			Icon:      row["icon"].String(),
 			Sort:      row["sort"].Int(),
+			ExtUrl:    row["ext_url"].String(),
 		})
 	}
 
@@ -132,6 +143,7 @@ func buildMenuTree(perms []menuPermRow, parentId int64) []model.MenuItem {
 					Title: p.Name,
 					Icon:  p.Icon,
 					Order: p.Sort,
+					Link:  p.ExtUrl,
 				},
 			}
 			children := buildMenuTree(perms, p.Id)

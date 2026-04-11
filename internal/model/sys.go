@@ -8,11 +8,17 @@ type SysUser struct {
 	Username    string     `json:"username"`
 	Password    string     `json:"-"`
 	RealName    string     `json:"realName"`
+	Nickname    string     `json:"nickname"`
 	Email       string     `json:"email"`
 	Phone       string     `json:"phone"`
 	Avatar      string     `json:"avatar"`
 	Gender      int        `json:"gender"`
 	Status      int        `json:"status"`
+	DeptId      int64      `json:"deptId"`
+	CompanyId   int64      `json:"companyId"`
+	Position    string     `json:"position"`
+	RoleId      int64      `json:"roleId"`
+	Remark      string     `json:"remark"`
 	LastLoginAt *time.Time `json:"lastLoginAt"`
 	LastLoginIp string     `json:"lastLoginIp"`
 	CreatedAt   time.Time  `json:"createdAt"`
@@ -45,6 +51,7 @@ type SysPermission struct {
 	Icon      string    `json:"icon"`
 	Method    string    `json:"method"`
 	Api       string    `json:"api"`
+	ExtUrl    string    `json:"extUrl"`
 	Status    int       `json:"status"`
 	Sort      int       `json:"sort"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -55,6 +62,19 @@ type SysCompany struct {
 	Id        int64     `json:"id"`
 	Name      string    `json:"name"`
 	Code      string    `json:"code"`
+	ParentId  int64     `json:"parentId"`
+	Level     int       `json:"level"`
+	Status    int       `json:"status"`
+	Sort      int       `json:"sort"`
+	Remark    string    `json:"remark"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// SysDept 部门
+type SysDept struct {
+	Id        int64     `json:"id"`
+	Name      string    `json:"name"`
 	ParentId  int64     `json:"parentId"`
 	Level     int       `json:"level"`
 	Status    int       `json:"status"`
@@ -93,6 +113,7 @@ type MenuMeta struct {
 	HideInMenu       bool     `json:"hideInMenu,omitempty"`
 	HideInBreadcrumb bool     `json:"hideInBreadcrumb,omitempty"`
 	Authority        []string `json:"authority,omitempty"`
+	Link             string   `json:"link,omitempty"`
 }
 
 // MenuItem 菜单项 (适配 Vben Admin)

@@ -30,6 +30,7 @@ type menuRow struct {
 	Status    int
 	Hide      int
 	Sort      int
+	ExtUrl    string
 }
 
 // GetMenuTree 获取完整菜单树（管理用，包含所有类型）
@@ -57,6 +58,7 @@ func (s *MenuService) GetMenuTree(ctx context.Context) (interface{}, error) {
 			Status:    row["status"].Int(),
 			Hide:      row["hide"].Int(),
 			Sort:      row["sort"].Int(),
+			ExtUrl:    row["ext_url"].String(),
 		})
 	}
 
@@ -78,6 +80,7 @@ type AdminMenuItem struct {
 	Status    int             `json:"status"`
 	Hide      int             `json:"hide"`
 	Sort      int             `json:"sort"`
+	ExtUrl    string          `json:"extUrl"`
 	Children  []AdminMenuItem `json:"children,omitempty"`
 }
 
@@ -99,6 +102,7 @@ func buildAdminMenuTree(rows []menuRow, parentId int64) []AdminMenuItem {
 				Status:    r.Status,
 				Hide:      r.Hide,
 				Sort:      r.Sort,
+				ExtUrl:    r.ExtUrl,
 			}
 			children := buildAdminMenuTree(rows, r.Id)
 			if len(children) > 0 {
@@ -171,7 +175,7 @@ func (s *MenuService) Delete(ctx context.Context, id int64) error {
 // GetUserMenuTree 获取用户菜单树（前端路由用，只返回菜单类型且启用的）
 func (s *MenuService) GetUserMenuTree(ctx context.Context, userId int64) ([]model.MenuItem, error) {
 	result, err := g.DB().GetAll(ctx,
-		`SELECT DISTINCT p.id, p.name, p.code, p.parent_id, p.path, p.component, p.icon, p.sort, p.hide
+		`SELECT DISTINCT p.id, p.name, p.code, p.parent_id, p.path, p.component, p.icon, p.sort, p.hide, p.ext_url
 		 FROM sys_user_role ur
 		 JOIN sys_role_permission rp ON ur.role_id = rp.role_id
 		 JOIN sys_permission p ON rp.permission_id = p.id
@@ -193,6 +197,7 @@ func (s *MenuService) GetUserMenuTree(ctx context.Context, userId int64) ([]mode
 			Icon:      row["icon"].String(),
 			Sort:      row["sort"].Int(),
 			Hide:      row["hide"].Int(),
+			ExtUrl:    row["ext_url"].String(),
 		})
 	}
 
@@ -216,6 +221,7 @@ func buildVbenMenuTree(rows []menuRow, parentId int64) []model.MenuItem {
 					Icon:       r.Icon,
 					Order:      r.Sort,
 					HideInMenu: r.Hide == 1,
+					Link:       r.ExtUrl,
 				},
 			}
 			children := buildVbenMenuTree(rows, r.Id)

@@ -39,6 +39,7 @@ func JwtAuth(r *ghttp.Request) {
 	// 将用户信息存入 context
 	r.SetCtxVar("userId", claims.UserId)
 	r.SetCtxVar("username", claims.Username)
+	r.SetCtxVar("companyId", claims.CompanyId)
 
 	r.Middleware.Next()
 }
