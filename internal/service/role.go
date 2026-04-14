@@ -87,11 +87,69 @@ func (s *RoleService) Delete(ctx context.Context, id int64) error {
 	return err
 }
 
+// GetById 根据ID获取角色详情
+func (s *RoleService) GetById(ctx context.Context, id int64) (*model.SysRole, error) {
+	var role model.SysRole
+	err := g.DB().Model("sys_role").Where("id", id).Scan(&role)
+	if err != nil {
+		return nil, err
+	}
+	if role.Id == 0 {
+		return nil, nil
+	}
+	return &role, nil
+}
+
+// Update 更新角色信息
+func (s *RoleService) Update(ctx context.Context, id int64, name, code string, sort int, status int, remark string, menuIds []int64) error {
+	return g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		// 更新角色基本信息
+		_, err := tx.Model("sys_role").Where("id", id).Update(g.Map{
+			"name":   name,
+			"code":   code,
+			"sort":   sort,
+			"status": status,
+			"remark": remark,
+		})
+		if err != nil {
+			return err
+		}
+
+		// 更新角色权限
+		_, err = tx.Model("sys_role_permission").Where("role_id", id).Delete()
+		if err != nil {
+			return err
+		}
+
+		if len(menuIds) > 0 {
+			var data []g.Map
+			for _, mid := range menuIds {
+				data = append(data, g.Map{"role_id": id, "permission_id": mid})
+			}
+			_, err = tx.Model("sys_role_permission").Data(data).Insert()
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
 // GetMenuIds 获取角色已分配菜单ID
 func (s *RoleService) GetMenuIds(ctx context.Context, roleId int64) ([]int64, error) {
-	var ids []int64
-	_, err := g.DB().Model("sys_role_permission").Where("role_id", roleId).Array(&ids, "permission_id")
-	return ids, err
+	result, err := g.DB().Model("sys_role_permission").
+		Fields("permission_id").
+		Where("role_id", roleId).
+		Array()
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int64, 0, len(result))
+	for _, v := range result {
+		ids = append(ids, v.Int64())
+	}
+	return ids, nil
 }
 
 // AssignMenus 分配菜单

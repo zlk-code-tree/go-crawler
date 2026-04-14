@@ -14,6 +14,7 @@ func OperationLog(r *ghttp.Request) {
 
 	userId := r.GetCtxVar("userId").Int64()
 	username := r.GetCtxVar("username").String()
+	permissionCode := r.GetCtxVar("permissionCode").String()
 
 	r.Middleware.Next()
 
@@ -42,21 +43,30 @@ func OperationLog(r *ghttp.Request) {
 
 	if r.Response.Status > 0 && r.Response.Status != 200 {
 		status = 0
+		// 尝试获取错误信息
+		buffer := r.Response.Buffer()
+		if buffer != nil {
+			errorMsg = string(buffer)
+			if len(errorMsg) > 500 {
+				errorMsg = errorMsg[:500] + "..."
+			}
+		}
 	}
 
 	logInput := service.OperationLogInput{
-		UserId:    userId,
-		Username:  username,
-		Module:    module,
-		Action:    action,
-		Method:    method,
-		Url:       url,
-		Params:    params,
-		Ip:        ip,
-		UserAgent: userAgent,
-		Status:    status,
-		ErrorMsg:  errorMsg,
-		Duration:  duration,
+		UserId:         userId,
+		Username:       username,
+		Module:         module,
+		Action:         action,
+		Method:         method,
+		Url:            url,
+		Params:         params,
+		Ip:             ip,
+		UserAgent:      userAgent,
+		Status:         status,
+		ErrorMsg:       errorMsg,
+		Duration:       duration,
+		PermissionCode: permissionCode,
 	}
 
 	go func() {

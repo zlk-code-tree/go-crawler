@@ -1,14 +1,16 @@
 package system
 
 import (
-	"go-crawler/internal/service"
+	"context"
 
 	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/net/ghttp"
+
+	v1 "go-crawler/api/hello/v1"
+	"go-crawler/internal/service"
 )
 
 // RoleController 角色管理相关接口
-// 路径前缀：/system/role
+// 路径前缀：/system/role（由 g.Meta path 定义）
 
 type RoleController struct{}
 
@@ -16,82 +18,114 @@ func NewRoleController() *RoleController {
 	return &RoleController{}
 }
 
-// RoleList 角色列表接口 GET /system/role/list
-func (c *RoleController) RoleList(r *ghttp.Request) {
-	page := r.Get("page", 1).Int()
-	pageSize := r.Get("pageSize", 10).Int()
-	keyword := r.Get("keyword", "").String()
-
-	list, total, err := service.NewRoleService().List(r.Context(), page, pageSize, keyword)
-	if err != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败"})
+// RoleList GET /system/role/list
+func (c *RoleController) RoleList(ctx context.Context, req *v1.SystemRoleListReq) (res *v1.SystemRoleListRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	list, total, e := service.NewRoleService().List(ctx, req.Page, req.PageSize, req.Keyword)
+	if e != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + e.Error()})
 		return
 	}
-
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"list": list, "total": total}, "msg": "ok"})
+	return
 }
 
-// Save 新增/编辑角色接口 POST /system/role/save
-func (c *RoleController) Save(r *ghttp.Request) {
-	name := r.Get("name", "").String()
-	code := r.Get("code", "").String()
-	orderNum := r.Get("orderNum", 0).Int()
-	status := r.Get("status", "1").String()
-	menuIdsParam := r.Get("menuIds", "").String()
-	remark := r.Get("remark", "").String()
+// Save POST /system/role/save
+// id=0 新增，id>0 编辑，同时写入 sys_role_permission
+func (c *RoleController) Save(ctx context.Context, req *v1.SystemRoleSaveReq) (res *v1.SystemRoleSaveRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	roleSvc := service.NewRoleService()
 
-	if name == "" || code == "" {
-		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "角色名称和编码不能为空"})
-		return
-	}
-
-	statusInt := 1
-	if status == "0" {
-		statusInt = 0
-	}
-
-	var menuIds []int64
-	if menuIdsParam != "" {
-		for _, id := range r.Get("menuIds").Ints() {
-			menuIds = append(menuIds, int64(id))
+	if req.Id == 0 {
+		roleId, e := roleSvc.Create(ctx, req.Name, req.Code, req.OrderNum, req.Status, req.Remark, req.MenuIds)
+		if e != nil {
+			r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "创建失败: " + e.Error()})
+			return
 		}
+		r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"id": roleId}, "msg": "ok"})
+	} else {
+		e := roleSvc.Update(ctx, req.Id, req.Name, req.Code, req.OrderNum, req.Status, req.Remark, req.MenuIds)
+		if e != nil {
+			r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "更新失败: " + e.Error()})
+			return
+		}
+		r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"id": req.Id}, "msg": "ok"})
 	}
+	return
+}
 
-	roleId, err := service.NewRoleService().Create(r.Context(), name, code, orderNum, statusInt, remark, menuIds)
-	if err != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "创建失败: " + err.Error()})
+// Detail GET /system/role/detail
+// 返回角色基本信息 + 已分配 menuIds
+func (c *RoleController) Detail(ctx context.Context, req *v1.SystemRoleDetailReq) (res *v1.SystemRoleDetailRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	roleSvc := service.NewRoleService()
+
+	role, e := roleSvc.GetById(ctx, req.Id)
+	if e != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + e.Error()})
+		return
+	}
+	if role == nil {
+		r.Response.WriteJsonExit(g.Map{"code": 404, "data": nil, "msg": "角色不存在"})
 		return
 	}
 
-	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"id": roleId}, "msg": "ok"})
+	menuIds, e := roleSvc.GetMenuIds(ctx, req.Id)
+	if e != nil || menuIds == nil {
+		menuIds = []int64{}
+	}
+
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"data": g.Map{
+			"id":       role.Id,
+			"name":     role.Name,
+			"code":     role.Code,
+			"orderNum": role.Sort,
+			"status":   role.Status,
+			"remark":   role.Remark,
+			"menuIds":  menuIds,
+		},
+		"msg": "ok",
+	})
+	return
 }
 
-// Delete 删除角色接口 POST /system/role/delete
-func (c *RoleController) Delete(r *ghttp.Request) {
-	// TODO: 删除角色，参数见前端
+// Delete POST /system/role/delete
+func (c *RoleController) Delete(ctx context.Context, req *v1.SystemRoleDeleteReq) (res *v1.SystemRoleDeleteRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	e := service.NewRoleService().Delete(ctx, req.Id)
+	if e != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "删除失败: " + e.Error()})
+		return
+	}
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": nil, "msg": "ok"})
+	return
 }
 
-// MenuIds 获取角色已分配菜单 GET /system/role/menu-ids/{roleId}
-func (c *RoleController) MenuIds(r *ghttp.Request) {
-	// TODO: 查询角色已分配菜单ID
-	r.Response.WriteJsonExit(g.Map{"code": 0, "data": []int{1, 2, 3}, "msg": "ok"})
+// MenuIds GET /system/role/menu-ids
+func (c *RoleController) MenuIds(ctx context.Context, req *v1.SystemRoleMenuIdsReq) (res *v1.SystemRoleMenuIdsRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	menuIds, e := service.NewRoleService().GetMenuIds(ctx, req.RoleId)
+	if e != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + e.Error()})
+		return
+	}
+	if menuIds == nil {
+		menuIds = []int64{}
+	}
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": menuIds, "msg": "ok"})
+	return
 }
 
-// AssignMenus 分配菜单 POST /system/role/assign-menus
-func (c *RoleController) AssignMenus(r *ghttp.Request) {
-	// TODO: 保存角色菜单分配
+// AssignMenus POST /system/role/assign-menus
+func (c *RoleController) AssignMenus(ctx context.Context, req *v1.SystemRoleAssignMenusReq) (res *v1.SystemRoleAssignMenusRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	e := service.NewRoleService().AssignMenus(ctx, req.RoleId, req.MenuIds)
+	if e != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "分配失败: " + e.Error()})
+		return
+	}
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": nil, "msg": "ok"})
-}
-
-// DataScope 获取角色数据权限 GET /system/role/data-scope/{roleId}
-func (c *RoleController) DataScope(r *ghttp.Request) {
-	// TODO: 查询角色数据权限
-	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"deptIds": []int{1, 2}}, "msg": "ok"})
-}
-
-// AssignDataScope 分配数据权限 POST /system/role/assign-data-scope
-func (c *RoleController) AssignDataScope(r *ghttp.Request) {
-	// TODO: 保存角色数据权限
-	r.Response.WriteJsonExit(g.Map{"code": 0, "data": nil, "msg": "ok"})
+	return
 }

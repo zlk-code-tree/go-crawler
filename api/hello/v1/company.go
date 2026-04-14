@@ -21,7 +21,7 @@ type SystemCompanyListRes struct {
 }
 
 type SystemCompanyCreateReq struct {
-	g.Meta   `path:"/system/company/create" method:"post" tags:"System-Company" summary:"创建公司"`
+	g.Meta   `path:"/system/company/save" method:"post" tags:"System-Company" summary:"创建公司"`
 	Name     string `json:"name" v:"required" dc:"公司名称"`
 	Code     string `json:"code" v:"required" dc:"公司编码"`
 	ParentId int64  `json:"parent_id" d:"0" dc:"父公司ID"`

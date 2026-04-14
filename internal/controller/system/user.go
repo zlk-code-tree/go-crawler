@@ -19,7 +19,6 @@ func NewUserController() *UserController {
 
 // UserList 用户列表接口 GET /system/user/list
 func (c *UserController) UserList(r *ghttp.Request) {
-	// 解析分页参数
 	page := r.Get("page").Int()
 	if page <= 0 {
 		page = 1
@@ -30,36 +29,48 @@ func (c *UserController) UserList(r *ghttp.Request) {
 	}
 	keyword := r.Get("keyword").String()
 
-	// 调用服务层方法查询用户列表
-	userService := service.NewUserService()
-	users, total, err := userService.List(r.Context(), page, pageSize, keyword)
+	m := g.DB().Model("sys_user u").
+		LeftJoin("sys_company c", "c.id = u.company_id").
+		LeftJoin("sys_department d", "d.id = u.dept_id").
+		LeftJoin("sys_role r", "r.id = u.role_id")
+	if keyword != "" {
+		m = m.WhereLike("u.username", "%"+keyword+"%")
+	}
+	total, err := m.Fields("u.id").Count()
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败"})
+		return
+	}
+	list, err := m.Fields("u.id, u.username, u.real_name, u.nickname, u.email, u.phone, u.gender, u.status, u.position, u.remark, u.dept_id, u.company_id, u.role_id, IFNULL(c.name,'') AS company_name, IFNULL(d.name,'') AS dept_name, IFNULL(r.name,'') AS role_name").
+		OrderDesc("u.id").Page(page, pageSize).All()
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败"})
 		return
 	}
 
-	// 构建返回数据
 	var userList []g.Map
-	for _, user := range users {
+	for _, row := range list {
 		userList = append(userList, g.Map{
-			"id":       user.Id,
-			"username": user.Username,
-			"realName": user.RealName,
-			"status":   user.Status,
-			"email":    user.Email,
-			"phone":    user.Phone,
-			"nickname": user.Nickname,
-			"deptId":   user.DeptId,
-			"position": user.Position,
-			"remark":   user.Remark,
+			"id":          row["id"],
+			"username":    row["username"],
+			"realName":    row["real_name"],
+			"nickname":    row["nickname"],
+			"email":       row["email"],
+			"phone":       row["phone"],
+			"gender":      row["gender"],
+			"status":      row["status"],
+			"position":    row["position"],
+			"remark":      row["remark"],
+			"deptId":      row["dept_id"],
+			"companyId":   row["company_id"],
+			"roleId":      row["role_id"],
+			"companyName": row["company_name"],
+			"deptName":    row["dept_name"],
+			"roleName":    row["role_name"],
 		})
 	}
 
-	data := g.Map{
-		"list":  userList,
-		"total": total,
-	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "data": data, "msg": "ok"})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"list": userList, "total": total}, "msg": "ok"})
 }
 
 // AssignRoles 分配角色 POST /system/user/assign-roles
@@ -90,18 +101,19 @@ func (c *UserController) AssignRoles(r *ghttp.Request) {
 func (c *UserController) UserSave(r *ghttp.Request) {
 	// 解析请求参数
 	var req struct {
-		Id       int64  `json:"id"`
-		Nickname string `json:"nickname"`
-		DeptId   int64  `json:"deptId"`
-		Phone    string `json:"phone"`
-		Email    string `json:"email"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Gender   int    `json:"gender"`
-		Status   int    `json:"status"`
-		Position string `json:"position"`
-		RoleId   int64  `json:"roleId"`
-		Remark   string `json:"remark"`
+		Id        int64  `json:"id"`
+		Nickname  string `json:"nickname"`
+		CompanyId int64  `json:"companyId"`
+		DeptId    int64  `json:"deptId"`
+		Phone     string `json:"phone"`
+		Email     string `json:"email"`
+		Username  string `json:"username"`
+		Password  string `json:"password"`
+		Gender    int    `json:"gender"`
+		Status    int    `json:"status"`
+		Position  string `json:"position"`
+		RoleId    int64  `json:"roleId"`
+		Remark    string `json:"remark"`
 	}
 
 	if err := r.Parse(&req); err != nil {
@@ -111,16 +123,18 @@ func (c *UserController) UserSave(r *ghttp.Request) {
 
 	// 构建用户模型
 	user := &model.SysUser{
-		Id:       req.Id,
-		Username: req.Username,
-		Nickname: req.Nickname,
-		Email:    req.Email,
-		Phone:    req.Phone,
-		Gender:   req.Gender,
-		Status:   req.Status,
-		DeptId:   req.DeptId,
-		Position: req.Position,
-		Remark:   req.Remark,
+		Id:        req.Id,
+		Username:  req.Username,
+		Nickname:  req.Nickname,
+		Email:     req.Email,
+		Phone:     req.Phone,
+		Gender:    req.Gender,
+		Status:    req.Status,
+		CompanyId: req.CompanyId,
+		DeptId:    req.DeptId,
+		RoleId:    req.RoleId,
+		Position:  req.Position,
+		Remark:    req.Remark,
 	}
 
 	// 如果有密码，则设置密码
@@ -164,20 +178,48 @@ func (c *UserController) UserDelete(r *ghttp.Request) {
 
 // GetUser 获取用户详情接口 GET /system/user/{id}
 func (c *UserController) GetUser(r *ghttp.Request) {
-	// 解析用户ID
 	userId := r.Get("id").Int64()
 	if userId <= 0 {
 		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "用户ID不能为空"})
 		return
 	}
 
-	// 调用服务层方法获取用户详情
-	userService := service.NewUserService()
-	user, err := userService.Get(r.Context(), userId)
+	row, err := g.DB().Model("sys_user u").
+		LeftJoin("sys_company c", "c.id = u.company_id").
+		LeftJoin("sys_department d", "d.id = u.dept_id").
+		LeftJoin("sys_role r", "r.id = u.role_id").
+		Fields("u.id, u.username, u.real_name, u.nickname, u.email, u.phone, u.avatar, u.gender, u.status, u.position, u.remark, u.dept_id, u.company_id, u.role_id, u.last_login_at, u.last_login_ip, u.created_at, u.updated_at, IFNULL(c.name,'') AS company_name, IFNULL(d.name,'') AS dept_name, IFNULL(r.name,'') AS role_name").
+		Where("u.id", userId).One()
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "获取用户详情失败"})
 		return
 	}
+	if row.IsEmpty() {
+		r.Response.WriteJsonExit(g.Map{"code": 404, "data": nil, "msg": "用户不存在"})
+		return
+	}
 
-	r.Response.WriteJsonExit(g.Map{"code": 0, "data": user, "msg": "ok"})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{
+		"id":          row["id"],
+		"username":    row["username"],
+		"realName":    row["real_name"],
+		"nickname":    row["nickname"],
+		"email":       row["email"],
+		"phone":       row["phone"],
+		"avatar":      row["avatar"],
+		"gender":      row["gender"],
+		"status":      row["status"],
+		"position":    row["position"],
+		"remark":      row["remark"],
+		"deptId":      row["dept_id"],
+		"companyId":   row["company_id"],
+		"roleId":      row["role_id"],
+		"lastLoginAt": row["last_login_at"],
+		"lastLoginIp": row["last_login_ip"],
+		"createdAt":   row["created_at"],
+		"updatedAt":   row["updated_at"],
+		"companyName": row["company_name"],
+		"deptName":    row["dept_name"],
+		"roleName":    row["role_name"],
+	}, "msg": "ok"})
 }

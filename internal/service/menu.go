@@ -173,14 +173,130 @@ func (s *MenuService) Delete(ctx context.Context, id int64) error {
 }
 
 // GetUserMenuTree 获取用户菜单树（前端路由用，只返回菜单类型且启用的）
+// 自动补全祖先节点：当用户只分配了子菜单而未分配父菜单时，父菜单也会被包含进来
 func (s *MenuService) GetUserMenuTree(ctx context.Context, userId int64) ([]model.MenuItem, error) {
-	result, err := g.DB().GetAll(ctx,
-		`SELECT DISTINCT p.id, p.name, p.code, p.parent_id, p.path, p.component, p.icon, p.sort, p.hide, p.ext_url
+	// 1. 获取用户直接分配的菜单 ID
+	assignedResult, err := g.DB().GetAll(ctx,
+		`SELECT DISTINCT p.id
 		 FROM sys_user_role ur
 		 JOIN sys_role_permission rp ON ur.role_id = rp.role_id
 		 JOIN sys_permission p ON rp.permission_id = p.id
-		 WHERE ur.user_id = ? AND p.type = 1 AND p.status = 1
-		 ORDER BY p.sort ASC, p.id ASC`, userId)
+		 WHERE ur.user_id = ? AND p.type = 1 AND p.status = 1`, userId)
+	if err != nil {
+		return nil, err
+	}
+	if len(assignedResult) == 0 {
+		return []model.MenuItem{}, nil
+	}
+
+	assignedIds := make(map[int64]struct{}, len(assignedResult))
+	for _, row := range assignedResult {
+		assignedIds[row["id"].Int64()] = struct{}{}
+	}
+
+	// 2. 获取所有启用菜单，用于补全父节点
+	allResult, err := g.DB().GetAll(ctx,
+		`SELECT id, name, code, parent_id, path, component, icon, sort, hide, ext_url
+		 FROM sys_permission WHERE type = 1 AND status = 1
+		 ORDER BY sort ASC, id ASC`)
+	if err != nil {
+		return nil, err
+	}
+
+	menuMap := make(map[int64]menuRow, len(allResult))
+	for _, row := range allResult {
+		id := row["id"].Int64()
+		menuMap[id] = menuRow{
+			Id:        id,
+			Name:      row["name"].String(),
+			Code:      row["code"].String(),
+			ParentId:  row["parent_id"].Int64(),
+			Path:      row["path"].String(),
+			Component: row["component"].String(),
+			Icon:      row["icon"].String(),
+			Sort:      row["sort"].Int(),
+			Hide:      row["hide"].Int(),
+			ExtUrl:    row["ext_url"].String(),
+		}
+	}
+
+	// 3. 向上追溯，补全所有祖先节点
+	neededIds := make(map[int64]struct{}, len(assignedIds))
+	for id := range assignedIds {
+		neededIds[id] = struct{}{}
+		cur, ok := menuMap[id]
+		for ok && cur.ParentId != 0 {
+			neededIds[cur.ParentId] = struct{}{}
+			cur, ok = menuMap[cur.ParentId]
+		}
+	}
+
+	// 4. 按原始排序顺序构建行列表
+	var rows []menuRow
+	for _, row := range allResult {
+		if _, ok := neededIds[row["id"].Int64()]; ok {
+			rows = append(rows, menuMap[row["id"].Int64()])
+		}
+	}
+
+	return buildVbenMenuTree(rows, 0), nil
+}
+
+func buildVbenMenuTree(rows []menuRow, parentId int64) []model.MenuItem {
+	var items []model.MenuItem
+	for _, r := range rows {
+		if r.ParentId == parentId {
+			component := r.Component
+			if component == "Layout" {
+				component = "BasicLayout"
+			}
+			item := model.MenuItem{
+				Name:      r.Code,
+				Path:      r.Path,
+				Component: component,
+				Meta: model.MenuMeta{
+					Title:      r.Name,
+					Icon:       r.Icon,
+					Order:      r.Sort,
+					HideInMenu: r.Hide != 1, // 表字段：1-显示，0-隐藏
+					Link:       r.ExtUrl,
+				},
+			}
+			children := buildVbenMenuTree(rows, r.Id)
+			if len(children) > 0 {
+				item.Children = children
+			}
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
+// GetUserButtonCodes 获取用户按钮权限码列表（type=2）
+func (s *MenuService) GetUserButtonCodes(ctx context.Context, userId int64) ([]string, error) {
+	result, err := g.DB().GetAll(ctx,
+		`SELECT DISTINCT p.code
+		 FROM sys_user_role ur
+		 JOIN sys_role_permission rp ON ur.role_id = rp.role_id
+		 JOIN sys_permission p ON rp.permission_id = p.id
+		 WHERE ur.user_id = ? AND p.type = 2 AND p.status = 1`, userId)
+	if err != nil {
+		return nil, err
+	}
+	codes := make([]string, 0, len(result))
+	for _, row := range result {
+		codes = append(codes, row["code"].String())
+	}
+	return codes, nil
+}
+
+// GetAllMenusAsVbenTree 获取全量菜单树（Vben 格式，供白名单用户使用）
+func (s *MenuService) GetAllMenusAsVbenTree(ctx context.Context) ([]model.MenuItem, error) {
+	result, err := g.DB().GetAll(ctx,
+		`SELECT id, name, code, parent_id, path, component, icon, sort, hide, ext_url
+		 FROM sys_permission
+		 WHERE type = 1 AND status = 1
+		 ORDER BY sort ASC, id ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -204,32 +320,16 @@ func (s *MenuService) GetUserMenuTree(ctx context.Context, userId int64) ([]mode
 	return buildVbenMenuTree(rows, 0), nil
 }
 
-func buildVbenMenuTree(rows []menuRow, parentId int64) []model.MenuItem {
-	var items []model.MenuItem
-	for _, r := range rows {
-		if r.ParentId == parentId {
-			component := r.Component
-			if component == "Layout" {
-				component = "BasicLayout"
-			}
-			item := model.MenuItem{
-				Name:      r.Code,
-				Path:      r.Path,
-				Component: component,
-				Meta: model.MenuMeta{
-					Title:      r.Name,
-					Icon:       r.Icon,
-					Order:      r.Sort,
-					HideInMenu: r.Hide == 1,
-					Link:       r.ExtUrl,
-				},
-			}
-			children := buildVbenMenuTree(rows, r.Id)
-			if len(children) > 0 {
-				item.Children = children
-			}
-			items = append(items, item)
-		}
+// GetAllButtonCodes 获取系统全量按钮权限码（白名单用户使用）
+func (s *MenuService) GetAllButtonCodes(ctx context.Context) ([]string, error) {
+	result, err := g.DB().Model("sys_permission").
+		Fields("code").Where("type", 2).Where("status", 1).All()
+	if err != nil {
+		return nil, err
 	}
-	return items
+	codes := make([]string, 0, len(result))
+	for _, row := range result {
+		codes = append(codes, row["code"].String())
+	}
+	return codes, nil
 }

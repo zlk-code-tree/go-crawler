@@ -15,35 +15,37 @@ func NewOperationLogService() *OperationLogService {
 }
 
 type OperationLogInput struct {
-	UserId    int64
-	Username  string
-	Module    string
-	Action    string
-	Method    string
-	Url       string
-	Params    string
-	Ip        string
-	UserAgent string
-	Status    int
-	ErrorMsg  string
-	Duration  int
+	UserId         int64
+	Username       string
+	Module         string
+	Action         string
+	Method         string
+	Url            string
+	Params         string
+	Ip             string
+	UserAgent      string
+	Status         int
+	ErrorMsg       string
+	Duration       int
+	PermissionCode string
 }
 
 func (s *OperationLogService) Record(ctx context.Context, input OperationLogInput) {
 	_, _ = g.DB().Model("sys_operation_log").Insert(g.Map{
-		"user_id":    input.UserId,
-		"username":   input.Username,
-		"module":     input.Module,
-		"action":     input.Action,
-		"method":     input.Method,
-		"url":        input.Url,
-		"params":     input.Params,
-		"ip":         input.Ip,
-		"user_agent": input.UserAgent,
-		"status":     input.Status,
-		"error_msg":  input.ErrorMsg,
-		"duration":   input.Duration,
-		"created_at": time.Now(),
+		"user_id":         input.UserId,
+		"username":        input.Username,
+		"module":          input.Module,
+		"action":          input.Action,
+		"method":          input.Method,
+		"url":             input.Url,
+		"params":          input.Params,
+		"ip":              input.Ip,
+		"user_agent":      input.UserAgent,
+		"status":          input.Status,
+		"error_msg":       input.ErrorMsg,
+		"duration":        input.Duration,
+		"permission_code": input.PermissionCode,
+		"created_at":      time.Now(),
 	})
 }
 
@@ -76,20 +78,21 @@ func (s *OperationLogService) GetList(ctx context.Context, page, pageSize int, k
 	rows := make([]g.Map, 0, len(result))
 	for _, row := range result {
 		rows = append(rows, g.Map{
-			"id":         row["id"].Int64(),
-			"user_id":    row["user_id"].Int64(),
-			"username":   row["username"].String(),
-			"module":     row["module"].String(),
-			"action":     row["action"].String(),
-			"method":     row["method"].String(),
-			"url":        row["url"].String(),
-			"params":     row["params"].String(),
-			"ip":         row["ip"].String(),
-			"user_agent": row["user_agent"].String(),
-			"status":     row["status"].Int(),
-			"error_msg":  row["error_msg"].String(),
-			"duration":   row["duration"].Int(),
-			"created_at": row["created_at"].String(),
+			"id":              row["id"].Int64(),
+			"user_id":         row["user_id"].Int64(),
+			"username":        row["username"].String(),
+			"module":          row["module"].String(),
+			"action":          row["action"].String(),
+			"method":          row["method"].String(),
+			"url":             row["url"].String(),
+			"params":          row["params"].String(),
+			"ip":              row["ip"].String(),
+			"user_agent":      row["user_agent"].String(),
+			"status":          row["status"].Int(),
+			"error_msg":       row["error_msg"].String(),
+			"duration":        row["duration"].Int(),
+			"permission_code": row["permission_code"].String(),
+			"created_at":      row["created_at"].String(),
 		})
 	}
 

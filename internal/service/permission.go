@@ -154,3 +154,30 @@ func (s *PermissionService) Delete(ctx context.Context, id int64) error {
 		return err
 	})
 }
+
+// CheckPermission 检查用户是否有特定权限
+func (s *PermissionService) CheckPermission(ctx context.Context, userId int64, permissionCode string) (bool, error) {
+	count, err := g.DB().Model("v_user_permissions").
+		Where("user_id", userId).
+		Where("permission_code", permissionCode).
+		Count()
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// GetUserPermissions 获取用户所有权限编码
+func (s *PermissionService) GetUserPermissions(ctx context.Context, userId int64) ([]string, error) {
+	result, err := g.DB().Model("v_user_permissions").
+		Where("user_id", userId).
+		Array("permission_code")
+	if err != nil {
+		return nil, err
+	}
+	permissions := make([]string, 0, len(result))
+	for _, v := range result {
+		permissions = append(permissions, v.String())
+	}
+	return permissions, nil
+}

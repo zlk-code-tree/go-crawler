@@ -33,8 +33,33 @@ func (c *Controller) CompanyList(ctx context.Context, req *v1.SystemCompanyListR
 		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
 		return
 	}
+
+	// 收集所有 parent_id，批量查父公司名称
+	parentIds := make([]int64, 0)
+	for _, row := range list {
+		pid := row["parent_id"].Int64()
+		if pid > 0 {
+			parentIds = append(parentIds, pid)
+		}
+	}
+	parentNameMap := make(map[int64]string)
+	if len(parentIds) > 0 {
+		parents, _ := g.DB().Model("sys_company").Fields("id,name").WhereIn("id", parentIds).All()
+		for _, p := range parents {
+			parentNameMap[p["id"].Int64()] = p["name"].String()
+		}
+	}
+
+	result := make([]g.Map, 0, len(list))
+	for _, row := range list {
+		item := row.Map()
+		pid := row["parent_id"].Int64()
+		item["parent_name"] = parentNameMap[pid] // pid=0 时 map 返回零值空字符串
+		result = append(result, item)
+	}
+
 	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{
-		"list": list, "total": total, "page": page, "pageSize": pageSize,
+		"list": result, "total": total, "page": page, "pageSize": pageSize,
 	}})
 	return
 }
@@ -105,7 +130,15 @@ func (c *Controller) CompanyDetail(ctx context.Context, req *v1.SystemCompanyDet
 		r.Response.WriteJsonExit(g.Map{"code": 404, "message": "公司不存在", "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": record})
+	item := record.Map()
+	pid := record["parent_id"].Int64()
+	if pid > 0 {
+		parent, _ := g.DB().Model("sys_company").Fields("name").Where("id", pid).Value()
+		item["parent_name"] = parent.String()
+	} else {
+		item["parent_name"] = nil
+	}
+	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": item})
 	return
 }
 

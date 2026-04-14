@@ -65,3 +65,11 @@ export:
   excel:
     enabled: true
     autoFilter: true
+
+# 权限配置
+permission:
+  # 权限白名单，白名单中的用户跳过权限验证
+  whitelist:
+    - admin  # 超级用户
+    - user1  # 其他需要跳过权限验证的用户
+    - user2  # 其他需要跳过权限验证的用户
