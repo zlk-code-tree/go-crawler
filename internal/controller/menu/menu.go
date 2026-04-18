@@ -24,10 +24,10 @@ func (c *Controller) List(ctx context.Context, req *v1.MenuListReq) (res *v1.Men
 	r := g.RequestFromCtx(ctx)
 	tree, e := c.menuSvc.GetMenuTree(ctx)
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": tree})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": tree})
 	return
 }
 
@@ -36,14 +36,14 @@ func (c *Controller) Detail(ctx context.Context, req *v1.MenuDetailReq) (res *v1
 	r := g.RequestFromCtx(ctx)
 	detail, e := c.menuSvc.GetDetail(ctx, req.Id)
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
 	if detail == nil {
-		r.Response.WriteJsonExit(g.Map{"code": 404, "message": "菜单不存在", "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 404, "msg": "菜单不存在", "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": detail})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": detail})
 	return
 }
 
@@ -66,10 +66,10 @@ func (c *Controller) Create(ctx context.Context, req *v1.MenuCreateReq) (res *v1
 		"ext_url":   req.ExtUrl,
 	})
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{"id": id}})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": g.Map{"id": id}})
 	return
 }
 
@@ -102,10 +102,10 @@ func (c *Controller) Update(ctx context.Context, req *v1.MenuUpdateReq) (res *v1
 		update["hide"] = *req.Hide
 	}
 	if e := c.menuSvc.Update(ctx, req.Id, update); e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": nil})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": nil})
 	return
 }
 
@@ -113,9 +113,9 @@ func (c *Controller) Update(ctx context.Context, req *v1.MenuUpdateReq) (res *v1
 func (c *Controller) Delete(ctx context.Context, req *v1.MenuDeleteReq) (res *v1.MenuDeleteRes, err error) {
 	r := g.RequestFromCtx(ctx)
 	if e := c.menuSvc.Delete(ctx, req.Id); e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": nil})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": nil})
 	return
 }

@@ -172,16 +172,16 @@ func (s *MenuService) Delete(ctx context.Context, id int64) error {
 	})
 }
 
-// GetUserMenuTree 获取用户菜单树（前端路由用，只返回菜单类型且启用的）
+// GetUserMenuTree 获取用户菜单树（前端路由用，只返回目录和菜单类型且启用的）
 // 自动补全祖先节点：当用户只分配了子菜单而未分配父菜单时，父菜单也会被包含进来
 func (s *MenuService) GetUserMenuTree(ctx context.Context, userId int64) ([]model.MenuItem, error) {
-	// 1. 获取用户直接分配的菜单 ID
+	// 1. 获取用户直接分配的菜单 ID（type=1目录，type=2菜单）
 	assignedResult, err := g.DB().GetAll(ctx,
 		`SELECT DISTINCT p.id
 		 FROM sys_user_role ur
 		 JOIN sys_role_permission rp ON ur.role_id = rp.role_id
 		 JOIN sys_permission p ON rp.permission_id = p.id
-		 WHERE ur.user_id = ? AND p.type = 1 AND p.status = 1`, userId)
+		 WHERE ur.user_id = ? AND p.type IN (1, 2) AND p.status = 1`, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -194,10 +194,10 @@ func (s *MenuService) GetUserMenuTree(ctx context.Context, userId int64) ([]mode
 		assignedIds[row["id"].Int64()] = struct{}{}
 	}
 
-	// 2. 获取所有启用菜单，用于补全父节点
+	// 2. 获取所有启用菜单，用于补全父节点（type=1目录，type=2菜单）
 	allResult, err := g.DB().GetAll(ctx,
 		`SELECT id, name, code, parent_id, path, component, icon, sort, hide, ext_url
-		 FROM sys_permission WHERE type = 1 AND status = 1
+		 FROM sys_permission WHERE type IN (1, 2) AND status = 1
 		 ORDER BY sort ASC, id ASC`)
 	if err != nil {
 		return nil, err
@@ -250,6 +250,12 @@ func buildVbenMenuTree(rows []menuRow, parentId int64) []model.MenuItem {
 			if component == "Layout" {
 				component = "BasicLayout"
 			}
+
+			// 外链菜单特殊处理：component 为空字符串
+			if r.ExtUrl != "" {
+				component = ""
+			}
+
 			item := model.MenuItem{
 				Name:      r.Code,
 				Path:      r.Path,
@@ -258,7 +264,7 @@ func buildVbenMenuTree(rows []menuRow, parentId int64) []model.MenuItem {
 					Title:      r.Name,
 					Icon:       r.Icon,
 					Order:      r.Sort,
-					HideInMenu: r.Hide != 1, // 表字段：1-显示，0-隐藏
+					HideInMenu: r.Hide == 0, // 表字段：1-显示，0-隐藏
 					Link:       r.ExtUrl,
 				},
 			}
@@ -272,14 +278,14 @@ func buildVbenMenuTree(rows []menuRow, parentId int64) []model.MenuItem {
 	return items
 }
 
-// GetUserButtonCodes 获取用户按钮权限码列表（type=2）
+// GetUserButtonCodes 获取用户按钮权限码列表（type=3）
 func (s *MenuService) GetUserButtonCodes(ctx context.Context, userId int64) ([]string, error) {
 	result, err := g.DB().GetAll(ctx,
 		`SELECT DISTINCT p.code
 		 FROM sys_user_role ur
 		 JOIN sys_role_permission rp ON ur.role_id = rp.role_id
 		 JOIN sys_permission p ON rp.permission_id = p.id
-		 WHERE ur.user_id = ? AND p.type = 2 AND p.status = 1`, userId)
+		 WHERE ur.user_id = ? AND p.type = 3 AND p.status = 1`, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +301,7 @@ func (s *MenuService) GetAllMenusAsVbenTree(ctx context.Context) ([]model.MenuIt
 	result, err := g.DB().GetAll(ctx,
 		`SELECT id, name, code, parent_id, path, component, icon, sort, hide, ext_url
 		 FROM sys_permission
-		 WHERE type = 1 AND status = 1
+		 WHERE type IN (1, 2) AND status = 1
 		 ORDER BY sort ASC, id ASC`)
 	if err != nil {
 		return nil, err
@@ -320,10 +326,10 @@ func (s *MenuService) GetAllMenusAsVbenTree(ctx context.Context) ([]model.MenuIt
 	return buildVbenMenuTree(rows, 0), nil
 }
 
-// GetAllButtonCodes 获取系统全量按钮权限码（白名单用户使用）
+// GetAllButtonCodes 获取系统全量按钮权限码（白名单用户使用，type=3）
 func (s *MenuService) GetAllButtonCodes(ctx context.Context) ([]string, error) {
 	result, err := g.DB().Model("sys_permission").
-		Fields("code").Where("type", 2).Where("status", 1).All()
+		Fields("code").Where("type", 3).Where("status", 1).All()
 	if err != nil {
 		return nil, err
 	}

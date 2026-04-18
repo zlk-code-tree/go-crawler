@@ -155,8 +155,9 @@ type SystemPermissionTreeRes struct {
 
 type SystemOperationLogListReq struct {
 	g.Meta   `path:"/system/log/operation" method:"get" tags:"System-Log" summary:"操作日志"`
-	Page     int `json:"page" in:"query" d:"1" dc:"页码"`
-	PageSize int `json:"pageSize" in:"query" d:"20" dc:"每页条数"`
+	Page     int    `json:"page" in:"query" d:"1" dc:"页码"`
+	PageSize int    `json:"pageSize" in:"query" d:"20" dc:"每页条数"`
+	Keyword  string `json:"keyword" in:"query" dc:"搜索关键词"`
 }
 
 type SystemOperationLogListRes struct {
@@ -165,6 +166,16 @@ type SystemOperationLogListRes struct {
 	Total    int         `json:"total" dc:"总数"`
 	Page     int         `json:"page" dc:"当前页"`
 	PageSize int         `json:"pageSize" dc:"每页条数"`
+}
+
+type SystemOperationLogDetailReq struct {
+	g.Meta `path:"/system/log/operation/detail" method:"get" tags:"System-Log" summary:"操作日志详情"`
+	Id     int64 `json:"id" in:"query" v:"required" dc:"日志ID"`
+}
+
+type SystemOperationLogDetailRes struct {
+	g.Meta `mime:"application/json"`
+	Data   interface{} `json:"data" dc:"日志详情"`
 }
 
 type SystemLoginLogListReq struct {

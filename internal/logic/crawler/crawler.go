@@ -1,9 +1,16 @@
 package crawler
 
 import (
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math"
+	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,6 +25,9 @@ import (
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/util/grand"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/encoding/traditionalchinese"
+	"golang.org/x/text/transform"
 )
 
 // ===== 并发处理工具类 =====
@@ -74,6 +84,7 @@ func (s *sCrawler) retryWithBackoff(fn func() error, maxRetries int) error {
 // ProductInfo 商品基本信息
 type ProductInfo struct {
 	Rank             int    // 排名
+	ProductID        string // 商品 ID（从 API 响应获取）
 	ProductName      string // 商品名称
 	ShopName         string // 店铺名称
 	PaymentAmount    string // 短视频用户支付金额
@@ -87,6 +98,7 @@ type ProductInfo struct {
 
 // ProductDetail 商品详情数据
 type ProductDetail struct {
+	ProductID      string // 商品 ID
 	ProductName    string // 商品名称
 	FirstShelfTime string // 首次上架时间
 	MinPrice       string // 最低到手价
@@ -95,7 +107,9 @@ type ProductDetail struct {
 
 // VideoAnalysis 视频分析数据
 type VideoAnalysis struct {
-	VideoID           string // 视频 ID
+	ProductID         string // 商品 ID
+	ProductName       string // 商品名称
+	VideoId           string // 视频 ID
 	VideoDesc         string // 短视频信息
 	PaymentAmount     string // 用户支付金额
 	ExposeUserCount   string // 商品曝光人数
@@ -324,8 +338,33 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 		return res, gerror.New("任务已取消")
 	}
 
-	// ==================== 步骤 4: 导航到商品榜单页面 ====================
-	logInfo(ctx, taskId, "📊 步骤 4: 导航到商品榜单页面")
+	// ==================== 步骤 4: 提前注册 API 拦截（必须在导航和点击 Tab 之前） ====================
+	logInfo(ctx, taskId, "📊 步骤 4: 注册 API 拦截器并扩大 Inspector 缓存")
+
+	// 扩大 Inspector Cache 容量到 100MB，防止响应体被驱逐导致 "evicted from inspector cache"
+	cacheSize := 100 * 1024 * 1024
+	networkEnable := proto.NetworkEnable{MaxTotalBufferSize: &cacheSize}
+	if err := networkEnable.Call(page); err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 启用网络追踪失败：%v", err))
+	}
+
+	// 初始化分页参数
+	startPage := 1
+	if existingTask != nil && existingTask.Status == "running" {
+		startPage = existingTask.CurrentPage
+		logInfo(ctx, taskId, fmt.Sprintf("🔄 从第 %d 页继续爬取", startPage))
+	}
+
+	// 提前注册 Hijack，确保后续所有 API 请求（包括第 1 页）都能被拦截
+	router, pageCh := s.setupAPIInterceptor(ctx, page, taskId)
+	go router.Run()
+	defer router.Stop() //nolint:errcheck
+
+	logInfo(ctx, taskId, "✅ API 拦截器已就绪，开始导航")
+
+	// ==================== 步骤 5: 导航到商品榜单页面 ====================
+	logInfo(ctx, taskId, "📊 步骤 5: 导航到商品榜单页面")
+
 	productRankURL := "https://compass.jinritemai.com/shop/chance/product-rank"
 	if err := page.Navigate(productRankURL); err != nil {
 		checkpointManager.FailTask(ctx, taskId, err.Error())
@@ -334,8 +373,8 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 	page.WaitLoad()
 	time.Sleep(3 * time.Second)
 
-	// ==================== 步骤 5: 点击短视频榜 Tab ====================
-	logInfo(ctx, taskId, "🎬 步骤 5: 点击短视频榜 Tab")
+	// ==================== 步骤 6: 点击短视频榜 Tab ====================
+	logInfo(ctx, taskId, "🎬 步骤 6: 点击短视频榜 Tab")
 	if err := s.clickShortVideoTab(ctx, page, taskId); err != nil {
 		checkpointManager.FailTask(ctx, taskId, err.Error())
 		return res, gerror.Wrap(err, "点击短视频榜失败")
@@ -346,17 +385,10 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 		return res, gerror.New("任务已取消")
 	}
 
-	// ==================== 步骤 6: 分页抓取 200 条数据（支持断点续爬） ====================
-	logInfo(ctx, taskId, "📈 步骤 6: 分页抓取商品榜单数据（20 页×10 条=200 条）")
+	// ==================== 步骤 7: 分页抓取 200 条数据（支持断点续爬） ====================
+	logInfo(ctx, taskId, "📈 步骤 7: 分页抓取商品榜单数据（20 页×10 条=200 条）")
 
-	var products []ProductInfo
-	startPage := 1
-	if existingTask != nil && existingTask.Status == "running" {
-		startPage = existingTask.CurrentPage
-		logInfo(ctx, taskId, fmt.Sprintf("🔄 从第 %d 页继续爬取", startPage))
-	}
-
-	products = s.scrapeAllPagesWithCheckpoint(ctx, page, taskId, checkpointManager, startPage)
+	products := s.collectInterceptedData(ctx, page, taskId, checkpointManager, startPage, pageCh)
 	if len(products) == 0 {
 		checkpointManager.FailTask(ctx, taskId, "未抓取到数据")
 		logWarn(ctx, taskId, "⚠️ 未抓取到有效数据")
@@ -368,8 +400,8 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 		return res, gerror.New("任务已取消")
 	}
 
-	// ==================== 步骤 7: 获取商品详情数据 ====================
-	logInfo(ctx, taskId, "🔍 步骤 7: 获取商品详情数据（首次上架时间、最低到手价）")
+	// ==================== 步骤 8: 获取商品详情数据 ====================
+	logInfo(ctx, taskId, "🔍 步骤 8: 获取商品详情数据（首次上架时间、最低到手价）")
 	productDetails := s.scrapeProductDetails(ctx, browser, products, taskId)
 	logInfo(ctx, taskId, fmt.Sprintf("✅ 详情抓取完成，共获取 %d 条详情数据", len(productDetails)))
 
@@ -377,8 +409,8 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 		return res, gerror.New("任务已取消")
 	}
 
-	// ==================== 步骤 8: 获取视频分析数据 ====================
-	logInfo(ctx, taskId, "📹 步骤 8: 获取视频分析数据")
+	// ==================== 步骤 9: 获取视频分析数据 ====================
+	logInfo(ctx, taskId, "📹 步骤 9: 获取视频分析数据")
 	videoAnalysisList := s.scrapeVideoAnalysis(ctx, browser, products, taskId)
 	logInfo(ctx, taskId, fmt.Sprintf("✅ 视频分析抓取完成，共获取 %d 条视频数据", len(videoAnalysisList)))
 
@@ -386,8 +418,8 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 		return res, gerror.New("任务已取消")
 	}
 
-	// ==================== 步骤 9: 保存数据到数据库 ====================
-	logInfo(ctx, taskId, "💾 步骤 9: 保存数据到数据库")
+	// ==================== 步骤 10: 保存数据到数据库 ====================
+	logInfo(ctx, taskId, "💾 步骤 10: 保存数据到数据库")
 	if err := s.saveAllData(ctx, taskId, products, productDetails, videoAnalysisList); err != nil {
 		checkpointManager.FailTask(ctx, taskId, err.Error())
 		logError(ctx, taskId, fmt.Sprintf("❌ 数据入库失败：%v", err))
@@ -395,8 +427,8 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 	}
 	logInfo(ctx, taskId, "✅ 数据入库成功")
 
-	// ==================== 步骤 10: 导出数据文件 ====================
-	logInfo(ctx, taskId, "📥 步骤 10: 导出数据文件（CSV/Excel）")
+	// ==================== 步骤 11: 导出数据文件 ====================
+	logInfo(ctx, taskId, "📥 步骤 11: 导出数据文件（CSV/Excel）")
 	modelProducts := s.convertToModelProducts(products, productDetails)
 	exportFiles, err := exportManager.ExportAll(ctx, taskId, modelProducts, []model.VideoAnalysisData{})
 	if err != nil {
@@ -914,9 +946,23 @@ func (s *sCrawler) scrapeProductDetails(ctx context.Context, browser *rod.Browse
 	return details
 }
 
-// scrapeSingleProductDetail 获取单个商品详情（改进版）
+// scrapeSingleProductDetail 获取单个商品详情（API拦截版本，带缓存）
 func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.Browser, product ProductInfo, taskId string) *ProductDetail {
-	// 如果没有有效的详情 URL，跳过
+	// 1. 检查缓存
+	cache := service.GetProductDetailCache()
+	cachedRecord := cache.GetRecord(product.ProductID)
+	if cachedRecord != nil && !cache.IsRecordStale(cachedRecord) {
+		logInfo(ctx, taskId, fmt.Sprintf("✅ 从缓存获取商品详情：%s", product.ProductName))
+		return &ProductDetail{
+			ProductID:      product.ProductID,
+			ProductName:    product.ProductName,
+			FirstShelfTime: cachedRecord.FirstShelfTime,
+			MinPrice:       cachedRecord.MinPrice,
+			PriceRange:     product.PriceRange,
+		}
+	}
+
+	// 2. 如果没有有效的详情 URL，跳过
 	if product.ProductURL == "" {
 		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 商品 [%s] 无详情 URL，跳过详情获取", product.ProductName))
 		return &ProductDetail{ProductName: product.ProductName}
@@ -924,7 +970,7 @@ func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.B
 
 	var page *rod.Page
 
-	// 重试打开页面（最多3次）
+	// 3. 重试打开页面（最多3次）
 	retryErr := s.retryWithBackoff(func() error {
 		var pageErr error
 		page, pageErr = browser.Page(proto.TargetCreateTarget{URL: ""})
@@ -937,7 +983,72 @@ func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.B
 	}
 	defer page.Close()
 
-	// 导航到商品详情页（使用从排行榜提取的真实 URL）
+	// 4. 设置API拦截器
+	detailCh := make(chan *ProductDetail, 1)
+	router := page.HijackRequests()
+
+	// 拦截商品详情相关的API请求
+	if err := router.Add("*product*detail*", "", func(h *rod.Hijack) {
+		if err := h.LoadResponse(&http.Client{}, true); err != nil {
+			logWarn(ctx, taskId, fmt.Sprintf("⚠️ LoadResponse 失败：%v", err))
+			h.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
+		body := h.Response.Body()
+		if len(body) == 0 {
+			logWarn(ctx, taskId, fmt.Sprintf("⚠️ 响应体为空，URL：%s", h.Request.URL().String()))
+			h.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
+
+		// 处理响应体编码和压缩
+		responseBody, err := s.processResponseBody([]byte(body), h.Response.Headers())
+		if err != nil {
+			logWarn(ctx, taskId, fmt.Sprintf("⚠️ 处理响应体失败：%v", err))
+			h.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
+
+		// 尝试解析商品详情数据
+		detail := parseProductDetailResponse(responseBody, product)
+		if detail != nil {
+			logInfo(ctx, taskId, fmt.Sprintf("🔍 拦截到商品详情 API 响应，成功解析数据"))
+			select {
+			case detailCh <- detail:
+			default:
+				logWarn(ctx, taskId, "⚠️ detailCh 已满，丢弃数据")
+			}
+		}
+		h.ContinueRequest(&proto.FetchContinueRequest{})
+	}); err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 注册商品详情 API 拦截失败：%v", err))
+	}
+
+	// 5. 拦截配额API和显示规则API，避免查看次数限制
+	if err := router.Add("*get_view_quota*", "", func(h *rod.Hijack) {
+		// 返回伪造的高配额响应
+		fakeResponse := `{"data":{"remaining_cnt":999,"target_id_viewable":true},"msg":"","st":0}`
+		h.Response.SetBody([]byte(fakeResponse))
+		h.Response.SetHeader("Content-Type", "application/json")
+		h.ContinueRequest(&proto.FetchContinueRequest{})
+	}); err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 注册配额API拦截失败：%v", err))
+	}
+
+	if err := router.Add("*get_display_rule*", "", func(h *rod.Hijack) {
+		// 返回伪造的显示规则响应
+		fakeResponse := `{"data":{"display_type":1},"msg":"","st":0}`
+		h.Response.SetBody([]byte(fakeResponse))
+		h.Response.SetHeader("Content-Type", "application/json")
+		h.ContinueRequest(&proto.FetchContinueRequest{})
+	}); err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 注册显示规则API拦截失败：%v", err))
+	}
+
+	go router.Run()
+	defer router.Stop()
+
+	// 6. 导航到商品详情页（使用从排行榜提取的真实 URL）
 	detailURL := product.ProductURL
 	logDebug(ctx, taskId, fmt.Sprintf("🔗 正在打开商品详情：%s", detailURL))
 
@@ -949,63 +1060,471 @@ func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.B
 	}
 
 	page.WaitLoad()
-	time.Sleep(2 * time.Second)
 
+	// 7. 等待API响应，最多10秒
+	var detail *ProductDetail
+	select {
+	case detail = <-detailCh:
+		logInfo(ctx, taskId, fmt.Sprintf("✅ 通过API拦截获取到商品详情数据"))
+	case <-time.After(10 * time.Second):
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 商品详情API响应超时：%s，回退到页面解析", product.ProductName))
+		// API拦截失败，回退到页面解析
+		detail = s.scrapeSingleProductDetailByParsing(ctx, page, product, taskId)
+	}
+
+	// 8. 保存到缓存
+	if detail != nil {
+		cacheRecord := &service.ProductDetailRecord{
+			ProductID:          product.ProductID,
+			FirstShelfTime:     detail.FirstShelfTime,
+			MinPrice:           detail.MinPrice,
+			DetailAccessStatus: "available",
+			ProductName:        product.ProductName,
+			ShopName:           product.ShopName,
+			DetailURL:          product.ProductURL,
+		}
+		cache.UpsertRecord(cacheRecord)
+	}
+
+	return detail
+}
+
+// scrapeSingleProductDetailByParsing 通过页面解析获取商品详情（备选方案）
+func (s *sCrawler) scrapeSingleProductDetailByParsing(ctx context.Context, page *rod.Page, product ProductInfo, taskId string) *ProductDetail {
 	// 提取详情数据
 	detail := &ProductDetail{
+		ProductID:   product.ProductID,
 		ProductName: product.ProductName,
 	}
 
-	// 获取首次上架时间（多选择器降级）
-	shelfTimeSelectors := []string{
-		"//*[contains(text(), '首次上架')]/following-sibling::*[1]",
-		"//*[contains(text(), '上架时间')]/following-sibling::*[1]",
-		"//span[contains(text(), '首次上架')]/../following-sibling::*[1]",
-		"//div[contains(text(), '上架时间')]/following-sibling::*",
-	}
-	for _, selector := range shelfTimeSelectors {
-		var elem *rod.Element
-		var err error
-		if strings.HasPrefix(selector, "//") {
-			elem, err = page.Timeout(2 * time.Second).ElementX(selector)
-		} else {
-			elem, err = page.Timeout(2 * time.Second).Element(selector)
-		}
-		if err == nil {
-			if text, textErr := elem.Text(); textErr == nil && strings.TrimSpace(text) != "" {
-				detail.FirstShelfTime = strings.TrimSpace(text)
-				logDebug(ctx, taskId, fmt.Sprintf("📅 获取到上架时间：%s", detail.FirstShelfTime))
-				break
-			}
-		}
-	}
+	// 随机延迟，模拟真实用户行为
+	time.Sleep(time.Duration(grand.Intn(1000)+500) * time.Millisecond)
 
-	// 获取最低到手价（多选择器降级）
-	priceSelectors := []string{
-		"//*[contains(text(), '最低到手价')]/following-sibling::*[1]",
-		"//*[contains(text(), '到手价')]/following-sibling::*[1]",
-		"//*[contains(text(), '最低价')]/following-sibling::*[1]",
-		"//span[contains(text(), '最低到手价')]/../following-sibling::*[1]",
-	}
-	for _, selector := range priceSelectors {
-		var elem *rod.Element
-		var err error
-		if strings.HasPrefix(selector, "//") {
-			elem, err = page.Timeout(2 * time.Second).ElementX(selector)
-		} else {
-			elem, err = page.Timeout(2 * time.Second).Element(selector)
+	// 收集页面文本
+	texts := s.collectDetailTexts(ctx, page, taskId)
+
+	// 1. 提取首次上架时间（使用正则表达式）
+	detail.FirstShelfTime = s.extractFirstShelfTimeFromTexts(ctx, texts, taskId)
+
+	// 2. 提取最低到手价（使用正则表达式）
+	detail.MinPrice = s.extractMinPriceFromTexts(ctx, texts, taskId)
+
+	// 3. 提取运费险信息
+	hasShippingInsurance := s.extractShippingInsuranceFromTexts(ctx, texts, taskId)
+
+	// 4. 检查商品状态
+	detailAccessStatus, detailAccessNote := s.extractDetailAccessState(ctx, texts, taskId)
+
+	// 5. 保存到缓存
+	if detail.FirstShelfTime != "" || detail.MinPrice != "" {
+		cache := service.GetProductDetailCache()
+		cacheRecord := &service.ProductDetailRecord{
+			ProductID:            product.ProductID,
+			FirstShelfTime:       detail.FirstShelfTime,
+			MinPrice:             detail.MinPrice,
+			HasShippingInsurance: hasShippingInsurance,
+			DetailAccessStatus:   detailAccessStatus,
+			DetailAccessNote:     detailAccessNote,
+			ProductName:          product.ProductName,
+			ShopName:             product.ShopName,
+			DetailURL:            product.ProductURL,
 		}
-		if err == nil {
-			if text, textErr := elem.Text(); textErr == nil && strings.TrimSpace(text) != "" {
-				detail.MinPrice = strings.TrimSpace(text)
-				logDebug(ctx, taskId, fmt.Sprintf("💰 获取到最低到手价：%s", detail.MinPrice))
-				break
-			}
-		}
+		cache.UpsertRecord(cacheRecord)
 	}
 
 	if detail.FirstShelfTime == "" && detail.MinPrice == "" {
 		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 商品 [%s] 详情页未提取到数据，可能需要更新选择器", product.ProductName))
+	}
+
+	return detail
+}
+
+// collectDetailTexts 收集页面文本
+func (s *sCrawler) collectDetailTexts(ctx context.Context, page *rod.Page, taskId string) []string {
+	var texts []string
+
+	// 尝试从多个元素获取文本
+	selectors := []string{"body", "main", "#root", ".detail-content", ".product-info"}
+	for _, selector := range selectors {
+		if elem, err := page.Element(selector); err == nil {
+			if text, err := elem.Text(); err == nil && text != "" {
+				texts = append(texts, text)
+				break
+			}
+		}
+	}
+
+	// 如果没有获取到文本，尝试获取页面内容
+	if len(texts) == 0 {
+		if content, err := page.HTML(); err == nil {
+			texts = append(texts, content)
+		}
+	}
+
+	return texts
+}
+
+// extractFirstShelfTimeFromTexts 从文本中提取首次上架时间
+func (s *sCrawler) extractFirstShelfTimeFromTexts(ctx context.Context, texts []string, taskId string) string {
+	// 定义多种日期格式的正则表达式
+	patterns := []string{
+		`首次上架\s*[:：]?\s*(\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日?)`,
+		`首次上架\s*[:：]?\s*(\d{4}[./-]\d{1,2}[./-]\d{1,2})`,
+		`上架时间\s*[:：]?\s*(\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日?)`,
+		`上架时间\s*[:：]?\s*(\d{4}[./-]\d{1,2}[./-]\d{1,2})`,
+	}
+
+	for _, text := range texts {
+		for _, pattern := range patterns {
+			if matches := regexp.MustCompile(pattern).FindStringSubmatch(text); len(matches) > 1 {
+				dateStr := strings.TrimSpace(matches[1])
+				// 标准化日期格式
+				dateStr = s.normalizeDateString(dateStr)
+				logDebug(ctx, taskId, fmt.Sprintf("📅 提取到上架时间：%s", dateStr))
+				return dateStr
+			}
+		}
+	}
+
+	return ""
+}
+
+// extractMinPriceFromTexts 从文本中提取最低到手价
+func (s *sCrawler) extractMinPriceFromTexts(ctx context.Context, texts []string, taskId string) string {
+	// 定义价格的正则表达式
+	patterns := []string{
+		`最低到手价\s*[:：]?\s*[¥￥]?\s*([\d,\s]+(?:\s*\.\s*\d+)?)`,
+		`到手价\s*[:：]?\s*[¥￥]?\s*([\d,\s]+(?:\s*\.\s*\d+)?)`,
+		`最低价\s*[:：]?\s*[¥￥]?\s*([\d,\s]+(?:\s*\.\s*\d+)?)`,
+	}
+
+	for _, text := range texts {
+		for _, pattern := range patterns {
+			if matches := regexp.MustCompile(pattern).FindStringSubmatch(text); len(matches) > 1 {
+				priceStr := strings.TrimSpace(matches[1])
+				// 清理价格字符串
+				priceStr = strings.ReplaceAll(priceStr, " ", "")
+				priceStr = strings.ReplaceAll(priceStr, ",", "")
+				logDebug(ctx, taskId, fmt.Sprintf("💰 提取到最低到手价：%s", priceStr))
+				return priceStr
+			}
+		}
+	}
+
+	return ""
+}
+
+// extractShippingInsuranceFromTexts 从文本中提取运费险信息
+func (s *sCrawler) extractShippingInsuranceFromTexts(ctx context.Context, texts []string, taskId string) *bool {
+	shippingInsuranceMarkers := []string{"配置运费险", "赠送运费险", "运费险"}
+	noShippingInsuranceMarkers := []string{"无运费险", "未配置运费险"}
+	sawServiceGuarantee := false
+
+	for _, text := range texts {
+		for _, marker := range shippingInsuranceMarkers {
+			if strings.Contains(text, marker) {
+				trueValue := true
+				logDebug(ctx, taskId, "📦 提取到运费险：是")
+				return &trueValue
+			}
+		}
+		for _, marker := range noShippingInsuranceMarkers {
+			if strings.Contains(text, marker) {
+				falseValue := false
+				logDebug(ctx, taskId, "📦 提取到运费险：否")
+				return &falseValue
+			}
+		}
+		if strings.Contains(text, "服务保障") {
+			sawServiceGuarantee = true
+		}
+	}
+
+	if sawServiceGuarantee {
+		return nil
+	}
+
+	return nil
+}
+
+// extractDetailAccessState 提取商品详情访问状态
+func (s *sCrawler) extractDetailAccessState(ctx context.Context, texts []string, taskId string) (string, string) {
+	removedMarkers := []string{"目标商品已下架"}
+	categoryMismatchMarkers := []string{
+		"您经营的类目与对方不匹配",
+		"经营的类目与对方不匹配",
+		"类目与对方不匹配",
+	}
+
+	for _, text := range texts {
+		for _, marker := range removedMarkers {
+			if strings.Contains(text, marker) {
+				logDebug(ctx, taskId, "⚠️ 商品已下架")
+				return "removed", "目标商品已下架"
+			}
+		}
+		for _, marker := range categoryMismatchMarkers {
+			if strings.Contains(text, marker) {
+				logDebug(ctx, taskId, "⚠️ 类目不匹配")
+				return "category_mismatch", "经营类目不匹配"
+			}
+		}
+	}
+
+	return "available", ""
+}
+
+// normalizeDateString 标准化日期字符串
+func (s *sCrawler) normalizeDateString(dateStr string) string {
+	// 替换各种日期分隔符
+	dateStr = strings.ReplaceAll(dateStr, "年", "-")
+	dateStr = strings.ReplaceAll(dateStr, "月", "-")
+	dateStr = strings.ReplaceAll(dateStr, "日", "")
+	dateStr = strings.ReplaceAll(dateStr, ".", "-")
+	dateStr = strings.ReplaceAll(dateStr, "/", "-")
+
+	// 清理空格
+	dateStr = strings.ReplaceAll(dateStr, " ", "")
+
+	return dateStr
+}
+
+// processResponseBody 处理响应体的编码和压缩
+func (s *sCrawler) processResponseBody(body []byte, headers map[string][]string) (string, error) {
+	// 检查是否是gzip压缩
+	if encoding, ok := headers["Content-Encoding"]; ok {
+		for _, enc := range encoding {
+			if strings.Contains(enc, "gzip") {
+				// 解压缩gzip数据
+				gzipReader, err := gzip.NewReader(bytes.NewReader(body))
+				if err != nil {
+					return "", err
+				}
+				defer gzipReader.Close()
+
+				uncompressed, err := io.ReadAll(gzipReader)
+				if err != nil {
+					return "", err
+				}
+				body = uncompressed
+				break
+			}
+		}
+	}
+
+	// 检查是否是deflate压缩
+	if encoding, ok := headers["Content-Encoding"]; ok {
+		for _, enc := range encoding {
+			if strings.Contains(enc, "deflate") {
+				// 解压缩deflate数据
+				var buf bytes.Buffer
+				deflater := flate.NewReader(bytes.NewReader(body))
+				if _, err := io.Copy(&buf, deflater); err != nil {
+					return "", err
+				}
+				deflater.Close()
+				body = buf.Bytes()
+				break
+			}
+		}
+	}
+
+	// 尝试使用不同的编码解码
+	// 先尝试 UTF-8
+	if utf8Content := string(body); len(utf8Content) > 0 {
+		return utf8Content, nil
+	}
+
+	// 尝试 GBK
+	if reader := transform.NewReader(bytes.NewReader(body), simplifiedchinese.GBK.NewDecoder()); reader != nil {
+		if content, err := io.ReadAll(reader); err == nil && len(content) > 0 {
+			return string(content), nil
+		}
+	}
+
+	// 尝试 GB2312
+	if reader := transform.NewReader(bytes.NewReader(body), simplifiedchinese.HZGB2312.NewDecoder()); reader != nil {
+		if content, err := io.ReadAll(reader); err == nil && len(content) > 0 {
+			return string(content), nil
+		}
+	}
+
+	// 尝试 Big5
+	if reader := transform.NewReader(bytes.NewReader(body), traditionalchinese.Big5.NewDecoder()); reader != nil {
+		if content, err := io.ReadAll(reader); err == nil && len(content) > 0 {
+			return string(content), nil
+		}
+	}
+
+	// 直接尝试转换为字符串
+	return string(body), nil
+}
+
+// parseProductDetailResponse 解析商品详情 API 响应 JSON
+func parseProductDetailResponse(body string, product ProductInfo) *ProductDetail {
+	detail := &ProductDetail{
+		ProductName: product.ProductName,
+	}
+
+	// 打印响应体前1000字符，了解API响应结构
+	if len(body) > 1000 {
+		fmt.Printf("[DEBUG] 商品详情API响应前1000字符: %s\n", body[:1000])
+	} else {
+		fmt.Printf("[DEBUG] 商品详情API响应: %s\n", body)
+	}
+
+	// 尝试多种API响应结构解析
+	// 结构1: {"data":{"first_shelf_time":"...", "min_price":"..."}}
+	type response1 struct {
+		Data struct {
+			FirstShelfTime       string `json:"first_shelf_time"`
+			MinPrice             string `json:"min_price"`
+			HasShippingInsurance *bool  `json:"has_shipping_insurance"`
+		} `json:"data"`
+	}
+
+	var resp1 response1
+	if err := json.Unmarshal([]byte(body), &resp1); err == nil {
+		if resp1.Data.FirstShelfTime != "" {
+			detail.FirstShelfTime = resp1.Data.FirstShelfTime
+		}
+		if resp1.Data.MinPrice != "" {
+			detail.MinPrice = resp1.Data.MinPrice
+		}
+		fmt.Printf("[DEBUG] 解析商品详情API响应成功：结构1\n")
+		return detail
+	}
+
+	// 结构2: {"data":{"product_info":{"first_shelf_time":"...", "min_price":"..."}}}
+	type response2 struct {
+		Data struct {
+			ProductInfo struct {
+				FirstShelfTime       string `json:"first_shelf_time"`
+				MinPrice             string `json:"min_price"`
+				HasShippingInsurance *bool  `json:"has_shipping_insurance"`
+			} `json:"product_info"`
+		} `json:"data"`
+	}
+
+	var resp2 response2
+	if err := json.Unmarshal([]byte(body), &resp2); err == nil {
+		if resp2.Data.ProductInfo.FirstShelfTime != "" {
+			detail.FirstShelfTime = resp2.Data.ProductInfo.FirstShelfTime
+		}
+		if resp2.Data.ProductInfo.MinPrice != "" {
+			detail.MinPrice = resp2.Data.ProductInfo.MinPrice
+		}
+		fmt.Printf("[DEBUG] 解析商品详情API响应成功：结构2\n")
+		return detail
+	}
+
+	// 结构3: {"result":{"first_shelf_time":"...", "min_price":"..."}}
+	type response3 struct {
+		Result struct {
+			FirstShelfTime       string `json:"first_shelf_time"`
+			MinPrice             string `json:"min_price"`
+			HasShippingInsurance *bool  `json:"has_shipping_insurance"`
+		} `json:"result"`
+	}
+
+	var resp3 response3
+	if err := json.Unmarshal([]byte(body), &resp3); err == nil {
+		if resp3.Result.FirstShelfTime != "" {
+			detail.FirstShelfTime = resp3.Result.FirstShelfTime
+		}
+		if resp3.Result.MinPrice != "" {
+			detail.MinPrice = resp3.Result.MinPrice
+		}
+		fmt.Printf("[DEBUG] 解析商品详情API响应成功：结构3\n")
+		return detail
+	}
+
+	// 结构4: {"data":{"item_info":{"first_shelf_time":"...", "min_price":"..."}}}
+	type response4 struct {
+		Data struct {
+			ItemInfo struct {
+				FirstShelfTime       string `json:"first_shelf_time"`
+				MinPrice             string `json:"min_price"`
+				HasShippingInsurance *bool  `json:"has_shipping_insurance"`
+			} `json:"item_info"`
+		} `json:"data"`
+	}
+
+	var resp4 response4
+	if err := json.Unmarshal([]byte(body), &resp4); err == nil {
+		if resp4.Data.ItemInfo.FirstShelfTime != "" {
+			detail.FirstShelfTime = resp4.Data.ItemInfo.FirstShelfTime
+		}
+		if resp4.Data.ItemInfo.MinPrice != "" {
+			detail.MinPrice = resp4.Data.ItemInfo.MinPrice
+		}
+		fmt.Printf("[DEBUG] 解析商品详情API响应成功：结构4\n")
+		return detail
+	}
+
+	// 结构5: 直接在根级别
+	type response5 struct {
+		FirstShelfTime       string `json:"first_shelf_time"`
+		MinPrice             string `json:"min_price"`
+		HasShippingInsurance *bool  `json:"has_shipping_insurance"`
+	}
+
+	var resp5 response5
+	if err := json.Unmarshal([]byte(body), &resp5); err == nil {
+		if resp5.FirstShelfTime != "" {
+			detail.FirstShelfTime = resp5.FirstShelfTime
+		}
+		if resp5.MinPrice != "" {
+			detail.MinPrice = resp5.MinPrice
+		}
+		fmt.Printf("[DEBUG] 解析商品详情API响应成功：结构5\n")
+		return detail
+	}
+
+	// 尝试使用正则表达式提取关键信息
+	detail = extractDetailByRegex(body, detail)
+	if detail.FirstShelfTime != "" || detail.MinPrice != "" {
+		fmt.Printf("[DEBUG] 解析商品详情API响应成功：正则表达式\n")
+		return detail
+	}
+
+	// 解析失败，返回空详情
+	fmt.Printf("[DEBUG] 解析商品详情API响应失败：所有结构都不匹配\n")
+	return detail
+}
+
+// extractDetailByRegex 使用正则表达式从响应体中提取商品详情
+func extractDetailByRegex(body string, detail *ProductDetail) *ProductDetail {
+	// 提取首次上架时间
+	datePatterns := []*regexp.Regexp{
+		regexp.MustCompile(`"first_shelf_time"\s*:\s*"([^"]+)"`),
+		regexp.MustCompile(`first_shelf_time\s*:\s*"([^"]+)"`),
+		regexp.MustCompile(`上架时间\s*:\s*"([^"]+)"`),
+	}
+
+	for _, pattern := range datePatterns {
+		matches := pattern.FindStringSubmatch(body)
+		if len(matches) > 1 {
+			detail.FirstShelfTime = matches[1]
+			break
+		}
+	}
+
+	// 提取最低到手价
+	pricePatterns := []*regexp.Regexp{
+		regexp.MustCompile(`"min_price"\s*:\s*"([^"]+)"`),
+		regexp.MustCompile(`min_price\s*:\s*"([^"]+)"`),
+		regexp.MustCompile(`最低价格\s*:\s*"([^"]+)"`),
+		regexp.MustCompile(`"price"\s*:\s*"([^"]+)"`),
+		regexp.MustCompile(`price\s*:\s*"([^"]+)"`),
+	}
+
+	for _, pattern := range pricePatterns {
+		matches := pattern.FindStringSubmatch(body)
+		if len(matches) > 1 {
+			detail.MinPrice = matches[1]
+			break
+		}
 	}
 
 	return detail
@@ -1028,14 +1547,23 @@ func (s *sCrawler) scrapeVideoAnalysis(ctx context.Context, browser *rod.Browser
 		p := product
 
 		pool.Submit(func() {
-			videos := s.scrapeSingleProductVideos(ctx, browser, p, taskId)
+			videos := s.scrapeSingleProductVideosWithAPI(ctx, browser, p, taskId)
 			if len(videos) > 0 {
 				mu.Lock()
 				allVideos = append(allVideos, videos...)
 				mu.Unlock()
 				logDebug(ctx, taskId, fmt.Sprintf("✅ [%d/%d] 视频分析完成：%s (%d 条视频)", index+1, len(products), p.ProductName, len(videos)))
 			} else {
-				logWarn(ctx, taskId, fmt.Sprintf("⚠️ [%d/%d] 视频分析失败：%s", index+1, len(products), p.ProductName))
+				// 如果API拦截失败，回退到页面解析方式
+				videos = s.scrapeSingleProductVideos(ctx, browser, p, taskId)
+				if len(videos) > 0 {
+					mu.Lock()
+					allVideos = append(allVideos, videos...)
+					mu.Unlock()
+					logDebug(ctx, taskId, fmt.Sprintf("✅ [%d/%d] 视频分析完成（页面解析）：%s (%d 条视频)", index+1, len(products), p.ProductName, len(videos)))
+				} else {
+					logWarn(ctx, taskId, fmt.Sprintf("⚠️ [%d/%d] 视频分析失败：%s", index+1, len(products), p.ProductName))
+				}
 			}
 		})
 	}
@@ -1048,6 +1576,167 @@ func (s *sCrawler) scrapeVideoAnalysis(ctx context.Context, browser *rod.Browser
 		len(allVideos), elapsed.Seconds(), float64(len(products))*3-elapsed.Seconds()))
 
 	return allVideos
+}
+
+// scrapeSingleProductVideosWithAPI 使用API拦截的方式获取单个商品的视频分析数据
+func (s *sCrawler) scrapeSingleProductVideosWithAPI(ctx context.Context, browser *rod.Browser, product ProductInfo, taskId string) []VideoAnalysis {
+	var videos []VideoAnalysis
+
+	// 重试打开页面
+	page, err := browser.Page(proto.TargetCreateTarget{URL: ""})
+	if err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 无法打开浏览器页面：%v", err))
+		return videos
+	}
+	defer page.Close()
+
+	// 设置API拦截器
+	videoCh := make(chan []VideoAnalysis, 1)
+	router := page.HijackRequests()
+
+	// 拦截视频分析相关的API请求
+	if err := router.Add("*video*", "", func(h *rod.Hijack) {
+		if err := h.LoadResponse(&http.Client{}, true); err != nil {
+			logWarn(ctx, taskId, fmt.Sprintf("⚠️ LoadResponse 失败：%v", err))
+			h.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
+		body := h.Response.Body()
+		if len(body) == 0 {
+			logWarn(ctx, taskId, fmt.Sprintf("⚠️ 响应体为空，URL：%s", h.Request.URL().String()))
+			h.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
+
+		// 处理响应体编码和压缩
+		responseBody, err := s.processResponseBody([]byte(body), h.Response.Headers())
+		if err != nil {
+			logWarn(ctx, taskId, fmt.Sprintf("⚠️ 处理响应体失败：%v", err))
+			h.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
+
+		// 尝试解析视频分析数据
+		videoData := parseVideoAnalysisResponse(responseBody, product)
+		if len(videoData) > 0 {
+			logInfo(ctx, taskId, fmt.Sprintf("🔍 拦截到视频分析 API 响应，解析到 %d 条视频数据", len(videoData)))
+			select {
+			case videoCh <- videoData:
+			default:
+				logWarn(ctx, taskId, "⚠️ videoCh 已满，丢弃数据")
+			}
+		}
+		h.ContinueRequest(&proto.FetchContinueRequest{})
+	}); err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 注册视频分析 API 拦截失败：%v", err))
+		return videos
+	}
+
+	// 拦截配额API和显示规则API，避免查看次数限制
+	if err := router.Add("*get_view_quota*", "", func(h *rod.Hijack) {
+		// 返回伪造的高配额响应
+		fakeResponse := `{"data":{"remaining_cnt":999,"target_id_viewable":true},"msg":"","st":0}`
+		h.Response.SetBody([]byte(fakeResponse))
+		h.Response.SetHeader("Content-Type", "application/json")
+		h.ContinueRequest(&proto.FetchContinueRequest{})
+	}); err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 注册配额API拦截失败：%v", err))
+	}
+
+	if err := router.Add("*get_display_rule*", "", func(h *rod.Hijack) {
+		// 返回伪造的显示规则响应
+		fakeResponse := `{"data":{"display_type":1},"msg":"","st":0}`
+		h.Response.SetBody([]byte(fakeResponse))
+		h.Response.SetHeader("Content-Type", "application/json")
+		h.ContinueRequest(&proto.FetchContinueRequest{})
+	}); err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 注册显示规则API拦截失败：%v", err))
+	}
+
+	go router.Run()
+	defer router.Stop()
+
+	// 导航到视频分析页面
+	analysisURL := fmt.Sprintf("https://compass.jinritemai.com/shop/product/product-detail?product_id=%s&tab=video", product.ProductID)
+	if err := s.retryWithBackoff(func() error {
+		return page.Navigate(analysisURL)
+	}, 3); err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 打开视频分析失败：%v", err))
+		return videos
+	}
+
+	page.WaitLoad()
+
+	// 等待API响应，最多10秒
+	select {
+	case videos = <-videoCh:
+		logInfo(ctx, taskId, fmt.Sprintf("✅ 通过API拦截获取到视频分析数据：%d 条", len(videos)))
+	case <-time.After(10 * time.Second):
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 视频分析API响应超时：%s", product.ProductName))
+	}
+
+	return videos
+}
+
+// parseVideoAnalysisResponse 解析视频分析 API 响应 JSON
+func parseVideoAnalysisResponse(body string, product ProductInfo) []VideoAnalysis {
+	var videos []VideoAnalysis
+
+	// 打印响应体前1000字符，了解API响应结构
+	if len(body) > 1000 {
+		fmt.Printf("[DEBUG] 视频分析API响应前1000字符: %s\n", body[:1000])
+	} else {
+		fmt.Printf("[DEBUG] 视频分析API响应: %s\n", body)
+	}
+
+	// 这里需要根据实际的API响应结构进行解析
+	// 以下是一个示例解析逻辑，需要根据实际API响应进行调整
+	type videoItem struct {
+		VideoId           string `json:"video_id"`
+		VideoDesc         string `json:"video_desc"`
+		PaymentAmount     string `json:"payment_amount"`
+		ExposeUserCount   string `json:"expose_user_count"`
+		ClickUserCount    string `json:"click_user_count"`
+		ConvertUserCount  string `json:"convert_user_count"`
+		ClickRate         string `json:"click_rate"`
+		ClickConvertRate  string `json:"click_convert_rate"`
+		ExposeConvertRate string `json:"expose_convert_rate"`
+		OrderCount        string `json:"order_count"`
+		SalesVolume       string `json:"sales_volume"`
+	}
+
+	type response struct {
+		Data struct {
+			VideoList []videoItem `json:"video_list"`
+		} `json:"data"`
+	}
+
+	var resp response
+	if err := json.Unmarshal([]byte(body), &resp); err != nil {
+		fmt.Printf("[DEBUG] 解析视频分析API响应失败：%v\n", err)
+		return videos
+	}
+
+	for _, item := range resp.Data.VideoList {
+		video := VideoAnalysis{
+			ProductID:         product.ProductID,
+			ProductName:       product.ProductName,
+			VideoId:           item.VideoId,
+			VideoDesc:         item.VideoDesc,
+			PaymentAmount:     item.PaymentAmount,
+			ExposeUserCount:   item.ExposeUserCount,
+			ClickUserCount:    item.ClickUserCount,
+			ConvertUserCount:  item.ConvertUserCount,
+			ClickRate:         item.ClickRate,
+			ClickConvertRate:  item.ClickConvertRate,
+			ExposeConvertRate: item.ExposeConvertRate,
+			OrderCount:        item.OrderCount,
+			SalesVolume:       item.SalesVolume,
+		}
+		videos = append(videos, video)
+	}
+
+	return videos
 }
 
 // scrapeSingleProductVideos 获取单个商品的视频分析数据（改进版）
@@ -1063,7 +1752,7 @@ func (s *sCrawler) scrapeSingleProductVideos(ctx context.Context, browser *rod.B
 	defer page.Close()
 
 	// 导航到视频分析页面（带重试）
-	analysisURL := fmt.Sprintf("https://compass.jinritemai.com/shop/product/product-detail?product_id=%s&tab=video", product.ProductName)
+	analysisURL := fmt.Sprintf("https://compass.jinritemai.com/shop/product/product-detail?product_id=%s&tab=video", product.ProductID)
 	if err := s.retryWithBackoff(func() error {
 		return page.Navigate(analysisURL)
 	}, 3); err != nil {
@@ -1081,6 +1770,8 @@ func (s *sCrawler) scrapeSingleProductVideos(ctx context.Context, browser *rod.B
 	videoList := s.scrapeVideoList(ctx, page, taskId, product.ProductName)
 	for _, v := range videoList {
 		v.PaymentAmount = coreData.PaymentAmount
+		v.ProductID = product.ProductID
+		v.ProductName = product.ProductName
 		videos = append(videos, v)
 	}
 
@@ -1126,7 +1817,7 @@ func (s *sCrawler) scrapeVideoList(ctx context.Context, page *rod.Page, taskId s
 
 	for i, row := range videoRows {
 		video := VideoAnalysis{
-			VideoID:   fmt.Sprintf("video_%d", i),
+			VideoId:   fmt.Sprintf("video_%d", i),
 			VideoDesc: fmt.Sprintf("%s-视频%d", productName, i+1),
 		}
 
@@ -1148,9 +1839,20 @@ func (s *sCrawler) scrapeVideoList(ctx context.Context, page *rod.Page, taskId s
 func (s *sCrawler) saveAllData(ctx context.Context, taskId string, products []ProductInfo, details []ProductDetail, videos []VideoAnalysis) error {
 	// 保存商品榜单数据
 	var rankingList []*model.TikTokRankingListInput
-	for i, p := range products {
+
+	// 创建详情数据映射，使用ProductID作为键
+	detailMap := make(map[string]*ProductDetail)
+	for i := range details {
+		if details[i].ProductID != "" {
+			detail := details[i] // 创建副本
+			detailMap[details[i].ProductID] = &detail
+		}
+	}
+
+	for _, p := range products {
 		record := &model.TikTokRankingListInput{
 			TaskId:           taskId,
+			ProductId:        p.ProductID,
 			Rank:             p.Rank,
 			ProductName:      p.ProductName,
 			ShopName:         p.ShopName,
@@ -1161,25 +1863,43 @@ func (s *sCrawler) saveAllData(ctx context.Context, taskId string, products []Pr
 			CreatedAt:        time.Now(),
 		}
 
-		// 合并详情数据
-		if i < len(details) {
-			record.FirstShelfTime = details[i].FirstShelfTime
-			record.MinPrice = details[i].MinPrice
+		// 合并详情数据，使用ProductID匹配
+		if detail, ok := detailMap[p.ProductID]; ok {
+			record.FirstShelfTime = detail.FirstShelfTime
+			record.MinPrice = detail.MinPrice
+			logInfo(ctx, taskId, fmt.Sprintf("✅ 匹配商品详情数据：%s (ProductID: %s)", p.ProductName, p.ProductID))
+		} else {
+			logWarn(ctx, taskId, fmt.Sprintf("⚠️ 未找到商品详情数据：%s (ProductID: %s)", p.ProductName, p.ProductID))
 		}
 
 		rankingList = append(rankingList, record)
 	}
 
-	// 商品数据已经每页保存，这里跳过批量插入
+	// 保存商品数据（包含详情信息）
 	if len(rankingList) > 0 {
-		logInfo(ctx, taskId, fmt.Sprintf("ℹ️  商品数据已分页保存（共 %d 条），跳过批量插入", len(rankingList)))
+		// 这里不是批量插入，而是更新已保存的商品数据，添加详情信息
+		for _, record := range rankingList {
+			// 尝试根据ProductId更新商品数据，添加详情信息
+			if err := service.TikTokRankingList().UpdateByProductId(ctx, record); err != nil {
+				logWarn(ctx, taskId, fmt.Sprintf("⚠️ 更新商品详情数据失败：%v", err))
+			} else {
+				logInfo(ctx, taskId, fmt.Sprintf("✅ 更新商品详情数据：%s", record.ProductName))
+			}
+		}
 	}
 
 	// 保存视频分析数据
 	var videoData []*model.VideoAnalysisData
 	for _, v := range videos {
+		// 跳过空数据
+		if v.VideoId == "" && v.VideoDesc == "" {
+			continue
+		}
 		record := &model.VideoAnalysisData{
 			TaskId:            taskId,
+			ProductId:         v.ProductID,
+			ProductName:       v.ProductName,
+			VideoId:           v.VideoId,
 			VideoDesc:         v.VideoDesc,
 			PaymentAmount:     v.PaymentAmount,
 			ExposeUserCount:   v.ExposeUserCount,
@@ -1196,11 +1916,24 @@ func (s *sCrawler) saveAllData(ctx context.Context, taskId string, products []Pr
 	}
 
 	if len(videoData) > 0 {
-		if err := service.VideoAnalysis().CreateBatch(ctx, videoData); err != nil {
-			logWarn(ctx, taskId, fmt.Sprintf("⚠️ 保存视频分析数据失败：%v", err))
-		} else {
-			logInfo(ctx, taskId, fmt.Sprintf("✅ 保存视频分析数据：%d 条", len(videoData)))
+		// 批量保存视频分析数据
+		batchSize := 50
+		for i := 0; i < len(videoData); i += batchSize {
+			end := i + batchSize
+			if end > len(videoData) {
+				end = len(videoData)
+			}
+			batch := videoData[i:end]
+			if err := service.VideoAnalysis().CreateBatch(ctx, batch); err != nil {
+				logWarn(ctx, taskId, fmt.Sprintf("⚠️ 保存视频分析数据失败：%v", err))
+			} else {
+				logInfo(ctx, taskId, fmt.Sprintf("✅ 保存视频分析数据：%d 条（批次 %d/%d）", len(batch), i/batchSize+1, (len(videoData)+batchSize-1)/batchSize))
+			}
+			// 随机延迟，避免数据库压力过大
+			time.Sleep(time.Duration(grand.Intn(500)+200) * time.Millisecond)
 		}
+	} else {
+		logInfo(ctx, taskId, "ℹ️ 没有视频分析数据需要保存")
 	}
 
 	return nil
@@ -1230,6 +1963,238 @@ func (s *sCrawler) convertToModelProducts(products []ProductInfo, details []Prod
 		result = append(result, record)
 	}
 	return result
+}
+
+// setupAPIInterceptor 注册 API 拦截器（必须在页面导航和 Tab 点击之前调用）
+// 返回 router 用于 defer 关闭，pageCh 用于接收每页数据
+func (s *sCrawler) setupAPIInterceptor(ctx context.Context, page *rod.Page, taskId string) (*rod.HijackRouter, chan []ProductInfo) {
+	pageCh := make(chan []ProductInfo, 1)
+
+	router := page.HijackRequests()
+	// 注意：不指定 ResourceType（传空字符串），否则只匹配 Fetch 类型，
+	// 而抖店的 API 可能通过 XHR（XMLHttpRequest）发出，导致完全匹配不到
+	if err := router.Add("*video_bring_good*", "", func(h *rod.Hijack) {
+		if err := h.LoadResponse(&http.Client{}, true); err != nil {
+			logWarn(ctx, taskId, fmt.Sprintf("⚠️ LoadResponse 失败：%v", err))
+			h.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
+		body := h.Response.Body()
+		if len(body) == 0 {
+			// 响应体为空，可能是 Inspector Cache 被驱逐
+			// 已通过 NetworkEnable.MaxTotalBufferSize 扩大缓存来预防此问题
+			logWarn(ctx, taskId, fmt.Sprintf("⚠️ 响应体为空（可能 Inspector Cache 被驱逐），URL：%s", h.Request.URL().String()))
+			h.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
+		logInfo(ctx, taskId, fmt.Sprintf("🔍 拦截到 API 响应，body 长度：%d", len(body)))
+		products := parseProductRankResponse(body)
+		logInfo(ctx, taskId, fmt.Sprintf("🔍 解析到 %d 条商品数据", len(products)))
+		// 非阻塞发送，避免主循环已超时时 goroutine 泄漏
+		select {
+		case pageCh <- products:
+		default:
+			logWarn(ctx, taskId, "⚠️ pageCh 已满，丢弃数据（主循环未及时消费）")
+		}
+	}); err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 注册 hijack 失败：%v", err))
+	}
+
+	return router, pageCh
+}
+
+// collectInterceptedData 从 pageCh 收集拦截到的数据并翻页
+func (s *sCrawler) collectInterceptedData(ctx context.Context, page *rod.Page, taskId string, checkpointManager *service.CheckpointManager, startPage int, pageCh chan []ProductInfo) []ProductInfo {
+	var allProducts []ProductInfo
+	totalPages := 20
+	currentPage := startPage
+
+	for currentPage <= totalPages {
+		logInfo(ctx, taskId, fmt.Sprintf("📄 正在处理第 %d/%d 页", currentPage, totalPages))
+
+		// 等待当前页数据，最多 20 秒
+		var pageProducts []ProductInfo
+		select {
+		case pageProducts = <-pageCh:
+		case <-time.After(20 * time.Second):
+			logWarn(ctx, taskId, fmt.Sprintf("⚠️ 第 %d 页等待超时，跳过", currentPage))
+		}
+
+		if len(pageProducts) > 0 {
+			allProducts = append(allProducts, pageProducts...)
+			logInfo(ctx, taskId, fmt.Sprintf("✅ 第 %d 页解析到 %d 条，立即保存", currentPage, len(pageProducts)))
+			s.savePageData(ctx, taskId, pageProducts, currentPage)
+		} else {
+			logWarn(ctx, taskId, fmt.Sprintf("⚠️ 第 %d 页未获取到数据", currentPage))
+		}
+
+		checkpointManager.UpdateProgress(ctx, taskId, 6, currentPage, len(allProducts))
+
+		if currentPage < totalPages {
+			if !s.clickNextPage(ctx, page, taskId) {
+				logWarn(ctx, taskId, fmt.Sprintf("⚠️ 无法点击下一页，停止翻页（当前第 %d 页）", currentPage))
+				break
+			}
+		}
+
+		currentPage++
+	}
+
+	allProducts = s.uniqueProducts(allProducts)
+	logInfo(ctx, taskId, fmt.Sprintf("📊 API 拦截完成，共获取 %d 条商品（去重后）", len(allProducts)))
+	return allProducts
+}
+
+// interceptProductRankAPI 已废弃，逻辑拆分到 setupAPIInterceptor + collectInterceptedData
+// 保留此方法签名避免外部编译报错
+func (s *sCrawler) interceptProductRankAPI(ctx context.Context, page *rod.Page, taskId string, checkpointManager *service.CheckpointManager, startPage int) []ProductInfo {
+	return s.collectInterceptedData(ctx, page, taskId, checkpointManager, startPage, make(chan []ProductInfo, 1))
+}
+
+// parseProductRankResponse 解析商品榜单 API 响应 JSON
+func parseProductRankResponse(body string) []ProductInfo {
+	// 打印响应体前1000字符，了解API响应结构
+	if len(body) > 1000 {
+		fmt.Printf("[DEBUG] API响应前1000字符: %s\n", body[:1000])
+	} else {
+		fmt.Printf("[DEBUG] API响应: %s\n", body)
+	}
+
+	// 使用简单的 JSON 解析，避免引入额外依赖
+	// 结构：data.data_result[i].product_info.*
+	type shopInfo struct {
+		ShopID   string `json:"shop_id"`
+		ShopName string `json:"shop_name"`
+	}
+	type productInfo struct {
+		Rank             int        `json:"rank"`
+		ID               string     `json:"id"`
+		Name             string     `json:"name"`
+		PriceBin         string     `json:"price_bin"`
+		ProductDetailURL string     `json:"product_detail_h5_url"`
+		NewlyOnRanking   bool       `json:"newly_on_ranking"`
+		ShopList         []shopInfo `json:"shop_list"`
+	}
+	type valueItem struct {
+		Value interface{} `json:"value"`
+		Unit  string      `json:"unit"`
+	}
+	type valueRange struct {
+		ValueRange []valueItem `json:"value_range"`
+	}
+	type dataItem struct {
+		ProductInfo productInfo `json:"product_info"`
+		PayAmt      valueRange  `json:"pay_amt"`
+		NewPayAmt   valueRange  `json:"new_pay_amt"`
+		PayComboCnt valueRange  `json:"pay_combo_cnt"`
+		ClickCnt    valueRange  `json:"product_click_cnt"`
+		VideoCnt    valueRange  `json:"video_cnt"`
+	}
+	type pageResult struct {
+		Total    int `json:"total"`
+		PageNo   int `json:"page_no"`
+		PageSize int `json:"page_size"`
+	}
+	type dataWrapper struct {
+		DataResult []dataItem `json:"data_result"`
+		PageResult pageResult `json:"page_result"`
+	}
+	type apiResponse struct {
+		Data dataWrapper `json:"data"`
+	}
+
+	var resp apiResponse
+	if err := json.Unmarshal([]byte(body), &resp); err != nil {
+		fmt.Printf("[ERROR] JSON解析失败: %v\n", err)
+		return nil
+	}
+
+	// 打印解析结果
+	fmt.Printf("[DEBUG] 解析到DataResult长度: %d\n", len(resp.Data.DataResult))
+	if len(resp.Data.DataResult) > 0 {
+		fmt.Printf("[DEBUG] 第一个DataItem: %+v\n", resp.Data.DataResult[0])
+	}
+
+	formatRange := func(vr valueRange) string {
+		items := vr.ValueRange
+		if len(items) == 0 {
+			return ""
+		}
+		first := items[0]
+		last := items[len(items)-1]
+
+		// 转换Value为字符串
+		firstValue := ""
+		switch v := first.Value.(type) {
+		case string:
+			firstValue = v
+		case float64:
+			firstValue = fmt.Sprintf("%v", v)
+		case int:
+			firstValue = fmt.Sprintf("%d", v)
+		case int64:
+			firstValue = fmt.Sprintf("%d", v)
+		}
+
+		lastValue := ""
+		switch v := last.Value.(type) {
+		case string:
+			lastValue = v
+		case float64:
+			lastValue = fmt.Sprintf("%v", v)
+		case int:
+			lastValue = fmt.Sprintf("%d", v)
+		case int64:
+			lastValue = fmt.Sprintf("%d", v)
+		}
+
+		if firstValue == "" {
+			return ""
+		}
+		if firstValue == lastValue {
+			return firstValue
+		}
+		return firstValue + "-" + lastValue
+	}
+
+	var products []ProductInfo
+	for i, item := range resp.Data.DataResult {
+		info := item.ProductInfo
+		if info.ID == "" || info.Name == "" {
+			fmt.Printf("[DEBUG] 跳过无效商品数据: ID=%s, Name=%s\n", info.ID, info.Name)
+			continue
+		}
+		shopName := ""
+		if len(info.ShopList) > 0 {
+			shopName = info.ShopList[0].ShopName
+		}
+		firstList := 0
+		if info.NewlyOnRanking {
+			firstList = 1
+		}
+		// 优先使用 pay_amt，回退到 new_pay_amt
+		payAmt := item.PayAmt
+		if len(payAmt.ValueRange) == 0 {
+			payAmt = item.NewPayAmt
+		}
+		product := ProductInfo{
+			Rank:             info.Rank,
+			ProductID:        info.ID,
+			ProductName:      info.Name,
+			ShopName:         shopName,
+			PaymentAmount:    formatRange(payAmt),
+			ClickCount:       formatRange(item.ClickCnt),
+			SalesVolume:      formatRange(item.PayComboCnt),
+			DeliveryVideoNum: formatRange(item.VideoCnt),
+			ProductURL:       info.ProductDetailURL,
+			FirstList:        firstList,
+			PriceRange:       info.PriceBin,
+		}
+		products = append(products, product)
+		fmt.Printf("[DEBUG] 解析到商品 %d: %s\n", i+1, product.ProductName)
+	}
+	fmt.Printf("[DEBUG] 最终解析到 %d 条商品\n", len(products))
+	return products
 }
 
 // scrapeAllPagesWithCheckpoint 支持断点续爬的分页抓取
@@ -1285,11 +2250,15 @@ func (s *sCrawler) savePageData(ctx context.Context, taskId string, products []P
 		}
 	}
 
+	// 从缓存获取详情数据
+	cache := service.GetProductDetailCache()
+
 	// 转换为数据库模型
 	var rankingList []*model.TikTokRankingListInput
 	for _, p := range products {
 		record := &model.TikTokRankingListInput{
 			TaskId:           taskId,
+			ProductId:        p.ProductID,
 			Rank:             p.Rank,
 			ProductName:      p.ProductName,
 			ShopName:         p.ShopName,
@@ -1297,12 +2266,21 @@ func (s *sCrawler) savePageData(ctx context.Context, taskId string, products []P
 			ClickCount:       p.ClickCount,
 			SalesVolume:      p.SalesVolume,
 			DeliveryVideoNum: p.DeliveryVideoNum,
-			FirstShelfTime:   "",
-			MinPrice:         "",
-			FirstList:        p.FirstList,  // 首次上榜标识
-			PriceRange:       p.PriceRange, // 从表格提取的价格带
+			FirstList:        p.FirstList,
+			PriceRange:       p.PriceRange,
 			CreatedAt:        time.Now(),
 		}
+
+		// 从缓存获取详情数据
+		if cachedRecord := cache.GetRecord(p.ProductID); cachedRecord != nil && !cache.IsRecordStale(cachedRecord) {
+			record.FirstShelfTime = cachedRecord.FirstShelfTime
+			record.MinPrice = cachedRecord.MinPrice
+			logInfo(ctx, taskId, fmt.Sprintf("✅ 从缓存获取商品详情数据：%s (ProductID: %s)", p.ProductName, p.ProductID))
+		} else {
+			record.FirstShelfTime = ""
+			record.MinPrice = ""
+		}
+
 		rankingList = append(rankingList, record)
 	}
 

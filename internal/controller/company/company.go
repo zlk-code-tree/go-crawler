@@ -29,8 +29,8 @@ func (c *Controller) CompanyList(ctx context.Context, req *v1.SystemCompanyListR
 	}
 	total, _ := m.Count()
 	list, e := m.Page(page, pageSize).All()
-	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
 
@@ -57,10 +57,12 @@ func (c *Controller) CompanyList(ctx context.Context, req *v1.SystemCompanyListR
 		item["parent_name"] = parentNameMap[pid] // pid=0 时 map 返回零值空字符串
 		result = append(result, item)
 	}
-
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{
-		"list": result, "total": total, "page": page, "pageSize": pageSize,
-	}})
+	r.Response.WriteJsonExit(g.Map{
+		"code":  0,
+		"msg":   "ok",
+		"data":  result,
+		"total": total,
+	})
 	return
 }
 
@@ -69,7 +71,7 @@ func (c *Controller) CompanyCreate(ctx context.Context, req *v1.SystemCompanyCre
 	r := g.RequestFromCtx(ctx)
 	count, _ := g.DB().Model("sys_company").Where("code", req.Code).Count()
 	if count > 0 {
-		r.Response.WriteJsonExit(g.Map{"code": 400, "message": "公司编码已存在", "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "公司编码已存在", "data": nil})
 		return
 	}
 	result, e := g.DB().Model("sys_company").Insert(g.Map{
@@ -83,11 +85,11 @@ func (c *Controller) CompanyCreate(ctx context.Context, req *v1.SystemCompanyCre
 		"created_at": time.Now(),
 	})
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
 	id, _ := result.LastInsertId()
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{"id": id}})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": g.Map{"id": id}})
 	return
 }
 
@@ -111,10 +113,10 @@ func (c *Controller) CompanyUpdate(ctx context.Context, req *v1.SystemCompanyUpd
 		update["sort"] = *req.Sort
 	}
 	if _, e := g.DB().Model("sys_company").Where("id", req.Id).Update(update); e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": nil})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": nil})
 	return
 }
 
@@ -123,11 +125,11 @@ func (c *Controller) CompanyDetail(ctx context.Context, req *v1.SystemCompanyDet
 	r := g.RequestFromCtx(ctx)
 	record, e := g.DB().Model("sys_company").Where("id", req.Id).One()
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
 	if record.IsEmpty() {
-		r.Response.WriteJsonExit(g.Map{"code": 404, "message": "公司不存在", "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 404, "msg": "公司不存在", "data": nil})
 		return
 	}
 	item := record.Map()
@@ -138,7 +140,7 @@ func (c *Controller) CompanyDetail(ctx context.Context, req *v1.SystemCompanyDet
 	} else {
 		item["parent_name"] = nil
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": item})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": item})
 	return
 }
 
@@ -148,14 +150,14 @@ func (c *Controller) CompanyDelete(ctx context.Context, req *v1.SystemCompanyDel
 	// 检查是否有子公司
 	childCount, _ := g.DB().Model("sys_company").Where("parent_id", req.Id).Where("status", 1).Count()
 	if childCount > 0 {
-		r.Response.WriteJsonExit(g.Map{"code": 400, "message": "该公司下存在子公司，无法删除", "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "该公司下存在子公司，无法删除", "data": nil})
 		return
 	}
 	// 软删除
 	if _, e := g.DB().Model("sys_company").Where("id", req.Id).Update(g.Map{"status": 0}); e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": nil})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": nil})
 	return
 }

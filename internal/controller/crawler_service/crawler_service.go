@@ -31,8 +31,8 @@ func (c *Controller) CrawlerServiceStatus(ctx context.Context, req *v1.CrawlerSe
 	}
 
 	r.Response.WriteJsonExit(g.Map{
-		"code":    0,
-		"message": "ok",
+		"code": 0,
+		"msg":  "ok",
 		"data": g.Map{
 			"isOnline":  status.IsOnline,
 			"taskId":    status.TaskId,
@@ -48,9 +48,10 @@ func (c *Controller) CrawlerServiceStatus(ctx context.Context, req *v1.CrawlerSe
 func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerServiceLoginReq) (res *v1.CrawlerServiceLoginRes, err error) {
 	r := g.RequestFromCtx(ctx)
 	mgr := service.GetCrawlerStatusManager()
+	isRunning := mgr.IsOnline()
 
-	if mgr.IsOnline() {
-		r.Response.WriteJsonExit(g.Map{"code": 400, "message": "爬虫服务已在运行中，请先强制下线", "data": nil})
+	if isRunning {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "爬虫服务已在运行中，请先强制下线", "data": nil})
 		return
 	}
 
@@ -60,7 +61,7 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 	}
 
 	if loginType == "password" && (req.Username == "" || req.Password == "") {
-		r.Response.WriteJsonExit(g.Map{"code": 400, "message": "账号密码登录模式需要提供用户名和密码", "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "账号密码登录模式需要提供用户名和密码", "data": nil})
 		return
 	}
 
@@ -74,7 +75,7 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 		"created_at": time.Now(),
 	})
 	if dbErr != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": fmt.Sprintf("创建任务失败: %v", dbErr), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": fmt.Sprintf("创建任务失败: %v", dbErr), "data": nil})
 		return
 	}
 
@@ -113,9 +114,9 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 	}()
 
 	r.Response.WriteJsonExit(g.Map{
-		"code":    0,
-		"message": "爬虫服务已启动",
-		"data":    g.Map{"taskId": taskId},
+		"code": 0,
+		"msg":  "爬虫服务已启动",
+		"data": g.Map{"taskId": taskId},
 	})
 	return
 }
@@ -124,18 +125,19 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 func (c *Controller) CrawlerServiceForceOffline(ctx context.Context, req *v1.CrawlerServiceForceOfflineReq) (res *v1.CrawlerServiceForceOfflineRes, err error) {
 	r := g.RequestFromCtx(ctx)
 	mgr := service.GetCrawlerStatusManager()
+	isRunning := mgr.IsOnline()
 
-	if !mgr.IsOnline() {
-		r.Response.WriteJsonExit(g.Map{"code": 400, "message": "爬虫服务未在运行", "data": nil})
+	if !isRunning {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "爬虫服务未在运行", "data": nil})
 		return
 	}
 
 	mgr.ForceOffline()
 
 	r.Response.WriteJsonExit(g.Map{
-		"code":    0,
-		"message": "已强制下线",
-		"data":    nil,
+		"code": 0,
+		"msg":  "ok",
+		"data": nil,
 	})
 	return
 }

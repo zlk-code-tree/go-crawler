@@ -25,10 +25,18 @@ func (c *Controller) Overview(ctx context.Context, req *v1.DataOverviewReq) (res
 	rankingTotal, _ := g.DB().Model("tiktok_ranking_list").Count()
 	videoTotal, _ := g.DB().Model("video_analysis").Count()
 	trendRows, _ := g.DB().GetAll(ctx, `SELECT DATE(created_at) as date, COUNT(*) as count FROM crawl_tasks WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) GROUP BY DATE(created_at) ORDER BY date ASC`)
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{
-		"task_total": taskTotal, "task_running": taskRunning, "task_completed": taskCompleted,
-		"ranking_total": rankingTotal, "video_total": videoTotal, "task_trend": trendRows,
-	}})
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"msg":  "ok",
+		"data": g.Map{
+			"task_total":     taskTotal,
+			"task_running":   taskRunning,
+			"task_completed": taskCompleted,
+			"ranking_total":  rankingTotal,
+			"video_total":    videoTotal,
+			"task_trend":     trendRows,
+		},
+	})
 	return
 }
 
@@ -57,17 +65,20 @@ func (c *Controller) RankingList(ctx context.Context, req *v1.DataRankingListReq
 
 	total, e := m.Count()
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
 	list, e := m.Page(page, pageSize).All()
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{
-		"list": list, "total": total, "page": page, "pageSize": pageSize,
-	}})
+	r.Response.WriteJsonExit(g.Map{
+		"code":  0,
+		"msg":   "ok",
+		"data":  list,
+		"total": total,
+	})
 	return
 }
 
@@ -80,9 +91,14 @@ func (c *Controller) RankingStats(ctx context.Context, req *v1.DataRankingStatsR
 	}
 	total, _ := m.Count()
 	firstListCount, _ := m.Clone().Where("first_list", 1).Count()
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{
-		"total": total, "first_list_count": firstListCount,
-	}})
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"msg":  "ok",
+		"data": g.Map{
+			"total":            total,
+			"first_list_count": firstListCount,
+		},
+	})
 	return
 }
 
@@ -111,15 +127,15 @@ func (c *Controller) VideoList(ctx context.Context, req *v1.DataVideoListReq) (r
 
 	total, e := m.Count()
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
 	list, e := m.Page(page, pageSize).All()
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": g.Map{
 		"list": list, "total": total, "page": page, "pageSize": pageSize,
 	}})
 	return
@@ -133,7 +149,13 @@ func (c *Controller) VideoStats(ctx context.Context, req *v1.DataVideoStatsReq) 
 		m = m.Where("task_id", req.TaskId)
 	}
 	total, _ := m.Count()
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{"total": total}})
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"msg":  "ok",
+		"data": g.Map{
+			"total": total,
+		},
+	})
 	return
 }
 
@@ -142,13 +164,13 @@ func (c *Controller) Export(ctx context.Context, req *v1.DataExportReq) (res *v1
 	r := g.RequestFromCtx(ctx)
 	matches, e := filepath.Glob(fmt.Sprintf("exports/*%s*.csv", req.TaskId))
 	if e != nil || len(matches) == 0 {
-		r.Response.WriteJsonExit(g.Map{"code": 404, "message": "export file not found", "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 404, "msg": "export file not found", "data": nil})
 		return
 	}
 	filePath := matches[0]
 	fileData, e := os.ReadFile(filePath)
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": "read file failed", "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": "read file failed", "data": nil})
 		return
 	}
 	r.Response.Header().Set("Content-Type", "text/csv; charset=utf-8")
@@ -163,9 +185,13 @@ func (c *Controller) TaskIds(ctx context.Context, req *v1.DataTaskIdsReq) (res *
 	r := g.RequestFromCtx(ctx)
 	rows, e := g.DB().GetAll(ctx, `SELECT DISTINCT r.task_id, t.start_time, t.status FROM tiktok_ranking_list r LEFT JOIN crawl_tasks t ON r.task_id = t.task_id ORDER BY t.start_time DESC LIMIT 50`)
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": rows})
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"msg":  "ok",
+		"data": rows,
+	})
 	return
 }

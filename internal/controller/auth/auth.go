@@ -29,7 +29,7 @@ func (c *Controller) UserInfo(ctx context.Context, req *v1.AuthUserInfoReq) (res
 
 	user, e := c.authSvc.GetUserByUsername(ctx, username)
 	if e != nil || user == nil {
-		r.Response.WriteJsonExit(g.Map{"code": 401, "message": "用户不存在", "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 401, "msg": "用户不存在", "data": nil})
 		return
 	}
 
@@ -39,8 +39,8 @@ func (c *Controller) UserInfo(ctx context.Context, req *v1.AuthUserInfoReq) (res
 	}
 
 	r.Response.WriteJsonExit(g.Map{
-		"code":    0,
-		"message": "ok",
+		"code": 0,
+		"msg":  "ok",
 		"data": g.Map{
 			"userId":   user.Id,
 			"username": user.Username,
@@ -64,7 +64,7 @@ func (c *Controller) AccessCodes(ctx context.Context, req *v1.AuthAccessCodesReq
 	// 白名单用户返回通配符，前端视为拥有所有权限
 	for _, u := range getPermissionWhitelist(ctx) {
 		if u == username {
-			r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": []string{"*"}})
+			r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": []string{"*"}})
 			return
 		}
 	}
@@ -73,7 +73,7 @@ func (c *Controller) AccessCodes(ctx context.Context, req *v1.AuthAccessCodesReq
 	if codes == nil {
 		codes = []string{}
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": codes})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": codes})
 	return
 }
 
@@ -88,14 +88,14 @@ func (c *Controller) Menus(ctx context.Context, req *v1.AuthMenusReq) (res *v1.A
 		if u == username {
 			menus, e := c.menuSvc.GetAllMenusAsVbenTree(ctx)
 			if e != nil {
-				r.Response.WriteJsonExit(g.Map{"code": 500, "message": "获取菜单失败", "data": nil})
+				r.Response.WriteJsonExit(g.Map{"code": 500, "msg": "获取菜单失败", "data": nil})
 				return
 			}
 			buttons, _ := c.menuSvc.GetAllButtonCodes(ctx)
 			if buttons == nil {
 				buttons = []string{}
 			}
-			r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{
+			r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": g.Map{
 				"menus":   menus,
 				"buttons": buttons,
 			}})
@@ -105,14 +105,14 @@ func (c *Controller) Menus(ctx context.Context, req *v1.AuthMenusReq) (res *v1.A
 
 	menus, e := c.menuSvc.GetUserMenuTree(ctx, userId)
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": "获取菜单失败", "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": "获取菜单失败", "data": nil})
 		return
 	}
 	buttons, _ := c.menuSvc.GetUserButtonCodes(ctx, userId)
 	if buttons == nil {
 		buttons = []string{}
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": g.Map{
 		"menus":   menus,
 		"buttons": buttons,
 	}})

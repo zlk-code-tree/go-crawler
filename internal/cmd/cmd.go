@@ -49,6 +49,7 @@ var (
 			// 需要认证的 API 路由
 			s.Group("/api", func(group *ghttp.RouterGroup) {
 				group.Middleware(middleware.JwtAuth)
+				group.Middleware(middleware.OperationLog)
 				group.Middleware(ghttp.MiddlewareHandlerResponse)
 				group.Bind(
 					auth.New(),

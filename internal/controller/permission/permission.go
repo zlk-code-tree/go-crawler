@@ -23,10 +23,10 @@ func (c *Controller) List(ctx context.Context, req *v1.PermissionListReq) (res *
 	r := g.RequestFromCtx(ctx)
 	tree, e := c.permissionSvc.GetPermissionTree(ctx)
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": tree})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": tree})
 	return
 }
 
@@ -35,14 +35,14 @@ func (c *Controller) Detail(ctx context.Context, req *v1.PermissionDetailReq) (r
 	r := g.RequestFromCtx(ctx)
 	detail, e := c.permissionSvc.GetDetail(ctx, req.Id)
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
 	if detail == nil {
-		r.Response.WriteJsonExit(g.Map{"code": 404, "message": "权限不存在", "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 404, "msg": "权限不存在", "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": detail})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": detail})
 	return
 }
 
@@ -65,10 +65,10 @@ func (c *Controller) Create(ctx context.Context, req *v1.PermissionCreateReq) (r
 		"ext_url":   req.ExtUrl,
 	})
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{"id": id}})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": g.Map{"id": id}})
 	return
 }
 
@@ -116,14 +116,14 @@ func (c *Controller) Update(ctx context.Context, req *v1.PermissionUpdateReq) (r
 		update["ext_url"] = req.ExtUrl
 	}
 	if len(update) == 0 {
-		r.Response.WriteJsonExit(g.Map{"code": 400, "message": "无更新内容", "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "无更新内容", "data": nil})
 		return
 	}
 	if e := c.permissionSvc.Update(ctx, req.Id, update); e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": nil})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": nil})
 	return
 }
 
@@ -131,9 +131,9 @@ func (c *Controller) Update(ctx context.Context, req *v1.PermissionUpdateReq) (r
 func (c *Controller) Delete(ctx context.Context, req *v1.PermissionDeleteReq) (res *v1.PermissionDeleteRes, err error) {
 	r := g.RequestFromCtx(ctx)
 	if e := c.permissionSvc.Delete(ctx, req.Id); e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": nil})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": nil})
 	return
 }

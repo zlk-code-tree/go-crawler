@@ -183,7 +183,7 @@ func (em *ExportManager) ExportVideoAnalysisToCSV(ctx context.Context, taskId st
 		record := []string{
 			v.ProductId,
 			v.ProductName,
-			v.VideoID,
+			v.VideoId,
 			v.VideoDesc,
 			v.PaymentAmount,
 			v.ExposeUserCount,

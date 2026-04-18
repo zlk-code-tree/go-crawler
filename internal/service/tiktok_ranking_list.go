@@ -15,6 +15,7 @@ import (
 // iTikTokRankingList 定义了抖音排行榜列表服务的接口。
 type iTikTokRankingList interface {
 	CreateBatch(ctx context.Context, data []*model.TikTokRankingListInput) error
+	UpdateByProductId(ctx context.Context, data *model.TikTokRankingListInput) error
 }
 
 // sTikTokRankingList 抖音排行榜列表服务的具体实现结构体。
@@ -94,4 +95,52 @@ func (s *sTikTokRankingList) CreateBatch(ctx context.Context, data []*model.TikT
 		sqlLogger.Info("COMMIT TRANSACTION - 成功提交")
 		return nil
 	})
+}
+
+// UpdateByProductId 根据ProductId更新商品数据，添加详情信息
+func (s *sTikTokRankingList) UpdateByProductId(ctx context.Context, data *model.TikTokRankingListInput) error {
+	sqlLogger := logger.GetSQLLogger()
+
+	// 如果没有ProductId，直接返回
+	if data.ProductId == "" {
+		sqlLogger.Error(fmt.Errorf("ProductId为空"), "UpdateByProductId")
+		fmt.Printf("❌ [数据库] ProductId为空，无法更新\n")
+		return nil
+	}
+
+	// 获取默认数据库连接
+	db := g.DB()
+	if db == nil {
+		sqlLogger.Error(fmt.Errorf("数据库连接为空"), "g.DB()")
+		return fmt.Errorf("数据库连接为空")
+	}
+
+	// 指定要操作的实体表
+	entity := (*model.TiktokRankingList)(nil)
+
+	// 执行更新操作
+	result, err := db.Model(entity).Ctx(ctx).
+		Where("product_id = ?", data.ProductId).
+		Update(g.Map{
+			"first_shelf_time": data.FirstShelfTime,
+			"min_price":        data.MinPrice,
+		})
+
+	if err != nil {
+		sqlLogger.Error(err, "UpdateByProductId - 更新失败")
+		fmt.Printf("❌ [数据库] 更新商品详情失败：%v\n", err)
+		return err
+	}
+
+	// 获取更新的行数
+	affected, _ := result.RowsAffected()
+	if affected > 0 {
+		sqlLogger.Info("UpdateByProductId SUCCESS - affected rows: %d, ProductId: %s", affected, data.ProductId)
+		fmt.Printf("✅ [数据库] 成功更新商品详情：%s (ProductId: %s)\n", data.ProductName, data.ProductId)
+	} else {
+		sqlLogger.Info("UpdateByProductId - no rows affected, ProductId: %s", data.ProductId)
+		fmt.Printf("ℹ️ [数据库] 未找到商品数据，无法更新：%s (ProductId: %s)\n", data.ProductName, data.ProductId)
+	}
+
+	return nil
 }

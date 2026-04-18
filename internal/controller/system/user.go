@@ -70,7 +70,12 @@ func (c *UserController) UserList(r *ghttp.Request) {
 		})
 	}
 
-	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"list": userList, "total": total}, "msg": "ok"})
+	r.Response.WriteJsonExit(g.Map{
+		"code":  0,
+		"msg":   "ok",
+		"data":  userList,
+		"total": total,
+	})
 }
 
 // AssignRoles 分配角色 POST /system/user/assign-roles

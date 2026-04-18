@@ -1,0 +1,720 @@
+[2026-04-16 16:26:11.720] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:26:11.720] [INFO] Database connection: SUCCESS
+[2026-04-16 16:26:12.564] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:26:12.564] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=1, ProductName=畅销新书【读者励志蝶变2026版】父母+今天的懒来本好书给自己充电
+[2026-04-16 16:26:12.951] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:26:12.951] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:26:29.513] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:26:29.513] [INFO] Database connection: SUCCESS
+[2026-04-16 16:26:29.685] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:26:29.685] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=11, ProductName=何为人父 对话式养育 如何与孩子正确相处 亲子沟通技巧养育理念
+[2026-04-16 16:26:30.132] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:26:30.132] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:26:46.583] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:26:46.586] [INFO] Database connection: SUCCESS
+[2026-04-16 16:26:47.869] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:26:47.869] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=21, ProductName=【樊登推荐】刚刚好的养育  65个场景练习助孩子从对抗到对话
+[2026-04-16 16:26:49.196] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:26:49.197] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:27:05.630] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:27:05.632] [INFO] Database connection: SUCCESS
+[2026-04-16 16:27:05.728] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:27:05.728] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=31, ProductName=青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书
+[2026-04-16 16:27:06.334] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:27:06.334] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:27:23.230] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:27:23.230] [INFO] Database connection: SUCCESS
+[2026-04-16 16:27:24.251] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:27:24.251] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=41, ProductName=新编中草yao彩色图谱结合本草纲目记录700多种日常中草yao彩色图
+[2026-04-16 16:27:24.709] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:27:24.710] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:27:41.550] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:27:41.550] [INFO] Database connection: SUCCESS
+[2026-04-16 16:27:41.601] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:27:41.601] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=51, ProductName=【樊登推荐】 刚刚好的养育   65个场景练习助力孩子从对抗到对话
+[2026-04-16 16:27:41.733] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:27:41.734] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:27:58.507] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:27:58.509] [INFO] Database connection: SUCCESS
+[2026-04-16 16:27:59.260] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:27:59.260] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=61, ProductName=女孩  自我安全更重要  写给女孩的成长安全防护知识 多角度教育
+[2026-04-16 16:27:59.358] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:27:59.358] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:28:16.071] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:28:16.074] [INFO] Database connection: SUCCESS
+[2026-04-16 16:28:16.111] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:28:16.111] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=71, ProductName=米歇尔家庭教育百科 影响全球百万家长的科学育儿法
+[2026-04-16 16:28:16.450] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:28:16.450] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:28:34.420] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:28:34.423] [INFO] Database connection: SUCCESS
+[2026-04-16 16:28:35.775] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:28:35.775] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=81, ProductName=1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-04-16 16:28:35.946] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:28:35.948] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:28:52.843] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:28:52.843] [INFO] Database connection: SUCCESS
+[2026-04-16 16:28:52.880] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:28:52.880] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=91, ProductName=反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-04-16 16:28:53.086] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:28:53.086] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:29:10.208] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:29:10.208] [INFO] Database connection: SUCCESS
+[2026-04-16 16:29:11.196] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:29:11.196] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=101, ProductName=畅销新书【读者励志蝶变2026版】父母 今天的懒来本好书给自己充电
+[2026-04-16 16:29:11.448] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:29:11.449] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:29:28.795] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:29:28.795] [INFO] Database connection: SUCCESS
+[2026-04-16 16:29:28.890] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:29:28.890] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=111, ProductName=反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-04-16 16:29:29.153] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:29:29.153] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:29:45.835] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:29:45.835] [INFO] Database connection: SUCCESS
+[2026-04-16 16:29:47.084] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:29:47.084] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=121, ProductName=爸爸的高度决定孩子的起点 何以为父正版书籍 育儿书籍父母必读
+[2026-04-16 16:29:47.232] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:29:47.234] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:30:04.158] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:30:04.160] [INFO] Database connection: SUCCESS
+[2026-04-16 16:30:04.251] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:30:04.251] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=131, ProductName=2026阿留教育规划【从小规划大学】打破信息差升学规划名校解析
+[2026-04-16 16:30:04.339] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:30:04.339] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:30:21.070] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:30:21.073] [INFO] Database connection: SUCCESS
+[2026-04-16 16:30:21.294] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:30:21.294] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=141, ProductName=漫画版懒鸟效应让孩子变得自律努力坚毅儿童家庭教育心理学书籍
+[2026-04-16 16:30:21.616] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:30:21.616] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:30:38.934] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:30:38.934] [INFO] Database connection: SUCCESS
+[2026-04-16 16:30:38.988] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:30:38.988] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=151, ProductName=1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-04-16 16:30:39.092] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:30:39.092] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:30:56.335] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:30:56.338] [INFO] Database connection: SUCCESS
+[2026-04-16 16:30:56.708] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:30:56.708] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=161, ProductName=漫画青少年【三生教育】教孩子珍惜生命、学会生存、热爱生活成长s3
+[2026-04-16 16:30:57.256] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:30:57.256] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:31:14.008] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:31:14.008] [INFO] Database connection: SUCCESS
+[2026-04-16 16:31:14.050] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:31:14.050] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=171, ProductName=戒掉手机 多维度引导孩子戒手机  实用方法 孩子告别手机依赖
+[2026-04-16 16:31:14.213] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:31:14.213] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:31:30.912] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:31:30.914] [INFO] Database connection: SUCCESS
+[2026-04-16 16:31:31.048] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:31:31.048] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=181, ProductName=宝宝辅食跟我做（0-3岁）宝宝辅食书 辅食营养餐做法婴儿辅食书
+[2026-04-16 16:31:31.418] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:31:31.418] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:31:48.862] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:31:48.863] [INFO] Database connection: SUCCESS
+[2026-04-16 16:31:48.925] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:31:48.925] [INFO] Sample data: TaskId=ZCRU0yjrGi8Z8VPr, Rank=191, ProductName=【官方旗舰】宝宝辅食自己做 0-3岁儿童辅食营养餐家庭父母宝妈必备
+[2026-04-16 16:31:49.628] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:31:49.628] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:43:47.507] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:43:47.508] [INFO] Database connection: SUCCESS
+[2026-04-16 16:43:47.727] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:43:47.727] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=1, ProductName=畅销新书【读者励志蝶变2026版】父母+今天的懒来本好书给自己充电
+[2026-04-16 16:43:47.854] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:43:47.855] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:44:04.511] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:44:04.514] [INFO] Database connection: SUCCESS
+[2026-04-16 16:44:04.554] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:44:04.554] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=11, ProductName=何为人父 对话式养育 如何与孩子正确相处 亲子沟通技巧养育理念
+[2026-04-16 16:44:04.640] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:44:04.641] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:44:21.548] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:44:21.549] [INFO] Database connection: SUCCESS
+[2026-04-16 16:44:23.255] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:44:23.255] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=21, ProductName=【樊登推荐】刚刚好的养育  65个场景练习助孩子从对抗到对话
+[2026-04-16 16:44:23.362] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:44:23.364] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:44:39.970] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:44:39.972] [INFO] Database connection: SUCCESS
+[2026-04-16 16:44:40.019] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:44:40.019] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=31, ProductName=青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书
+[2026-04-16 16:44:40.246] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:44:40.246] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:44:57.517] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:44:57.519] [INFO] Database connection: SUCCESS
+[2026-04-16 16:45:00.003] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:45:00.003] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=41, ProductName=新编中草yao彩色图谱结合本草纲目记录700多种日常中草yao彩色图
+[2026-04-16 16:45:00.072] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:45:00.072] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:45:16.403] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:45:16.404] [INFO] Database connection: SUCCESS
+[2026-04-16 16:45:16.445] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:45:16.445] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=51, ProductName=【樊登推荐】 刚刚好的养育   65个场景练习助力孩子从对抗到对话
+[2026-04-16 16:45:17.626] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:45:17.626] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:45:34.454] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:45:34.454] [INFO] Database connection: SUCCESS
+[2026-04-16 16:45:35.361] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:45:35.361] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=61, ProductName=女孩  自我安全更重要  写给女孩的成长安全防护知识 多角度教育
+[2026-04-16 16:45:35.463] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:45:35.465] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:45:51.820] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:45:51.820] [INFO] Database connection: SUCCESS
+[2026-04-16 16:45:51.839] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:45:51.839] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=71, ProductName=米歇尔家庭教育百科 影响全球百万家长的科学育儿法
+[2026-04-16 16:45:51.888] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:45:51.888] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:46:08.498] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:46:08.499] [INFO] Database connection: SUCCESS
+[2026-04-16 16:46:09.575] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:46:09.575] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=81, ProductName=1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-04-16 16:46:09.635] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:46:09.635] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:46:25.859] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:46:25.859] [INFO] Database connection: SUCCESS
+[2026-04-16 16:46:25.878] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:46:25.878] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=91, ProductName=反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-04-16 16:46:26.670] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:46:26.672] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:46:43.209] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:46:43.209] [INFO] Database connection: SUCCESS
+[2026-04-16 16:46:44.149] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:46:44.149] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=101, ProductName=畅销新书【读者励志蝶变2026版】父母 今天的懒来本好书给自己充电
+[2026-04-16 16:46:44.200] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:46:44.200] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:47:00.456] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:47:00.456] [INFO] Database connection: SUCCESS
+[2026-04-16 16:47:00.497] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:47:00.497] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=111, ProductName=反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-04-16 16:47:01.194] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:47:01.195] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:47:17.821] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:47:17.821] [INFO] Database connection: SUCCESS
+[2026-04-16 16:47:19.210] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:47:19.210] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=121, ProductName=爸爸的高度决定孩子的起点 何以为父正版书籍 育儿书籍父母必读
+[2026-04-16 16:47:19.264] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:47:19.264] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:47:35.642] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:47:35.644] [INFO] Database connection: SUCCESS
+[2026-04-16 16:47:35.665] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:47:35.665] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=131, ProductName=2026阿留教育规划【从小规划大学】打破信息差升学规划名校解析
+[2026-04-16 16:47:35.757] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:47:35.757] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:47:52.435] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:47:52.437] [INFO] Database connection: SUCCESS
+[2026-04-16 16:47:53.160] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:47:53.160] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=141, ProductName=漫画版懒鸟效应让孩子变得自律努力坚毅儿童家庭教育心理学书籍
+[2026-04-16 16:47:53.253] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:47:53.253] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:48:09.641] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:48:09.641] [INFO] Database connection: SUCCESS
+[2026-04-16 16:48:09.702] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:48:09.702] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=151, ProductName=1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-04-16 16:48:09.942] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:48:09.942] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:48:26.733] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:48:26.735] [INFO] Database connection: SUCCESS
+[2026-04-16 16:48:27.610] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:48:27.610] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=161, ProductName=漫画青少年【三生教育】教孩子珍惜生命、学会生存、热爱生活成长s3
+[2026-04-16 16:48:27.709] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:48:27.709] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:48:43.909] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:48:43.909] [INFO] Database connection: SUCCESS
+[2026-04-16 16:48:43.932] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:48:43.932] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=171, ProductName=戒掉手机 多维度引导孩子戒手机  实用方法 孩子告别手机依赖
+[2026-04-16 16:48:44.903] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:48:44.904] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:49:01.392] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:49:01.395] [INFO] Database connection: SUCCESS
+[2026-04-16 16:49:02.598] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:49:02.598] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=181, ProductName=宝宝辅食跟我做（0-3岁）宝宝辅食书 辅食营养餐做法婴儿辅食书
+[2026-04-16 16:49:02.722] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:49:02.722] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 16:49:19.170] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 16:49:19.170] [INFO] Database connection: SUCCESS
+[2026-04-16 16:49:19.375] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 16:49:19.375] [INFO] Sample data: TaskId=MbxAekGPtgeZhWTR, Rank=191, ProductName=【官方旗舰】宝宝辅食自己做 0-3岁儿童辅食营养餐家庭父母宝妈必备
+[2026-04-16 16:49:20.240] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 16:49:20.240] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:00:08.271] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:00:08.271] [INFO] Database connection: SUCCESS
+[2026-04-16 17:00:08.632] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:00:08.632] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=1, ProductName=畅销新书【读者励志蝶变2026版】父母+今天的懒来本好书给自己充电
+[2026-04-16 17:00:08.836] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:00:08.838] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:00:25.216] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:00:25.217] [INFO] Database connection: SUCCESS
+[2026-04-16 17:00:25.295] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:00:25.295] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=11, ProductName=何为人父 对话式养育 如何与孩子正确相处 亲子沟通技巧养育理念
+[2026-04-16 17:00:25.623] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:00:25.623] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:00:42.524] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:00:42.525] [INFO] Database connection: SUCCESS
+[2026-04-16 17:00:43.852] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:00:43.853] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=21, ProductName=【樊登推荐】刚刚好的养育  65个场景练习助孩子从对抗到对话
+[2026-04-16 17:00:44.039] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:00:44.041] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:01:00.614] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:01:00.614] [INFO] Database connection: SUCCESS
+[2026-04-16 17:01:00.656] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:01:00.656] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=31, ProductName=青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书
+[2026-04-16 17:01:01.077] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:01:01.077] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:01:18.810] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:01:18.810] [INFO] Database connection: SUCCESS
+[2026-04-16 17:01:20.181] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:01:20.181] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=41, ProductName=新编中草yao彩色图谱结合本草纲目记录700多种日常中草yao彩色图
+[2026-04-16 17:01:20.568] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:01:20.568] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:01:37.001] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:01:37.001] [INFO] Database connection: SUCCESS
+[2026-04-16 17:01:37.066] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:01:37.066] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=51, ProductName=【樊登推荐】 刚刚好的养育   65个场景练习助力孩子从对抗到对话
+[2026-04-16 17:01:38.216] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:01:38.216] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:01:55.530] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:01:55.530] [INFO] Database connection: SUCCESS
+[2026-04-16 17:01:56.947] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:01:56.948] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=61, ProductName=女孩  自我安全更重要  写给女孩的成长安全防护知识 多角度教育
+[2026-04-16 17:01:57.037] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:01:57.037] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:02:13.454] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:02:13.454] [INFO] Database connection: SUCCESS
+[2026-04-16 17:02:13.473] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:02:13.473] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=71, ProductName=米歇尔家庭教育百科 影响全球百万家长的科学育儿法
+[2026-04-16 17:02:13.563] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:02:13.564] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:02:29.828] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:02:29.831] [INFO] Database connection: SUCCESS
+[2026-04-16 17:02:30.315] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:02:30.315] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=81, ProductName=1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-04-16 17:02:30.629] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:02:30.630] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:02:47.060] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:02:47.061] [INFO] Database connection: SUCCESS
+[2026-04-16 17:02:47.162] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:02:47.162] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=91, ProductName=反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-04-16 17:02:47.280] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:02:47.280] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:03:03.594] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:03:03.594] [INFO] Database connection: SUCCESS
+[2026-04-16 17:03:03.821] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:03:03.821] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=101, ProductName=畅销新书【读者励志蝶变2026版】父母 今天的懒来本好书给自己充电
+[2026-04-16 17:03:04.041] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:03:04.041] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:03:20.695] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:03:20.697] [INFO] Database connection: SUCCESS
+[2026-04-16 17:03:20.749] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:03:20.749] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=111, ProductName=反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-04-16 17:03:20.869] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:03:20.871] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:03:37.179] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:03:37.179] [INFO] Database connection: SUCCESS
+[2026-04-16 17:03:37.490] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:03:37.490] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=121, ProductName=爸爸的高度决定孩子的起点 何以为父正版书籍 育儿书籍父母必读
+[2026-04-16 17:03:37.795] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:03:37.795] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:03:54.137] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:03:54.137] [INFO] Database connection: SUCCESS
+[2026-04-16 17:03:54.181] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:03:54.181] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=131, ProductName=2026阿留教育规划【从小规划大学】打破信息差升学规划名校解析
+[2026-04-16 17:03:54.321] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:03:54.321] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:04:10.548] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:04:10.550] [INFO] Database connection: SUCCESS
+[2026-04-16 17:04:10.856] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:04:10.856] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=141, ProductName=漫画版懒鸟效应让孩子变得自律努力坚毅儿童家庭教育心理学书籍
+[2026-04-16 17:04:10.980] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:04:10.981] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:04:27.446] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:04:27.446] [INFO] Database connection: SUCCESS
+[2026-04-16 17:04:27.572] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:04:27.572] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=151, ProductName=1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-04-16 17:04:27.809] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:04:27.811] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:04:44.153] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:04:44.153] [INFO] Database connection: SUCCESS
+[2026-04-16 17:04:44.550] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:04:44.550] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=161, ProductName=漫画青少年【三生教育】教孩子珍惜生命、学会生存、热爱生活成长s3
+[2026-04-16 17:04:44.612] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:04:44.612] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:05:00.993] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:05:00.995] [INFO] Database connection: SUCCESS
+[2026-04-16 17:05:01.052] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:05:01.052] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=171, ProductName=戒掉手机 多维度引导孩子戒手机  实用方法 孩子告别手机依赖
+[2026-04-16 17:05:01.259] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:05:01.259] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:05:17.531] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:05:17.533] [INFO] Database connection: SUCCESS
+[2026-04-16 17:05:18.603] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:05:18.603] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=181, ProductName=宝宝辅食跟我做（0-3岁）宝宝辅食书 辅食营养餐做法婴儿辅食书
+[2026-04-16 17:05:19.168] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:05:19.168] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:05:35.378] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:05:35.380] [INFO] Database connection: SUCCESS
+[2026-04-16 17:05:35.431] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:05:35.431] [INFO] Sample data: TaskId=EoNghArO6ccMyhyA, Rank=191, ProductName=【官方旗舰】宝宝辅食自己做 0-3岁儿童辅食营养餐家庭父母宝妈必备
+[2026-04-16 17:05:35.578] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:05:35.579] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:17:49.093] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:17:49.093] [INFO] Database connection: SUCCESS
+[2026-04-16 17:17:49.452] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:17:49.452] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=1, ProductName=畅销新书【读者励志蝶变2026版】父母+今天的懒来本好书给自己充电
+[2026-04-16 17:17:49.625] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:17:49.625] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:18:06.139] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:18:06.140] [INFO] Database connection: SUCCESS
+[2026-04-16 17:18:06.235] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:18:06.235] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=11, ProductName=何为人父 对话式养育 如何与孩子正确相处 亲子沟通技巧养育理念
+[2026-04-16 17:18:06.951] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:18:06.951] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:18:23.467] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:18:23.467] [INFO] Database connection: SUCCESS
+[2026-04-16 17:18:23.925] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:18:23.925] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=21, ProductName=【樊登推荐】刚刚好的养育  65个场景练习助孩子从对抗到对话
+[2026-04-16 17:18:23.986] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:18:23.986] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:18:40.535] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:18:40.537] [INFO] Database connection: SUCCESS
+[2026-04-16 17:18:40.645] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:18:40.645] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=31, ProductName=青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书
+[2026-04-16 17:18:41.321] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:18:41.321] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:18:57.957] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:18:57.959] [INFO] Database connection: SUCCESS
+[2026-04-16 17:18:58.890] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:18:58.890] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=41, ProductName=新编中草yao彩色图谱结合本草纲目记录700多种日常中草yao彩色图
+[2026-04-16 17:18:59.249] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:18:59.249] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:19:16.457] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:19:16.457] [INFO] Database connection: SUCCESS
+[2026-04-16 17:19:16.485] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:19:16.485] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=51, ProductName=【樊登推荐】 刚刚好的养育   65个场景练习助力孩子从对抗到对话
+[2026-04-16 17:19:16.603] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:19:16.603] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:19:33.277] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:19:33.277] [INFO] Database connection: SUCCESS
+[2026-04-16 17:19:34.092] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:19:34.092] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=61, ProductName=女孩  自我安全更重要  写给女孩的成长安全防护知识 多角度教育
+[2026-04-16 17:19:34.283] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:19:34.283] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:19:50.682] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:19:50.684] [INFO] Database connection: SUCCESS
+[2026-04-16 17:19:50.745] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:19:50.745] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=71, ProductName=米歇尔家庭教育百科 影响全球百万家长的科学育儿法
+[2026-04-16 17:19:51.644] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:19:51.644] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:20:08.243] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:20:08.243] [INFO] Database connection: SUCCESS
+[2026-04-16 17:20:08.884] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:20:08.884] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=81, ProductName=1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-04-16 17:20:09.022] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:20:09.022] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:20:25.508] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:20:25.508] [INFO] Database connection: SUCCESS
+[2026-04-16 17:20:25.582] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:20:25.582] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=91, ProductName=反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-04-16 17:20:26.348] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:20:26.348] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:20:42.710] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:20:42.710] [INFO] Database connection: SUCCESS
+[2026-04-16 17:20:44.000] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:20:44.000] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=101, ProductName=畅销新书【读者励志蝶变2026版】父母 今天的懒来本好书给自己充电
+[2026-04-16 17:20:44.133] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:20:44.133] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:21:00.671] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:21:00.671] [INFO] Database connection: SUCCESS
+[2026-04-16 17:21:00.751] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:21:00.751] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=111, ProductName=反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-04-16 17:21:01.137] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:21:01.137] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:21:18.148] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:21:18.148] [INFO] Database connection: SUCCESS
+[2026-04-16 17:21:18.875] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:21:18.875] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=121, ProductName=爸爸的高度决定孩子的起点 何以为父正版书籍 育儿书籍父母必读
+[2026-04-16 17:21:18.917] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:21:18.917] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:21:35.791] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:21:35.792] [INFO] Database connection: SUCCESS
+[2026-04-16 17:21:35.829] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:21:35.829] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=131, ProductName=2026阿留教育规划【从小规划大学】打破信息差升学规划名校解析
+[2026-04-16 17:21:36.269] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:21:36.269] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:21:52.971] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:21:52.971] [INFO] Database connection: SUCCESS
+[2026-04-16 17:21:53.702] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:21:53.702] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=141, ProductName=漫画版懒鸟效应让孩子变得自律努力坚毅儿童家庭教育心理学书籍
+[2026-04-16 17:21:53.904] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:21:53.904] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:22:10.228] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:22:10.229] [INFO] Database connection: SUCCESS
+[2026-04-16 17:22:10.252] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:22:10.252] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=151, ProductName=1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-04-16 17:22:10.357] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:22:10.357] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:22:26.743] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:22:26.743] [INFO] Database connection: SUCCESS
+[2026-04-16 17:22:27.441] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:22:27.441] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=161, ProductName=漫画青少年【三生教育】教孩子珍惜生命、学会生存、热爱生活成长s3
+[2026-04-16 17:22:27.592] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:22:27.592] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:22:44.216] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:22:44.218] [INFO] Database connection: SUCCESS
+[2026-04-16 17:22:44.313] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:22:44.313] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=171, ProductName=戒掉手机 多维度引导孩子戒手机  实用方法 孩子告别手机依赖
+[2026-04-16 17:22:45.091] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:22:45.091] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:23:01.930] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:23:01.930] [INFO] Database connection: SUCCESS
+[2026-04-16 17:23:03.324] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:23:03.324] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=181, ProductName=宝宝辅食跟我做（0-3岁）宝宝辅食书 辅食营养餐做法婴儿辅食书
+[2026-04-16 17:23:03.771] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:23:03.771] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:23:20.602] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:23:20.602] [INFO] Database connection: SUCCESS
+[2026-04-16 17:23:20.806] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:23:20.806] [INFO] Sample data: TaskId=gc1txuPXHh7s6Eh1, Rank=191, ProductName=【官方旗舰】宝宝辅食自己做 0-3岁儿童辅食营养餐家庭父母宝妈必备
+[2026-04-16 17:23:21.901] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:23:21.901] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:29:39.605] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:29:39.605] [INFO] Database connection: SUCCESS
+[2026-04-16 17:29:39.745] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:29:39.746] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=1, ProductName=畅销新书【读者励志蝶变2026版】父母+今天的懒来本好书给自己充电
+[2026-04-16 17:29:39.813] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:29:39.814] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:29:56.181] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:29:56.181] [INFO] Database connection: SUCCESS
+[2026-04-16 17:29:56.226] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:29:56.227] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=11, ProductName=何为人父 对话式养育 如何与孩子正确相处 亲子沟通技巧养育理念
+[2026-04-16 17:29:56.483] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:29:56.483] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:30:13.222] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:30:13.222] [INFO] Database connection: SUCCESS
+[2026-04-16 17:30:13.738] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:30:13.738] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=21, ProductName=【樊登推荐】刚刚好的养育  65个场景练习助孩子从对抗到对话
+[2026-04-16 17:30:14.085] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:30:14.085] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:30:30.428] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:30:30.430] [INFO] Database connection: SUCCESS
+[2026-04-16 17:30:30.468] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:30:30.468] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=31, ProductName=青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书
+[2026-04-16 17:30:30.686] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:30:30.686] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:30:47.263] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:30:47.263] [INFO] Database connection: SUCCESS
+[2026-04-16 17:30:48.385] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:30:48.385] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=41, ProductName=新编中草yao彩色图谱结合本草纲目记录700多种日常中草yao彩色图
+[2026-04-16 17:30:48.600] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:30:48.601] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:31:05.190] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:31:05.191] [INFO] Database connection: SUCCESS
+[2026-04-16 17:31:05.217] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:31:05.217] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=51, ProductName=【樊登推荐】 刚刚好的养育   65个场景练习助力孩子从对抗到对话
+[2026-04-16 17:31:05.326] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:31:05.326] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:31:21.870] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:31:21.870] [INFO] Database connection: SUCCESS
+[2026-04-16 17:31:22.483] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:31:22.484] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=61, ProductName=女孩  自我安全更重要  写给女孩的成长安全防护知识 多角度教育
+[2026-04-16 17:31:22.581] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:31:22.581] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:31:39.323] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:31:39.324] [INFO] Database connection: SUCCESS
+[2026-04-16 17:31:39.343] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:31:39.343] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=71, ProductName=米歇尔家庭教育百科 影响全球百万家长的科学育儿法
+[2026-04-16 17:31:39.442] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:31:39.442] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:31:56.186] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:31:56.186] [INFO] Database connection: SUCCESS
+[2026-04-16 17:31:56.715] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:31:56.715] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=81, ProductName=1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-04-16 17:31:56.819] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:31:56.819] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:32:13.788] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:32:13.788] [INFO] Database connection: SUCCESS
+[2026-04-16 17:32:13.838] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:32:13.838] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=91, ProductName=反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-04-16 17:32:13.914] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:32:13.914] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:32:31.101] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:32:31.104] [INFO] Database connection: SUCCESS
+[2026-04-16 17:32:31.987] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:32:31.987] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=101, ProductName=畅销新书【读者励志蝶变2026版】父母 今天的懒来本好书给自己充电
+[2026-04-16 17:32:32.402] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:32:32.402] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:32:50.251] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:32:50.251] [INFO] Database connection: SUCCESS
+[2026-04-16 17:32:50.474] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:32:50.474] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=111, ProductName=反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-04-16 17:32:50.990] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:32:50.991] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:33:07.944] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:33:07.946] [INFO] Database connection: SUCCESS
+[2026-04-16 17:33:08.835] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:33:08.835] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=121, ProductName=爸爸的高度决定孩子的起点 何以为父正版书籍 育儿书籍父母必读
+[2026-04-16 17:33:08.948] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:33:08.948] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:33:25.553] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:33:25.553] [INFO] Database connection: SUCCESS
+[2026-04-16 17:33:25.580] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:33:25.580] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=131, ProductName=2026阿留教育规划【从小规划大学】打破信息差升学规划名校解析
+[2026-04-16 17:33:25.624] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:33:25.624] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:33:43.495] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:33:43.497] [INFO] Database connection: SUCCESS
+[2026-04-16 17:33:43.732] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:33:43.732] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=141, ProductName=漫画版懒鸟效应让孩子变得自律努力坚毅儿童家庭教育心理学书籍
+[2026-04-16 17:33:43.844] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:33:43.844] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:34:00.902] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:34:00.902] [INFO] Database connection: SUCCESS
+[2026-04-16 17:34:00.999] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:34:00.999] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=151, ProductName=1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-04-16 17:34:01.218] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:34:01.218] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:34:18.175] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:34:18.175] [INFO] Database connection: SUCCESS
+[2026-04-16 17:34:19.479] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:34:19.479] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=161, ProductName=漫画青少年【三生教育】教孩子珍惜生命、学会生存、热爱生活成长s3
+[2026-04-16 17:34:19.823] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:34:19.824] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:34:36.657] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:34:36.657] [INFO] Database connection: SUCCESS
+[2026-04-16 17:34:36.680] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:34:36.680] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=171, ProductName=戒掉手机 多维度引导孩子戒手机  实用方法 孩子告别手机依赖
+[2026-04-16 17:34:36.779] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:34:36.779] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:34:53.723] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:34:53.726] [INFO] Database connection: SUCCESS
+[2026-04-16 17:34:54.302] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:34:54.302] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=181, ProductName=宝宝辅食跟我做（0-3岁）宝宝辅食书 辅食营养餐做法婴儿辅食书
+[2026-04-16 17:34:54.884] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:34:54.884] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:35:12.603] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:35:12.603] [INFO] Database connection: SUCCESS
+[2026-04-16 17:35:12.867] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:35:12.867] [INFO] Sample data: TaskId=Na6JLBQ2odQaSx6B, Rank=191, ProductName=【官方旗舰】宝宝辅食自己做 0-3岁儿童辅食营养餐家庭父母宝妈必备
+[2026-04-16 17:35:13.456] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:35:13.456] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:53:34.907] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:53:34.909] [INFO] Database connection: SUCCESS
+[2026-04-16 17:53:35.144] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:53:35.144] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=1, ProductName=畅销新书【读者励志蝶变2026版】父母+今天的懒来本好书给自己充电
+[2026-04-16 17:53:35.248] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:53:35.251] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:53:51.700] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:53:51.702] [INFO] Database connection: SUCCESS
+[2026-04-16 17:53:51.719] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:53:51.719] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=11, ProductName=何为人父 对话式养育 如何与孩子正确相处 亲子沟通技巧养育理念
+[2026-04-16 17:53:51.762] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:53:51.763] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:54:08.244] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:54:08.245] [INFO] Database connection: SUCCESS
+[2026-04-16 17:54:11.191] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:54:11.191] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=21, ProductName=【樊登推荐】刚刚好的养育  65个场景练习助孩子从对抗到对话
+[2026-04-16 17:54:12.762] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:54:12.762] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:54:29.291] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:54:29.293] [INFO] Database connection: SUCCESS
+[2026-04-16 17:54:29.328] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:54:29.328] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=31, ProductName=青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书
+[2026-04-16 17:54:29.757] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:54:29.757] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:54:46.856] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:54:46.856] [INFO] Database connection: SUCCESS
+[2026-04-16 17:54:48.271] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:54:48.271] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=41, ProductName=新编中草yao彩色图谱结合本草纲目记录700多种日常中草yao彩色图
+[2026-04-16 17:54:48.467] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:54:48.467] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:55:04.781] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:55:04.781] [INFO] Database connection: SUCCESS
+[2026-04-16 17:55:04.817] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:55:04.817] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=51, ProductName=【樊登推荐】 刚刚好的养育   65个场景练习助力孩子从对抗到对话
+[2026-04-16 17:55:05.196] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:55:05.196] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:55:21.634] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:55:21.636] [INFO] Database connection: SUCCESS
+[2026-04-16 17:55:22.767] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:55:22.767] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=61, ProductName=女孩  自我安全更重要  写给女孩的成长安全防护知识 多角度教育
+[2026-04-16 17:55:22.886] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:55:22.889] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:55:39.557] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:55:39.561] [INFO] Database connection: SUCCESS
+[2026-04-16 17:55:39.594] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:55:39.594] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=71, ProductName=米歇尔家庭教育百科 影响全球百万家长的科学育儿法
+[2026-04-16 17:55:39.666] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:55:39.666] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:55:56.165] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:55:56.167] [INFO] Database connection: SUCCESS
+[2026-04-16 17:55:57.247] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:55:57.247] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=81, ProductName=1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-04-16 17:55:57.796] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:55:57.797] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:56:14.221] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:56:14.221] [INFO] Database connection: SUCCESS
+[2026-04-16 17:56:14.265] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:56:14.266] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=91, ProductName=反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-04-16 17:56:14.397] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:56:14.397] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:56:31.580] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:56:31.581] [INFO] Database connection: SUCCESS
+[2026-04-16 17:56:31.959] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:56:31.959] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=101, ProductName=畅销新书【读者励志蝶变2026版】父母 今天的懒来本好书给自己充电
+[2026-04-16 17:56:32.356] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:56:32.357] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:56:48.916] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:56:48.918] [INFO] Database connection: SUCCESS
+[2026-04-16 17:56:48.999] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:56:48.999] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=111, ProductName=反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-04-16 17:56:49.414] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:56:49.414] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:57:06.091] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:57:06.093] [INFO] Database connection: SUCCESS
+[2026-04-16 17:57:07.238] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:57:07.238] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=121, ProductName=爸爸的高度决定孩子的起点 何以为父正版书籍 育儿书籍父母必读
+[2026-04-16 17:57:07.381] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:57:07.382] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:57:23.701] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:57:23.704] [INFO] Database connection: SUCCESS
+[2026-04-16 17:57:23.813] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:57:23.813] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=131, ProductName=2026阿留教育规划【从小规划大学】打破信息差升学规划名校解析
+[2026-04-16 17:57:24.522] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:57:24.523] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:57:40.914] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:57:40.914] [INFO] Database connection: SUCCESS
+[2026-04-16 17:57:41.345] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:57:41.345] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=141, ProductName=漫画版懒鸟效应让孩子变得自律努力坚毅儿童家庭教育心理学书籍
+[2026-04-16 17:57:41.563] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:57:41.563] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:57:57.913] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:57:57.914] [INFO] Database connection: SUCCESS
+[2026-04-16 17:57:57.973] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:57:57.974] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=151, ProductName=1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-04-16 17:57:58.038] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:57:58.039] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:58:14.493] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:58:14.493] [INFO] Database connection: SUCCESS
+[2026-04-16 17:58:14.974] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:58:14.974] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=161, ProductName=漫画青少年【三生教育】教孩子珍惜生命、学会生存、热爱生活成长s3
+[2026-04-16 17:58:15.034] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:58:15.034] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:58:31.610] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:58:31.610] [INFO] Database connection: SUCCESS
+[2026-04-16 17:58:31.652] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:58:31.652] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=171, ProductName=戒掉手机 多维度引导孩子戒手机  实用方法 孩子告别手机依赖
+[2026-04-16 17:58:31.719] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:58:31.720] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:58:48.386] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:58:48.388] [INFO] Database connection: SUCCESS
+[2026-04-16 17:58:48.505] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:58:48.505] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=181, ProductName=宝宝辅食跟我做（0-3岁）宝宝辅食书 辅食营养餐做法婴儿辅食书
+[2026-04-16 17:58:48.873] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:58:48.874] [INFO] COMMIT TRANSACTION - 成功提交
+[2026-04-16 17:59:05.493] [INFO] BEGIN TRANSACTION - 准备插入 10 条数据到 tiktok_ranking_list 表
+[2026-04-16 17:59:05.495] [INFO] Database connection: SUCCESS
+[2026-04-16 17:59:05.528] [INFO] EXECUTE INSERT - 表：tiktok_ranking_list, 数据量：10
+[2026-04-16 17:59:05.528] [INFO] Sample data: TaskId=4u04Aa8O0fQGThX2, Rank=191, ProductName=【官方旗舰】宝宝辅食自己做 0-3岁儿童辅食营养餐家庭父母宝妈必备
+[2026-04-16 17:59:05.769] [INFO] INSERT SUCCESS - affected rows: 10
+[2026-04-16 17:59:05.770] [INFO] COMMIT TRANSACTION - 成功提交

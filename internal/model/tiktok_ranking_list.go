@@ -5,6 +5,7 @@ import "time"
 // TikTokRankingListInput 商品榜单数据（用于数据库插入）
 type TikTokRankingListInput struct {
 	TaskId           string    `json:"task_id" db:"task_id"`
+	ProductId        string    `json:"product_id" db:"product_id"`                 // 商品 ID
 	Rank             int       `json:"rank" db:"rank"`                             // 排名
 	ProductName      string    `json:"product_name" db:"product_name"`             // 商品名称
 	ShopName         string    `json:"shop_name" db:"shop_name"`                   // 店铺名称
@@ -23,6 +24,7 @@ type TikTokRankingListInput struct {
 type TiktokRankingList struct {
 	Id               uint      `json:"id" db:"id"`
 	TaskId           string    `json:"task_id" db:"task_id"`
+	ProductId        string    `json:"product_id" db:"product_id"`
 	Rank             int       `json:"rank" db:"rank"`
 	ProductName      string    `json:"product_name" db:"product_name"`
 	ShopName         string    `json:"shop_name" db:"shop_name"`
@@ -32,8 +34,8 @@ type TiktokRankingList struct {
 	DeliveryVideoNum string    `json:"delivery_video_num" db:"delivery_video_num"`
 	FirstShelfTime   string    `json:"first_shelf_time" db:"first_shelf_time"`
 	MinPrice         string    `json:"min_price" db:"min_price"`
-	PriceRange       string    `json:"price_range" db:"price_range"` // 价格区间（价格带）
-	FirstList        int       `json:"first_list" db:"first_list"`   // 是否首次上榜：0-否 1-是
+	PriceRange       string    `json:"price_range" db:"price_range"`
+	FirstList        int       `json:"first_list" db:"first_list"`
 	CreatedAt        time.Time `json:"created_at" db:"created_at"`
 }
 
@@ -42,7 +44,7 @@ type VideoAnalysisData struct {
 	TaskId            string    `json:"task_id" db:"task_id"`
 	ProductId         string    `json:"product_id" db:"product_id"`                   // 商品 ID
 	ProductName       string    `json:"product_name" db:"product_name"`               // 商品名称
-	VideoID           string    `json:"video_id" db:"video_id"`                       // 视频 ID
+	VideoId           string    `json:"video_id" db:"video_id"`                       // 视频 ID
 	VideoDesc         string    `json:"video_desc" db:"video_desc"`                   // 短视频信息
 	PaymentAmount     string    `json:"payment_amount" db:"payment_amount"`           // 用户支付金额
 	ExposeUserCount   string    `json:"expose_user_count" db:"expose_user_count"`     // 商品曝光人数

@@ -39,17 +39,20 @@ func (c *Controller) List(ctx context.Context, req *v1.TaskListReq) (res *v1.Tas
 	r := g.RequestFromCtx(ctx)
 	total, e := m.Count()
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
 	list, e := m.Page(page, pageSize).All()
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{
-		"list": list, "total": total, "page": page, "pageSize": pageSize,
-	}})
+	r.Response.WriteJsonExit(g.Map{
+		"code":  0,
+		"msg":   "ok",
+		"data":  list,
+		"total": total,
+	})
 	return
 }
 
@@ -58,16 +61,16 @@ func (c *Controller) Detail(ctx context.Context, req *v1.TaskDetailReq) (res *v1
 	r := g.RequestFromCtx(ctx)
 	row, e := g.DB().Model("crawl_tasks").Where("task_id", req.Id).One()
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
 	if row.IsEmpty() {
-		r.Response.WriteJsonExit(g.Map{"code": 404, "message": "task not found", "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 404, "msg": "task not found", "data": nil})
 		return
 	}
 	cm := service.NewCheckpointManager("checkpoints")
 	checkpoint, _ := cm.LoadCheckpoint(ctx, req.Id)
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": g.Map{
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": g.Map{
 		"task": row, "checkpoint": checkpoint,
 	}})
 	return
@@ -83,10 +86,10 @@ func (c *Controller) Create(ctx context.Context, req *v1.TaskCreateReq) (res *v1
 		"start_time": time.Now(), "created_at": time.Now(),
 	})
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "task created", "data": g.Map{"task_id": taskId}})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "task created", "data": g.Map{"task_id": taskId}})
 	return
 }
 
@@ -97,10 +100,10 @@ func (c *Controller) Stop(ctx context.Context, req *v1.TaskStopReq) (res *v1.Tas
 		Where("task_id", req.Id).Where("status", "running").
 		Update(g.Map{"status": "stopped", "end_time": time.Now()})
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": nil})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": nil})
 	return
 }
 
@@ -109,10 +112,10 @@ func (c *Controller) Delete(ctx context.Context, req *v1.TaskDeleteReq) (res *v1
 	r := g.RequestFromCtx(ctx)
 	_, e := g.DB().Model("crawl_tasks").Where("task_id", req.Id).Delete()
 	if e != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "message": e.Error(), "data": nil})
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
 	_ = os.Remove(filepath.Join("checkpoints", "task_"+req.Id+".json"))
-	r.Response.WriteJsonExit(g.Map{"code": 0, "message": "ok", "data": nil})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": nil})
 	return
 }

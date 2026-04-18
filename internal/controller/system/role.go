@@ -26,7 +26,12 @@ func (c *RoleController) RoleList(ctx context.Context, req *v1.SystemRoleListReq
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + e.Error()})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"list": list, "total": total}, "msg": "ok"})
+	r.Response.WriteJsonExit(g.Map{
+		"code":  0,
+		"msg":   "ok",
+		"data":  list,
+		"total": total,
+	})
 	return
 }
 

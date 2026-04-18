@@ -21,6 +21,7 @@ func OperationLog(r *ghttp.Request) {
 	duration := int(time.Since(startTime).Milliseconds())
 
 	ip := r.GetClientIp()
+	location := service.NewIpLocationService().GetLocationByIP(ip)
 	userAgent := r.UserAgent()
 	method := r.Method
 	url := r.URL.Path
@@ -62,6 +63,7 @@ func OperationLog(r *ghttp.Request) {
 		Url:            url,
 		Params:         params,
 		Ip:             ip,
+		Location:       location,
 		UserAgent:      userAgent,
 		Status:         status,
 		ErrorMsg:       errorMsg,
