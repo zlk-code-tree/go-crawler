@@ -118,6 +118,55 @@ func (s *DeptService) Save(ctx context.Context, dept *model.SysDept, companyId i
 	}
 }
 
+// Detail 获取部门详情
+func (s *DeptService) Detail(ctx context.Context, deptId int64) (g.Map, error) {
+	if deptId <= 0 {
+		return nil, gerror.New("部门ID不能为空")
+	}
+
+	// 查询部门详情，包含关联信息
+	query := `
+		SELECT 
+			d.id, d.name, d.parent_id, d.level, d.status, d.sort, d.created_at, d.updated_at,
+			c.name as company_name,
+			p.name as parent_name,
+			u.real_name as leader_name
+		FROM sys_department d
+		LEFT JOIN sys_company c ON d.company_id = c.id
+		LEFT JOIN sys_department p ON d.parent_id = p.id
+		LEFT JOIN sys_user u ON d.leader_id = u.id
+		WHERE d.id = ?
+	`
+
+	result, err := g.DB().GetOne(ctx, query, deptId)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.IsEmpty() {
+		return nil, nil
+	}
+
+	// 转换为前端需要的格式
+	dept := g.Map{
+		"id":          result["id"],
+		"name":        result["name"],
+		"parentId":    result["parent_id"],
+		"parentName":  result["parent_name"],
+		"level":       result["level"],
+		"status":      result["status"],
+		"sort":        result["sort"],
+		"companyId":   result["company_id"],
+		"companyName": result["company_name"],
+		"leaderId":    result["leader_id"],
+		"leaderName":  result["leader_name"],
+		"createdAt":   result["created_at"],
+		"updatedAt":   result["updated_at"],
+	}
+
+	return dept, nil
+}
+
 // Delete 删除部门
 func (s *DeptService) Delete(ctx context.Context, deptId int64) error {
 	// 检查是否有子部门

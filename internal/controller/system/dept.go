@@ -98,6 +98,34 @@ func (c *DeptController) DeptSave(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"id": id}, "msg": "ok"})
 }
 
+// DeptDetail 部门详情接口 GET /system/dept/detail
+func (c *DeptController) DeptDetail(r *ghttp.Request) {
+	// 解析请求参数
+	var req struct {
+		Id int64 `json:"id" in:"query" v:"required" dc:"部门ID"`
+	}
+
+	if err := r.Parse(&req); err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "参数解析错误"})
+		return
+	}
+
+	// 调用服务层方法获取部门详情
+	deptService := service.NewDeptService()
+	dept, err := deptService.Detail(r.Context(), req.Id)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})
+		return
+	}
+
+	if dept == nil {
+		r.Response.WriteJsonExit(g.Map{"code": 404, "data": nil, "msg": "部门不存在"})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": dept, "msg": "ok"})
+}
+
 // DeptDelete 删除部门接口 POST /system/dept/delete
 func (c *DeptController) DeptDelete(r *ghttp.Request) {
 	// 解析请求参数

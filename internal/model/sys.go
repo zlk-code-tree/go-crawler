@@ -4,25 +4,27 @@ import "time"
 
 // SysUser 系统用户
 type SysUser struct {
-	Id          int64      `json:"id"`
-	Username    string     `json:"username"`
-	Password    string     `json:"-"`
-	RealName    string     `json:"realName"`
-	Nickname    string     `json:"nickname"`
-	Email       string     `json:"email"`
-	Phone       string     `json:"phone"`
-	Avatar      string     `json:"avatar"`
-	Gender      int        `json:"gender"`
-	Status      int        `json:"status"`
-	DeptId      int64      `json:"deptId"`
-	CompanyId   int64      `json:"companyId"`
-	Position    string     `json:"position"`
-	RoleId      int64      `json:"roleId"`
-	Remark      string     `json:"remark"`
-	LastLoginAt *time.Time `json:"lastLoginAt"`
-	LastLoginIp string     `json:"lastLoginIp"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	UpdatedAt   time.Time  `json:"updatedAt"`
+	Id           int64      `json:"id"`
+	Username     string     `json:"username"`
+	Password     string     `json:"-"`
+	RealName     string     `json:"realName"`
+	Nickname     string     `json:"nickname"`
+	Email        string     `json:"email"`
+	Phone        string     `json:"phone"`
+	Avatar       string     `json:"avatar"`
+	Gender       int        `json:"gender"`
+	Status       int        `json:"status"`
+	DeptId       int64      `json:"deptId"`
+	CompanyId    int64      `json:"companyId"`
+	Position     string     `json:"position"`
+	RoleId       int64      `json:"roleId"`
+	Remark       string     `json:"remark"`
+	FeishuOpenId string     `json:"feishuOpenId"`
+	FeishuUserId string     `json:"feishuUserId"`
+	LastLoginAt  *time.Time `json:"lastLoginAt"`
+	LastLoginIp  string     `json:"lastLoginIp"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	UpdatedAt    time.Time  `json:"updatedAt"`
 }
 
 // SysRole 角色

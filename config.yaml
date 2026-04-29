@@ -6,6 +6,7 @@ server:
   address: ":8081"
   openapiPath: "/api.json"
   swaggerPath: "/swagger"
+  serverMaxBodyLen: 104857600  # 100MB，最大请求体大小
 
 # JWT 配置
 jwt:
@@ -73,3 +74,9 @@ permission:
     - admin  # 超级用户
     - user1  # 其他需要跳过权限验证的用户
     - user2  # 其他需要跳过权限验证的用户
+
+# 飞书配置
+feishu:
+  appId: "cli_a96309db59fadbef"  # 飞书开放平台应用ID
+  appSecret: "H9UZDDSudwbXrKHko4AMVlJOBYIUTrXu"  # 飞书开放平台应用密钥
+  redirectUri: "http://localhost:8081/api/FeishuAuthController/FeishuCallback"  # 飞书授权回调地址

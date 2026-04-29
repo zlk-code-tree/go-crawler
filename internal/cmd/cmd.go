@@ -34,6 +34,7 @@ var (
 			sqlLogger.SetFile("{Y-m-d}.log")
 			sqlLogger.SetLevel(glog.LEVEL_ALL) // 记录所有执行细节
 			s := g.Server()
+			s.SetClientMaxBodySize(0) // 0表示无限制，解决大文件上传问题
 
 			// 全局 CORS 中间件
 			s.Use(middleware.CORS)
@@ -43,6 +44,7 @@ var (
 				group.Middleware(ghttp.MiddlewareHandlerResponse)
 				group.Bind(
 					auth.NewPublic(),
+					auth.NewFeishuAuthController(),
 				)
 			})
 
@@ -65,6 +67,10 @@ var (
 					system.NewProfileController(),
 					system.NewOperationLogController(),
 					system.NewLoginLogController(),
+					system.NewShopController(),
+					system.NewOrderController(),
+					system.NewGoodsController(),
+					system.NewOrderAnalysisController(),
 					permissionCtrl.New(),
 				)
 			})

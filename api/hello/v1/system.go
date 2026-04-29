@@ -151,6 +151,18 @@ type SystemPermissionTreeRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// --- System Dept APIs ---
+
+type SystemDeptDetailReq struct {
+	g.Meta `path:"/system/dept/detail" method:"get" tags:"System-Dept" summary:"部门详情"`
+	Id     int64 `json:"id" in:"query" v:"required" dc:"部门ID"`
+}
+
+type SystemDeptDetailRes struct {
+	g.Meta `mime:"application/json"`
+	Data   interface{} `json:"data" dc:"部门详情"`
+}
+
 // --- System Log APIs ---
 
 type SystemOperationLogListReq struct {
@@ -190,4 +202,210 @@ type SystemLoginLogListRes struct {
 	Total    int         `json:"total" dc:"总数"`
 	Page     int         `json:"page" dc:"当前页"`
 	PageSize int         `json:"pageSize" dc:"每页条数"`
+}
+
+// --- System Goods APIs ---
+
+type SystemGoodsListReq struct {
+	g.Meta   `path:"/system/goods/list" method:"get" tags:"System-Goods" summary:"商品列表"`
+	Page     int    `json:"page" in:"query" d:"1" dc:"页码"`
+	PageSize int    `json:"pageSize" in:"query" d:"10" dc:"每页条数"`
+	Keyword  string `json:"keyword" in:"query" dc:"搜索关键词（商品名称/编码）"`
+}
+
+type SystemGoodsListRes struct {
+	g.Meta `mime:"application/json"`
+	List   interface{} `json:"list" dc:"商品列表"`
+	Total  int         `json:"total" dc:"总数"`
+	Page   int         `json:"page" dc:"当前页"`
+	PageSize int       `json:"pageSize" dc:"每页条数"`
+}
+
+type SystemGoodsDetailReq struct {
+	g.Meta `path:"/system/goods/detail" method:"get" tags:"System-Goods" summary:"商品详情"`
+	Id     int `json:"id" in:"query" v:"required" dc:"商品ID"`
+}
+
+type SystemGoodsDetailRes struct {
+	g.Meta `mime:"application/json"`
+	Data   interface{} `json:"data" dc:"商品详情"`
+}
+
+type SystemGoodsSaveReq struct {
+	g.Meta     `path:"/system/goods/save" method:"post" tags:"System-Goods" summary:"新增/编辑商品（id=0新增，id>0编辑）"`
+	Id        int     `json:"id" dc:"商品ID，编辑时必填"`
+	GoodsName string  `json:"goods_name" v:"required" dc:"商品名称"`
+	GoodsCode string  `json:"goods_code" v:"required" dc:"商品编码"`
+	BasePrice float64 `json:"base_price" d:"0.00" dc:"商品底价"`
+	Status    int     `json:"status" d:"1" dc:"状态：1正常 2下架 3删除"`
+}
+
+type SystemGoodsSaveRes struct {
+	g.Meta `mime:"application/json"`
+	Id     int64 `json:"id" dc:"商品ID"`
+}
+
+type SystemGoodsDeleteReq struct {
+	g.Meta `path:"/system/goods/delete" method:"delete" tags:"System-Goods" summary:"删除商品"`
+	Id     int `json:"id" in:"query" v:"required" dc:"商品ID"`
+}
+
+type SystemGoodsDeleteRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+type SystemGoodsExportReq struct {
+	g.Meta  `path:"/system/goods/export" method:"get" tags:"System-Goods" summary:"导出商品Excel"`
+	Keyword string `json:"keyword" in:"query" dc:"搜索关键词"`
+}
+
+type SystemGoodsExportRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+type SystemGoodsImportReq struct {
+	g.Meta `path:"/system/goods/import" method:"post" tags:"System-Goods" summary:"导入商品Excel"`
+}
+
+type SystemGoodsImportRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+// --- System Order Analysis APIs ---
+
+type SystemOrderAnalysisGroupStatsReq struct {
+	g.Meta   `path:"/order-analysis/group-stats" method:"get" tags:"System-OrderAnalysis" summary:"小组维度统计"`
+	TimeType string `json:"timeType" in:"query" d:"today" dc:"时间类型: today/yesterday/week/month"`
+}
+
+type SystemOrderAnalysisGroupStatsRes struct {
+	g.Meta   `mime:"application/json"`
+	TimeType string        `json:"timeType" dc:"时间类型"`
+	StartDate string       `json:"startDate" dc:"开始日期"`
+	EndDate   string       `json:"endDate" dc:"结束日期"`
+	Stats     interface{}  `json:"stats" dc:"统计数据"`
+}
+
+type SystemOrderAnalysisShopStatsReq struct {
+	g.Meta   `path:"/order-analysis/shop-stats" method:"get" tags:"System-OrderAnalysis" summary:"店铺维度统计"`
+	TimeType string `json:"timeType" in:"query" d:"today" dc:"时间类型: today/yesterday/week/month"`
+	GroupId  int    `json:"groupId" in:"query" d:"0" dc:"小组ID，0表示全部"`
+}
+
+type SystemOrderAnalysisShopStatsRes struct {
+	g.Meta   `mime:"application/json"`
+	TimeType string        `json:"timeType" dc:"时间类型"`
+	StartDate string       `json:"startDate" dc:"开始日期"`
+	EndDate   string       `json:"endDate" dc:"结束日期"`
+	Stats     interface{}  `json:"stats" dc:"统计数据"`
+}
+
+type SystemOrderAnalysisGroupListReq struct {
+	g.Meta `path:"/order-analysis/groups" method:"get" tags:"System-OrderAnalysis" summary:"获取小组列表"`
+}
+
+type SystemOrderAnalysisGroupListRes struct {
+	g.Meta `mime:"application/json"`
+	Data   interface{} `json:"data" dc:"小组列表"`
+}
+
+type SystemOrderAnalysisShopListReq struct {
+	g.Meta     `path:"/order-analysis/shops" method:"get" tags:"System-OrderAnalysis" summary:"获取店铺列表"`
+	GroupName string `json:"groupName" in:"query" d:"" dc:"小组名称，为空则获取所有店铺"`
+}
+
+type SystemOrderAnalysisShopListRes struct {
+	g.Meta `mime:"application/json"`
+	Data   interface{} `json:"data" dc:"店铺列表"`
+}
+
+type SystemOrderAnalysisResultReq struct {
+	g.Meta   `path:"/order-analysis/result" method:"get" tags:"System-OrderAnalysis" summary:"获取完整分析结果"`
+	TimeType string `json:"timeType" in:"query" d:"today" dc:"时间类型: today/yesterday/week/month"`
+	GroupId  int    `json:"groupId" in:"query" d:"0" dc:"小组ID，0表示全部"`
+}
+
+type SystemOrderAnalysisResultRes struct {
+	g.Meta    `mime:"application/json"`
+	TimeType  string       `json:"timeType" dc:"时间类型"`
+	StartDate string       `json:"startDate" dc:"开始日期"`
+	EndDate   string       `json:"endDate" dc:"结束日期"`
+	GroupStats interface{} `json:"groupStats" dc:"小组统计"`
+	ShopStats  interface{} `json:"shopStats" dc:"店铺统计"`
+}
+
+// --- System Order Analysis V2 APIs ---
+
+// OverviewReq 统计概览请求
+type SystemOrderAnalysisOverviewReq struct {
+	g.Meta    `path:"/order-analysis/overview" method:"get" tags:"System-OrderAnalysis" summary:"统计概览"`
+	Preset    string `json:"preset" in:"query" d:"today" dc:"预设时间: today/yesterday/last7/last30/thisMonth/all"`
+	StartDate string `json:"startDate" in:"query" d:"" dc:"自定义开始日期(与preset二选一)"`
+	EndDate   string `json:"endDate" in:"query" d:"" dc:"自定义结束日期(与preset二选一)"`
+}
+
+type SystemOrderAnalysisOverviewRes struct {
+	g.Meta `mime:"application/json"`
+	// 当前选中期间统计
+	Period struct {
+		OrderCount    int     `json:"orderCount" dc:"有效订单数"`
+		PayAmount     float64 `json:"payAmount" dc:"订单应付金额"`
+		CostAmount    float64 `json:"costAmount" dc:"货款"`
+		Commission    float64 `json:"commission" dc:"佣金"`
+		RefundCount   int     `json:"refundCount" dc:"退款订单数"`
+		RefundAmount  float64 `json:"refundAmount" dc:"退款金额"`
+	} `json:"period" dc:"期间统计"`
+	// 历史累计
+	Total struct {
+		OrderCount int     `json:"orderCount" dc:"累计订单数"`
+		PayAmount  float64 `json:"payAmount" dc:"累计应付金额"`
+		Commission float64 `json:"commission" dc:"累计佣金"`
+	} `json:"total" dc:"历史累计"`
+}
+
+// SalesTrendReq 销售额趋势请求
+type SystemOrderAnalysisSalesTrendReq struct {
+	g.Meta    `path:"/order-analysis/sales-trend" method:"get" tags:"System-OrderAnalysis" summary:"销售额趋势"`
+	Preset    string `json:"preset" in:"query" d:"last7" dc:"预设时间: last7/last30/thisMonth"`
+	StartDate string `json:"startDate" in:"query" d:"" dc:"自定义开始日期"`
+	EndDate   string `json:"endDate" in:"query" d:"" dc:"自定义结束日期"`
+}
+
+type SystemOrderAnalysisSalesTrendRes struct {
+	g.Meta `mime:"application/json"`
+	// 当前期趋势
+	Current   interface{} `json:"current" dc:"当前期数据"`
+	// 对比期趋势(上月同期)
+	Compare   interface{} `json:"compare" dc:"对比期数据"`
+	StartDate string      `json:"startDate" dc:"当前期开始日期"`
+	EndDate   string      `json:"endDate" dc:"当前期结束日期"`
+}
+
+// RankReq 排名榜单请求
+type SystemOrderAnalysisRankReq struct {
+	g.Meta    `path:"/order-analysis/rank" method:"get" tags:"System-OrderAnalysis" summary:"排名榜单"`
+	Preset    string `json:"preset" in:"query" d:"thisMonth" dc:"预设时间: today/yesterday/last7/last30/thisMonth"`
+	StartDate string `json:"startDate" in:"query" d:"" dc:"自定义开始日期"`
+	EndDate   string `json:"endDate" in:"query" d:"" dc:"自定义结束日期"`
+}
+
+// RankItem 排名单项（小组/店铺）
+type RankItem struct {
+	Rank       int     `json:"rank" dc:"排名"`
+	GroupName  string  `json:"groupName" dc:"小组名称"`
+	ShopName   string  `json:"shopName" dc:"店铺名称"`
+	OrderCount int     `json:"orderCount" dc:"订单数"`
+	GoodsCount int     `json:"goodsCount" dc:"商品数量"`
+	PayAmount  float64 `json:"payAmount" dc:"应付金额"`
+	Commission float64 `json:"commission" dc:"佣金"`
+}
+
+type SystemOrderAnalysisRankRes struct {
+	g.Meta `mime:"application/json"`
+	// 小组排名
+	GroupRank interface{} `json:"groupRank" dc:"小组排名"`
+	// 店铺排名
+	ShopRank  interface{} `json:"shopRank" dc:"店铺排名"`
+	StartDate string      `json:"startDate" dc:"开始日期"`
+	EndDate   string      `json:"endDate" dc:"结束日期"`
 }
