@@ -73,9 +73,10 @@ func (s *OrderAnalysisService) GroupStats(ctx context.Context, startDate, endDat
 			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
 		FROM (
 			-- 子查询：按主订单号聚合，确保每个主订单只计算一次订单级金额
-			SELECT 
+			SELECT
 				o1.main_order_no,
 				o1.shop_name,
+				o1.talent_id,
 				-- 商品数量：求和（一个订单多个商品）
 				SUM(o1.product_num) AS product_num,
 				-- 商品总价 = Σ(商品单价 × 数量)，处理NULL值
@@ -86,14 +87,14 @@ func (s *OrderAnalysisService) GroupStats(ctx context.Context, startDate, endDat
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON TRIM(o1.seller_code) = TRIM(g.goods_code) AND g.status = 1
-			WHERE o1.pay_finish_time >= '` + startDate + `' 
+			WHERE o1.pay_finish_time >= '` + startDate + `'
 			  AND o1.pay_finish_time < '` + endDate + `'
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 			  ` + s.GetValidOrderFilter() + `
-			GROUP BY o1.main_order_no, o1.shop_name
+			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
 		) o
-		LEFT JOIN shop s ON TRIM(o.shop_name) = TRIM(s.douyin_name)
+		LEFT JOIN shop s ON o.talent_id = s.uid
 		GROUP BY s.operation_leader
 		ORDER BY s.operation_leader
 	`
@@ -148,9 +149,10 @@ func (s *OrderAnalysisService) ShopStats(ctx context.Context, startDate, endDate
 			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
 		FROM (
 			-- 子查询：按主订单号聚合，确保每个主订单只计算一次订单级金额
-			SELECT 
+			SELECT
 				o1.main_order_no,
 				o1.shop_name,
+				o1.talent_id,
 				-- 商品数量：求和（一个订单多个商品）
 				SUM(o1.product_num) AS product_num,
 				-- 商品总价 = Σ(商品单价 × 数量)，处理NULL值
@@ -161,14 +163,14 @@ func (s *OrderAnalysisService) ShopStats(ctx context.Context, startDate, endDate
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON TRIM(o1.seller_code) = TRIM(g.goods_code) AND g.status = 1
-			WHERE o1.pay_finish_time >= '` + startDate + `' 
+			WHERE o1.pay_finish_time >= '` + startDate + `'
 			  AND o1.pay_finish_time < '` + endDate + `'
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 			  ` + s.GetValidOrderFilter() + `
-			GROUP BY o1.main_order_no, o1.shop_name
+			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
 		) o
-		LEFT JOIN shop s ON TRIM(o.shop_name) = TRIM(s.douyin_name)
+		LEFT JOIN shop s ON o.talent_id = s.uid
 		WHERE 1=1 ` + shopFilter + `
 		GROUP BY s.id, o.shop_name, s.operation_leader
 		ORDER BY o.shop_name
@@ -540,9 +542,10 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
 		FROM (
 			-- 子查询：按主订单号聚合，确保每个主订单只计算一次订单级金额
-			SELECT 
+			SELECT
 				o1.main_order_no,
 				o1.shop_name,
+				o1.talent_id,
 				-- 商品数量：求和（一个订单多个商品）
 				SUM(o1.product_num) AS product_num,
 			-- 商品总价 = Σ(商品单价 × 数量)，处理NULL值
@@ -553,14 +556,14 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON TRIM(o1.seller_code) = TRIM(g.goods_code) AND g.status = 1
-			WHERE o1.pay_finish_time >= '` + startDate + `' 
+			WHERE o1.pay_finish_time >= '` + startDate + `'
 			  AND o1.pay_finish_time < '` + endDate + `'
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 			  ` + s.GetValidOrderFilter() + `
-			GROUP BY o1.main_order_no, o1.shop_name
+			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
 		) o
-		LEFT JOIN shop s ON TRIM(o.shop_name) = TRIM(s.douyin_name)
+		LEFT JOIN shop s ON o.talent_id = s.uid
 		GROUP BY s.operation_leader
 		ORDER BY order_count DESC
 	`
@@ -599,9 +602,10 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
 		FROM (
 			-- 子查询：按主订单号聚合，确保每个主订单只计算一次订单级金额
-			SELECT 
+			SELECT
 				o1.main_order_no,
 				o1.shop_name,
+				o1.talent_id,
 				-- 商品数量：求和（一个订单多个商品）
 				SUM(o1.product_num) AS product_num,
 			-- 商品总价 = Σ(商品单价 × 数量)，处理NULL值
@@ -612,14 +616,14 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON TRIM(o1.seller_code) = TRIM(g.goods_code) AND g.status = 1
-			WHERE o1.pay_finish_time >= '` + startDate + `' 
+			WHERE o1.pay_finish_time >= '` + startDate + `'
 			  AND o1.pay_finish_time < '` + endDate + `'
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 			  ` + s.GetValidOrderFilter() + `
-			GROUP BY o1.main_order_no, o1.shop_name
+			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
 		) o
-		LEFT JOIN shop s ON TRIM(o.shop_name) = TRIM(s.douyin_name)
+		LEFT JOIN shop s ON o.talent_id = s.uid
 		GROUP BY o.shop_name, s.operation_leader
 		ORDER BY order_count DESC
 	`
