@@ -409,3 +409,41 @@ type SystemOrderAnalysisRankRes struct {
 	StartDate string      `json:"startDate" dc:"开始日期"`
 	EndDate   string      `json:"endDate" dc:"结束日期"`
 }
+
+// GroupExportReq 小组订单明细导出请求
+type SystemOrderAnalysisGroupExportReq struct {
+	g.Meta   `path:"/order-analysis/group-export" method:"get" tags:"System-OrderAnalysis" summary:"导出小组订单明细"`
+	GroupName string `json:"groupName" in:"query" v:"required" dc:"小组名称"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型: today/yesterday/last7/last30/thisMonth"`
+}
+
+// GroupExportRes 小组订单明细导出响应
+type SystemOrderAnalysisGroupExportRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+// ShopExportReq 店铺订单明细导出请求
+type SystemOrderAnalysisShopExportReq struct {
+	g.Meta   `path:"/order-analysis/export-shop-orders" method:"get" tags:"System-OrderAnalysis" summary:"导出店铺订单明细"`
+	ShopId   int    `json:"shopId" in:"query" v:"required" dc:"店铺ID"`
+	TimeType string `json:"timeType" in:"query" d:"today" dc:"时间类型: today/yesterday/last7/last30/thisMonth"`
+}
+
+// ShopExportRes 店铺订单明细导出响应
+type SystemOrderAnalysisShopExportRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+// RankExportReq 排名数据导出请求
+type SystemOrderAnalysisRankExportReq struct {
+	g.Meta   `path:"/order-analysis/export-rank" method:"get" tags:"System-OrderAnalysis" summary:"导出排名数据"`
+	Type     string `json:"type" in:"query" v:"required|in:group,shop" dc:"导出类型: group=小组排名,shop=店铺排名"`
+	TimeType string `json:"timeType" in:"query" d:"thisMonth" dc:"时间类型: today/yesterday/last7/last30/thisMonth"`
+}
+
+// RankExportRes 排名数据导出响应
+type SystemOrderAnalysisRankExportRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+

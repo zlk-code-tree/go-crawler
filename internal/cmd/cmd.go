@@ -75,6 +75,16 @@ var (
 				)
 			})
 
+			// 导出类接口: 需要 JWT 认证，但使用 raw *ghttp.Request 直接处理文件下载
+			// （不经过 MiddlewareHandlerResponse，避免文件下载响应被 JSON 包裹）
+			s.Group("/api", func(group *ghttp.RouterGroup) {
+				group.Middleware(middleware.JwtAuth)
+				group.Middleware(middleware.OperationLog)
+				oaCtrl := system.NewOrderAnalysisController()
+				group.GET("/order-analysis/group-export", oaCtrl.GroupExport)
+				group.GET("/order-analysis/export-shop-orders", oaCtrl.ExportShopOrders)
+			})
+
 			// WebSocket 路由（不经过标准 response 中间件）
 			wsCtrl := ctrlWs.New()
 			s.Group("/api", func(group *ghttp.RouterGroup) {
