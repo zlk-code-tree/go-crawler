@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	v1 "go-crawler/api/hello/v1"
-	"go-crawler/internal/model"
 	"go-crawler/internal/service"
 
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -265,47 +264,4 @@ func (c *OrderAnalysisController) ExportShopOrders(r *ghttp.Request) {
 
 	// 延迟删除临时文件
 	defer os.Remove(filename)
-}
-
-// GetOrgTree 获取组织架构树 GET /api/order-analysis/org-tree
-func (c *OrderAnalysisController) GetOrgTree(ctx context.Context, req *v1.SystemOrderAnalysisOrgTreeReq) (res *v1.SystemOrderAnalysisOrgTreeRes, err error) {
-	analysisService := service.NewOrderAnalysisService()
-
-	tree, err := analysisService.GetOrgTree(ctx)
-	if err != nil {
-		return nil, gerror.New("查询失败: " + err.Error())
-	}
-
-	res = &v1.SystemOrderAnalysisOrgTreeRes{
-		Tree: tree,
-	}
-	return
-}
-
-// OrgStats 按组织维度统计 GET /api/order-analysis/org-stats
-func (c *OrderAnalysisController) OrgStats(ctx context.Context, req *v1.SystemOrderAnalysisOrgStatsReq) (res *v1.SystemOrderAnalysisOrgStatsRes, err error) {
-	analysisService := service.NewOrderAnalysisService()
-
-	orgReq := model.OrgFilterReq{
-		CompanyId:    req.CompanyId,
-		DepartmentId: req.DepartmentId,
-		LeaderName:   req.LeaderName,
-		GroupType:    req.GroupType,
-		TalentId:     req.TalentId,
-		Preset:       req.Preset,
-		StartDate:    req.StartDate,
-		EndDate:      req.EndDate,
-	}
-
-	result, err := analysisService.OrgStats(ctx, orgReq)
-	if err != nil {
-		return nil, gerror.New("查询失败: " + err.Error())
-	}
-
-	res = &v1.SystemOrderAnalysisOrgStatsRes{
-		CurrentLevel: result.CurrentLevel,
-		Stats:        result.Stats,
-		Summary:      result.Summary,
-	}
-	return
 }

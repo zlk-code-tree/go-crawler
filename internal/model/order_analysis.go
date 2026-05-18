@@ -6,47 +6,6 @@ type OrderAnalysisReq struct {
 	GroupId  int    `json:"groupId" dc:"小组ID，店铺维度筛选用"`                  // 店铺维度筛选用
 }
 
-// OrgFilterReq 组织筛选请求
-type OrgFilterReq struct {
-	TimeType     string `json:"timeType"`     // 时间类型
-	CompanyId    int64  `json:"companyId"`    // 公司ID（集团/分公司）
-	DepartmentId int64  `json:"departmentId"` // 部门ID
-	LeaderName   string `json:"leaderName"`   // 组长名称
-	GroupType    string `json:"groupType"`    // 组类型：invest/shop
-	TalentId     int    `json:"talentId"`     // 达人ID（成员）
-	Preset       string `json:"preset"`       // 预设时间
-	StartDate    string `json:"startDate"`    // 开始日期
-	EndDate      string `json:"endDate"`      // 结束日期
-}
-
-// OrgTreeNode 组织树节点
-type OrgTreeNode struct {
-	Id       int           `json:"id"`
-	Name     string        `json:"name"`
-	Type     string        `json:"type"` // company/department/leader/invest/shop/member
-	Children []OrgTreeNode `json:"children,omitempty"`
-}
-
-// OrgStatItem 组织统计项（通用）
-type OrgStatItem struct {
-	OrgId         string  `json:"orgId"`         // 组织ID
-	OrgName       string  `json:"orgName"`       // 组织名称
-	OrgType       string  `json:"orgType"`       // 组织类型
-	OrderCount    int     `json:"orderCount"`    // 有效订单数
-	ProductNum    int     `json:"productNum"`    // 商品数量合计
-	PayAmount     float64 `json:"payAmount"`     // 订单应付金额
-	CostAmount    float64 `json:"costAmount"`    // 货款（代发价）
-	ReserveAmount float64 `json:"reserveAmount"` // 留底
-	Commission    float64 `json:"commission"`    // 佣金
-}
-
-// OrgStatsRes 按组织统计响应
-type OrgStatsRes struct {
-	CurrentLevel string       `json:"currentLevel"` // 当前筛选层级：company/department/leader/group/talent
-	Stats        []OrgStatItem `json:"stats"`        // 下级单位统计列表
-	Summary      OrgStatItem   `json:"summary"`      // 当前层级汇总
-}
-
 // GroupStatItem 小组统计项
 type GroupStatItem struct {
 	GroupName     string  `json:"groupName" dc:"小组名称"`

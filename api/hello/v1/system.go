@@ -471,38 +471,3 @@ type SystemOrderAnalysisShopTalentStatsRes struct {
 	StartDate string                     `json:"startDate" dc:"开始日期"`
 	EndDate   string                     `json:"endDate" dc:"结束日期"`
 }
-
-// --- System Order Analysis Org APIs ---
-
-// OrgTreeReq 获取组织架构树请求
-type SystemOrderAnalysisOrgTreeReq struct {
-	g.Meta `path:"/order-analysis/org-tree" method:"get" tags:"System-OrderAnalysis" summary:"获取组织架构树"`
-}
-
-// OrgTreeRes 获取组织架构树响应
-type SystemOrderAnalysisOrgTreeRes struct {
-	g.Meta `mime:"application/json"`
-	Tree   []model.OrgTreeNode `json:"tree" dc:"组织架构树"`
-}
-
-// OrgStatsReq 按组织统计请求
-type SystemOrderAnalysisOrgStatsReq struct {
-	g.Meta       `path:"/order-analysis/org-stats" method:"get" tags:"System-OrderAnalysis" summary:"按组织维度统计"`
-	CompanyId    int64  `json:"companyId" in:"query" d:"0" dc:"公司ID（集团/分公司）"`
-	DepartmentId int64  `json:"departmentId" in:"query" d:"0" dc:"部门ID"`
-	LeaderName   string `json:"leaderName" in:"query" d:"" dc:"组长名称"`
-	GroupType    string `json:"groupType" in:"query" d:"" dc:"组类型：invest/shop"`
-	TalentId     int    `json:"talentId" in:"query" d:"0" dc:"达人ID（成员）"`
-	Preset       string `json:"preset" in:"query" d:"today" dc:"预设时间: today/yesterday/last7/last30/thisMonth/all"`
-	StartDate    string `json:"startDate" in:"query" d:"" dc:"自定义开始日期"`
-	EndDate      string `json:"endDate" in:"query" d:"" dc:"自定义结束日期"`
-}
-
-// OrgStatsRes 按组织统计响应
-type SystemOrderAnalysisOrgStatsRes struct {
-	g.Meta       `mime:"application/json"`
-	CurrentLevel string               `json:"currentLevel" dc:"当前筛选层级：company/department/leader/group/talent"`
-	Stats        []model.OrgStatItem  `json:"stats" dc:"下级单位统计列表"`
-	Summary      model.OrgStatItem    `json:"summary" dc:"当前层级汇总"`
-}
-

@@ -74,6 +74,7 @@ var (
 					system.NewOrderController(),
 					system.NewGoodsController(),
 					system.NewOrderAnalysisController(),
+					system.NewOrgStructureController(),
 					permissionCtrl.New(),
 					ctrlVideo.New(),
 				)
