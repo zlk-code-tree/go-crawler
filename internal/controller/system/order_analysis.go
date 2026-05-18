@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	v1 "go-crawler/api/hello/v1"
+	"go-crawler/internal/model"
 	"go-crawler/internal/service"
 
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -152,6 +153,37 @@ func (c *OrderAnalysisController) Rank(ctx context.Context, req *v1.SystemOrderA
 	return
 }
 
+// ShopTalentStats 店铺达人明细 GET /api/order-analysis/shop-talent-stats
+func (c *OrderAnalysisController) ShopTalentStats(ctx context.Context, req *v1.SystemOrderAnalysisShopTalentStatsReq) (res *v1.SystemOrderAnalysisShopTalentStatsRes, err error) {
+	analysisService := service.NewOrderAnalysisService()
+
+	startDate, endDate := analysisService.ParseTimeRange(req.Preset, req.StartDate, req.EndDate)
+	stats, err := analysisService.GetShopTalentStats(ctx, req.ShopName, startDate, endDate)
+	if err != nil {
+		return nil, gerror.New("查询失败: " + err.Error())
+	}
+
+	// 查询该店铺的小组信息
+	shopInfo, _ := g.DB().Model("shop").
+		Fields("operation_leader").
+		Where("douyin_name = ?", req.ShopName).
+		Where("operation_leader IS NOT NULL AND operation_leader != ''").
+		One()
+	groupName := ""
+	if !shopInfo.IsEmpty() {
+		groupName = shopInfo["operation_leader"].String()
+	}
+
+	res = &v1.SystemOrderAnalysisShopTalentStatsRes{
+		ShopName:  req.ShopName,
+		GroupName: groupName,
+		Stats:     stats,
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+	return
+}
+
 // AnalysisResult 获取完整分析结果 GET /api/order-analysis/result
 func (c *OrderAnalysisController) AnalysisResult(ctx context.Context, req *v1.SystemOrderAnalysisResultReq) (res *v1.SystemOrderAnalysisResultRes, err error) {
 	analysisService := service.NewOrderAnalysisService()
@@ -185,13 +217,15 @@ func (c *OrderAnalysisController) AnalysisResult(ctx context.Context, req *v1.Sy
 func (c *OrderAnalysisController) GroupExport(r *ghttp.Request) {
 	groupName := r.Get("groupName").String()
 	timeType := r.Get("timeType").String()
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
 	if groupName == "" {
 		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "小组名称不能为空"})
 		return
 	}
 
 	analysisService := service.NewOrderAnalysisService()
-	filename, err := analysisService.ExportGroupDetails(r.Context(), groupName, timeType)
+	filename, err := analysisService.ExportGroupDetails(r.Context(), groupName, timeType, startDate, endDate)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return
@@ -210,13 +244,15 @@ func (c *OrderAnalysisController) GroupExport(r *ghttp.Request) {
 func (c *OrderAnalysisController) ExportShopOrders(r *ghttp.Request) {
 	shopId := r.Get("shopId").Int()
 	timeType := r.Get("timeType").String()
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
 	if shopId == 0 {
 		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "店铺ID不能为空"})
 		return
 	}
 
 	analysisService := service.NewOrderAnalysisService()
-	filename, err := analysisService.ExportShopDetails(r.Context(), shopId, timeType)
+	filename, err := analysisService.ExportShopDetails(r.Context(), shopId, timeType, startDate, endDate)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return
@@ -229,4 +265,47 @@ func (c *OrderAnalysisController) ExportShopOrders(r *ghttp.Request) {
 
 	// 延迟删除临时文件
 	defer os.Remove(filename)
+}
+
+// GetOrgTree 获取组织架构树 GET /api/order-analysis/org-tree
+func (c *OrderAnalysisController) GetOrgTree(ctx context.Context, req *v1.SystemOrderAnalysisOrgTreeReq) (res *v1.SystemOrderAnalysisOrgTreeRes, err error) {
+	analysisService := service.NewOrderAnalysisService()
+
+	tree, err := analysisService.GetOrgTree(ctx)
+	if err != nil {
+		return nil, gerror.New("查询失败: " + err.Error())
+	}
+
+	res = &v1.SystemOrderAnalysisOrgTreeRes{
+		Tree: tree,
+	}
+	return
+}
+
+// OrgStats 按组织维度统计 GET /api/order-analysis/org-stats
+func (c *OrderAnalysisController) OrgStats(ctx context.Context, req *v1.SystemOrderAnalysisOrgStatsReq) (res *v1.SystemOrderAnalysisOrgStatsRes, err error) {
+	analysisService := service.NewOrderAnalysisService()
+
+	orgReq := model.OrgFilterReq{
+		CompanyId:    req.CompanyId,
+		DepartmentId: req.DepartmentId,
+		LeaderName:   req.LeaderName,
+		GroupType:    req.GroupType,
+		TalentId:     req.TalentId,
+		Preset:       req.Preset,
+		StartDate:    req.StartDate,
+		EndDate:      req.EndDate,
+	}
+
+	result, err := analysisService.OrgStats(ctx, orgReq)
+	if err != nil {
+		return nil, gerror.New("查询失败: " + err.Error())
+	}
+
+	res = &v1.SystemOrderAnalysisOrgStatsRes{
+		CurrentLevel: result.CurrentLevel,
+		Stats:        result.Stats,
+		Summary:      result.Summary,
+	}
+	return
 }

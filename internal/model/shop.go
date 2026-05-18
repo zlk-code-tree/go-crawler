@@ -9,6 +9,10 @@ type Shop struct {
 	DouyinName       string    `json:"douyinName"`
 	DouyinId         string    `json:"douyinId"`
 	OperationLeader  string    `json:"operationLeader"`
+	CompanyId        int64     `json:"companyId"`        // 所属公司ID（关联sys_company）
+	DepartmentId     int64     `json:"departmentId"`     // 所属部门ID（关联sys_department）
+	GroupType        string    `json:"groupType"`        // 组类型：invest(投放组)/shop(店铺组)
+	MemberName       string    `json:"memberName"`       // 成员名称
 	AccountOwnership string    `json:"accountOwnership"`
 	ShopPlatform     string    `json:"shopPlatform"`
 	CreatedAt        time.Time `json:"createdAt"`

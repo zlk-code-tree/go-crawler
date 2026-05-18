@@ -1,6 +1,10 @@
 package v1
 
-import "github.com/gogf/gf/v2/frame/g"
+import (
+	"go-crawler/internal/model"
+
+	"github.com/gogf/gf/v2/frame/g"
+)
 
 // --- System User APIs ---
 
@@ -394,6 +398,7 @@ type RankItem struct {
 	Rank       int     `json:"rank" dc:"排名"`
 	GroupName  string  `json:"groupName" dc:"小组名称"`
 	ShopName   string  `json:"shopName" dc:"店铺名称"`
+	ShopId     int     `json:"shopId,omitempty" dc:"店铺ID"`
 	OrderCount int     `json:"orderCount" dc:"订单数"`
 	GoodsCount int     `json:"goodsCount" dc:"商品数量"`
 	PayAmount  float64 `json:"payAmount" dc:"应付金额"`
@@ -415,6 +420,8 @@ type SystemOrderAnalysisGroupExportReq struct {
 	g.Meta   `path:"/order-analysis/group-export" method:"get" tags:"System-OrderAnalysis" summary:"导出小组订单明细"`
 	GroupName string `json:"groupName" in:"query" v:"required" dc:"小组名称"`
 	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型: today/yesterday/last7/last30/thisMonth"`
+	StartDate string `json:"startDate" in:"query" d:"" dc:"自定义开始日期（格式：2006-01-02），指定后timeType失效"`
+	EndDate   string `json:"endDate" in:"query" d:"" dc:"自定义结束日期（格式：2006-01-02），指定后timeType失效"`
 }
 
 // GroupExportRes 小组订单明细导出响应
@@ -446,4 +453,56 @@ type SystemOrderAnalysisRankExportRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// ShopTalentStatsReq 店铺达人明细请求
+type SystemOrderAnalysisShopTalentStatsReq struct {
+	g.Meta    `path:"/order-analysis/shop-talent-stats" method:"get" tags:"System-OrderAnalysis" summary:"店铺达人明细"`
+	ShopName  string `json:"shopName" in:"query" v:"required" dc:"店铺名称"`
+	Preset    string `json:"preset" in:"query" d:"thisMonth" dc:"预设时间: today/yesterday/last7/last30/thisMonth"`
+	StartDate string `json:"startDate" in:"query" d:"" dc:"自定义开始日期"`
+	EndDate   string `json:"endDate" in:"query" d:"" dc:"自定义结束日期"`
+}
+
+// ShopTalentStatsRes 店铺达人明细响应
+type SystemOrderAnalysisShopTalentStatsRes struct {
+	g.Meta    `mime:"application/json"`
+	ShopName  string                     `json:"shopName" dc:"店铺名称"`
+	GroupName string                     `json:"groupName" dc:"所属小组"`
+	Stats     []model.ShopTalentStatItem `json:"stats" dc:"达人统计列表"`
+	StartDate string                     `json:"startDate" dc:"开始日期"`
+	EndDate   string                     `json:"endDate" dc:"结束日期"`
+}
+
+// --- System Order Analysis Org APIs ---
+
+// OrgTreeReq 获取组织架构树请求
+type SystemOrderAnalysisOrgTreeReq struct {
+	g.Meta `path:"/order-analysis/org-tree" method:"get" tags:"System-OrderAnalysis" summary:"获取组织架构树"`
+}
+
+// OrgTreeRes 获取组织架构树响应
+type SystemOrderAnalysisOrgTreeRes struct {
+	g.Meta `mime:"application/json"`
+	Tree   []model.OrgTreeNode `json:"tree" dc:"组织架构树"`
+}
+
+// OrgStatsReq 按组织统计请求
+type SystemOrderAnalysisOrgStatsReq struct {
+	g.Meta       `path:"/order-analysis/org-stats" method:"get" tags:"System-OrderAnalysis" summary:"按组织维度统计"`
+	CompanyId    int64  `json:"companyId" in:"query" d:"0" dc:"公司ID（集团/分公司）"`
+	DepartmentId int64  `json:"departmentId" in:"query" d:"0" dc:"部门ID"`
+	LeaderName   string `json:"leaderName" in:"query" d:"" dc:"组长名称"`
+	GroupType    string `json:"groupType" in:"query" d:"" dc:"组类型：invest/shop"`
+	TalentId     int    `json:"talentId" in:"query" d:"0" dc:"达人ID（成员）"`
+	Preset       string `json:"preset" in:"query" d:"today" dc:"预设时间: today/yesterday/last7/last30/thisMonth/all"`
+	StartDate    string `json:"startDate" in:"query" d:"" dc:"自定义开始日期"`
+	EndDate      string `json:"endDate" in:"query" d:"" dc:"自定义结束日期"`
+}
+
+// OrgStatsRes 按组织统计响应
+type SystemOrderAnalysisOrgStatsRes struct {
+	g.Meta       `mime:"application/json"`
+	CurrentLevel string               `json:"currentLevel" dc:"当前筛选层级：company/department/leader/group/talent"`
+	Stats        []model.OrgStatItem  `json:"stats" dc:"下级单位统计列表"`
+	Summary      model.OrgStatItem    `json:"summary" dc:"当前层级汇总"`
+}
 

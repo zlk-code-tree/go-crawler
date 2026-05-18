@@ -17,3 +17,8 @@ database:
     type: "mysql"
     link: "admin:admin@tcp(127.0.0.1:3306)/easyadmin8?charset=utf8mb4&parseTime=True&loc=Local"
     debug: true
+    # 连接池配置
+    maxIdle: 10          # 最大空闲连接数
+    maxOpen: 100         # 最大打开连接数
+    maxLifetime: 300     # 连接最大生命周期（秒）
+    charset: "utf8mb4"

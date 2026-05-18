@@ -17,7 +17,9 @@ import (
 	ctrlMenu "go-crawler/internal/controller/menu"
 	permissionCtrl "go-crawler/internal/controller/permission"
 	system "go-crawler/internal/controller/system"
+	ctrlScheduler "go-crawler/internal/controller/scheduler"
 	ctrlTask "go-crawler/internal/controller/task"
+	ctrlVideo "go-crawler/internal/controller/video"
 	ctrlWs "go-crawler/internal/controller/ws"
 	"go-crawler/internal/middleware"
 )
@@ -60,6 +62,7 @@ var (
 					ctrlMenu.New(),
 					ctrlCompany.New(),
 					ctrlCrawlerSvc.New(),
+					ctrlScheduler.New(),
 					system.NewRoleController(),
 					system.NewUserController(),
 					system.NewMenuController(),
@@ -72,6 +75,7 @@ var (
 					system.NewGoodsController(),
 					system.NewOrderAnalysisController(),
 					permissionCtrl.New(),
+					ctrlVideo.New(),
 				)
 			})
 

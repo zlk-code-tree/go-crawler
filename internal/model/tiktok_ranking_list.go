@@ -4,39 +4,45 @@ import "time"
 
 // TikTokRankingListInput 商品榜单数据（用于数据库插入）
 type TikTokRankingListInput struct {
-	TaskId           string    `json:"task_id" db:"task_id"`
-	ProductId        string    `json:"product_id" db:"product_id"`                 // 商品 ID
-	Rank             int       `json:"rank" db:"rank"`                             // 排名
-	ProductName      string    `json:"product_name" db:"product_name"`             // 商品名称
-	ShopName         string    `json:"shop_name" db:"shop_name"`                   // 店铺名称
-	PaymentAmount    string    `json:"payment_amount" db:"payment_amount"`         // 短视频用户支付金额
-	ClickCount       string    `json:"click_count" db:"click_count"`               // 短视频点击次数
-	SalesVolume      string    `json:"sales_volume" db:"sales_volume"`             // 短视频成交件数
-	DeliveryVideoNum string    `json:"delivery_video_num" db:"delivery_video_num"` // 带货视频数
-	FirstShelfTime   string    `json:"first_shelf_time" db:"first_shelf_time"`     // 首次上架时间
-	MinPrice         string    `json:"min_price" db:"min_price"`                   // 最低到手价
-	PriceRange       string    `json:"price_range" db:"price_range"`               // 价格区间（价格带）
-	FirstList        int       `json:"first_list" db:"first_list"`                 // 是否首次上榜：0-否 1-是
-	CreatedAt        time.Time `json:"created_at" db:"created_at"`
+	TaskId              string    `json:"task_id" db:"task_id"`
+	ProductId           string    `json:"product_id" db:"product_id"`                           // 商品 ID
+	Rank                int       `json:"rank" db:"rank"`                                       // 排名
+	ProductName         string    `json:"product_name" db:"product_name"`                       // 商品名称
+	ShopName            string    `json:"shop_name" db:"shop_name"`                             // 店铺名称
+	PaymentAmount       string    `json:"payment_amount" db:"payment_amount"`                   // 短视频用户支付金额
+	ClickCount          string    `json:"click_count" db:"click_count"`                         // 短视频点击次数
+	SalesVolume         string    `json:"sales_volume" db:"sales_volume"`                       // 短视频成交件数
+	DeliveryVideoNum    string    `json:"delivery_video_num" db:"delivery_video_num"`           // 带货视频数
+	FirstShelfTime      string    `json:"first_shelf_time" db:"first_shelf_time"`               // 首次上架时间
+	MinPrice            string    `json:"min_price" db:"min_price"`                             // 最低到手价
+	PriceRange          string    `json:"price_range" db:"price_range"`                         // 价格区间（价格带）
+	HasShippingInsurance *int     `json:"has_shipping_insurance" db:"has_shipping_insurance"`   // 是否有运费险：0-无 1-有 NULL-未知
+	DetailAccessStatus  string    `json:"detail_access_status" db:"detail_access_status"`       // 详情访问状态
+	DetailAccessNote    string    `json:"detail_access_note" db:"detail_access_note"`           // 详情访问备注
+	FirstList           int       `json:"first_list" db:"first_list"`                           // 是否首次上榜：0-否 1-是
+	CreatedAt           time.Time `json:"created_at" db:"created_at"`
 }
 
 // TikTokRankingListEntity 数据库实体
 type TiktokRankingList struct {
-	Id               uint      `json:"id" db:"id"`
-	TaskId           string    `json:"task_id" db:"task_id"`
-	ProductId        string    `json:"product_id" db:"product_id"`
-	Rank             int       `json:"rank" db:"rank"`
-	ProductName      string    `json:"product_name" db:"product_name"`
-	ShopName         string    `json:"shop_name" db:"shop_name"`
-	PaymentAmount    string    `json:"payment_amount" db:"payment_amount"`
-	ClickCount       string    `json:"click_count" db:"click_count"`
-	SalesVolume      string    `json:"sales_volume" db:"sales_volume"`
-	DeliveryVideoNum string    `json:"delivery_video_num" db:"delivery_video_num"`
-	FirstShelfTime   string    `json:"first_shelf_time" db:"first_shelf_time"`
-	MinPrice         string    `json:"min_price" db:"min_price"`
-	PriceRange       string    `json:"price_range" db:"price_range"`
-	FirstList        int       `json:"first_list" db:"first_list"`
-	CreatedAt        time.Time `json:"created_at" db:"created_at"`
+	Id                  uint      `json:"id" db:"id"`
+	TaskId              string    `json:"task_id" db:"task_id"`
+	ProductId           string    `json:"product_id" db:"product_id"`
+	Rank                int       `json:"rank" db:"rank"`
+	ProductName         string    `json:"product_name" db:"product_name"`
+	ShopName            string    `json:"shop_name" db:"shop_name"`
+	PaymentAmount       string    `json:"payment_amount" db:"payment_amount"`
+	ClickCount          string    `json:"click_count" db:"click_count"`
+	SalesVolume         string    `json:"sales_volume" db:"sales_volume"`
+	DeliveryVideoNum    string    `json:"delivery_video_num" db:"delivery_video_num"`
+	FirstShelfTime      string    `json:"first_shelf_time" db:"first_shelf_time"`
+	MinPrice            string    `json:"min_price" db:"min_price"`
+	PriceRange          string    `json:"price_range" db:"price_range"`
+	HasShippingInsurance *int     `json:"has_shipping_insurance" db:"has_shipping_insurance"`
+	DetailAccessStatus  string    `json:"detail_access_status" db:"detail_access_status"`
+	DetailAccessNote    string    `json:"detail_access_note" db:"detail_access_note"`
+	FirstList           int       `json:"first_list" db:"first_list"`
+	CreatedAt           time.Time `json:"created_at" db:"created_at"`
 }
 
 // VideoAnalysisData 视频分析数据（用于数据库插入）

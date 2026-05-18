@@ -32,23 +32,33 @@ type OperationLogInput struct {
 }
 
 func (s *OperationLogService) Record(ctx context.Context, input OperationLogInput) {
-	_, _ = g.DB().Model("sys_operation_log").Insert(g.Map{
-		"user_id":         input.UserId,
-		"username":        input.Username,
-		"module":          input.Module,
-		"action":          input.Action,
-		"method":          input.Method,
-		"url":             input.Url,
-		"params":          input.Params,
-		"ip":              input.Ip,
-		"location":        input.Location,
-		"user_agent":      input.UserAgent,
-		"status":          input.Status,
-		"error_msg":       input.ErrorMsg,
-		"duration":        input.Duration,
-		"permission_code": input.PermissionCode,
-		"created_at":      time.Now(),
-	})
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		_, err := g.DB().Model("sys_operation_log").Insert(g.Map{
+			"user_id":         input.UserId,
+			"username":        input.Username,
+			"module":          input.Module,
+			"action":          input.Action,
+			"method":          input.Method,
+			"url":             input.Url,
+			"params":          input.Params,
+			"ip":              input.Ip,
+			"location":        input.Location,
+			"user_agent":      input.UserAgent,
+			"status":          input.Status,
+			"error_msg":       input.ErrorMsg,
+			"duration":        input.Duration,
+			"permission_code": input.PermissionCode,
+			"created_at":      time.Now(),
+		})
+		if err == nil {
+			return
+		}
+		// 如果是连接错误，重试
+		if i < maxRetries-1 {
+			time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+		}
+	}
 }
 
 func (s *OperationLogService) GetList(ctx context.Context, page, pageSize int, keyword string) ([]g.Map, int, error) {

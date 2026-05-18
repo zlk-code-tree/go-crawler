@@ -6,6 +6,8 @@ import (
 	"go-crawler/internal/model"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -560,16 +562,20 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 		})
 	}
 
-	// 店铺排名
-	shopSQL := `
+	// 店铺排名 + 达人明细（一次查询，在内存中聚合）
+	// 按 shop_name + talent_id 分组，得到每个店铺内每位达人的统计数据
+	shopTalentSQL := `
 		SELECT
-			o.shop_name AS shop_name,
-			COALESCE(s.operation_leader, '未分配小组') AS group_name,
-			COUNT(DISTINCT o.main_order_no) AS order_count,
-			COALESCE(SUM(o.product_num), 0) AS goods_count,
-			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
-			COALESCE(SUM(o.cost_amount), 0) AS cost_amount,
-			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
+			o.shop_name,
+			o.talent_id,
+			COALESCE(MAX(s.douyin_name), '未知达人') AS talent_name,
+			COALESCE(GROUP_CONCAT(DISTINCT s.operation_leader ORDER BY s.operation_leader SEPARATOR ', '), '未分配小组') AS group_name,
+			COALESCE(MAX(s.uid), 0) AS shop_id,
+			COUNT(DISTINCT o.main_order_no) AS talent_order_count,
+			COALESCE(SUM(o.product_num), 0) AS talent_goods_count,
+			COALESCE(SUM(o.pay_amount), 0) AS talent_pay_amount,
+			COALESCE(SUM(o.cost_amount), 0) AS talent_cost_amount,
+			COALESCE(SUM(o.reserve_amount), 0) AS talent_reserve_amount
 		FROM (
 			SELECT
 				o1.main_order_no,
@@ -590,29 +596,91 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 		) o
 		LEFT JOIN shop s ON o.talent_id = s.uid
 		WHERE s.operation_leader IS NOT NULL AND s.operation_leader != ''
-		GROUP BY o.shop_name, s.operation_leader
-		ORDER BY order_count DESC
+		GROUP BY o.shop_name, o.talent_id
+		ORDER BY o.shop_name, talent_order_count DESC
 	`
 
-	shopResult, e := g.DB().GetAll(ctx, shopSQL, startDate, endDate)
+	shopTalentResult, e := g.DB().GetAll(ctx, shopTalentSQL, startDate, endDate)
 	if e != nil {
 		err = fmt.Errorf("店铺排名查询失败: %v", e)
 		return
 	}
 
-	shopRank = make([]model.RankItem, 0, len(shopResult))
-	for i, row := range shopResult {
-		pay := row["pay_amount"].Float64()
-		cost := row["cost_amount"].Float64()
-		reserve := row["reserve_amount"].Float64()
+	// 在内存中聚合：shopName -> { totals, talents[] }
+	type shopAggregate struct {
+		shopId     int
+		groupName  string
+		orderCount int
+		goodsCount int
+		payAmount  float64
+		costAmount float64
+		reserveAmt float64
+		talents    []model.ShopTalentStatItem
+	}
+	shopMap := make(map[string]*shopAggregate)
+	shopOrder := make([]string, 0) // 保持首次出现顺序
+
+	for _, row := range shopTalentResult {
+		shopName := row["shop_name"].String()
+		groupName := row["group_name"].String()
+		shopId := row["shop_id"].Int()
+
+		talentPay := row["talent_pay_amount"].Float64()
+		talentCost := row["talent_cost_amount"].Float64()
+		talentReserve := row["talent_reserve_amount"].Float64()
+		talentCommission := roundFloat(talentPay-talentReserve-talentCost, 2)
+
+		talentItem := model.ShopTalentStatItem{
+			TalentId:   row["talent_id"].Int(),
+			TalentName: row["talent_name"].String(),
+			GroupName:  row["group_name"].String(),
+			OrderCount: row["talent_order_count"].Int(),
+			GoodsCount: row["talent_goods_count"].Int(),
+			PayAmount:  roundFloat(talentPay, 2),
+			Commission: talentCommission,
+		}
+
+		if agg, ok := shopMap[shopName]; ok {
+			// 累加店铺总计
+			agg.orderCount += talentItem.OrderCount
+			agg.goodsCount += talentItem.GoodsCount
+			agg.payAmount += talentPay
+			agg.costAmount += talentCost
+			agg.reserveAmt += talentReserve
+			agg.talents = append(agg.talents, talentItem)
+		} else {
+			shopMap[shopName] = &shopAggregate{
+				shopId:     shopId,
+				groupName:  groupName,
+				orderCount: talentItem.OrderCount,
+				goodsCount: talentItem.GoodsCount,
+				payAmount:  talentPay,
+				costAmount: talentCost,
+				reserveAmt: talentReserve,
+				talents:    []model.ShopTalentStatItem{talentItem},
+			}
+			shopOrder = append(shopOrder, shopName)
+		}
+	}
+
+	// 按订单数降序排序
+	sort.SliceStable(shopOrder, func(i, j int) bool {
+		return shopMap[shopOrder[i]].orderCount > shopMap[shopOrder[j]].orderCount
+	})
+
+	shopRank = make([]model.RankItem, 0, len(shopOrder))
+	for i, name := range shopOrder {
+		agg := shopMap[name]
 		shopRank = append(shopRank, model.RankItem{
 			Rank:       i + 1,
-			Name:       row["shop_name"].String(),
-			GroupName:  row["group_name"].String(),
-			OrderCount: row["order_count"].Int(),
-			GoodsCount: row["goods_count"].Int(),
-			PayAmount:  roundFloat(pay, 2),
-			Commission: roundFloat(pay-reserve-cost, 2),
+			Name:       name,
+			GroupName:  agg.groupName,
+			ShopId:     agg.shopId,
+			OrderCount: agg.orderCount,
+			GoodsCount: agg.goodsCount,
+			PayAmount:  roundFloat(agg.payAmount, 2),
+			Commission: roundFloat(agg.payAmount-agg.reserveAmt-agg.costAmount, 2),
+			Details:    agg.talents,
 		})
 	}
 
@@ -704,7 +772,7 @@ func (s *OrderAnalysisService) queryOrderDetailsByFilter(ctx context.Context, fi
 		sql = `
 			SELECT o.*
 			FROM order_info o
-			WHERE o.talent_id = ?
+			WHERE o.shop_name = ?
 			  AND o.pay_finish_time >= ?
 			  AND o.pay_finish_time < ?
 			  AND o.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
@@ -727,23 +795,70 @@ func (s *OrderAnalysisService) queryOrderDetailsByFilter(ctx context.Context, fi
 }
 
 // ExportGroupDetails 导出小组订单明细
-func (s *OrderAnalysisService) ExportGroupDetails(ctx context.Context, groupName, timeType string) (string, error) {
-	return s.ExportOrderDetails(ctx, "group", groupName, timeType)
+func (s *OrderAnalysisService) ExportGroupDetails(ctx context.Context, groupName, timeType, startDate, endDate string) (string, error) {
+	return s.ExportOrderDetails(ctx, "group", groupName, timeType, startDate, endDate)
 }
 
-// ExportShopDetails 导出店铺订单明细（店铺ID转uid后调用统一的导出方法）
-func (s *OrderAnalysisService) ExportShopDetails(ctx context.Context, shopId int, timeType string) (string, error) {
-	// 先获取店铺uid
-	shopInfo, err := g.DB().Model("shop").Fields("uid").Where("id = ?", shopId).One()
+// GetShopTalentStats 获取店铺下的达人订单统计明细
+func (s *OrderAnalysisService) GetShopTalentStats(ctx context.Context, shopName, startDate, endDate string) ([]model.ShopTalentStatItem, error) {
+		sql := `
+		SELECT
+			o.talent_id,
+			COALESCE(MAX(s.douyin_name), '未知达人') AS talent_name,
+			COALESCE(MAX(s.operation_leader), '未分配小组') AS group_name,
+			COUNT(DISTINCT o.main_order_no) AS order_count,
+			COALESCE(SUM(o.product_num), 0) AS goods_count,
+			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
+			COALESCE(SUM(o.cost_amount), 0) AS cost_amount,
+			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
+		FROM (
+			SELECT
+				o1.main_order_no,
+				o1.talent_id,
+				o1.product_num,
+				COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) AS pay_amount,
+				COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0) AS cost_amount,
+				COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05 AS reserve_amount
+			FROM order_info o1
+			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
+			WHERE o1.shop_name = ?
+			  AND o1.pay_finish_time >= ?
+			  AND o1.pay_finish_time < ?
+			  AND o1.main_order_no IS NOT NULL
+			  AND o1.main_order_no != ''
+			  AND o1.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
+			  AND o1.order_status != '已关闭'
+		) o
+		LEFT JOIN shop s ON o.talent_id = s.uid
+		GROUP BY o.talent_id
+		ORDER BY order_count DESC
+	`
+	result, err := g.DB().GetAll(ctx, sql, shopName, startDate, endDate)
 	if err != nil {
-		return "", fmt.Errorf("查询店铺信息失败: %v", err)
+		return nil, fmt.Errorf("查询店铺达人明细失败: %v", err)
 	}
-	if shopInfo.IsEmpty() {
-		return "", gerror.New("店铺不存在")
+
+	stats := make([]model.ShopTalentStatItem, 0, len(result))
+	for _, row := range result {
+		pay := row["pay_amount"].Float64()
+		cost := row["cost_amount"].Float64()
+		reserve := row["reserve_amount"].Float64()
+		stats = append(stats, model.ShopTalentStatItem{
+			TalentId:   row["talent_id"].Int(),
+			TalentName: row["talent_name"].String(),
+			GroupName:  row["group_name"].String(),
+			OrderCount: row["order_count"].Int(),
+			GoodsCount: row["goods_count"].Int(),
+			PayAmount:  roundFloat(pay, 2),
+			Commission: roundFloat(pay-reserve-cost, 2),
+		})
 	}
-	shopUid := shopInfo["uid"].String()
-	
-	return s.ExportOrderDetails(ctx, "shop", shopUid, timeType)
+	return stats, nil
+}
+
+// ExportShopDetails 导出店铺订单明细（shopId为达人UID，直接用于匹配订单表的talent_id）
+func (s *OrderAnalysisService) ExportShopDetails(ctx context.Context, shopId int, timeType, startDate, endDate string) (string, error) {
+	return s.ExportOrderDetails(ctx, "shop", strconv.Itoa(shopId), timeType, startDate, endDate)
 }
 
 // getTimeLabel 获取时间维度标签
@@ -789,10 +904,10 @@ func normalizeTimeType(timeType string) string {
 }
 
 // ExportOrderDetails 导出订单详情（支持小组和店铺维度）
-func (s *OrderAnalysisService) ExportOrderDetails(ctx context.Context, exportType, key, timeType string) (string, error) {
+func (s *OrderAnalysisService) ExportOrderDetails(ctx context.Context, exportType, key, timeType, startDate, endDate string) (string, error) {
 	// 标准化时间类型
 	normalizedTimeType := normalizeTimeType(timeType)
-	startDate, endDate := s.ParseTimeRange(normalizedTimeType, "", "")
+	startDate, endDate = s.ParseTimeRange(normalizedTimeType, startDate, endDate)
 	
 	var result gdb.Result
 	var err error
@@ -803,29 +918,16 @@ func (s *OrderAnalysisService) ExportOrderDetails(ctx context.Context, exportTyp
 		result, err = s.queryOrderDetailsByFilter(ctx, "group", key, startDate, endDate)
 		targetName = key
 	} else if exportType == "shop" {
-		// 首先尝试将key作为店铺uid查询
-		result, err = s.queryOrderDetailsByFilter(ctx, "shop", key, startDate, endDate)
-		
-		// 如果没有找到数据，尝试将key作为店铺名称查找店铺uid
-		if err == nil && len(result) == 0 {
-			// 查询店铺信息
-			shopInfo, shopErr := g.DB().Model("shop").Fields("uid", "douyin_name").Where("douyin_name = ?", key).One()
-			if shopErr == nil && !shopInfo.IsEmpty() {
-				shopUid := shopInfo["uid"].String()
-				shopName := shopInfo["douyin_name"].String()
-				result, err = s.queryOrderDetailsByFilter(ctx, "shop", shopUid, startDate, endDate)
-				targetName = shopName
-			} else {
-				targetName = key
-			}
+		// key 可能是 shopId（达人UID），先查出对应店铺名，再按店铺名导出所有订单
+		shopInfo, _ := g.DB().Model("shop").Fields("douyin_name").Where("uid = ?", key).One()
+		if !shopInfo.IsEmpty() {
+			shopName := shopInfo["douyin_name"].String()
+			result, err = s.queryOrderDetailsByFilter(ctx, "shop", shopName, startDate, endDate)
+			targetName = shopName
 		} else {
-			// 获取店铺名称
-			shopInfo, _ := g.DB().Model("shop").Fields("douyin_name").Where("uid = ?", key).One()
-			if !shopInfo.IsEmpty() {
-				targetName = shopInfo["douyin_name"].String()
-			} else {
-				targetName = key
-			}
+			// 直接作为店铺名查询
+			result, err = s.queryOrderDetailsByFilter(ctx, "shop", key, startDate, endDate)
+			targetName = key
 		}
 	} else {
 		return "", gerror.New("不支持的导出类型")
@@ -935,10 +1037,12 @@ func (s *OrderAnalysisService) ExportOrderDetails(ctx context.Context, exportTyp
 	timeStr := time.Now().Format("200601021504")
 	timeLabel := getTimeLabel(normalizedTimeType)
 	var fileName string
+	// 清理目标名称中的非法字符（如 / 等路径分隔符），避免被解析为目录
+	safeTargetName := sanitizeFileName(targetName)
 	if exportType == "group" {
-		fileName = fmt.Sprintf("小组订单详情_%s_%s_%s.xlsx", targetName, timeLabel, timeStr)
+		fileName = fmt.Sprintf("小组订单详情_%s_%s_%s.xlsx", safeTargetName, timeLabel, timeStr)
 	} else {
-		fileName = fmt.Sprintf("店铺订单详情_%s_%s_%s.xlsx", targetName, timeLabel, timeStr)
+		fileName = fmt.Sprintf("店铺订单详情_%s_%s_%s.xlsx", safeTargetName, timeLabel, timeStr)
 	}
 	
 	// 生成Excel文件
@@ -1162,7 +1266,614 @@ func (s *OrderAnalysisService) ExportShopRank(ctx context.Context, timeType stri
 	if err != nil {
 		return "", fmt.Errorf("获取店铺排名失败: %v", err)
 	}
-	
+
 	timeLabel := getTimeLabel(timeType)
 	return exportRankToExcel(shopRank, "店铺", timeLabel)
+}
+
+// GetOrgTree 获取组织架构树
+func (s *OrderAnalysisService) GetOrgTree(ctx context.Context) ([]model.OrgTreeNode, error) {
+	// 1. 获取所有已设置组织归属的店铺
+	sql := `
+		SELECT
+			s.id,
+			s.company_id,
+			s.department_id,
+			s.operation_leader,
+			s.group_type,
+			s.member_name,
+			COALESCE(c.name, '未分配') AS company_name,
+			COALESCE(d.name, '未分配') AS dept_name
+		FROM shop s
+		LEFT JOIN sys_company c ON s.company_id = c.id
+		LEFT JOIN sys_department d ON s.department_id = d.id
+		WHERE s.company_id > 0
+		ORDER BY c.name, d.name, s.operation_leader, s.group_type
+	`
+
+	result, err := g.DB().GetAll(ctx, sql)
+	if err != nil {
+		return nil, fmt.Errorf("查询组织架构失败: %v", err)
+	}
+
+	// 2. 在内存中构建树形结构
+	type nodeKey struct {
+		CompanyId    int64
+		DepartmentId int64
+		LeaderName   string
+		GroupType    string
+	}
+
+	companyMap := make(map[int64]*model.OrgTreeNode)
+	deptMap := make(map[int64]*model.OrgTreeNode)
+	leaderMap := make(map[string]*model.OrgTreeNode)
+	groupMap := make(map[nodeKey]*model.OrgTreeNode)
+
+	var tree []model.OrgTreeNode
+	companyOrder := make([]int64, 0)
+	deptOrder := make(map[int64][]int64)
+	leaderOrder := make(map[int64][]string)
+	groupOrder := make(map[string][]nodeKey)
+
+	for _, row := range result {
+		companyId := row["company_id"].Int64()
+		departmentId := row["department_id"].Int64()
+		leaderName := row["operation_leader"].String()
+		groupType := row["group_type"].String()
+		companyName := row["company_name"].String()
+		deptName := row["dept_name"].String()
+
+		// 公司层
+		if _, exists := companyMap[companyId]; !exists {
+			companyMap[companyId] = &model.OrgTreeNode{
+				Id:   int(companyId),
+				Name: companyName,
+				Type: "company",
+			}
+			companyOrder = append(companyOrder, companyId)
+		}
+
+		// 部门层
+		if _, exists := deptMap[departmentId]; !exists {
+			deptMap[departmentId] = &model.OrgTreeNode{
+				Id:   int(departmentId),
+				Name: deptName,
+				Type: "department",
+			}
+			deptOrder[companyId] = append(deptOrder[companyId], departmentId)
+		}
+
+		// 组长层
+		leaderKey := fmt.Sprintf("%d_%s", departmentId, leaderName)
+		if _, exists := leaderMap[leaderKey]; !exists {
+			leaderMap[leaderKey] = &model.OrgTreeNode{
+				Id:   0,
+				Name: leaderName,
+				Type: "leader",
+			}
+			leaderOrder[departmentId] = append(leaderOrder[departmentId], leaderKey)
+		}
+
+		// 组层（投放组/店铺组）
+		groupKey := nodeKey{
+			CompanyId:    companyId,
+			DepartmentId: departmentId,
+			LeaderName:   leaderName,
+			GroupType:    groupType,
+		}
+		if _, exists := groupMap[groupKey]; !exists {
+			groupName := "投放组"
+			if groupType == "shop" {
+				groupName = "店铺组"
+			}
+			groupMap[groupKey] = &model.OrgTreeNode{
+				Id:   0,
+				Name: groupName,
+				Type: groupType,
+			}
+			groupOrder[leaderKey] = append(groupOrder[leaderKey], groupKey)
+		}
+	}
+
+	// 3. 组装树形结构
+	for _, companyId := range companyOrder {
+		companyNode := companyMap[companyId]
+		companyNode.Children = make([]model.OrgTreeNode, 0)
+
+		for _, deptId := range deptOrder[companyId] {
+			deptNode := deptMap[deptId]
+			deptNode.Children = make([]model.OrgTreeNode, 0)
+
+			for _, leaderKey := range leaderOrder[deptId] {
+				leaderNode := leaderMap[leaderKey]
+				leaderNode.Children = make([]model.OrgTreeNode, 0)
+
+				for _, groupKey := range groupOrder[leaderKey] {
+					groupNode := groupMap[groupKey]
+					leaderNode.Children = append(leaderNode.Children, *groupNode)
+				}
+
+				deptNode.Children = append(deptNode.Children, *leaderNode)
+			}
+
+			companyNode.Children = append(companyNode.Children, *deptNode)
+		}
+
+		tree = append(tree, *companyNode)
+	}
+
+	// 4. 添加"未分配"节点（如果存在未设置组织归属的店铺）
+	unassignedSql := `
+		SELECT COUNT(*) AS cnt
+		FROM shop
+		WHERE company_id = 0 OR company_id IS NULL
+	`
+	unassignedResult, err := g.DB().GetAll(ctx, unassignedSql)
+	if err == nil && len(unassignedResult) > 0 && unassignedResult[0]["cnt"].Int() > 0 {
+		tree = append(tree, model.OrgTreeNode{
+			Id:   -1,
+			Name: "未分配",
+			Type: "unassigned",
+		})
+	}
+
+	return tree, nil
+}
+
+// buildOrgWhereClause 构建组织筛选条件
+func (s *OrderAnalysisService) buildOrgWhereClause(req model.OrgFilterReq) (string, []interface{}) {
+	var conditions []string
+	var args []interface{}
+
+	if req.CompanyId > 0 {
+		conditions = append(conditions, "s.company_id = ?")
+		args = append(args, req.CompanyId)
+	}
+
+	if req.DepartmentId > 0 {
+		conditions = append(conditions, "s.department_id = ?")
+		args = append(args, req.DepartmentId)
+	}
+
+	if req.LeaderName != "" {
+		conditions = append(conditions, "s.operation_leader = ?")
+		args = append(args, req.LeaderName)
+	}
+
+	if req.GroupType != "" {
+		conditions = append(conditions, "s.group_type = ?")
+		args = append(args, req.GroupType)
+	}
+
+	if req.TalentId > 0 {
+		conditions = append(conditions, "o.talent_id = ?")
+		args = append(args, req.TalentId)
+	}
+
+	if len(conditions) == 0 {
+		return "", nil
+	}
+
+	return " AND " + strings.Join(conditions, " AND "), args
+}
+
+// determineCurrentLevel 根据请求参数判断当前筛选层级
+func (s *OrderAnalysisService) determineCurrentLevel(req model.OrgFilterReq) string {
+	if req.TalentId > 0 {
+		return "talent"
+	}
+	if req.GroupType != "" {
+		return "group"
+	}
+	if req.LeaderName != "" {
+		return "leader"
+	}
+	if req.DepartmentId > 0 {
+		return "department"
+	}
+	return "company" // 默认返回集团级别
+}
+
+// OrgStats 按组织维度统计
+func (s *OrderAnalysisService) OrgStats(ctx context.Context, req model.OrgFilterReq) (*model.OrgStatsRes, error) {
+	startDate, endDate := s.ParseTimeRange(req.Preset, req.StartDate, req.EndDate)
+
+	// 构建基础查询（以达人为基础统计单位）
+	baseQuery := `
+		FROM (
+			SELECT
+				o1.main_order_no,
+				o1.shop_name,
+				o1.talent_id,
+				o1.talent_name,
+				SUM(o1.product_num) AS product_num,
+				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0)) AS pay_amount,
+				SUM(COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0)) AS cost_amount,
+				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
+			FROM order_info o1
+			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
+			WHERE o1.pay_finish_time >= ?
+			  AND o1.pay_finish_time < ?
+			  AND o1.main_order_no IS NOT NULL
+			  AND o1.main_order_no != ''
+			  ` + s.GetValidOrderFilter() + `
+			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
+		) o
+		LEFT JOIN shop s ON o.talent_id = s.uid
+	`
+
+	// 构建组织筛选条件
+	orgWhere, orgArgs := s.buildOrgWhereClause(req)
+
+	// 根据当前筛选层级，决定返回什么级别的统计
+	currentLevel := s.determineCurrentLevel(req)
+
+	var stats []model.OrgStatItem
+	var summary model.OrgStatItem
+
+	// 构建完整查询参数
+	allArgs := []interface{}{startDate, endDate}
+	if orgArgs != nil {
+		allArgs = append(allArgs, orgArgs...)
+	}
+
+	switch currentLevel {
+	case "company":
+		// 返回分公司列表统计
+		stats, summary = s.queryCompanyStats(ctx, baseQuery, orgWhere, allArgs)
+	case "department":
+		// 返回部门列表统计
+		stats, summary = s.queryDepartmentStats(ctx, baseQuery, orgWhere, allArgs)
+	case "leader":
+		// 返回组长列表统计
+		stats, summary = s.queryLeaderStats(ctx, baseQuery, orgWhere, allArgs)
+	case "group":
+		// 返回组（投放组/店铺组）列表统计
+		stats, summary = s.queryGroupStats(ctx, baseQuery, orgWhere, allArgs)
+	case "talent":
+		// 返回达人列表统计
+		stats, summary = s.queryTalentStats(ctx, baseQuery, orgWhere, allArgs)
+	}
+
+	return &model.OrgStatsRes{
+		CurrentLevel: currentLevel,
+		Stats:        stats,
+		Summary:      summary,
+	}, nil
+}
+
+// queryCompanyStats 查询分公司列表统计
+func (s *OrderAnalysisService) queryCompanyStats(ctx context.Context, baseQuery, orgWhere string, args []interface{}) ([]model.OrgStatItem, model.OrgStatItem) {
+	sql := `
+		SELECT
+			CAST(s.company_id AS CHAR) AS org_id,
+			COALESCE(c.name, '未分配') AS org_name,
+			'company' AS org_type,
+			COUNT(DISTINCT o.main_order_no) AS order_count,
+			COALESCE(SUM(o.product_num), 0) AS product_num,
+			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
+			COALESCE(SUM(o.cost_amount), 0) AS cost_amount,
+			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
+	` + baseQuery + `
+		LEFT JOIN sys_company c ON s.company_id = c.id
+		WHERE 1=1 ` + orgWhere + `
+		GROUP BY s.company_id, c.name
+		ORDER BY order_count DESC
+	`
+
+	result, err := g.DB().GetAll(ctx, sql, args...)
+	if err != nil {
+		return nil, model.OrgStatItem{}
+	}
+
+	stats := make([]model.OrgStatItem, 0, len(result))
+	var totalPay, totalCost, totalReserve float64
+	var totalOrders, totalProducts int
+
+	for _, row := range result {
+		pay := row["pay_amount"].Float64()
+		cost := row["cost_amount"].Float64()
+		reserve := row["reserve_amount"].Float64()
+
+		stats = append(stats, model.OrgStatItem{
+			OrgId:         row["org_id"].String(),
+			OrgName:       row["org_name"].String(),
+			OrgType:       row["org_type"].String(),
+			OrderCount:    row["order_count"].Int(),
+			ProductNum:    row["product_num"].Int(),
+			PayAmount:     roundFloat(pay, 2),
+			CostAmount:    roundFloat(cost, 2),
+			ReserveAmount: roundFloat(reserve, 2),
+			Commission:    roundFloat(pay-reserve-cost, 2),
+		})
+
+		totalOrders += row["order_count"].Int()
+		totalProducts += row["product_num"].Int()
+		totalPay += pay
+		totalCost += cost
+		totalReserve += reserve
+	}
+
+	summary := model.OrgStatItem{
+		OrgId:         "total",
+		OrgName:       "汇总",
+		OrgType:       "company",
+		OrderCount:    totalOrders,
+		ProductNum:    totalProducts,
+		PayAmount:     roundFloat(totalPay, 2),
+		CostAmount:    roundFloat(totalCost, 2),
+		ReserveAmount: roundFloat(totalReserve, 2),
+		Commission:    roundFloat(totalPay-totalReserve-totalCost, 2),
+	}
+
+	return stats, summary
+}
+
+// queryDepartmentStats 查询部门列表统计
+func (s *OrderAnalysisService) queryDepartmentStats(ctx context.Context, baseQuery, orgWhere string, args []interface{}) ([]model.OrgStatItem, model.OrgStatItem) {
+	sql := `
+		SELECT
+			CAST(s.department_id AS CHAR) AS org_id,
+			COALESCE(d.name, '未分配') AS org_name,
+			'department' AS org_type,
+			COUNT(DISTINCT o.main_order_no) AS order_count,
+			COALESCE(SUM(o.product_num), 0) AS product_num,
+			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
+			COALESCE(SUM(o.cost_amount), 0) AS cost_amount,
+			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
+	` + baseQuery + `
+		LEFT JOIN sys_department d ON s.department_id = d.id
+		WHERE 1=1 ` + orgWhere + `
+		GROUP BY s.department_id, d.name
+		ORDER BY order_count DESC
+	`
+
+	result, err := g.DB().GetAll(ctx, sql, args...)
+	if err != nil {
+		return nil, model.OrgStatItem{}
+	}
+
+	stats := make([]model.OrgStatItem, 0, len(result))
+	var totalPay, totalCost, totalReserve float64
+	var totalOrders, totalProducts int
+
+	for _, row := range result {
+		pay := row["pay_amount"].Float64()
+		cost := row["cost_amount"].Float64()
+		reserve := row["reserve_amount"].Float64()
+
+		stats = append(stats, model.OrgStatItem{
+			OrgId:         row["org_id"].String(),
+			OrgName:       row["org_name"].String(),
+			OrgType:       row["org_type"].String(),
+			OrderCount:    row["order_count"].Int(),
+			ProductNum:    row["product_num"].Int(),
+			PayAmount:     roundFloat(pay, 2),
+			CostAmount:    roundFloat(cost, 2),
+			ReserveAmount: roundFloat(reserve, 2),
+			Commission:    roundFloat(pay-reserve-cost, 2),
+		})
+
+		totalOrders += row["order_count"].Int()
+		totalProducts += row["product_num"].Int()
+		totalPay += pay
+		totalCost += cost
+		totalReserve += reserve
+	}
+
+	summary := model.OrgStatItem{
+		OrgId:         "total",
+		OrgName:       "汇总",
+		OrgType:       "department",
+		OrderCount:    totalOrders,
+		ProductNum:    totalProducts,
+		PayAmount:     roundFloat(totalPay, 2),
+		CostAmount:    roundFloat(totalCost, 2),
+		ReserveAmount: roundFloat(totalReserve, 2),
+		Commission:    roundFloat(totalPay-totalReserve-totalCost, 2),
+	}
+
+	return stats, summary
+}
+
+// queryLeaderStats 查询组长列表统计
+func (s *OrderAnalysisService) queryLeaderStats(ctx context.Context, baseQuery, orgWhere string, args []interface{}) ([]model.OrgStatItem, model.OrgStatItem) {
+	sql := `
+		SELECT
+			s.operation_leader AS org_id,
+			COALESCE(s.operation_leader, '未分配') AS org_name,
+			'leader' AS org_type,
+			COUNT(DISTINCT o.main_order_no) AS order_count,
+			COALESCE(SUM(o.product_num), 0) AS product_num,
+			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
+			COALESCE(SUM(o.cost_amount), 0) AS cost_amount,
+			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
+	` + baseQuery + `
+		WHERE 1=1 ` + orgWhere + `
+		GROUP BY s.operation_leader
+		ORDER BY order_count DESC
+	`
+
+	result, err := g.DB().GetAll(ctx, sql, args...)
+	if err != nil {
+		return nil, model.OrgStatItem{}
+	}
+
+	stats := make([]model.OrgStatItem, 0, len(result))
+	var totalPay, totalCost, totalReserve float64
+	var totalOrders, totalProducts int
+
+	for _, row := range result {
+		pay := row["pay_amount"].Float64()
+		cost := row["cost_amount"].Float64()
+		reserve := row["reserve_amount"].Float64()
+
+		stats = append(stats, model.OrgStatItem{
+			OrgId:         row["org_id"].String(),
+			OrgName:       row["org_name"].String(),
+			OrgType:       row["org_type"].String(),
+			OrderCount:    row["order_count"].Int(),
+			ProductNum:    row["product_num"].Int(),
+			PayAmount:     roundFloat(pay, 2),
+			CostAmount:    roundFloat(cost, 2),
+			ReserveAmount: roundFloat(reserve, 2),
+			Commission:    roundFloat(pay-reserve-cost, 2),
+		})
+
+		totalOrders += row["order_count"].Int()
+		totalProducts += row["product_num"].Int()
+		totalPay += pay
+		totalCost += cost
+		totalReserve += reserve
+	}
+
+	summary := model.OrgStatItem{
+		OrgId:         "total",
+		OrgName:       "汇总",
+		OrgType:       "leader",
+		OrderCount:    totalOrders,
+		ProductNum:    totalProducts,
+		PayAmount:     roundFloat(totalPay, 2),
+		CostAmount:    roundFloat(totalCost, 2),
+		ReserveAmount: roundFloat(totalReserve, 2),
+		Commission:    roundFloat(totalPay-totalReserve-totalCost, 2),
+	}
+
+	return stats, summary
+}
+
+// queryGroupStats 查询组（投放组/店铺组）列表统计
+func (s *OrderAnalysisService) queryGroupStats(ctx context.Context, baseQuery, orgWhere string, args []interface{}) ([]model.OrgStatItem, model.OrgStatItem) {
+	sql := `
+		SELECT
+			s.group_type AS org_id,
+			CASE
+				WHEN s.group_type = 'invest' THEN '投放组'
+				WHEN s.group_type = 'shop' THEN '店铺组'
+				ELSE '未分配'
+			END AS org_name,
+			'group' AS org_type,
+			COUNT(DISTINCT o.main_order_no) AS order_count,
+			COALESCE(SUM(o.product_num), 0) AS product_num,
+			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
+			COALESCE(SUM(o.cost_amount), 0) AS cost_amount,
+			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
+	` + baseQuery + `
+		WHERE 1=1 ` + orgWhere + `
+		GROUP BY s.group_type
+		ORDER BY order_count DESC
+	`
+
+	result, err := g.DB().GetAll(ctx, sql, args...)
+	if err != nil {
+		return nil, model.OrgStatItem{}
+	}
+
+	stats := make([]model.OrgStatItem, 0, len(result))
+	var totalPay, totalCost, totalReserve float64
+	var totalOrders, totalProducts int
+
+	for _, row := range result {
+		pay := row["pay_amount"].Float64()
+		cost := row["cost_amount"].Float64()
+		reserve := row["reserve_amount"].Float64()
+
+		stats = append(stats, model.OrgStatItem{
+			OrgId:         row["org_id"].String(),
+			OrgName:       row["org_name"].String(),
+			OrgType:       row["org_type"].String(),
+			OrderCount:    row["order_count"].Int(),
+			ProductNum:    row["product_num"].Int(),
+			PayAmount:     roundFloat(pay, 2),
+			CostAmount:    roundFloat(cost, 2),
+			ReserveAmount: roundFloat(reserve, 2),
+			Commission:    roundFloat(pay-reserve-cost, 2),
+		})
+
+		totalOrders += row["order_count"].Int()
+		totalProducts += row["product_num"].Int()
+		totalPay += pay
+		totalCost += cost
+		totalReserve += reserve
+	}
+
+	summary := model.OrgStatItem{
+		OrgId:         "total",
+		OrgName:       "汇总",
+		OrgType:       "group",
+		OrderCount:    totalOrders,
+		ProductNum:    totalProducts,
+		PayAmount:     roundFloat(totalPay, 2),
+		CostAmount:    roundFloat(totalCost, 2),
+		ReserveAmount: roundFloat(totalReserve, 2),
+		Commission:    roundFloat(totalPay-totalReserve-totalCost, 2),
+	}
+
+	return stats, summary
+}
+
+// queryTalentStats 查询达人列表统计
+func (s *OrderAnalysisService) queryTalentStats(ctx context.Context, baseQuery, orgWhere string, args []interface{}) ([]model.OrgStatItem, model.OrgStatItem) {
+	sql := `
+		SELECT
+			CAST(o.talent_id AS CHAR) AS org_id,
+			COALESCE(o.talent_name, '未知达人') AS org_name,
+			'talent' AS org_type,
+			COUNT(DISTINCT o.main_order_no) AS order_count,
+			COALESCE(SUM(o.product_num), 0) AS product_num,
+			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
+			COALESCE(SUM(o.cost_amount), 0) AS cost_amount,
+			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
+	` + baseQuery + `
+		WHERE 1=1 ` + orgWhere + `
+		GROUP BY o.talent_id, o.talent_name
+		ORDER BY order_count DESC
+	`
+
+	result, err := g.DB().GetAll(ctx, sql, args...)
+	if err != nil {
+		return nil, model.OrgStatItem{}
+	}
+
+	stats := make([]model.OrgStatItem, 0, len(result))
+	var totalPay, totalCost, totalReserve float64
+	var totalOrders, totalProducts int
+
+	for _, row := range result {
+		pay := row["pay_amount"].Float64()
+		cost := row["cost_amount"].Float64()
+		reserve := row["reserve_amount"].Float64()
+
+		stats = append(stats, model.OrgStatItem{
+			OrgId:         row["org_id"].String(),
+			OrgName:       row["org_name"].String(),
+			OrgType:       row["org_type"].String(),
+			OrderCount:    row["order_count"].Int(),
+			ProductNum:    row["product_num"].Int(),
+			PayAmount:     roundFloat(pay, 2),
+			CostAmount:    roundFloat(cost, 2),
+			ReserveAmount: roundFloat(reserve, 2),
+			Commission:    roundFloat(pay-reserve-cost, 2),
+		})
+
+		totalOrders += row["order_count"].Int()
+		totalProducts += row["product_num"].Int()
+		totalPay += pay
+		totalCost += cost
+		totalReserve += reserve
+	}
+
+	summary := model.OrgStatItem{
+		OrgId:         "total",
+		OrgName:       "汇总",
+		OrgType:       "talent",
+		OrderCount:    totalOrders,
+		ProductNum:    totalProducts,
+		PayAmount:     roundFloat(totalPay, 2),
+		CostAmount:    roundFloat(totalCost, 2),
+		ReserveAmount: roundFloat(totalReserve, 2),
+		Commission:    roundFloat(totalPay-totalReserve-totalCost, 2),
+	}
+
+	return stats, summary
 }
