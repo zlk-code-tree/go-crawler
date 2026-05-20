@@ -1,2 +1,1170 @@
 [2026-05-18 15:32:54.705] [INFO] 🚀 爬虫服务初始化
 [2026-05-18 16:08:51.598] [INFO] 🚀 爬虫服务初始化
+[2026-05-18 16:35:07.682] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🚀 步骤 1: 检测到已保存的 Cookie，以无头模式启动浏览器尝试自动登录
+[2026-05-18 16:35:08.627] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🌐 浏览器启动成功：ws://127.0.0.1:55040/devtools/browser/41fb88db-7017-448c-9ccd-9c772be25b3d
+[2026-05-18 16:35:10.900] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🍪 成功注入 24 个 Cookie
+[2026-05-18 16:35:14.832] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 检测到已登录状态
+[2026-05-18 16:35:14.832] [INFO] ✅ [S4Du0cnjgimQ4jhT] ✅ Cookie 自动登录成功！继续无头模式爬取
+[2026-05-18 16:35:14.834] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 Cookie 已更新
+[2026-05-18 16:35:14.835] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📊 步骤 4: 注册 API 拦截器并扩大 Inspector 缓存
+[2026-05-18 16:35:14.920] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ API 拦截器已就绪，开始导航
+[2026-05-18 16:35:14.920] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📊 步骤 5: 导航到商品榜单页面
+[2026-05-18 16:35:18.294] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🎬 步骤 6: 点击短视频榜 Tab
+[2026-05-18 16:35:18.788] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击短视频榜 Tab: //*[contains(text(), '短视频榜')]
+[2026-05-18 16:35:19.679] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：147496
+[2026-05-18 16:35:19.681] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:35:22.791] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📈 步骤 7: 分页抓取商品榜单数据（20 页×10 条=200 条）
+[2026-05-18 16:35:22.791] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 1/20 页
+[2026-05-18 16:35:22.791] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 1 页解析到 10 条，立即保存
+[2026-05-18 16:35:22.971] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 1 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:35:38.349] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:35:38.349] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 2/20 页
+[2026-05-18 16:35:39.254] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：154104
+[2026-05-18 16:35:39.256] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:35:39.256] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 2 页解析到 10 条，立即保存
+[2026-05-18 16:35:39.548] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 2 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:35:54.892] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:35:54.895] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 3/20 页
+[2026-05-18 16:35:55.851] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：156350
+[2026-05-18 16:35:55.852] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:35:55.852] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 3 页解析到 10 条，立即保存
+[2026-05-18 16:35:56.275] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 3 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:36:11.637] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:36:11.637] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 4/20 页
+[2026-05-18 16:36:12.555] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：153400
+[2026-05-18 16:36:12.558] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:36:12.558] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 4 页解析到 10 条，立即保存
+[2026-05-18 16:36:13.081] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 4 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:36:28.423] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:36:28.423] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 5/20 页
+[2026-05-18 16:36:29.189] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：152769
+[2026-05-18 16:36:29.191] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:36:29.191] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 5 页解析到 10 条，立即保存
+[2026-05-18 16:36:29.683] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 5 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:36:45.015] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:36:45.016] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 6/20 页
+[2026-05-18 16:36:46.636] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：150533
+[2026-05-18 16:36:46.637] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:36:46.637] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 6 页解析到 10 条，立即保存
+[2026-05-18 16:36:46.715] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 6 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:37:02.056] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:37:02.057] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 7/20 页
+[2026-05-18 16:37:03.257] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：146664
+[2026-05-18 16:37:03.259] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:37:03.259] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 7 页解析到 10 条，立即保存
+[2026-05-18 16:37:03.916] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 7 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:37:19.257] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:37:19.258] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 8/20 页
+[2026-05-18 16:37:21.331] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：148826
+[2026-05-18 16:37:21.336] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:37:21.336] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 8 页解析到 10 条，立即保存
+[2026-05-18 16:37:21.635] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 8 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:37:36.984] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:37:36.986] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 9/20 页
+[2026-05-18 16:37:38.291] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：140804
+[2026-05-18 16:37:38.292] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:37:38.292] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 9 页解析到 10 条，立即保存
+[2026-05-18 16:37:39.222] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 9 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:37:54.571] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:37:54.574] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 10/20 页
+[2026-05-18 16:37:56.126] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：137718
+[2026-05-18 16:37:56.127] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:37:56.127] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 10 页解析到 10 条，立即保存
+[2026-05-18 16:37:56.455] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 10 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:38:11.791] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:38:11.791] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 11/20 页
+[2026-05-18 16:38:13.304] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：134141
+[2026-05-18 16:38:13.305] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:38:13.306] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 11 页解析到 10 条，立即保存
+[2026-05-18 16:38:13.507] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 11 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:38:28.853] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:38:28.856] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 12/20 页
+[2026-05-18 16:38:30.079] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：151143
+[2026-05-18 16:38:30.080] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:38:30.080] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 12 页解析到 10 条，立即保存
+[2026-05-18 16:38:30.370] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 12 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:38:45.717] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:38:45.717] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 13/20 页
+[2026-05-18 16:38:47.363] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：149194
+[2026-05-18 16:38:47.364] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:38:47.364] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 13 页解析到 10 条，立即保存
+[2026-05-18 16:38:47.551] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 13 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:39:02.897] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:39:02.900] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 14/20 页
+[2026-05-18 16:39:04.582] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：129636
+[2026-05-18 16:39:04.584] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:39:04.585] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 14 页解析到 10 条，立即保存
+[2026-05-18 16:39:04.664] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 14 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:39:20.005] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:39:20.008] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 15/20 页
+[2026-05-18 16:39:21.740] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：138740
+[2026-05-18 16:39:21.741] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:39:21.742] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 15 页解析到 10 条，立即保存
+[2026-05-18 16:39:21.934] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 15 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:39:37.271] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:39:37.272] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 16/20 页
+[2026-05-18 16:39:38.550] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：139221
+[2026-05-18 16:39:38.552] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:39:38.552] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 16 页解析到 10 条，立即保存
+[2026-05-18 16:39:38.636] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 16 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:39:53.971] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:39:53.974] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 17/20 页
+[2026-05-18 16:39:55.465] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：129240
+[2026-05-18 16:39:55.466] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:39:55.466] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 17 页解析到 10 条，立即保存
+[2026-05-18 16:39:55.864] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 17 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:40:11.214] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:40:11.217] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 18/20 页
+[2026-05-18 16:40:12.662] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：133276
+[2026-05-18 16:40:12.664] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:40:12.664] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 18 页解析到 10 条，立即保存
+[2026-05-18 16:40:12.758] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 18 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:40:28.104] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:40:28.106] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 19/20 页
+[2026-05-18 16:40:31.289] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：140099
+[2026-05-18 16:40:31.292] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:40:31.292] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 19 页解析到 10 条，立即保存
+[2026-05-18 16:40:31.846] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 19 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:40:47.195] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 成功点击下一页
+[2026-05-18 16:40:47.195] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📄 正在处理第 20/20 页
+[2026-05-18 16:40:48.821] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 拦截到 API 响应，body 长度：125772
+[2026-05-18 16:40:48.822] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 解析到 10 条商品数据
+[2026-05-18 16:40:48.822] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 第 20 页解析到 10 条，立即保存
+[2026-05-18 16:40:48.891] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 第 20 页数据已保存：10 条 (其中 10 条包含价格带)
+[2026-05-18 16:40:48.892] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📊 API 拦截完成，共获取 143 条商品（去重后）
+[2026-05-18 16:40:48.892] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 抓取完成，共获取 143 条商品数据
+[2026-05-18 16:40:48.892] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔍 步骤 8: 获取商品详情数据（首次上架时间、最低到手价）
+[2026-05-18 16:40:48.892] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🚀 开始并发获取商品详情（并发数=10，总数=143）
+[2026-05-18 16:40:49.082] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 🔗 正在打开商品详情：https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=3810366335800705486&origin_type=pc_compass_manage
+[2026-05-18 16:40:49.088] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 🔗 正在打开商品详情：https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=3785128697909086590&origin_type=pc_compass_manage
+[2026-05-18 16:40:49.090] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 🔗 正在打开商品详情：https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=3776967695216541924&origin_type=pc_compass_manage
+[2026-05-18 16:40:49.094] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 🔗 正在打开商品详情：https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=3761391987719275773&origin_type=pc_compass_manage
+[2026-05-18 16:40:49.096] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 🔗 正在打开商品详情：https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=3775495165880435107&origin_type=pc_compass_manage
+[2026-05-18 16:40:49.098] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 🔗 正在打开商品详情：https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=3771175227401306320&origin_type=pc_compass_manage
+[2026-05-18 16:40:49.099] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 🔗 正在打开商品详情：https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=3814436115948110044&origin_type=pc_compass_manage
+[2026-05-18 16:40:49.100] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 🔗 正在打开商品详情：https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=3785150881322893587&origin_type=pc_compass_manage
+[2026-05-18 16:40:49.102] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 🔗 正在打开商品详情：https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=3793649595221934447&origin_type=pc_compass_manage
+[2026-05-18 16:40:49.104] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 🔗 正在打开商品详情：https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=3815726334903189632&origin_type=pc_compass_manage
+[2026-05-18 18:35:56.576] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ 页面文本包含关键词：运费险
+[2026-05-18 18:35:56.596] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 📦 提取到运费险：是
+[2026-05-18 18:35:56.601] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 商品 [漫画费斯汀格法则彩图正版小小少年没有烦恼挫折家庭必备育儿手册] 详情页未提取到数据，可能需要更新选择器
+[2026-05-18 18:35:56.603] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ [7/143] 详情获取完成：漫画费斯汀格法则彩图正版小小少年没有烦恼挫折家庭必备育儿手册
+[2026-05-18 18:35:56.901] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ 页面文本包含关键词：运费险
+[2026-05-18 18:35:56.903] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 📦 提取到运费险：是
+[2026-05-18 18:35:56.903] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 商品 [畅销新书【读者励志蝶变2026版】父母+今天的懒来本好书给自己充电] 详情页未提取到数据，可能需要更新选择器
+[2026-05-18 18:35:56.905] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ [5/143] 详情获取完成：畅销新书【读者励志蝶变2026版】父母+今天的懒来本好书给自己充电
+[2026-05-18 18:35:56.986] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ 页面文本包含关键词：运费险
+[2026-05-18 18:35:56.987] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] 📦 提取到运费险：是
+[2026-05-18 18:35:56.987] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 商品 [这书能让孩子戒掉手机 培养自控自律专注力 精准破解手机成瘾难题] 详情页未提取到数据，可能需要更新选择器
+[2026-05-18 18:35:56.987] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ [6/143] 详情获取完成：这书能让孩子戒掉手机 培养自控自律专注力 精准破解手机成瘾难题
+[2026-05-18 18:35:58.939] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 商品 [生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维] 详情页未提取到数据，可能需要更新选择器
+[2026-05-18 18:35:58.940] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ [2/143] 详情获取完成：生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维
+[2026-05-18 18:35:58.972] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 商品 [【樊登推荐】刚刚好的养育  65个场景练习助孩子从对抗到对话] 详情页未提取到数据，可能需要更新选择器
+[2026-05-18 18:35:58.972] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 商品 [反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆 ] 详情页未提取到数据，可能需要更新选择器
+[2026-05-18 18:35:58.972] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ [13/143] 详情获取完成：【樊登推荐】刚刚好的养育  65个场景练习助孩子从对抗到对话
+[2026-05-18 18:35:58.972] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ [3/143] 详情获取完成：反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆 
+[2026-05-18 18:35:59.306] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 商品 [青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书c] 详情页未提取到数据，可能需要更新选择器
+[2026-05-18 18:35:59.306] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ [52/143] 详情获取完成：青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书c
+[2026-05-18 18:35:59.306] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 商品 [戒掉手机 多维度引导孩子戒手机  实用方法 孩子告别手机依赖] 详情页未提取到数据，可能需要更新选择器
+[2026-05-18 18:35:59.306] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ [12/143] 详情获取完成：戒掉手机 多维度引导孩子戒手机  实用方法 孩子告别手机依赖
+[2026-05-18 18:35:59.306] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 商品 [漫画版反安慰养育唤醒孩子内驱力正版家庭教育共同成长养育指南] 详情页未提取到数据，可能需要更新选择器
+[2026-05-18 18:35:59.306] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ [1/143] 详情获取完成：漫画版反安慰养育唤醒孩子内驱力正版家庭教育共同成长养育指南
+[2026-05-18 18:35:59.306] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 商品 [漫画学会保护自己 反霸凌给孩子的趣味漫画书儿童安全教育家教书] 详情页未提取到数据，可能需要更新选择器
+[2026-05-18 18:35:59.306] [DEBUG] 🔍 [S4Du0cnjgimQ4jhT] ✅ [4/143] 详情获取完成：漫画学会保护自己 反霸凌给孩子的趣味漫画书儿童安全教育家教书
+[2026-05-18 18:35:59.606] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:35:59.606] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [8/143] 详情获取失败：拒绝控制型养育正版懂比爱更重要育儿经验分享用智慧化解叛逆沟通
+[2026-05-18 18:35:59.908] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:35:59.909] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [9/143] 详情获取失败：【达人专属】怀孕一天一页+怀孕40周营养食谱 孕期食谱备孕胎教故事
+[2026-05-18 18:35:59.991] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:35:59.991] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [10/143] 详情获取失败：人民日报励志成长书父母的辛苦 自泥泞出发 激发学习热情收获成长
+[2026-05-18 18:36:01.944] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:01.944] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [11/143] 详情获取失败：反宠效应 拒绝控制不溺爱 言传身教智慧化解叛逆 看透育儿难题
+[2026-05-18 18:36:01.976] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:01.977] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [14/143] 详情获取失败：漫画版懒鸟效应 让孩子变得自律努力坚毅儿童家庭教育心理学书籍
+[2026-05-18 18:36:01.977] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:01.977] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [32/143] 详情获取失败：拒绝控制型养育正版懂比爱更重要育儿经验沟通方法科学养育指南
+[2026-05-18 18:36:02.310] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:02.310] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [15/143] 详情获取失败：何为人父 对话式养育 如何与孩子正确相处 亲子沟通技巧养育理念
+[2026-05-18 18:36:02.311] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:02.311] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [16/143] 详情获取失败：青春期女孩枕边书 陪伴关键期孩子健康成长手册生理困惑安全意识
+[2026-05-18 18:36:02.311] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:02.311] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [18/143] 详情获取失败：新编中草yao彩色图谱结合本草纲目记录700多种日常中草yao彩色图
+[2026-05-18 18:36:02.311] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:02.312] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [17/143] 详情获取失败：你是孩子的前传：青春期父母的自我成长课书籍（陈行甲最新作品）
+[2026-05-18 18:36:02.608] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:02.608] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [19/143] 详情获取失败：妈妈话术：200+话术解决一切难题 托举而非掌控终结沟通无力困境QT
+[2026-05-18 18:36:02.913] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:02.913] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [20/143] 详情获取失败：生命里的第一课 成长型思维 正确三观 培养孩子人生的观价值观 
+[2026-05-18 18:36:02.996] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:02.996] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [21/143] 详情获取失败：【达人专属】宝宝辅食跟我做（0-3岁）宝宝辅食书 辅食营养餐做法
+[2026-05-18 18:36:04.948] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:04.948] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [22/143] 详情获取失败：漫画赢在会学 学习有方法掌握自主学习孩子儿童自律习惯培养书籍
+[2026-05-18 18:36:04.980] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:04.980] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [24/143] 详情获取失败：青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书
+[2026-05-18 18:36:04.980] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:04.980] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [23/143] 详情获取失败：反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛S3
+[2026-05-18 18:36:05.315] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:05.315] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [34/143] 详情获取失败：双11好物【读者励志蝶变篇2026版】父母爱+今天懒我的双11必买清单
+[2026-05-18 18:36:05.315] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:05.315] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [26/143] 详情获取失败：反宠效应 拒绝控制不溺爱 言传身教智慧化解叛逆 看透育儿难题XH
+[2026-05-18 18:36:05.315] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:05.316] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [33/143] 详情获取失败：【时光学】父母夸夸小纸条 鼓励式家庭教育夸出孩子内驱力自信成长
+[2026-05-18 18:36:05.316] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:05.316] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [25/143] 详情获取失败：【男孩青春期破茧+女孩青春期蝶变】解答青春期疑惑让孩子少走弯路
+[2026-05-18 18:36:05.613] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:05.613] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [27/143] 详情获取失败：戒掉手机  赢在自律 引导孩子戒手机  实用方法 孩子告别手机依赖
+[2026-05-18 18:36:05.917] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:05.917] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [28/143] 详情获取失败：【拒绝霸凌】漫画学会保护自己反霸凌给孩子的趣味漫画书儿童安全书
+[2026-05-18 18:36:05.999] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:06.000] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [29/143] 详情获取失败：29天成为导师型父母科学立规矩孩子不叛逆智慧化解叛逆沟通内驱力
+[2026-05-18 18:36:07.949] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:07.949] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [30/143] 详情获取失败：1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-05-18 18:36:07.982] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:07.982] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [143/143] 详情获取失败：这书能让孩子戒掉手机 培养自控自律专注力 破解手机成瘾难题M1
+[2026-05-18 18:36:07.982] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:07.983] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [31/143] 详情获取失败：这书能让孩子戒掉手机 多维度引导孩子戒手机 精准破解手机依赖
+[2026-05-18 18:36:08.317] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:08.317] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [53/143] 详情获取失败：宝宝辅食自己做（0-3岁）宝宝辅食书 辅食营养餐做法婴儿辅食书
+[2026-05-18 18:36:08.317] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:08.317] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [56/143] 详情获取失败：【达人专属】怀孕一天一页+怀孕40周营养食谱 孕期食谱备孕胎
+[2026-05-18 18:36:08.317] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:08.317] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [55/143] 详情获取失败：【专属】正版怀孕一天一页怀孕每周吃什么孕期孕妇书孕妈妈孕产健康
+[2026-05-18 18:36:08.318] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:08.318] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [54/143] 详情获取失败：生命里的第一课 孩子优秀培养人生观价值观 指引人生方向培养思维
+[2026-05-18 18:36:08.616] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:08.616] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [57/143] 详情获取失败：反安慰养育唤醒孩子内驱力正版家庭教育共同成长养育指南
+[2026-05-18 18:36:08.920] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:08.921] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [43/143] 详情获取失败：刚刚好的养育 65个场景练习助力孩子从对抗到对话
+[2026-05-18 18:36:09.004] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:09.004] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [36/143] 详情获取失败：蒙台梭利家庭教育 养出孩子好性格 好习惯 父母的语言 敏感期亲子
+[2026-05-18 18:36:10.953] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:10.953] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [37/143] 详情获取失败：生命里的第一课 世界观价值观人生观的启蒙之旅  家庭教育育儿书
+[2026-05-18 18:36:10.986] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:10.986] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [38/143] 详情获取失败：让孩子戒掉手机 培养自控自律专注力 自律改变命运 惊喜价
+[2026-05-18 18:36:10.986] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:10.986] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [39/143] 详情获取失败：【达人专属】42天经典月子餐视频版指导食谱产后恢复新生儿护理顺产
+[2026-05-18 18:36:11.321] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:11.321] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [41/143] 详情获取失败：登天的感觉：我让深陷困境的孩子振作起来
+[2026-05-18 18:36:11.321] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:11.321] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [40/143] 详情获取失败：女孩  自我安全更重要  写给女孩的成长安全防护知识 多角度教育
+[2026-05-18 18:36:11.321] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:11.322] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [42/143] 详情获取失败：请这样对待孩子的大脑（附赠思维导图）
+[2026-05-18 18:36:11.322] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:11.322] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [100/143] 详情获取失败：当妈妈是一场修行 妈妈的认知格局界定孩子的高度唤醒学习内驱力
+[2026-05-18 18:36:11.619] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:11.619] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [59/143] 详情获取失败：【时光学】孩子的成长妈妈的修行 不焦不躁自我修行养育孩子成长书
+[2026-05-18 18:36:11.924] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:11.924] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [60/143] 详情获取失败：【正版旗舰】漫画鸭子定律 陪伴孩子成长的教养智慧 惊喜
+[2026-05-18 18:36:12.007] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:12.008] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [61/143] 详情获取失败：让孩子放下手机写给孩子的手机管理书陪伴是好的家庭教育心理学
+[2026-05-18 18:36:13.957] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:13.957] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [62/143] 详情获取失败：生命里的第 一课 培养孩子的人生观价值观 指引人生方向培养思维
+[2026-05-18 18:36:13.990] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:13.990] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [64/143] 详情获取失败：【樊登推荐】 刚刚好的养育   65个场景练习助力孩子从对抗到对话
+[2026-05-18 18:36:13.990] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:13.990] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [63/143] 详情获取失败：人民日报励志成长书父母的辛苦 自泥泞出发 激发学习热情收获YM
+[2026-05-18 18:36:14.324] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:14.324] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [65/143] 详情获取失败：这书能让孩子戒掉手机 正确三观 赢在自律 多维度引导孩子戒手机 
+[2026-05-18 18:36:14.324] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:14.324] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [67/143] 详情获取失败：家庭教育 如何说孩子才会听怎么听孩子才肯说 (18周年升级纪念版)
+[2026-05-18 18:36:14.325] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:14.325] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [68/143] 详情获取失败：【青蓝今月】反霸凌实用攻略一句顶万句勇气自信有力量懂拒绝有边界
+[2026-05-18 18:36:14.325] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:14.325] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [66/143] 详情获取失败：【伴读】漫画【青少年三生教育】教孩子珍惜生命 学会生存 成长教育
+[2026-05-18 18:36:14.621] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:14.621] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [69/143] 详情获取失败：【正版】寒门贵子战胜弱点塑造强者心态 普通家庭跨越圈层认知法则
+[2026-05-18 18:36:14.925] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:14.925] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [70/143] 详情获取失败：这书能让孩子戒掉手机 多维度引导孩子戒手机 精准破解手机依赖DP
+[2026-05-18 18:36:15.011] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:15.011] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [71/143] 详情获取失败：反宠效应 拒绝控制不溺爱 言传身教智慧化解叛逆 看透育儿难题DP
+[2026-05-18 18:36:16.962] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:16.962] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [72/143] 详情获取失败：【青蓝今月】漫画青少年三生教育教孩子珍惜生命、学会生存、热爱生活
+[2026-05-18 18:36:16.994] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:16.994] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [74/143] 详情获取失败：29天成为导师型父母 正版智慧化解叛逆沟通科学给孩子传递爱S3
+[2026-05-18 18:36:16.994] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:16.995] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [73/143] 详情获取失败：米歇尔家庭教育百科 影响全球百万家长的科学育儿法 专属
+[2026-05-18 18:36:17.326] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:17.326] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [78/143] 详情获取失败：预备三年级英语小学生英语衔接教材书零基础入门趣味英语单词记背
+[2026-05-18 18:36:17.326] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:17.326] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [77/143] 详情获取失败：非暴力沟通：父母语言训练 家长必读教育书籍正面管教教育孩子书籍
+[2026-05-18 18:36:17.326] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:17.326] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [75/143] 详情获取失败：【杨睿老师】7-9文言文+现代文阅读理解中考初中教辅方法学习-知
+[2026-05-18 18:36:17.326] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:17.326] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [76/143] 详情获取失败：钱氏家训新解 牛晓彦著 更接地气的传统中国家训钱学森钱三强钱穆
+[2026-05-18 18:36:17.624] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:17.624] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [79/143] 详情获取失败：胎教故事爸爸读+胎教故事妈妈读（2本有声版）孕期早教睡前故事胎教
+[2026-05-18 18:36:17.927] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:17.928] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [80/143] 详情获取失败：无条件养育家长一定要看的亲子教养书官方正版孩子书籍教育孩子
+[2026-05-18 18:36:18.014] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:18.014] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [81/143] 详情获取失败：美国儿科学会育儿百科（第8版）
+[2026-05-18 18:36:19.966] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:19.969] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [82/143] 详情获取失败：养正育儿  李宗恩著！中医经方大师倪海夏指定学术传人
+[2026-05-18 18:36:19.996] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:19.996] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [84/143] 详情获取失败：【明珠善学】青春期没烦恼 小学初中孩子的成长指南 解决身心困惑
+[2026-05-18 18:36:19.997] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:19.997] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [83/143] 详情获取失败：42天经典月子餐 视频版 食谱 产后恢复 新生儿护理 顺产 哺乳待产
+[2026-05-18 18:36:20.328] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:20.328] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [85/143] 详情获取失败：【当当】反霸凌实用攻略 大声说不 儿童自我保护绘本反霸凌一句书籍
+[2026-05-18 18:36:20.328] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:20.328] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [93/143] 详情获取失败：【自选】赢在学业规划/陪孩子弯道超车 学业规划和升学指南 吉田著
+[2026-05-18 18:36:20.329] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:20.329] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [87/143] 详情获取失败：【正版旗舰】漫画鸭子定律 陪伴孩子成长的教养智慧 
+[2026-05-18 18:36:20.329] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:20.329] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [86/143] 详情获取失败：漫画儿童心理学 让孩子变得自律上进 孩子看得懂的漫画心理学
+[2026-05-18 18:36:20.625] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:20.625] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [88/143] 详情获取失败：【7-16岁】女孩 你的自我安全更重要  写给女孩的成长安全防护知识 
+[2026-05-18 18:36:20.931] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:20.931] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [89/143] 详情获取失败：主权儿童  “反规则”育儿理念 硅谷纳瓦尔力荐教养神作
+[2026-05-18 18:36:21.018] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:21.018] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [90/143] 详情获取失败：中国家书家训两本装 写给中国孩子的礼仪教养书
+[2026-05-18 18:36:22.971] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:22.971] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [91/143] 详情获取失败：【正版旗舰全五册】孩子秒懂的努力哲学 陪伴孩子成长的教养智慧
+[2026-05-18 18:36:23.001] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:23.001] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [121/143] 详情获取失败：【官方正品】宝宝辅食自己做（0-3岁）宝宝辅食书婴儿辅食营养餐做法
+[2026-05-18 18:36:23.001] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:23.002] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [92/143] 详情获取失败：全两册漫画费斯汀格法则 懒鸟效应 漫画乐商情绪管理培养人际交往
+[2026-05-18 18:36:23.330] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:23.330] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [104/143] 详情获取失败：29天成为导师型父母科学立规矩孩子不叛逆智慧化解叛逆沟通D
+[2026-05-18 18:36:23.330] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:23.330] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [101/143] 详情获取失败：何以为父正版书籍 爸爸的高度决定孩子的起点 家长必读教育书籍
+[2026-05-18 18:36:23.330] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:23.330] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [102/143] 详情获取失败：生命里的第一课皮格马利翁培养孩子的人生观价值观助力强者思维
+[2026-05-18 18:36:23.330] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:23.331] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [103/143] 详情获取失败：【蒙台梭利】早教游戏训练助力0 - 6岁宝宝启蒙认知育儿宝典
+[2026-05-18 18:36:23.627] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:23.627] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [105/143] 详情获取失败：和孩子聊聊生命/学校里最重要的事  让孩子幸福一生的书
+[2026-05-18 18:36:23.934] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:23.934] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [106/143] 详情获取失败：【流云】钱氏家训新解 牛晓彦著 教育孩子文化传承
+[2026-05-18 18:36:24.021] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:24.021] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [107/143] 详情获取失败：女孩  自我安全更重要 写给女孩的成长安全防护知识 多角度教育
+[2026-05-18 18:36:25.975] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:25.975] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [108/143] 详情获取失败：【中信出版】看见孩子：洞察、共情与联结 亲子育儿儿童心理教育
+[2026-05-18 18:36:26.004] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:26.005] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [110/143] 详情获取失败：生命里的第一课五大维度培养孩子你为什么要优秀三观锻造强大内心
+[2026-05-18 18:36:26.005] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:26.005] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [109/143] 详情获取失败：拒绝控制型养育懂比爱更重要育儿经验分享用智慧化解叛逆沟通
+[2026-05-18 18:36:26.334] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:26.334] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [113/143] 详情获取失败：49天成为小学霸 亲子共读 8-12岁儿童课外阅读 书籍推荐经典好书
+[2026-05-18 18:36:26.334] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:26.334] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [35/143] 详情获取失败：【达人专属】胎教故事爸爸读/妈妈读 全音频 孕期 早教睡前故事胎教
+[2026-05-18 18:36:26.334] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:26.335] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [111/143] 详情获取失败：女孩 自我安全更重要   法律启蒙 成长安全防护知识 多角度教育
+[2026-05-18 18:36:26.335] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:26.335] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [112/143] 详情获取失败：青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书b
+[2026-05-18 18:36:26.628] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:26.628] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [114/143] 详情获取失败：双11好物【读者励志篇】学习为的是你自己升级版来本好书给自己充电
+[2026-05-18 18:36:26.939] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:26.940] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [47/143] 详情获取失败：2026阿留教育规划【从小规划大学】打破信息差升学规划名校解析
+[2026-05-18 18:36:27.024] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:36:27.024] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [44/143] 详情获取失败：42天经典月子餐视频版指导食谱产后恢复新生儿护理顺产哺乳待产
+[2026-05-18 18:37:42.298] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:42.298] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [45/143] 详情获取失败：女孩 自我安全更重要 多角度教育 青春期女孩教育心理学成长书籍
+[2026-05-18 18:37:42.326] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:42.327] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [97/143] 详情获取失败：漫画【青少年三生教育】教孩子珍惜生命学会生存热爱生活 成长指南
+[2026-05-18 18:37:42.327] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:42.327] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [46/143] 详情获取失败：【当当】你，是孩子的前传：青春期父母的自我成长课
+[2026-05-18 18:37:42.654] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:42.654] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [96/143] 详情获取失败：漫画版懒鸟效应让孩子变得自律努力坚毅儿童家庭教育心理学书籍
+[2026-05-18 18:37:42.655] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:42.655] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [132/143] 详情获取失败：寒门贵子：寒门破局密码 贵子逆袭公式 跨越阶层的认知指南YM
+[2026-05-18 18:37:42.655] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:42.656] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [122/143] 详情获取失败：邹小兵新书丨《自闭症儿童社交能力阶梯训练》儿童社会化训练书籍
+[2026-05-18 18:37:42.656] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:42.656] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [95/143] 详情获取失败：漫画寒门贵子 普通孩子跨越阶层的认知法则 进学自奋之道
+[2026-05-18 18:37:42.949] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:42.949] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [48/143] 详情获取失败：（专属）欢迎来到一年级：幼小衔接家长手册（全新升级版）
+[2026-05-18 18:37:43.261] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:43.261] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [123/143] 详情获取失败：宝宝辅食黄金计划：视频版 专为中国宝宝量身打造的辅食添加计划
+[2026-05-18 18:37:43.344] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:43.344] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [49/143] 详情获取失败：这书能让孩子戒掉手机 该明白是为自己努力 培养自控自律专注力 
+[2026-05-18 18:37:45.301] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:45.301] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [124/143] 详情获取失败：漫画帝范+天地有正气：成龙成凤必备全局思维，皇室子弟成长教科书
+[2026-05-18 18:37:45.331] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:45.331] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [126/143] 详情获取失败：妈妈话术：200 话术解决一切难题 沟通手册 终结沟通无力困境
+[2026-05-18 18:37:45.331] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:45.331] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [125/143] 详情获取失败：开心【从小规划升学】一本满足从小学到大学升学规划宝典打破信息差
+[2026-05-18 18:37:45.657] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:45.658] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [128/143] 详情获取失败：《正版速发》钱氏家训新解中国家训钱学森钱三强钱穆成功法则
+[2026-05-18 18:37:45.658] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:45.658] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [130/143] 详情获取失败：【旗舰正品】宝宝辅食自己做 0-3岁儿童辅食营养餐家庭父母宝妈必备
+[2026-05-18 18:37:45.658] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:45.658] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [129/143] 详情获取失败：畅销新书【读者励志蝶变2026版】父母 今天的懒来本好书给自己充电
+[2026-05-18 18:37:45.658] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:45.658] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [127/143] 详情获取失败：【精选四册】这书能让孩子戒掉手机 培养专注力 破解手机成瘾难题
+[2026-05-18 18:37:45.952] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:45.952] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [131/143] 详情获取失败：魏书生工作漫谈家庭教育著作 好学生好学法 好父母好家教工作漫谈
+[2026-05-18 18:37:46.265] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:46.266] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [50/143] 详情获取失败：反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-05-18 18:37:46.346] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:46.346] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [118/143] 详情获取失败：漫画儿童赢在教养 培养懂礼貌 有教养 成为的社交小达人
+[2026-05-18 18:37:48.305] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:48.305] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [116/143] 详情获取失败：这书能让孩子戒掉手机培养自控自律专注力精破解手机成瘾难书籍Z1
+[2026-05-18 18:37:48.334] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:48.335] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [117/143] 详情获取失败：爸爸的高度决定孩子的起点 家长必读教育书籍 何以为父正版书籍
+[2026-05-18 18:37:48.335] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:48.335] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [137/143] 详情获取失败：最好的家风：在家有教养，出门有规矩 孩子懂礼貌有教养受益一生QT
+[2026-05-18 18:37:48.658] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:48.659] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [140/143] 详情获取失败：【官方正版】漫画鸭子定律 陪伴孩子成长的教养智慧 惊喜
+[2026-05-18 18:37:48.659] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:48.659] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [133/143] 详情获取失败：宝宝辅食跟我做（0-3岁）宝宝辅食书 辅食营养餐做法婴儿辅食书
+[2026-05-18 18:37:48.659] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:48.659] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [138/143] 详情获取失败：【官方正版】小学数学公式定律手册彩色版 小学2-6年级必备基础书籍
+[2026-05-18 18:37:48.660] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:48.660] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [139/143] 详情获取失败：宝宝脾胃好 宝宝健脾养胃成长食谱儿童食谱调理 长高食谱
+[2026-05-18 18:37:48.956] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:48.956] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [115/143] 详情获取失败：漫画青少年【三生教育】教孩子珍惜生命、学会生存、热爱生活成长指南
+[2026-05-18 18:37:49.269] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:49.269] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [119/143] 详情获取失败：开心【从小保护好自己】一看就懂儿童自我保护漫画趣味阅读安全常识
+[2026-05-18 18:37:49.348] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:37:49.349] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [120/143] 详情获取失败：漫画帝范：唐太宗李世民的教子规则，孩子成龙成凤必备的全局思维
+[2026-05-18 18:55:27.141] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:27.141] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [135/143] 详情获取失败：生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维S8
+[2026-05-18 18:55:27.171] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:27.171] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:27.171] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [141/143] 详情获取失败：真希望我父母读过这本书 家庭教育、育儿、亲子关系 情感沟通 图书
+[2026-05-18 18:55:27.171] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [98/143] 详情获取失败：蒙台梭利家庭教育养出孩子好性格好习惯父母的语言0-3岁儿童早教
+[2026-05-18 18:55:27.606] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:27.607] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [51/143] 详情获取失败：【破窗效应】正版全彩漫画家庭教育儿童自我管理提升认知成长秘籍
+[2026-05-18 18:55:27.607] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:27.607] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [136/143] 详情获取失败：【官方旗舰】宝宝辅食自己做 0-3岁儿童辅食营养餐家庭父母宝妈必备
+[2026-05-18 18:55:27.609] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:27.609] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [99/143] 详情获取失败：妈妈话术：200+话术解决一切难题 沟通手册 终结沟通无力困境QT
+[2026-05-18 18:55:27.609] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:27.610] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [142/143] 详情获取失败：【伴读】漫画【赢在三生教育】教孩子珍惜生命 学会生存 成长教育
+[2026-05-18 18:55:27.793] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:27.793] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [134/143] 详情获取失败：忽然孩子不笑了 做孩子真正的支持者 专属
+[2026-05-18 18:55:28.107] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.107] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [94/143] 详情获取失败：【方飞老师】漫画版.懒鸟效应让孩子变得自律努力坚毅儿童
+[2026-05-18 18:55:28.186] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.186] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [58/143] 详情获取失败：读书为了拥有更多的选择+学习是为了你自己 励志好书
+[2026-05-18 18:55:28.186] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 商品详情获取完成：10 条，耗时 6950.1 秒（相比串行节省 -6664 秒）
+[2026-05-18 18:55:28.186] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 详情抓取完成，共获取 10 条详情数据
+[2026-05-18 18:55:28.186] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📹 步骤 9: 获取视频分析数据（优化版：直接 HTTP 请求）
+[2026-05-18 18:55:28.187] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🔧 正在提取 flow_more API 模板...
+[2026-05-18 18:55:28.187] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 提取 API 模板失败：无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection，回退到浏览器模式
+[2026-05-18 18:55:28.187] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🚀 开始并发获取视频分析（并发数=10，总数=143）
+[2026-05-18 18:55:28.187] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [2/143] 视频分析失败：生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [17/143] 视频分析失败：你是孩子的前传：青春期父母的自我成长课书籍（陈行甲最新作品）
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [5/143] 视频分析失败：畅销新书【读者励志蝶变2026版】父母+今天的懒来本好书给自己充电
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.188] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [13/143] 视频分析失败：【樊登推荐】刚刚好的养育  65个场景练习助孩子从对抗到对话
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [4/143] 视频分析失败：漫画学会保护自己 反霸凌给孩子的趣味漫画书儿童安全教育家教书
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [11/143] 视频分析失败：反宠效应 拒绝控制不溺爱 言传身教智慧化解叛逆 看透育儿难题
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [6/143] 视频分析失败：这书能让孩子戒掉手机 培养自控自律专注力 精准破解手机成瘾难题
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [18/143] 视频分析失败：新编中草yao彩色图谱结合本草纲目记录700多种日常中草yao彩色图
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [3/143] 视频分析失败：反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆 
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [24/143] 视频分析失败：青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书
+[2026-05-18 18:55:28.189] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [16/143] 视频分析失败：青春期女孩枕边书 陪伴关键期孩子健康成长手册生理困惑安全意识
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [19/143] 视频分析失败：妈妈话术：200+话术解决一切难题 托举而非掌控终结沟通无力困境QT
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [28/143] 视频分析失败：【拒绝霸凌】漫画学会保护自己反霸凌给孩子的趣味漫画书儿童安全书
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [10/143] 视频分析失败：人民日报励志成长书父母的辛苦 自泥泞出发 激发学习热情收获成长
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [21/143] 视频分析失败：【达人专属】宝宝辅食跟我做（0-3岁）宝宝辅食书 辅食营养餐做法
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.190] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [31/143] 视频分析失败：这书能让孩子戒掉手机 多维度引导孩子戒手机 精准破解手机依赖
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [12/143] 视频分析失败：戒掉手机 多维度引导孩子戒手机  实用方法 孩子告别手机依赖
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [15/143] 视频分析失败：何为人父 对话式养育 如何与孩子正确相处 亲子沟通技巧养育理念
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [14/143] 视频分析失败：漫画版懒鸟效应 让孩子变得自律努力坚毅儿童家庭教育心理学书籍
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [1/143] 视频分析失败：漫画版反安慰养育唤醒孩子内驱力正版家庭教育共同成长养育指南
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [22/143] 视频分析失败：漫画赢在会学 学习有方法掌握自主学习孩子儿童自律习惯培养书籍
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.191] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [29/143] 视频分析失败：29天成为导师型父母科学立规矩孩子不叛逆智慧化解叛逆沟通内驱力
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [30/143] 视频分析失败：1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [35/143] 视频分析失败：【达人专属】胎教故事爸爸读/妈妈读 全音频 孕期 早教睡前故事胎教
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [25/143] 视频分析失败：【男孩青春期破茧+女孩青春期蝶变】解答青春期疑惑让孩子少走弯路
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [33/143] 视频分析失败：【时光学】父母夸夸小纸条 鼓励式家庭教育夸出孩子内驱力自信成长
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [23/143] 视频分析失败：反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛S3
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [45/143] 视频分析失败：女孩 自我安全更重要 多角度教育 青春期女孩教育心理学成长书籍
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.192] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [38/143] 视频分析失败：让孩子戒掉手机 培养自控自律专注力 自律改变命运 惊喜价
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [39/143] 视频分析失败：【达人专属】42天经典月子餐视频版指导食谱产后恢复新生儿护理顺产
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [9/143] 视频分析失败：【达人专属】怀孕一天一页+怀孕40周营养食谱 孕期食谱备孕胎教故事
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [43/143] 视频分析失败：刚刚好的养育 65个场景练习助力孩子从对抗到对话
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [48/143] 视频分析失败：（专属）欢迎来到一年级：幼小衔接家长手册（全新升级版）
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [51/143] 视频分析失败：【破窗效应】正版全彩漫画家庭教育儿童自我管理提升认知成长秘籍
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.193] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [40/143] 视频分析失败：女孩  自我安全更重要  写给女孩的成长安全防护知识 多角度教育
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [20/143] 视频分析失败：生命里的第一课 成长型思维 正确三观 培养孩子人生的观价值观 
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [27/143] 视频分析失败：戒掉手机  赢在自律 引导孩子戒手机  实用方法 孩子告别手机依赖
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [46/143] 视频分析失败：【当当】你，是孩子的前传：青春期父母的自我成长课
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [53/143] 视频分析失败：宝宝辅食自己做（0-3岁）宝宝辅食书 辅食营养餐做法婴儿辅食书
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [47/143] 视频分析失败：2026阿留教育规划【从小规划大学】打破信息差升学规划名校解析
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [36/143] 视频分析失败：蒙台梭利家庭教育 养出孩子好性格 好习惯 父母的语言 敏感期亲子
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [32/143] 视频分析失败：拒绝控制型养育正版懂比爱更重要育儿经验沟通方法科学养育指南
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [7/143] 视频分析失败：漫画费斯汀格法则彩图正版小小少年没有烦恼挫折家庭必备育儿手册
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [49/143] 视频分析失败：这书能让孩子戒掉手机 该明白是为自己努力 培养自控自律专注力 
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [50/143] 视频分析失败：反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.194] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [54/143] 视频分析失败：生命里的第一课 孩子优秀培养人生观价值观 指引人生方向培养思维
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [58/143] 视频分析失败：读书为了拥有更多的选择+学习是为了你自己 励志好书
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [61/143] 视频分析失败：让孩子放下手机写给孩子的手机管理书陪伴是好的家庭教育心理学
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [55/143] 视频分析失败：【专属】正版怀孕一天一页怀孕每周吃什么孕期孕妇书孕妈妈孕产健康
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [41/143] 视频分析失败：登天的感觉：我让深陷困境的孩子振作起来
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [59/143] 视频分析失败：【时光学】孩子的成长妈妈的修行 不焦不躁自我修行养育孩子成长书
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.195] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [70/143] 视频分析失败：这书能让孩子戒掉手机 多维度引导孩子戒手机 精准破解手机依赖DP
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [62/143] 视频分析失败：生命里的第 一课 培养孩子的人生观价值观 指引人生方向培养思维
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [52/143] 视频分析失败：青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书c
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [72/143] 视频分析失败：【青蓝今月】漫画青少年三生教育教孩子珍惜生命、学会生存、热爱生活
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [71/143] 视频分析失败：反宠效应 拒绝控制不溺爱 言传身教智慧化解叛逆 看透育儿难题DP
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [56/143] 视频分析失败：【达人专属】怀孕一天一页+怀孕40周营养食谱 孕期食谱备孕胎
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.196] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [68/143] 视频分析失败：【青蓝今月】反霸凌实用攻略一句顶万句勇气自信有力量懂拒绝有边界
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [74/143] 视频分析失败：29天成为导师型父母 正版智慧化解叛逆沟通科学给孩子传递爱S3
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [76/143] 视频分析失败：钱氏家训新解 牛晓彦著 更接地气的传统中国家训钱学森钱三强钱穆
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [65/143] 视频分析失败：这书能让孩子戒掉手机 正确三观 赢在自律 多维度引导孩子戒手机 
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [67/143] 视频分析失败：家庭教育 如何说孩子才会听怎么听孩子才肯说 (18周年升级纪念版)
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [34/143] 视频分析失败：双11好物【读者励志蝶变篇2026版】父母爱+今天懒我的双11必买清单
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [57/143] 视频分析失败：反安慰养育唤醒孩子内驱力正版家庭教育共同成长养育指南
+[2026-05-18 18:55:28.197] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [60/143] 视频分析失败：【正版旗舰】漫画鸭子定律 陪伴孩子成长的教养智慧 惊喜
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [75/143] 视频分析失败：【杨睿老师】7-9文言文+现代文阅读理解中考初中教辅方法学习-知
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [44/143] 视频分析失败：42天经典月子餐视频版指导食谱产后恢复新生儿护理顺产哺乳待产
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [84/143] 视频分析失败：【明珠善学】青春期没烦恼 小学初中孩子的成长指南 解决身心困惑
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [77/143] 视频分析失败：非暴力沟通：父母语言训练 家长必读教育书籍正面管教教育孩子书籍
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [87/143] 视频分析失败：【正版旗舰】漫画鸭子定律 陪伴孩子成长的教养智慧 
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [86/143] 视频分析失败：漫画儿童心理学 让孩子变得自律上进 孩子看得懂的漫画心理学
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [89/143] 视频分析失败：主权儿童  “反规则”育儿理念 硅谷纳瓦尔力荐教养神作
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [88/143] 视频分析失败：【7-16岁】女孩 你的自我安全更重要  写给女孩的成长安全防护知识 
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [66/143] 视频分析失败：【伴读】漫画【青少年三生教育】教孩子珍惜生命 学会生存 成长教育
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [80/143] 视频分析失败：无条件养育家长一定要看的亲子教养书官方正版孩子书籍教育孩子
+[2026-05-18 18:55:28.198] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [64/143] 视频分析失败：【樊登推荐】 刚刚好的养育   65个场景练习助力孩子从对抗到对话
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [85/143] 视频分析失败：【当当】反霸凌实用攻略 大声说不 儿童自我保护绘本反霸凌一句书籍
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [69/143] 视频分析失败：【正版】寒门贵子战胜弱点塑造强者心态 普通家庭跨越圈层认知法则
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [92/143] 视频分析失败：全两册漫画费斯汀格法则 懒鸟效应 漫画乐商情绪管理培养人际交往
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [96/143] 视频分析失败：漫画版懒鸟效应让孩子变得自律努力坚毅儿童家庭教育心理学书籍
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [93/143] 视频分析失败：【自选】赢在学业规划/陪孩子弯道超车 学业规划和升学指南 吉田著
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [73/143] 视频分析失败：米歇尔家庭教育百科 影响全球百万家长的科学育儿法 专属
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [99/143] 视频分析失败：妈妈话术：200+话术解决一切难题 沟通手册 终结沟通无力困境QT
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [91/143] 视频分析失败：【正版旗舰全五册】孩子秒懂的努力哲学 陪伴孩子成长的教养智慧
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [101/143] 视频分析失败：何以为父正版书籍 爸爸的高度决定孩子的起点 家长必读教育书籍
+[2026-05-18 18:55:28.199] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [102/143] 视频分析失败：生命里的第一课皮格马利翁培养孩子的人生观价值观助力强者思维
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [81/143] 视频分析失败：美国儿科学会育儿百科（第8版）
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [94/143] 视频分析失败：【方飞老师】漫画版.懒鸟效应让孩子变得自律努力坚毅儿童
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [97/143] 视频分析失败：漫画【青少年三生教育】教孩子珍惜生命学会生存热爱生活 成长指南
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [106/143] 视频分析失败：【流云】钱氏家训新解 牛晓彦著 教育孩子文化传承
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [104/143] 视频分析失败：29天成为导师型父母科学立规矩孩子不叛逆智慧化解叛逆沟通D
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [100/143] 视频分析失败：当妈妈是一场修行 妈妈的认知格局界定孩子的高度唤醒学习内驱力
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [109/143] 视频分析失败：拒绝控制型养育懂比爱更重要育儿经验分享用智慧化解叛逆沟通
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [111/143] 视频分析失败：女孩 自我安全更重要   法律启蒙 成长安全防护知识 多角度教育
+[2026-05-18 18:55:28.200] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [112/143] 视频分析失败：青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书b
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [113/143] 视频分析失败：49天成为小学霸 亲子共读 8-12岁儿童课外阅读 书籍推荐经典好书
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [82/143] 视频分析失败：养正育儿  李宗恩著！中医经方大师倪海夏指定学术传人
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [83/143] 视频分析失败：42天经典月子餐 视频版 食谱 产后恢复 新生儿护理 顺产 哺乳待产
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [105/143] 视频分析失败：和孩子聊聊生命/学校里最重要的事  让孩子幸福一生的书
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [114/143] 视频分析失败：双11好物【读者励志篇】学习为的是你自己升级版来本好书给自己充电
+[2026-05-18 18:55:28.201] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [119/143] 视频分析失败：开心【从小保护好自己】一看就懂儿童自我保护漫画趣味阅读安全常识
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [118/143] 视频分析失败：漫画儿童赢在教养 培养懂礼貌 有教养 成为的社交小达人
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [103/143] 视频分析失败：【蒙台梭利】早教游戏训练助力0 - 6岁宝宝启蒙认知育儿宝典
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [98/143] 视频分析失败：蒙台梭利家庭教育养出孩子好性格好习惯父母的语言0-3岁儿童早教
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [117/143] 视频分析失败：爸爸的高度决定孩子的起点 家长必读教育书籍 何以为父正版书籍
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [95/143] 视频分析失败：漫画寒门贵子 普通孩子跨越阶层的认知法则 进学自奋之道
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [110/143] 视频分析失败：生命里的第一课五大维度培养孩子你为什么要优秀三观锻造强大内心
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [126/143] 视频分析失败：妈妈话术：200 话术解决一切难题 沟通手册 终结沟通无力困境
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [121/143] 视频分析失败：【官方正品】宝宝辅食自己做（0-3岁）宝宝辅食书婴儿辅食营养餐做法
+[2026-05-18 18:55:28.202] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [120/143] 视频分析失败：漫画帝范：唐太宗李世民的教子规则，孩子成龙成凤必备的全局思维
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [107/143] 视频分析失败：女孩  自我安全更重要 写给女孩的成长安全防护知识 多角度教育
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [124/143] 视频分析失败：漫画帝范+天地有正气：成龙成凤必备全局思维，皇室子弟成长教科书
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [115/143] 视频分析失败：漫画青少年【三生教育】教孩子珍惜生命、学会生存、热爱生活成长指南
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [122/143] 视频分析失败：邹小兵新书丨《自闭症儿童社交能力阶梯训练》儿童社会化训练书籍
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [131/143] 视频分析失败：魏书生工作漫谈家庭教育著作 好学生好学法 好父母好家教工作漫谈
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [125/143] 视频分析失败：开心【从小规划升学】一本满足从小学到大学升学规划宝典打破信息差
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [132/143] 视频分析失败：寒门贵子：寒门破局密码 贵子逆袭公式 跨越阶层的认知指南YM
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [79/143] 视频分析失败：胎教故事爸爸读+胎教故事妈妈读（2本有声版）孕期早教睡前故事胎教
+[2026-05-18 18:55:28.203] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [108/143] 视频分析失败：【中信出版】看见孩子：洞察、共情与联结 亲子育儿儿童心理教育
+[2026-05-18 18:55:28.204] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.204] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.204] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.204] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [90/143] 视频分析失败：中国家书家训两本装 写给中国孩子的礼仪教养书
+[2026-05-18 18:55:28.204] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.204] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [138/143] 视频分析失败：【官方正版】小学数学公式定律手册彩色版 小学2-6年级必备基础书籍
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [123/143] 视频分析失败：宝宝辅食黄金计划：视频版 专为中国宝宝量身打造的辅食添加计划
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [116/143] 视频分析失败：这书能让孩子戒掉手机培养自控自律专注力精破解手机成瘾难书籍Z1
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [136/143] 视频分析失败：【官方旗舰】宝宝辅食自己做 0-3岁儿童辅食营养餐家庭父母宝妈必备
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [139/143] 视频分析失败：宝宝脾胃好 宝宝健脾养胃成长食谱儿童食谱调理 长高食谱
+[2026-05-18 18:55:28.205] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [130/143] 视频分析失败：【旗舰正品】宝宝辅食自己做 0-3岁儿童辅食营养餐家庭父母宝妈必备
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [78/143] 视频分析失败：预备三年级英语小学生英语衔接教材书零基础入门趣味英语单词记背
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [143/143] 视频分析失败：这书能让孩子戒掉手机 培养自控自律专注力 破解手机成瘾难题M1
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [129/143] 视频分析失败：畅销新书【读者励志蝶变2026版】父母 今天的懒来本好书给自己充电
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [135/143] 视频分析失败：生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维S8
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [127/143] 视频分析失败：【精选四册】这书能让孩子戒掉手机 培养专注力 破解手机成瘾难题
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [134/143] 视频分析失败：忽然孩子不笑了 做孩子真正的支持者 专属
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.206] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [141/143] 视频分析失败：真希望我父母读过这本书 家庭教育、育儿、亲子关系 情感沟通 图书
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [37/143] 视频分析失败：生命里的第一课 世界观价值观人生观的启蒙之旅  家庭教育育儿书
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [63/143] 视频分析失败：人民日报励志成长书父母的辛苦 自泥泞出发 激发学习热情收获YM
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [128/143] 视频分析失败：《正版速发》钱氏家训新解中国家训钱学森钱三强钱穆成功法则
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [26/143] 视频分析失败：反宠效应 拒绝控制不溺爱 言传身教智慧化解叛逆 看透育儿难题XH
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [142/143] 视频分析失败：【伴读】漫画【赢在三生教育】教孩子珍惜生命 学会生存 成长教育
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [133/143] 视频分析失败：宝宝辅食跟我做（0-3岁）宝宝辅食书 辅食营养餐做法婴儿辅食书
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [137/143] 视频分析失败：最好的家风：在家有教养，出门有规矩 孩子懂礼貌有教养受益一生QT
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [42/143] 视频分析失败：请这样对待孩子的大脑（附赠思维导图）
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [140/143] 视频分析失败：【官方正版】漫画鸭子定律 陪伴孩子成长的教养智慧 惊喜
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 无法打开浏览器页面：write tcp 127.0.0.1:55042->127.0.0.1:55040: use of closed network connection
+[2026-05-18 18:55:28.207] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ [8/143] 视频分析失败：拒绝控制型养育正版懂比爱更重要育儿经验分享用智慧化解叛逆沟通
+[2026-05-18 18:55:28.207] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 视频分析获取完成：0 条，耗时 0.0 秒（相比串行节省 429 秒）
+[2026-05-18 18:55:28.207] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 视频分析抓取完成，共获取 0 条视频数据
+[2026-05-18 18:55:28.207] [INFO] 📝 [S4Du0cnjgimQ4jhT] 💾 步骤 10: 保存数据到数据库
+[2026-05-18 18:55:28.207] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 匹配商品详情数据：漫画版反安慰养育唤醒孩子内驱力正版家庭教育共同成长养育指南 (ProductID: 3810366335800705486)
+[2026-05-18 18:55:28.207] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 匹配商品详情数据：生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维 (ProductID: 3761391987719275773)
+[2026-05-18 18:55:28.208] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 匹配商品详情数据：反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆  (ProductID: 3776967695216541924)
+[2026-05-18 18:55:28.208] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 匹配商品详情数据：漫画学会保护自己 反霸凌给孩子的趣味漫画书儿童安全教育家教书 (ProductID: 3775495165880435107)
+[2026-05-18 18:55:28.208] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 匹配商品详情数据：畅销新书【读者励志蝶变2026版】父母+今天的懒来本好书给自己充电 (ProductID: 3771175227401306320)
+[2026-05-18 18:55:28.208] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 匹配商品详情数据：这书能让孩子戒掉手机 培养自控自律专注力 精准破解手机成瘾难题 (ProductID: 3785150881322893587)
+[2026-05-18 18:55:28.208] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 匹配商品详情数据：漫画费斯汀格法则彩图正版小小少年没有烦恼挫折家庭必备育儿手册 (ProductID: 3815726334903189632)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：拒绝控制型养育正版懂比爱更重要育儿经验分享用智慧化解叛逆沟通 (ProductID: 3750451561491464230)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【达人专属】怀孕一天一页+怀孕40周营养食谱 孕期食谱备孕胎教故事 (ProductID: 3428515426852844234)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：人民日报励志成长书父母的辛苦 自泥泞出发 激发学习热情收获成长 (ProductID: 3807206038835429767)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：反宠效应 拒绝控制不溺爱 言传身教智慧化解叛逆 看透育儿难题 (ProductID: 3817024791613931803)
+[2026-05-18 18:55:28.208] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 匹配商品详情数据：戒掉手机 多维度引导孩子戒手机  实用方法 孩子告别手机依赖 (ProductID: 3785128697909086590)
+[2026-05-18 18:55:28.208] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 匹配商品详情数据：【樊登推荐】刚刚好的养育  65个场景练习助孩子从对抗到对话 (ProductID: 3793649595221934447)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：漫画版懒鸟效应 让孩子变得自律努力坚毅儿童家庭教育心理学书籍 (ProductID: 3805341827599565207)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：何为人父 对话式养育 如何与孩子正确相处 亲子沟通技巧养育理念 (ProductID: 3787120841179922924)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：青春期女孩枕边书 陪伴关键期孩子健康成长手册生理困惑安全意识 (ProductID: 3704433089192263747)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：你是孩子的前传：青春期父母的自我成长课书籍（陈行甲最新作品） (ProductID: 3810936546572501415)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：新编中草yao彩色图谱结合本草纲目记录700多种日常中草yao彩色图 (ProductID: 3784751960440307717)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：妈妈话术：200+话术解决一切难题 托举而非掌控终结沟通无力困境QT (ProductID: 3814264068223664348)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：生命里的第一课 成长型思维 正确三观 培养孩子人生的观价值观  (ProductID: 3792024484815437863)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【达人专属】宝宝辅食跟我做（0-3岁）宝宝辅食书 辅食营养餐做法 (ProductID: 3445772754127824278)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：漫画赢在会学 学习有方法掌握自主学习孩子儿童自律习惯培养书籍 (ProductID: 3771537490821906701)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛S3 (ProductID: 3791143999348277449)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书 (ProductID: 3786247676492907981)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【男孩青春期破茧+女孩青春期蝶变】解答青春期疑惑让孩子少走弯路 (ProductID: 3812912207956672711)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：反宠效应 拒绝控制不溺爱 言传身教智慧化解叛逆 看透育儿难题XH (ProductID: 3818306970281181298)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：戒掉手机  赢在自律 引导孩子戒手机  实用方法 孩子告别手机依赖 (ProductID: 3789748931559293366)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【拒绝霸凌】漫画学会保护自己反霸凌给孩子的趣味漫画书儿童安全书 (ProductID: 3819227085487079813)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：29天成为导师型父母科学立规矩孩子不叛逆智慧化解叛逆沟通内驱力 (ProductID: 3779901325341491416)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：1600句夸出孩子内驱力 句句夸到点子上夸到心里去 高情商亲子话术 (ProductID: 3751927346689606318)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：这书能让孩子戒掉手机 多维度引导孩子戒手机 精准破解手机依赖 (ProductID: 3792694098150949050)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：拒绝控制型养育正版懂比爱更重要育儿经验沟通方法科学养育指南 (ProductID: 3760049718139421868)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【时光学】父母夸夸小纸条 鼓励式家庭教育夸出孩子内驱力自信成长 (ProductID: 3799974570195288814)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：双11好物【读者励志蝶变篇2026版】父母爱+今天懒我的双11必买清单 (ProductID: 3776419902320148694)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【达人专属】胎教故事爸爸读/妈妈读 全音频 孕期 早教睡前故事胎教 (ProductID: 3442783774717420417)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：蒙台梭利家庭教育 养出孩子好性格 好习惯 父母的语言 敏感期亲子 (ProductID: 3558205617216827088)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：生命里的第一课 世界观价值观人生观的启蒙之旅  家庭教育育儿书 (ProductID: 3762487460064527246)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：让孩子戒掉手机 培养自控自律专注力 自律改变命运 惊喜价 (ProductID: 3819788420432134198)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【达人专属】42天经典月子餐视频版指导食谱产后恢复新生儿护理顺产 (ProductID: 3460456283830928706)
+[2026-05-18 18:55:28.208] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：女孩  自我安全更重要  写给女孩的成长安全防护知识 多角度教育 (ProductID: 3705149318131482673)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：登天的感觉：我让深陷困境的孩子振作起来 (ProductID: 3763958389567258771)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：请这样对待孩子的大脑（附赠思维导图） (ProductID: 3760070336163480007)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：刚刚好的养育 65个场景练习助力孩子从对抗到对话 (ProductID: 3793703451914011083)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：42天经典月子餐视频版指导食谱产后恢复新生儿护理顺产哺乳待产 (ProductID: 3789357733246009345)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：女孩 自我安全更重要 多角度教育 青春期女孩教育心理学成长书籍 (ProductID: 3764751779548496153)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【当当】你，是孩子的前传：青春期父母的自我成长课 (ProductID: 3813281231387361302)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：2026阿留教育规划【从小规划大学】打破信息差升学规划名校解析 (ProductID: 3756536503535272058)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：（专属）欢迎来到一年级：幼小衔接家长手册（全新升级版） (ProductID: 3698439404323471639)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：这书能让孩子戒掉手机 该明白是为自己努力 培养自控自律专注力  (ProductID: 3793810027224105407)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：反宠效应 教育孩子的绝技 拒绝控制 育儿经验分享用智慧化解叛逆 (ProductID: 3814810027278074113)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【破窗效应】正版全彩漫画家庭教育儿童自我管理提升认知成长秘籍 (ProductID: 3816870651462025441)
+[2026-05-18 18:55:28.209] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 匹配商品详情数据：青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书c (ProductID: 3814436115948110044)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：宝宝辅食自己做（0-3岁）宝宝辅食书 辅食营养餐做法婴儿辅食书 (ProductID: 3774698447081440147)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：生命里的第一课 孩子优秀培养人生观价值观 指引人生方向培养思维 (ProductID: 3818114403249815568)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【专属】正版怀孕一天一页怀孕每周吃什么孕期孕妇书孕妈妈孕产健康 (ProductID: 3439972218174611196)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【达人专属】怀孕一天一页+怀孕40周营养食谱 孕期食谱备孕胎 (ProductID: 3652984276150053010)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：反安慰养育唤醒孩子内驱力正版家庭教育共同成长养育指南 (ProductID: 3817930061038878846)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：读书为了拥有更多的选择+学习是为了你自己 励志好书 (ProductID: 3763605500030222725)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【时光学】孩子的成长妈妈的修行 不焦不躁自我修行养育孩子成长书 (ProductID: 3690333742435532854)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【正版旗舰】漫画鸭子定律 陪伴孩子成长的教养智慧 惊喜 (ProductID: 3809797336503287914)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：让孩子放下手机写给孩子的手机管理书陪伴是好的家庭教育心理学 (ProductID: 3794584837210374861)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：生命里的第 一课 培养孩子的人生观价值观 指引人生方向培养思维 (ProductID: 3812734669041041506)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：人民日报励志成长书父母的辛苦 自泥泞出发 激发学习热情收获YM (ProductID: 3809585579532878122)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【樊登推荐】 刚刚好的养育   65个场景练习助力孩子从对抗到对话 (ProductID: 3793647918012039535)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：这书能让孩子戒掉手机 正确三观 赢在自律 多维度引导孩子戒手机  (ProductID: 3794553827621994904)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【伴读】漫画【青少年三生教育】教孩子珍惜生命 学会生存 成长教育 (ProductID: 3784945279141282125)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：家庭教育 如何说孩子才会听怎么听孩子才肯说 (18周年升级纪念版) (ProductID: 3793857963471536453)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【青蓝今月】反霸凌实用攻略一句顶万句勇气自信有力量懂拒绝有边界 (ProductID: 3814089250035597468)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【正版】寒门贵子战胜弱点塑造强者心态 普通家庭跨越圈层认知法则 (ProductID: 3815762659589095602)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：这书能让孩子戒掉手机 多维度引导孩子戒手机 精准破解手机依赖DP (ProductID: 3818289878374941139)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：反宠效应 拒绝控制不溺爱 言传身教智慧化解叛逆 看透育儿难题DP (ProductID: 3815323353162580329)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【青蓝今月】漫画青少年三生教育教孩子珍惜生命、学会生存、热爱生活 (ProductID: 3784388432386720238)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：米歇尔家庭教育百科 影响全球百万家长的科学育儿法 专属 (ProductID: 3709625099171791103)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：29天成为导师型父母 正版智慧化解叛逆沟通科学给孩子传递爱S3 (ProductID: 3787979130155434029)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【杨睿老师】7-9文言文+现代文阅读理解中考初中教辅方法学习-知 (ProductID: 3721280800763805959)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：钱氏家训新解 牛晓彦著 更接地气的传统中国家训钱学森钱三强钱穆 (ProductID: 3702360323118989438)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：非暴力沟通：父母语言训练 家长必读教育书籍正面管教教育孩子书籍 (ProductID: 3603502001108960238)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：预备三年级英语小学生英语衔接教材书零基础入门趣味英语单词记背 (ProductID: 3807966406969000711)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：胎教故事爸爸读+胎教故事妈妈读（2本有声版）孕期早教睡前故事胎教 (ProductID: 3652987360188171821)
+[2026-05-18 18:55:28.209] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：无条件养育家长一定要看的亲子教养书官方正版孩子书籍教育孩子 (ProductID: 3761568467858358556)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：美国儿科学会育儿百科（第8版） (ProductID: 3795707047824196083)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：养正育儿  李宗恩著！中医经方大师倪海夏指定学术传人 (ProductID: 3788071104724205896)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：42天经典月子餐 视频版 食谱 产后恢复 新生儿护理 顺产 哺乳待产 (ProductID: 3652985132744313822)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【明珠善学】青春期没烦恼 小学初中孩子的成长指南 解决身心困惑 (ProductID: 3742700195608133747)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【当当】反霸凌实用攻略 大声说不 儿童自我保护绘本反霸凌一句书籍 (ProductID: 3814432862518772029)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：漫画儿童心理学 让孩子变得自律上进 孩子看得懂的漫画心理学 (ProductID: 3807584021827945884)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【正版旗舰】漫画鸭子定律 陪伴孩子成长的教养智慧  (ProductID: 3809791574888546344)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【7-16岁】女孩 你的自我安全更重要  写给女孩的成长安全防护知识  (ProductID: 3759721430082781900)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：主权儿童  “反规则”育儿理念 硅谷纳瓦尔力荐教养神作 (ProductID: 3810930864146219919)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：中国家书家训两本装 写给中国孩子的礼仪教养书 (ProductID: 3747976633865338972)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【正版旗舰全五册】孩子秒懂的努力哲学 陪伴孩子成长的教养智慧 (ProductID: 3809948639627968849)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：全两册漫画费斯汀格法则 懒鸟效应 漫画乐商情绪管理培养人际交往 (ProductID: 3816144093344563452)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【自选】赢在学业规划/陪孩子弯道超车 学业规划和升学指南 吉田著 (ProductID: 3744125628757180913)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【方飞老师】漫画版.懒鸟效应让孩子变得自律努力坚毅儿童 (ProductID: 3811669029446353311)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：漫画寒门贵子 普通孩子跨越阶层的认知法则 进学自奋之道 (ProductID: 3818529163946623347)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：漫画版懒鸟效应让孩子变得自律努力坚毅儿童家庭教育心理学书籍 (ProductID: 3810931450451198372)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：漫画【青少年三生教育】教孩子珍惜生命学会生存热爱生活 成长指南 (ProductID: 3785840642391933401)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：蒙台梭利家庭教育养出孩子好性格好习惯父母的语言0-3岁儿童早教 (ProductID: 3565502895610835773)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：妈妈话术：200+话术解决一切难题 沟通手册 终结沟通无力困境QT (ProductID: 3807758139743404170)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：当妈妈是一场修行 妈妈的认知格局界定孩子的高度唤醒学习内驱力 (ProductID: 3725150046648402301)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：何以为父正版书籍 爸爸的高度决定孩子的起点 家长必读教育书籍 (ProductID: 3740397242692010158)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：生命里的第一课皮格马利翁培养孩子的人生观价值观助力强者思维 (ProductID: 3817233149042229290)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【蒙台梭利】早教游戏训练助力0 - 6岁宝宝启蒙认知育儿宝典 (ProductID: 3775630904026857724)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：29天成为导师型父母科学立规矩孩子不叛逆智慧化解叛逆沟通D (ProductID: 3805603552152387815)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：和孩子聊聊生命/学校里最重要的事  让孩子幸福一生的书 (ProductID: 3580254815789443234)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【流云】钱氏家训新解 牛晓彦著 教育孩子文化传承 (ProductID: 3811081609143255121)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：女孩  自我安全更重要 写给女孩的成长安全防护知识 多角度教育 (ProductID: 3814077243605516332)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【中信出版】看见孩子：洞察、共情与联结 亲子育儿儿童心理教育 (ProductID: 3622274973940476290)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：拒绝控制型养育懂比爱更重要育儿经验分享用智慧化解叛逆沟通 (ProductID: 3811170424738414963)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：生命里的第一课五大维度培养孩子你为什么要优秀三观锻造强大内心 (ProductID: 3819647270593364377)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：女孩 自我安全更重要   法律启蒙 成长安全防护知识 多角度教育 (ProductID: 3772520971894915322)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：青春期孩子的引路人 发育期成长手册送给叛逆期青少年的枕边书b (ProductID: 3814436049468391546)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：49天成为小学霸 亲子共读 8-12岁儿童课外阅读 书籍推荐经典好书 (ProductID: 3527956138257719356)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：双11好物【读者励志篇】学习为的是你自己升级版来本好书给自己充电 (ProductID: 3737060113350000777)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：漫画青少年【三生教育】教孩子珍惜生命、学会生存、热爱生活成长指南 (ProductID: 3785841406996775020)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：这书能让孩子戒掉手机培养自控自律专注力精破解手机成瘾难书籍Z1 (ProductID: 3817432972395675747)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：爸爸的高度决定孩子的起点 家长必读教育书籍 何以为父正版书籍 (ProductID: 3603499887968305135)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：漫画儿童赢在教养 培养懂礼貌 有教养 成为的社交小达人 (ProductID: 3818106612112031938)
+[2026-05-18 18:55:28.210] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：开心【从小保护好自己】一看就懂儿童自我保护漫画趣味阅读安全常识 (ProductID: 3792729001236234318)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：漫画帝范：唐太宗李世民的教子规则，孩子成龙成凤必备的全局思维 (ProductID: 3796282891101667556)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【官方正品】宝宝辅食自己做（0-3岁）宝宝辅食书婴儿辅食营养餐做法 (ProductID: 3798356525093879907)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：邹小兵新书丨《自闭症儿童社交能力阶梯训练》儿童社会化训练书籍 (ProductID: 3743167792900342253)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：宝宝辅食黄金计划：视频版 专为中国宝宝量身打造的辅食添加计划 (ProductID: 3689536961661501458)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：漫画帝范+天地有正气：成龙成凤必备全局思维，皇室子弟成长教科书 (ProductID: 3796273796617470210)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：开心【从小规划升学】一本满足从小学到大学升学规划宝典打破信息差 (ProductID: 3734807402843865114)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：妈妈话术：200 话术解决一切难题 沟通手册 终结沟通无力困境 (ProductID: 3811746637425017246)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【精选四册】这书能让孩子戒掉手机 培养专注力 破解手机成瘾难题 (ProductID: 3794626788370546916)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：《正版速发》钱氏家训新解中国家训钱学森钱三强钱穆成功法则 (ProductID: 3710000492189974997)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：畅销新书【读者励志蝶变2026版】父母 今天的懒来本好书给自己充电 (ProductID: 3790602605802160256)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【旗舰正品】宝宝辅食自己做 0-3岁儿童辅食营养餐家庭父母宝妈必备 (ProductID: 3805566287028027813)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：魏书生工作漫谈家庭教育著作 好学生好学法 好父母好家教工作漫谈 (ProductID: 3533911330002181633)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：寒门贵子：寒门破局密码 贵子逆袭公式 跨越阶层的认知指南YM (ProductID: 3786950268751577529)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：宝宝辅食跟我做（0-3岁）宝宝辅食书 辅食营养餐做法婴儿辅食书 (ProductID: 3650386514740939022)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：忽然孩子不笑了 做孩子真正的支持者 专属 (ProductID: 3730221307749597352)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维S8 (ProductID: 3790273091599466761)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【官方旗舰】宝宝辅食自己做 0-3岁儿童辅食营养餐家庭父母宝妈必备 (ProductID: 3805563600408543400)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：最好的家风：在家有教养，出门有规矩 孩子懂礼貌有教养受益一生QT (ProductID: 3805585264215195941)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【官方正版】小学数学公式定律手册彩色版 小学2-6年级必备基础书籍 (ProductID: 3807198458142654726)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：宝宝脾胃好 宝宝健脾养胃成长食谱儿童食谱调理 长高食谱 (ProductID: 3458211761646403157)
+[2026-05-18 18:55:28.211] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【官方正版】漫画鸭子定律 陪伴孩子成长的教养智慧 惊喜 (ProductID: 3809799522532589588)
+[2026-05-18 18:55:28.212] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：真希望我父母读过这本书 家庭教育、育儿、亲子关系 情感沟通 图书 (ProductID: 3518703207062862022)
+[2026-05-18 18:55:28.212] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：【伴读】漫画【赢在三生教育】教孩子珍惜生命 学会生存 成长教育 (ProductID: 3809621945029362037)
+[2026-05-18 18:55:28.212] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 未找到商品详情数据：这书能让孩子戒掉手机 培养自控自律专注力 破解手机成瘾难题M1 (ProductID: 3793669689192874176)
+[2026-05-18 18:55:28.214] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3810366335800705486': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.215] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3761391987719275773': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.216] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3776967695216541924': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.217] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3775495165880435107': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.217] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3771175227401306320': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.218] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3785150881322893587': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.219] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3815726334903189632': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.219] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3750451561491464230': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.220] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3428515426852844234': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.221] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3807206038835429767': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.221] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3817024791613931803': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.222] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3785128697909086590': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.222] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3793649595221934447': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.223] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3805341827599565207': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.224] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3787120841179922924': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.224] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3704433089192263747': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.225] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3810936546572501415': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.225] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3784751960440307717': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.226] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3814264068223664348': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.227] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3792024484815437863': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.228] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3445772754127824278': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.228] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3771537490821906701': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.229] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3791143999348277449': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.229] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3786247676492907981': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.230] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3812912207956672711': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.230] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3818306970281181298': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.231] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3789748931559293366': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.232] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3819227085487079813': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.232] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3779901325341491416': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.233] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3751927346689606318': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.233] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3792694098150949050': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.234] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3760049718139421868': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.235] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3799974570195288814': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.235] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3776419902320148694': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.236] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3442783774717420417': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.236] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3558205617216827088': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.237] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3762487460064527246': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.238] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3819788420432134198': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.238] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3460456283830928706': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.239] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3705149318131482673': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.239] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3763958389567258771': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.240] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3760070336163480007': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.240] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3793703451914011083': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.241] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3789357733246009345': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.242] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3764751779548496153': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.242] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3813281231387361302': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.243] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3756536503535272058': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.243] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3698439404323471639': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.244] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3793810027224105407': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.245] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3814810027278074113': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.245] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3816870651462025441': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.246] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3814436115948110044': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.247] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3774698447081440147': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.247] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3818114403249815568': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.248] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3439972218174611196': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.248] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3652984276150053010': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.249] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3817930061038878846': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.249] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3763605500030222725': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.250] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3690333742435532854': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.251] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3809797336503287914': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.251] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3794584837210374861': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.252] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3812734669041041506': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.252] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3809585579532878122': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.253] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3793647918012039535': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.253] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3794553827621994904': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.254] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3784945279141282125': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.255] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3793857963471536453': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.255] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3814089250035597468': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.256] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3815762659589095602': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.256] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3818289878374941139': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.257] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3815323353162580329': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.257] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3784388432386720238': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.258] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3709625099171791103': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.258] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3787979130155434029': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.259] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3721280800763805959': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.259] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3702360323118989438': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.260] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3603502001108960238': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.260] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3807966406969000711': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.261] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3652987360188171821': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.262] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3761568467858358556': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.262] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3795707047824196083': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.263] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3788071104724205896': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.263] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3652985132744313822': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.264] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3742700195608133747': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.264] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3814432862518772029': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.265] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3807584021827945884': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.265] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3809791574888546344': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.266] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3759721430082781900': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.266] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3810930864146219919': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.267] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3747976633865338972': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.267] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3809948639627968849': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.268] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3816144093344563452': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.268] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3744125628757180913': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.269] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3811669029446353311': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.270] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3818529163946623347': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.270] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3810931450451198372': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.271] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3785840642391933401': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.271] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3565502895610835773': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.272] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3807758139743404170': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.272] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3725150046648402301': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.273] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3740397242692010158': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.273] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3817233149042229290': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.274] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3775630904026857724': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.274] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3805603552152387815': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.275] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3580254815789443234': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.276] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3811081609143255121': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.276] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3814077243605516332': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.277] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3622274973940476290': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.277] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3811170424738414963': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.278] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3819647270593364377': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.278] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3772520971894915322': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.279] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3814436049468391546': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.279] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3527956138257719356': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.280] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3737060113350000777': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.280] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3785841406996775020': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.281] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3817432972395675747': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.281] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3603499887968305135': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.282] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3818106612112031938': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.283] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3792729001236234318': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.283] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3796282891101667556': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.284] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3798356525093879907': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.284] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3743167792900342253': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.285] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3689536961661501458': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.285] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3796273796617470210': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.286] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3734807402843865114': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.286] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3811746637425017246': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.287] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3794626788370546916': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.288] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3710000492189974997': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.288] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3790602605802160256': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.289] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3805566287028027813': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.289] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3533911330002181633': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.290] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3786950268751577529': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.290] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3650386514740939022': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.291] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3730221307749597352': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.291] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3790273091599466761': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.292] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3805563600408543400': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.292] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3805585264215195941': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.293] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3807198458142654726': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.293] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3458211761646403157': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.294] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3809799522532589588': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.294] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3518703207062862022': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.295] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3809621945029362037': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.295] [WARNING] ⚠️ [S4Du0cnjgimQ4jhT] ⚠️ 更新商品详情数据失败：UPDATE `tiktok_ranking_list` SET `first_shelf_time`='',`min_price`='' WHERE product_id = '3793669689192874176': dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host
+[2026-05-18 18:55:28.295] [INFO] 📝 [S4Du0cnjgimQ4jhT] ℹ️ 没有视频分析数据需要保存
+[2026-05-18 18:55:28.295] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 数据入库成功
+[2026-05-18 18:55:28.295] [INFO] 📝 [S4Du0cnjgimQ4jhT] 📥 步骤 11: 导出数据文件（CSV/Excel）
+[2026-05-18 18:55:28.305] [INFO] 📝 [S4Du0cnjgimQ4jhT] ✅ 数据导出成功：2 个文件
+[2026-05-18 18:55:28.305] [INFO] 📝 [S4Du0cnjgimQ4jhT]   - product_csv: exports/product_ranking_S4Du0cnjgimQ4jhT.csv
+[2026-05-18 18:55:28.305] [INFO] 📝 [S4Du0cnjgimQ4jhT]   - product_excel: exports/product_ranking_S4Du0cnjgimQ4jhT.xlsx
+[2026-05-18 18:55:28.305] [INFO] 📝 [S4Du0cnjgimQ4jhT] 🎉 爬虫任务全部完成！商品：143 条，详情：10 条，视频分析：0 条

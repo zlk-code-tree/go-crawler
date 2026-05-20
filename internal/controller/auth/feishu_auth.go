@@ -96,7 +96,7 @@ func (c *FeishuAuthController) FeishuCallback(req *ghttp.Request) {
 	}
 
 	// 记录登录日志
-	c.authSvc.RecordLoginLog(ctx, sysUser.Username, sysUser.Id, req.GetClientIp(), 1, "飞书登录成功")
+	c.authSvc.RecordLoginLog(ctx, sysUser.Username, sysUser.Id, req.GetClientIp(), 1, "飞书登录成功", req.UserAgent())
 
 	// 更新最后登录信息
 	c.authSvc.UpdateLastLogin(ctx, sysUser.Id, req.GetClientIp())

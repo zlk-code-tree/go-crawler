@@ -34,13 +34,13 @@ func (c *PublicController) Login(ctx context.Context, req *v1.AuthLoginReq) (res
 		return
 	}
 	if user == nil {
-		c.authSvc.RecordLoginLog(ctx, req.Username, 0, r.GetClientIp(), 0, "用户不存在")
+		c.authSvc.RecordLoginLog(ctx, req.Username, 0, r.GetClientIp(), 2, "用户不存在", r.UserAgent())
 		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "用户名或密码错误", "data": nil})
 		return
 	}
 
 	if e = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); e != nil {
-		c.authSvc.RecordLoginLog(ctx, req.Username, user.Id, r.GetClientIp(), 0, "密码错误")
+		c.authSvc.RecordLoginLog(ctx, req.Username, user.Id, r.GetClientIp(), 2, "密码错误", r.UserAgent())
 		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "用户名或密码错误", "data": nil})
 		return
 	}
@@ -53,7 +53,7 @@ func (c *PublicController) Login(ctx context.Context, req *v1.AuthLoginReq) (res
 	}
 
 	_ = c.authSvc.UpdateLastLogin(ctx, user.Id, r.GetClientIp())
-	c.authSvc.RecordLoginLog(ctx, req.Username, user.Id, r.GetClientIp(), 1, "登录成功")
+	c.authSvc.RecordLoginLog(ctx, req.Username, user.Id, r.GetClientIp(), 1, "登录成功", r.UserAgent())
 
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,

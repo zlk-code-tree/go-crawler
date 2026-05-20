@@ -16,7 +16,7 @@ func NewLoginLogController() *LoginLogController {
 func (c *LoginLogController) LoginLogList(r *ghttp.Request) {
 	page := r.Get("page", 1).Int()
 	pageSize := r.Get("pageSize", 10).Int()
-	keyword := r.Get("keyword", "").String()
+	keyword := r.Get("keyword").String()
 
 	rows, total, err := service.NewLoginLogService().GetList(r.Context(), page, pageSize, keyword)
 	if err != nil {
@@ -29,5 +29,31 @@ func (c *LoginLogController) LoginLogList(r *ghttp.Request) {
 		"data":  rows,
 		"msg":   "ok",
 		"total": total,
+	})
+}
+
+// LoginLogDetail 登录日志详情
+func (c *LoginLogController) LoginLogDetail(r *ghttp.Request) {
+	id := r.Get("id").Int64()
+	if id <= 0 {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "参数错误"})
+		return
+	}
+
+	detail, err := service.NewLoginLogService().GetDetail(r.Context(), id)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "获取登录日志详情失败"})
+		return
+	}
+
+	if detail == nil {
+		r.Response.WriteJsonExit(g.Map{"code": 404, "data": nil, "msg": "日志不存在"})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"data": detail,
+		"msg":  "ok",
 	})
 }

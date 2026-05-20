@@ -2,11 +2,15 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/os/glog"
 
 	"go-crawler/internal/model"
 )
+
+var authLogger = glog.New()
 
 // AuthService 认证服务
 type AuthService struct{}
@@ -169,12 +173,90 @@ func (s *AuthService) UpdateLastLogin(ctx context.Context, userId int64, ip stri
 }
 
 // RecordLoginLog 记录登录日志
-func (s *AuthService) RecordLoginLog(ctx context.Context, username string, userId int64, ip string, status int, msg string) {
-	_, _ = g.DB().Model("sys_login_log").Insert(g.Map{
+// status: 1=登录成功, 2=登录失败
+func (s *AuthService) RecordLoginLog(ctx context.Context, username string, userId int64, ip string, status int, msg string, userAgent ...string) {
+	data := g.Map{
 		"user_id":  userId,
 		"username": username,
 		"ip":       ip,
 		"status":   status,
 		"msg":      msg,
-	})
+	}
+
+	// 解析IP地理位置
+	if ip != "" {
+		locationSvc := NewIpLocationService()
+		data["location"] = locationSvc.GetLocationByIP(ip)
+	} else {
+		data["location"] = "未知"
+	}
+
+	// 解析 User-Agent
+	ua := ""
+	if len(userAgent) > 0 {
+		ua = userAgent[0]
+	}
+	data["user_agent"] = ua
+	data["browser"] = parseBrowser(ua)
+	data["os"] = parseOS(ua)
+
+	if _, err := g.DB().Model("sys_login_log").Insert(data); err != nil {
+		authLogger.Errorf(ctx, "记录登录日志失败 [%s]: %v", username, err)
+	}
+}
+
+// parseBrowser 简易解析浏览器类型
+func parseBrowser(ua string) string {
+	ua = strings.ToLower(ua)
+	switch {
+	case strings.Contains(ua, "edge") || strings.Contains(ua, "edg/"):
+		return "Edge"
+	case strings.Contains(ua, "chrome") && strings.Contains(ua, "safari"):
+		return "Chrome"
+	case strings.Contains(ua, "firefox"):
+		return "Firefox"
+	case strings.Contains(ua, "safari"):
+		return "Safari"
+	case strings.Contains(ua, "opera") || strings.Contains(ua, "opr/"):
+		return "Opera"
+	case strings.Contains(ua, "micromessenger"):
+		return "微信内置浏览器"
+	case strings.Contains(ua, "qqbrowser"):
+		return "QQ浏览器"
+	case strings.Contains(ua, "ucbrowser"):
+		return "UC浏览器"
+	default:
+		return "未知"
+	}
+}
+
+// parseOS 简易解析操作系统
+func parseOS(ua string) string {
+	ua = strings.ToLower(ua)
+	switch {
+	case strings.Contains(ua, "windows nt 11"):
+		return "Windows 11"
+	case strings.Contains(ua, "windows nt 10"):
+		return "Windows 10/11"
+	case strings.Contains(ua, "windows nt 6.3"):
+		return "Windows 8.1"
+	case strings.Contains(ua, "windows nt 6.2"):
+		return "Windows 8"
+	case strings.Contains(ua, "windows nt 6.1"):
+		return "Windows 7"
+	case strings.Contains(ua, "windows nt 6.0"):
+		return "Windows Vista"
+	case strings.Contains(ua, "windows nt 5."):
+		return "Windows XP"
+	case strings.Contains(ua, "mac os x") || strings.Contains(ua, "macintosh"):
+		return "macOS"
+	case strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ipod"):
+		return "iOS"
+	case strings.Contains(ua, "android"):
+		return "Android"
+	case strings.Contains(ua, "linux"):
+		return "Linux"
+	default:
+		return "未知"
+	}
 }
