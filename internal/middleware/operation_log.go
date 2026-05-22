@@ -9,6 +9,29 @@ import (
 	"go-crawler/internal/service"
 )
 
+// excludePaths 不需要记录日志的路径（精确匹配）
+var excludePaths = map[string]bool{
+	"/api/health":            true,
+	"/api/ping":              true,
+	"/api/system/dict":       true,
+	"/api/system/dict/list":  true,
+	"/api/org/tree":          true,
+	"/api/org/list":          true,
+	"/api/org/children":      true,
+	"/api/org/ancestors":     true,
+	"/api/org/detail":        true,
+	"/api/org/shop-path":     true,
+}
+
+// excludePathPrefixes 不需要记录日志的路径前缀
+var excludePathPrefixes = []string{
+	"/api/system/dict",
+	"/api/health",
+	"/static/",
+	"/assets/",
+	"/favicon.ico",
+}
+
 func OperationLog(r *ghttp.Request) {
 	startTime := time.Now()
 
@@ -20,18 +43,23 @@ func OperationLog(r *ghttp.Request) {
 
 	duration := int(time.Since(startTime).Milliseconds())
 
+	method := r.Method
+	url := r.URL.Path
+
+	// 优化：跳过GET请求（只记录写操作：POST/PUT/DELETE）
+	if method == "GET" {
+		return
+	}
+
+	// 优化：跳过排除的路径
+	if shouldExcludePath(url) {
+		return
+	}
+
 	ip := r.GetClientIp()
 	location := service.NewIpLocationService().GetLocationByIP(ip)
 	userAgent := r.UserAgent()
-	method := r.Method
-	url := r.URL.Path
-	params := ""
-
-	if r.Method == "GET" {
-		params = r.URL.Query().Encode()
-	} else {
-		params = string(r.GetBody())
-	}
+	params := string(r.GetBody())
 	if len(params) > 2000 {
 		params = params[:2000] + "..."
 	}
@@ -75,6 +103,21 @@ func OperationLog(r *ghttp.Request) {
 		svc := service.NewOperationLogService()
 		svc.Record(r.Context(), logInput)
 	}()
+}
+
+// shouldExcludePath 判断路径是否应该排除
+func shouldExcludePath(url string) bool {
+	// 精确匹配
+	if excludePaths[url] {
+		return true
+	}
+	// 前缀匹配
+	for _, prefix := range excludePathPrefixes {
+		if strings.HasPrefix(url, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func extractModuleFromUrl(url string) string {
@@ -285,8 +328,6 @@ func parseOperation(controller, action string) string {
 func extractActionFromMethod(method, url string) string {
 	upperMethod := strings.ToUpper(method)
 	switch upperMethod {
-	case "GET":
-		return "查询"
 	case "POST":
 		return "新增"
 	case "PUT":

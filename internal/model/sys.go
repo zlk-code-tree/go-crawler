@@ -76,8 +76,10 @@ type SysCompany struct {
 // SysDept 部门
 type SysDept struct {
 	Id        int64     `json:"id"`
+	CompanyId int64     `json:"companyId"`
 	Name      string    `json:"name"`
 	ParentId  int64     `json:"parentId"`
+	LeaderId  int64     `json:"leaderId"`
 	Level     int       `json:"level"`
 	Status    int       `json:"status"`
 	Sort      int       `json:"sort"`

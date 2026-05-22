@@ -15,6 +15,7 @@ type Shop struct {
 	MemberName       string    `json:"memberName"`       // 成员名称
 	AccountOwnership string    `json:"accountOwnership"`
 	ShopPlatform     string    `json:"shopPlatform"`
+	BindStatus       int       `json:"bindStatus"`       // 绑定状态：0=未绑定，1=被绑定
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
 }

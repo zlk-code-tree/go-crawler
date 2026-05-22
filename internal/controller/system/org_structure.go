@@ -192,3 +192,29 @@ func (c *OrgStructureController) GetShopOrgPath(ctx context.Context, req *v1.Org
 	}
 	return
 }
+
+// Stats 组织节点佣金统计 GET /api/org/stats
+func (c *OrgStructureController) Stats(ctx context.Context, req *v1.OrgStatsReq) (res *v1.OrgStatsRes, err error) {
+	orgService := service.NewOrgStructureService()
+
+	// 解析时间范围（复用OrderAnalysisService的方法）
+	orderService := service.NewOrderAnalysisService()
+	startDate, endDate := orderService.ParseTimeRange(req.Preset, req.StartDate, req.EndDate)
+
+	// 获取统计
+	statsNode, err := orgService.GetOrgStats(ctx, req.OrgId, startDate, endDate)
+	if err != nil {
+		return nil, gerror.New("查询失败: " + err.Error())
+	}
+
+	res = &v1.OrgStatsRes{
+		OrgId:     statsNode.OrgId,
+		OrgName:   statsNode.OrgName,
+		OrgType:   statsNode.OrgType,
+		StartDate: startDate,
+		EndDate:   endDate,
+		Summary:   statsNode.Summary,
+		Children:  statsNode.Children,
+	}
+	return
+}

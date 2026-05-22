@@ -19,9 +19,12 @@ func NewDeptController() *DeptController {
 
 // DeptTree 部门树接口 GET /system/dept/tree
 func (c *DeptController) DeptTree(r *ghttp.Request) {
+	// 从上下文中获取公司ID
+	companyId := r.GetCtxVar("companyId").Int64()
+
 	// 调用服务层方法查询部门树
 	deptService := service.NewDeptService()
-	data, err := deptService.Tree(r.Context())
+	data, err := deptService.Tree(r.Context(), companyId)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败"})
 		return

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/util/gconv"
 )
 
 // DeptService 部门相关业务逻辑
@@ -15,11 +16,58 @@ func NewDeptService() *DeptService {
 	return &DeptService{}
 }
 
-// Tree 查询部门树
-func (s *DeptService) Tree(ctx context.Context) ([]g.Map, error) {
-	// TODO: 实现真实的部门树查询
-	data := []g.Map{{"id": 1, "name": "总部", "parentId": 0, "children": nil}}
-	return data, nil
+// Tree 查询部门树（用于父级部门下拉选择）
+func (s *DeptService) Tree(ctx context.Context, companyId int64) ([]g.Map, error) {
+	// 查询该公司下所有部门（状态正常的）
+	query := `
+		SELECT id, name, parent_id, level, sort
+		FROM sys_department
+		WHERE company_id = ? AND status = 1
+		ORDER BY sort ASC, id ASC
+	`
+	result, err := g.DB().GetAll(ctx, query, companyId)
+	if err != nil {
+		return nil, err
+	}
+
+	// 转换为 map 列表
+	allDepts := make([]g.Map, len(result))
+	for i, row := range result {
+		allDepts[i] = g.Map{
+			"id":       row["id"],
+			"name":     row["name"],
+			"parentId": row["parent_id"],
+			"level":    row["level"],
+			"sort":     row["sort"],
+		}
+	}
+
+	// 构建树形结构
+	return buildDeptTree(allDepts, 0), nil
+}
+
+// buildDeptTree 递归构建部门树
+func buildDeptTree(depts []g.Map, parentId int64) []g.Map {
+	var tree []g.Map
+	for _, dept := range depts {
+		pid := gconv.Int64(dept["parentId"])
+		if pid == parentId {
+			did := gconv.Int64(dept["id"])
+			children := buildDeptTree(depts, did)
+			node := g.Map{
+				"id":       dept["id"],
+				"name":     dept["name"],
+				"parentId": dept["parentId"],
+				"level":    dept["level"],
+				"sort":     dept["sort"],
+			}
+			if len(children) > 0 {
+				node["children"] = children
+			}
+			tree = append(tree, node)
+		}
+	}
+	return tree
 }
 
 // List 查询部门列表
@@ -127,7 +175,8 @@ func (s *DeptService) Detail(ctx context.Context, deptId int64) (g.Map, error) {
 	// 查询部门详情，包含关联信息
 	query := `
 		SELECT 
-			d.id, d.name, d.parent_id, d.level, d.status, d.sort, d.created_at, d.updated_at,
+			d.id, d.name, d.parent_id, d.level, d.status, d.sort,
+			d.company_id, d.created_at, d.updated_at,
 			c.name as company_name,
 			p.name as parent_name,
 			u.real_name as leader_name

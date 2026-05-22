@@ -2,12 +2,53 @@ package model
 
 import "time"
 
-// OrgStructure 组织架构节点
+// ============================================
+// ID 编码：三表（sys_company / sys_department / trader）统一编码
+// Company:  1 ~ 999,999（原 ID 不变）
+// Department: 1,000,000 + 原 ID
+// Trader:    2,000,000 + 原 ID
+// ============================================
+const (
+	idOffsetDepartment = 1000000
+	idOffsetTrader     = 2000000
+)
+
+// EncodeDeptID 将部门真实 ID 编码为全局唯一 ID
+func EncodeDeptID(id int64) int64 { return id + idOffsetDepartment }
+
+// EncodeTraderID 将投手真实 ID 编码为全局唯一 ID
+func EncodeTraderID(id int64) int64 { return id + idOffsetTrader }
+
+// DecodeDeptID 将全局 ID 还原为部门真实 ID
+func DecodeDeptID(id int64) int64 { return id - idOffsetDepartment }
+
+// DecodeTraderID 将全局 ID 还原为投手真实 ID
+func DecodeTraderID(id int64) int64 { return id - idOffsetTrader }
+
+// IsCompanyID 判断是否是公司节点 ID
+func IsCompanyID(id int64) bool { return id > 0 && id < idOffsetDepartment }
+
+// IsDeptID 判断是否是部门节点 ID
+func IsDeptID(id int64) bool { return id >= idOffsetDepartment && id < idOffsetTrader }
+
+// IsTraderID 判断是否是投手节点 ID
+func IsTraderID(id int64) bool { return id >= idOffsetTrader }
+
+// ============================================
+// 节点类型常量
+// ============================================
+const (
+	OrgTypeCompany  = "company"
+	OrgTypeGroup    = "group"
+	OrgTypeEmployee = "employee"
+)
+
+// OrgStructure 组织架构节点（对外统一响应结构）
 type OrgStructure struct {
 	Id        int64     `json:"id"`
 	ParentId  int64     `json:"parentId"`
 	Name      string    `json:"name"`
-	Type      string    `json:"type"` // company/branch/manager/group/employee/platform/account
+	Type      string    `json:"type"` // company/group/employee
 	Code      string    `json:"code"`
 	Sort      int       `json:"sort"`
 	Status    int       `json:"status"`
@@ -92,4 +133,22 @@ type OrgStatsRes struct {
 	CurrentName  string        `json:"currentName"`  // 当前层级名称
 	Stats        []OrgStatItem `json:"stats"`        // 下级单位统计列表
 	Summary      OrgStatItem   `json:"summary"`      // 当前层级汇总
+}
+
+// StatsSummary 佣金统计汇总
+type StatsSummary struct {
+	OrderCount    int     `json:"orderCount" dc:"有效订单数"`
+	PayAmount     float64 `json:"payAmount" dc:"订单应付金额（销售额）"`
+	CostAmount    float64 `json:"costAmount" dc:"货款（代发价）"`
+	ReserveAmount float64 `json:"reserveAmount" dc:"留底"`
+	Commission    float64 `json:"commission" dc:"佣金"`
+}
+
+// OrgStatsNode 组织节点统计（树形结构）
+type OrgStatsNode struct {
+	OrgId    int64          `json:"orgId" dc:"节点ID"`
+	OrgName  string         `json:"orgName" dc:"节点名称"`
+	OrgType  string         `json:"orgType" dc:"节点类型"`
+	Summary  StatsSummary   `json:"summary" dc:"该节点汇总统计"`
+	Children []OrgStatsNode `json:"children,omitempty" dc:"直接子节点统计"`
 }
