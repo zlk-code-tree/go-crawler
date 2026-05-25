@@ -21,12 +21,13 @@ func NewShopController() *ShopController {
 
 // ShopList 店铺列表接口 GET /system/shop/list
 func (c *ShopController) ShopList(r *ghttp.Request) {
-	page := r.Get("page", 1).Int()
+	page := r.Get("pageNum", r.Get("page", 1)).Int()
 	pageSize := r.Get("pageSize", 10).Int()
 	keyword := r.Get("keyword").String()
+	platform := r.Get("platform").String()
 
 	shopService := service.NewShopService()
-	shops, total, err := shopService.List(r.Context(), page, pageSize, keyword)
+	shops, total, err := shopService.List(r.Context(), page, pageSize, keyword, platform)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})
 		return
@@ -38,6 +39,18 @@ func (c *ShopController) ShopList(r *ghttp.Request) {
 		"msg":   "ok",
 		"total": total,
 	})
+}
+
+// ShopStats 店铺平台统计 GET /system/shop/stats
+func (c *ShopController) ShopStats(r *ghttp.Request) {
+	shopService := service.NewShopService()
+	stats, err := shopService.Stats(r.Context())
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": stats, "msg": "ok"})
 }
 
 // ShopDetail 店铺详情接口 GET /system/shop/detail
@@ -126,6 +139,22 @@ func (c *ShopController) ShopExport(r *ghttp.Request) {
 	defer os.Remove(filename)
 }
 
+// ShopExportTemplate 下载店铺导入模板 GET /system/shop-export-template
+func (c *ShopController) ShopExportTemplate(r *ghttp.Request) {
+	shopService := service.NewShopService()
+	filename, err := shopService.ExportTemplate(r.Context())
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "生成模板失败: " + err.Error()})
+		return
+	}
+
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+
+	defer os.Remove(filename)
+}
+
 // ShopImport 导入店铺Excel接口 POST /system/shop/import
 func (c *ShopController) ShopImport(r *ghttp.Request) {
 	// 设置超时时间为10分钟，支持大文件导入
@@ -136,9 +165,6 @@ func (c *ShopController) ShopImport(r *ghttp.Request) {
 		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "请上传文件"})
 		return
 	}
-
-	// 获取平台参数（可选，用于覆盖Excel中的平台列）
-	platform := r.Get("platform").String()
 
 	// 检查文件类型
 	if filepath.Ext(file.Filename) != ".xlsx" {
@@ -188,7 +214,7 @@ func (c *ShopController) ShopImport(r *ghttp.Request) {
 
 	// 导入数据（流式处理+批量入库）
 	shopService := service.NewShopService()
-	result, err := shopService.ImportFromExcel(r.Context(), tempFile, platform)
+	result, err := shopService.ImportFromExcel(r.Context(), tempFile)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导入失败: " + err.Error()})
 		return

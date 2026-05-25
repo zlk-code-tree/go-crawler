@@ -21,7 +21,7 @@ func NewShopService() *ShopService {
 }
 
 // List 查询店铺列表
-func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword string) ([]g.Map, int64, error) {
+func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword, platform string) ([]g.Map, int64, error) {
 	query := "SELECT * FROM shop WHERE 1=1"
 	params := []interface{}{}
 
@@ -29,6 +29,10 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword stri
 		query += " AND (uid LIKE ? OR account_name LIKE ? OR platform_nickname LIKE ? OR operator LIKE ?)"
 		searchKey := "%" + keyword + "%"
 		params = append(params, searchKey, searchKey, searchKey, searchKey)
+	}
+	if platform != "" {
+		query += " AND platform = ?"
+		params = append(params, platform)
 	}
 
 	query += " ORDER BY id DESC LIMIT ? OFFSET ?"
@@ -47,6 +51,10 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword stri
 		totalQuery += " AND (uid LIKE ? OR account_name LIKE ? OR platform_nickname LIKE ? OR operator LIKE ?)"
 		searchKey := "%" + keyword + "%"
 		totalParams = append(totalParams, searchKey, searchKey, searchKey, searchKey)
+	}
+	if platform != "" {
+		totalQuery += " AND platform = ?"
+		totalParams = append(totalParams, platform)
 	}
 
 	resultTotal, err := g.DB().GetOne(ctx, totalQuery, totalParams...)
@@ -153,6 +161,24 @@ func (s *ShopService) Save(ctx context.Context, req *model.ShopSaveReq) (int64, 
 	}
 }
 
+// Stats 店铺平台统计
+func (s *ShopService) Stats(ctx context.Context) (g.Map, error) {
+	rows, err := g.DB().GetAll(ctx, "SELECT platform, COUNT(*) as cnt FROM shop GROUP BY platform")
+	if err != nil {
+		return nil, err
+	}
+
+	stats := g.Map{"total": 0, "douyin": 0, "kuaishou": 0, "shipinhao": 0}
+	for _, row := range rows {
+		platform := row["platform"].String()
+		cnt := row["cnt"].Int()
+		stats[platform] = cnt
+		stats["total"] = stats["total"].(int) + cnt
+	}
+
+	return stats, nil
+}
+
 // Delete 删除店铺
 func (s *ShopService) Delete(ctx context.Context, id int) error {
 	if id <= 0 {
@@ -161,6 +187,76 @@ func (s *ShopService) Delete(ctx context.Context, id int) error {
 
 	_, err := g.DB().Model("shop").Where("id", id).Delete()
 	return err
+}
+
+// ExportTemplate 生成店铺导入模版
+func (s *ShopService) ExportTemplate(ctx context.Context) (string, error) {
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheetName := "店铺信息"
+	index, _ := f.NewSheet(sheetName)
+	f.SetActiveSheet(index)
+
+	// 表头（与导出一致）
+	headers := []string{"平台", "达人ID", "账号名称", "平台昵称", "运营者", "账号归属"}
+	for i, header := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheetName, cell, header)
+	}
+
+	// 表头样式
+	style, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true},
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#CCCCCC"}, Pattern: 1},
+		Alignment: &excelize.Alignment{Horizontal: "center"},
+	})
+	for i := 1; i <= len(headers); i++ {
+		cell, _ := excelize.CoordinatesToCellName(i, 1)
+		f.SetCellStyle(sheetName, cell, cell, style)
+	}
+
+	// 示例数据（提示用户填写格式）
+	sampleRow := []string{"douyin", "123456789", "示例账号名称", "示例昵称", "张三", "自播"}
+	for i, val := range sampleRow {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 2)
+		f.SetCellValue(sheetName, cell, val)
+	}
+
+	// 设置列宽
+	f.SetColWidth(sheetName, "A", "A", 15)
+	f.SetColWidth(sheetName, "B", "B", 20)
+	f.SetColWidth(sheetName, "C", "C", 20)
+	f.SetColWidth(sheetName, "D", "D", 18)
+	f.SetColWidth(sheetName, "E", "E", 12)
+	f.SetColWidth(sheetName, "F", "F", 15)
+
+	// 添加"填写说明"工作表
+	helpSheet := "填写说明"
+	f.NewSheet(helpSheet)
+	f.SetCellValue(helpSheet, "A1", "字段说明")
+	f.SetCellValue(helpSheet, "A2", "【平台】必填，支持：douyin/抖音、kuaishou/快手、shipinhao/视频号")
+	f.SetCellValue(helpSheet, "A3", "【达人ID】抖音必填，快手、视频号选填")
+	f.SetCellValue(helpSheet, "A4", `【账号名称】必填，对比视频号平台："账号名称" 快手平台："账号名称"`)
+
+	f.SetCellValue(helpSheet, "A5", "【运营者】必填，运营负责人姓名")
+	f.SetCellValue(helpSheet, "A6", "【平台昵称】选填，如抖音号、快手号")
+	f.SetCellValue(helpSheet, "A7", "【账号归属】选填，账号归属信息")
+	f.SetCellValue(helpSheet, "A9", "注意：达人ID在同一平台下不能重复")
+	helpStyle, _ := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true, Size: 12}})
+	f.SetCellStyle(helpSheet, "A1", "A1", helpStyle)
+	f.SetColWidth(helpSheet, "A", "A", 60)
+
+	// 删除默认的 Sheet1
+	f.DeleteSheet("Sheet1")
+
+	exportDir := "./exports"
+	os.MkdirAll(exportDir, 0755)
+	filename := filepath.Join(exportDir, "shop_import_template.xlsx")
+	if err := f.SaveAs(filename); err != nil {
+		return "", fmt.Errorf("保存模版文件失败：%w", err)
+	}
+	return filename, nil
 }
 
 // ExportToExcel 导出店铺数据到Excel
@@ -251,8 +347,8 @@ type ImportResult struct {
 }
 
 // ImportFromExcel 从Excel导入店铺数据（优化版：流式处理+批量入库）
-// defaultPlatform 参数可选，非空时覆盖Excel中的平台列
-func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, defaultPlatform string) (*ImportResult, error) {
+// 平台信息从Excel的"平台"列读取
+func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*ImportResult, error) {
 	g.Log().Infof(ctx, "开始导入店铺文件: %s", filePath)
 
 	f, err := excelize.OpenFile(filePath)
@@ -297,11 +393,7 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, defa
 	headerMapping := map[string]string{
 		"platform":            "platform",
 		"平台":                  "platform",
-		"uid": "uid",
-		"平台账号ID":              "uid",
-		"UID":                 "uid",
-		"店铺唯一标识":              "uid",
-		"短视频ID":               "uid",
+		"达人ID":                "uid",
 		"account_name":        "account_name",
 		"抖音名称":                "account_name",
 		"抖音号名称":               "account_name",
@@ -322,11 +414,7 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, defa
 	g.Log().Infof(ctx, "Excel表头: %v", headers)
 
 	// 检查必要的表头是否存在（支持中英文）
-	// 当 defaultPlatform 非空时，platform 列不再是必填
-	requiredHeaders := []string{"uid", "account_name", "operator"}
-	if defaultPlatform == "" {
-		requiredHeaders = append([]string{"platform"}, requiredHeaders...)
-	}
+	requiredHeaders := []string{"platform", "account_name", "operator"}
 	headerIndex := make(map[string]int) // 记录每个字段在Excel中的列索引
 
 	for _, required := range requiredHeaders {
@@ -342,15 +430,12 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, defa
 		if !found {
 			// 改进错误提示：显示实际读取到的表头
 			g.Log().Errorf(ctx, "缺少必要的列: %s, 实际读取到的表头: %v", required, headers)
-			return nil, gerror.New(fmt.Sprintf("缺少必要的列: %s\n实际读取到的表头: %v\n支持的中文列名：平台、达人ID(UID)、账号名称(抖音名称)、运营者(运营组长)", required, headers))
+			return nil, gerror.New(fmt.Sprintf("缺少必要的列: %s\n实际读取到的表头: %v\n支持的中文列名：平台、账号名称、运营者", required, headers))
 		}
 	}
 
-	// 可选列的映射（当 defaultPlatform 非空时，platform 也变为可选）
-	optionalHeaders := []string{"platform_nickname", "account_ownership"}
-	if defaultPlatform != "" {
-		optionalHeaders = append([]string{"platform"}, optionalHeaders...)
-	}
+	// 可选列的映射
+	optionalHeaders := []string{"uid", "platform_nickname", "account_ownership"}
 	for _, opt := range optionalHeaders {
 		for i, h := range headers {
 			h = strings.TrimSpace(h)
@@ -366,11 +451,11 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, defa
 	batch := make([]g.Map, 0, batchSize)
 	rowNum := 1 // 从第2行开始（第1行是表头）
 
-	// 预加载所有已存在的 platform+uid 到内存，避免每行都查询数据库
+	// 预加载所有已存在的 platform+account_name 到内存，避免每行都查询数据库
 	existingKeys := make(map[string]bool)
-	existingRows, _ := g.DB().Model("shop").Fields("platform, uid").All()
+	existingRows, _ := g.DB().Model("shop").Fields("platform, account_name").All()
 	for _, row := range existingRows {
-		key := row["platform"].String() + "|" + row["uid"].String()
+		key := row["platform"].String() + "|" + row["account_name"].String()
 		existingKeys[key] = true
 	}
 
@@ -395,10 +480,6 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, defa
 		}
 
 		platform := getCol("platform")
-		// 如果传入了 defaultPlatform 参数，覆盖 Excel 中的平台列
-		if defaultPlatform != "" {
-			platform = defaultPlatform
-		}
 		platformAccountId := getCol("uid")
 		accountName := getCol("account_name")
 		operator := getCol("operator")
@@ -419,11 +500,6 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, defa
 		}
 		// 统一平台值为英文标识
 		platform = normalizePlatform(platform)
-		if platformAccountId == "" {
-			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: uid(达人ID)不能为空", rowNum))
-			result.FailCount++
-			continue
-		}
 		if accountName == "" {
 			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: account_name(账号名称)不能为空", rowNum))
 			result.FailCount++
@@ -435,18 +511,17 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, defa
 			continue
 		}
 
-		// 检查同一平台下 uid 是否已存在
-		key := platform + "|" + platformAccountId
+		// 检查同一平台下 account_name 是否已存在
+		key := platform + "|" + accountName
 		if existingKeys[key] {
-			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: platform=%s, uid=%s 已存在", rowNum, platform, platformAccountId))
 			result.SkipCount++
 			continue
 		}
+		existingKeys[key] = true // 标记为已存在，避免同一批次内重复
 
 		// 添加到批次
 		data := g.Map{
 			"platform":            platform,
-			"uid": platformAccountId,
 			"account_name":        accountName,
 			"platform_nickname":   platformNickname,
 			"operator":            operator,
@@ -454,16 +529,19 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, defa
 			"created_at":          time.Now(),
 			"updated_at":          time.Now(),
 		}
+		if platformAccountId != "" {
+			data["uid"] = platformAccountId
+		}
 		batch = append(batch, data)
-		existingKeys[key] = true // 标记为已存在，避免同一批次内重复
 
 		// 达到批次大小，执行批量插入
 		if len(batch) >= batchSize {
-			if err := s.batchInsert(ctx, batch); err != nil {
+			success, skip, err := s.batchInsert(ctx, batch)
+			result.SuccessCount += success
+			result.SkipCount += skip
+			if err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("批量插入失败: %v", err))
-				result.FailCount += len(batch)
-			} else {
-				result.SuccessCount += len(batch)
+				result.FailCount += len(batch) - success - skip
 			}
 			batch = batch[:0] // 清空批次
 		}
@@ -471,11 +549,12 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, defa
 
 	// 处理剩余的数据
 	if len(batch) > 0 {
-		if err := s.batchInsert(ctx, batch); err != nil {
+		success, skip, err := s.batchInsert(ctx, batch)
+		result.SuccessCount += success
+		result.SkipCount += skip
+		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("批量插入失败: %v", err))
-			result.FailCount += len(batch)
-		} else {
-			result.SuccessCount += len(batch)
+			result.FailCount += len(batch) - success - skip
 		}
 	}
 
@@ -487,13 +566,24 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, defa
 	return result, nil
 }
 
-// batchInsert 批量插入数据
-func (s *ShopService) batchInsert(ctx context.Context, batch []g.Map) error {
+// batchInsert 批量插入数据，返回（成功数，跳过数，错误）
+func (s *ShopService) batchInsert(ctx context.Context, batch []g.Map) (int, int, error) {
 	if len(batch) == 0 {
-		return nil
+		return 0, 0, nil
 	}
-	_, err := g.DB().Model("shop").Ctx(ctx).Data(batch).Insert()
-	return err
+	success, skip := 0, 0
+	for _, data := range batch {
+		_, err := g.DB().Model("shop").Ctx(ctx).Data(data).Insert()
+		if err != nil {
+			if strings.Contains(err.Error(), "Duplicate entry") || strings.Contains(err.Error(), "1062") {
+				skip++
+				continue
+			}
+			return success, skip, err
+		}
+		success++
+	}
+	return success, skip, nil
 }
 
 // normalizePlatform 将中文平台名统一转为英文标识
