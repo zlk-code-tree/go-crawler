@@ -137,6 +137,9 @@ func (c *ShopController) ShopImport(r *ghttp.Request) {
 		return
 	}
 
+	// 获取平台参数（可选，用于覆盖Excel中的平台列）
+	platform := r.Get("platform").String()
+
 	// 检查文件类型
 	if filepath.Ext(file.Filename) != ".xlsx" {
 		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "只支持.xlsx格式的Excel文件"})
@@ -185,7 +188,7 @@ func (c *ShopController) ShopImport(r *ghttp.Request) {
 
 	// 导入数据（流式处理+批量入库）
 	shopService := service.NewShopService()
-	result, err := shopService.ImportFromExcel(r.Context(), tempFile)
+	result, err := shopService.ImportFromExcel(r.Context(), tempFile, platform)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导入失败: " + err.Error()})
 		return

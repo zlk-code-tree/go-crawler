@@ -316,14 +316,14 @@ func (s *TraderService) GetBindableShops(ctx context.Context, traderId int64, ke
 		Where("s.id NOT IN (?)", g.DB().Raw("SELECT shop_id FROM trader_shop_relation WHERE trader_id = ?", traderId))
 
 	if keyword != "" {
-		query = query.Where("s.douyin_name LIKE ? OR s.uid LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+		query = query.Where("s.account_name LIKE ? OR s.uid LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 	}
 	if platform != "" {
-		query = query.Where("s.shop_platform", platform)
+		query = query.Where("s.platform", platform)
 	}
 
 	var shops []model.BindableShop
-	err := query.Fields("s.id AS shop_id, s.douyin_name AS shop_name, s.uid, s.shop_platform AS platform").Scan(&shops)
+	err := query.Fields("s.id AS shop_id, s.account_name AS shop_name, s.uid, s.platform").Scan(&shops)
 	if err != nil {
 		return nil, fmt.Errorf("查询可绑定店铺失败: %v", err)
 	}
@@ -336,7 +336,7 @@ func (s *TraderService) GetShops(ctx context.Context, traderId int64) ([]model.T
 	err := g.DB().Model("trader_shop_relation r").
 		LeftJoin("shop s", "r.shop_id = s.id").
 		Where("r.trader_id", traderId).
-		Fields("r.shop_id, s.douyin_name AS shop_name, s.uid").
+		Fields("r.shop_id, s.account_name AS shop_name, s.uid").
 		Scan(&shops)
 	if err != nil {
 		return nil, fmt.Errorf("查询投手店铺失败: %v", err)

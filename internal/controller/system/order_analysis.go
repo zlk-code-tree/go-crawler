@@ -164,13 +164,13 @@ func (c *OrderAnalysisController) ShopTalentStats(ctx context.Context, req *v1.S
 
 	// 查询该店铺的小组信息
 	shopInfo, _ := g.DB().Model("shop").
-		Fields("operation_leader").
-		Where("douyin_name = ?", req.ShopName).
-		Where("operation_leader IS NOT NULL AND operation_leader != ''").
+		Fields("operator").
+		Where("account_name = ?", req.ShopName).
+		Where("operator IS NOT NULL AND operator != ''").
 		One()
 	groupName := ""
 	if !shopInfo.IsEmpty() {
-		groupName = shopInfo["operation_leader"].String()
+		groupName = shopInfo["operator"].String()
 	}
 
 	res = &v1.SystemOrderAnalysisShopTalentStatsRes{

@@ -1,0 +1,149 @@
+package model
+
+import "time"
+
+// ============================================
+// 财务管理 - 达人佣金统计相关模型
+// ============================================
+
+// FinanceDailyStats 日佣金统计数据
+type FinanceDailyStats struct {
+	Id             int64     `json:"id"`
+	StatDate       string    `json:"statDate"`
+	CompanyId      int64     `json:"companyId"`
+	DepartmentId   int64     `json:"departmentId"`
+	TraderId       int64     `json:"traderId"`
+	ShopId         int       `json:"shopId"`
+	Platform       string    `json:"platform"`
+	OrderCount     int       `json:"orderCount"`
+	ProductNum     int       `json:"productNum"`
+	PayAmount      float64   `json:"payAmount"`
+	CostAmount     float64   `json:"costAmount"`
+	ReserveAmount  float64   `json:"reserveAmount"`
+	Commission     float64   `json:"commission"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+}
+
+// ============================================
+// 请求结构
+// ============================================
+
+// FinanceStatsReq 佣金统计请求
+type FinanceStatsReq struct {
+	TimeType     string `json:"timeType"`               // 时间类型：today/yesterday/week/month/custom
+	StartDate    string `json:"startDate"`               // 开始日期（custom时必填）
+	EndDate      string `json:"endDate"`                 // 结束日期（custom时必填）
+	NodeId       int64  `json:"nodeId"`                  // 组织节点ID
+	NodeType     string `json:"nodeType" v:"required"`   // 节点类型：company/department/trader
+}
+
+// FinanceChildrenReq 获取下级节点请求
+type FinanceChildrenReq struct {
+	NodeId       int64  `json:"nodeId" v:"required"`
+	NodeType     string `json:"nodeType" v:"required|in:company,department,trader"`
+	TimeType     string `json:"timeType"`
+	StartDate    string `json:"startDate"`
+	EndDate      string `json:"endDate"`
+}
+
+// FinanceTraderDetailReq 投手详情统计请求
+type FinanceTraderDetailReq struct {
+	TraderId     int64  `json:"traderId" v:"required"`
+	TimeType     string `json:"timeType"`
+	StartDate    string `json:"startDate"`
+	EndDate      string `json:"endDate"`
+}
+
+// FinanceShopDetailReq 店铺明细统计请求
+type FinanceShopDetailReq struct {
+	ShopId       int    `json:"shopId" v:"required"`
+	TimeType     string `json:"timeType"`
+	StartDate    string `json:"startDate"`
+	EndDate      string `json:"endDate"`
+}
+
+// ============================================
+// 响应结构
+// ============================================
+
+// FinanceStatsRes 佣金统计响应
+type FinanceStatsRes struct {
+	TimeType    string               `json:"timeType"`
+	StartDate   string               `json:"startDate"`
+	EndDate     string               `json:"endDate"`
+	Summary     FinanceStatsSummary  `json:"summary"`
+}
+
+// FinanceStatsSummary 财务统计汇总
+type FinanceStatsSummary struct {
+	OrderCount    int     `json:"orderCount"`
+	ProductNum    int     `json:"productNum"`
+	PayAmount     float64 `json:"payAmount"`
+	CostAmount    float64 `json:"costAmount"`
+	ReserveAmount float64 `json:"reserveAmount"`
+	Commission    float64 `json:"commission"`
+}
+
+// FinanceChildrenRes 下级节点响应
+type FinanceChildrenRes struct {
+	CurrentNode  NodeInfo          `json:"currentNode"`
+	Children     []NodeStatsItem   `json:"children"`
+}
+
+// NodeInfo 节点信息
+type NodeInfo struct {
+	Id       int64  `json:"id"`
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+}
+
+// NodeStatsItem 节点统计项
+type NodeStatsItem struct {
+	Id           int64   `json:"id"`
+	Name         string  `json:"name"`
+	Type         string  `json:"type"`
+	OrderCount   int     `json:"orderCount"`
+	ProductNum   int     `json:"productNum"`
+	PayAmount    float64 `json:"payAmount"`
+	CostAmount   float64 `json:"costAmount"`
+	Commission   float64 `json:"commission"`
+}
+
+// FinanceTraderDetailRes 投手详情响应
+type FinanceTraderDetailRes struct {
+	TraderId     int64                `json:"traderId"`
+	TraderName   string               `json:"traderName"`
+	CompanyName  string               `json:"companyName"`
+	DeptName     string               `json:"deptName"`
+	TimeType     string               `json:"timeType"`
+	StartDate    string               `json:"startDate"`
+	EndDate      string               `json:"endDate"`
+	Summary      FinanceStatsSummary  `json:"summary"`
+	ShopStats    []ShopStatsItem      `json:"shopStats"`
+}
+
+// ShopStatsItem 店铺统计项
+type ShopStatsItem struct {
+	ShopId       int     `json:"shopId"`
+	ShopName     string  `json:"shopName"`
+	Uid          string  `json:"uid"`
+	Platform     string  `json:"platform"`
+	OrderCount   int     `json:"orderCount"`
+	ProductNum   int     `json:"productNum"`
+	PayAmount    float64 `json:"payAmount"`
+	CostAmount   float64 `json:"costAmount"`
+	Commission   float64 `json:"commission"`
+}
+
+// FinanceShopDetailRes 店铺明细响应
+type FinanceShopDetailRes struct {
+	ShopId       int                  `json:"shopId"`
+	ShopName     string               `json:"shopName"`
+	Uid          string               `json:"uid"`
+	Platform     string               `json:"platform"`
+	TimeType     string               `json:"timeType"`
+	StartDate    string               `json:"startDate"`
+	EndDate      string               `json:"endDate"`
+	Summary      FinanceStatsSummary  `json:"summary"`
+}

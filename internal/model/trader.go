@@ -35,9 +35,9 @@ type TraderWithShops struct {
 
 // TraderShop 投手关联的店铺信息
 type TraderShop struct {
-	ShopId   int    `json:"shopId"`
-	ShopName string `json:"shopName"` // 店铺名称
-	Uid      string `json:"uid"`      // 店铺UID
+	ShopId            int    `json:"shopId"`
+	ShopName          string `json:"shopName"`          // 店铺名称
+	Uid       string `json:"uid"`          // 达人ID
 }
 
 // TraderShopRelation 投手-店铺关联
@@ -82,8 +82,8 @@ type TraderUnbindShopReq struct {
 
 // BindableShop 可绑定的店铺信息
 type BindableShop struct {
-	ShopId   int    `json:"shopId"`
-	ShopName string `json:"shopName"`
-	Uid      string `json:"uid"`
-	Platform string `json:"platform"` // 平台：抖音/快手/视频号
+	ShopId            int    `json:"shopId"`
+	ShopName          string `json:"shopName"`
+	Uid      string `json:"uid"`      // 达人ID
+	Platform          string `json:"platform"` // 平台：douyin/kuaishou/shipinhao
 }

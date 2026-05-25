@@ -158,3 +158,29 @@ type OrgStatsRes struct {
 	Summary   model.StatsSummary   `json:"summary" dc:"该节点汇总统计"`
 	Children  []model.OrgStatsNode `json:"children,omitempty" dc:"直接子节点统计"`
 }
+
+// --- Commission Stats API ---
+
+// OrgCommissionStatsReq 达人佣金统计请求
+type OrgCommissionStatsReq struct {
+	g.Meta    `path:"/org/commission-stats" method:"get" tags:"OrgStructure" summary:"达人佣金统计"`
+	OrgId     int64  `json:"orgId" in:"query" v:"required#节点ID不能为空" dc:"组织节点ID"`
+	Preset    string `json:"preset" in:"query" d:"thisMonth" dc:"预设时间：today/yesterday/last7/last30/thisMonth/all"`
+	StartDate string `json:"startDate" in:"query" dc:"自定义开始日期"`
+	EndDate   string `json:"endDate" in:"query" dc:"自定义结束日期"`
+	Keyword   string `json:"keyword" in:"query" dc:"搜索关键词（投手名称）"`
+	Page      int    `json:"page" in:"query" d:"1" v:"min:1#页码最小为1" dc:"页码"`
+	PageSize  int    `json:"pageSize" in:"query" d:"20" v:"min:1|max:100#每页数量最小为1|每页数量最大为100" dc:"每页数量"`
+}
+
+// OrgCommissionStatsRes 达人佣金统计响应
+type OrgCommissionStatsRes struct {
+	g.Meta    `mime:"application/json"`
+	OrgId     int64                        `json:"orgId" dc:"节点ID"`
+	OrgName   string                       `json:"orgName" dc:"节点名称"`
+	Summary   model.StatsSummary           `json:"summary" dc:"汇总统计"`
+	Items     []model.CommissionStatItem   `json:"items" dc:"达人佣金列表"`
+	Total     int                          `json:"total" dc:"总数"`
+	StartDate string                       `json:"startDate" dc:"开始日期"`
+	EndDate   string                       `json:"endDate" dc:"结束日期"`
+}

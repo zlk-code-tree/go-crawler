@@ -1165,6 +1165,138 @@ func (s *OrgStructureService) calcShopStats(ctx context.Context, shopIds []int, 
 	}, nil
 }
 
+// GetCommissionStats 获取达人佣金统计（按投手分组）
+func (s *OrgStructureService) GetCommissionStats(ctx context.Context, orgId int64, startDate, endDate, keyword string, page, pageSize int) (*model.CommissionStatsRes, error) {
+	// 1. 获取节点信息
+	node, err := s.GetById(ctx, orgId)
+	if err != nil {
+		return nil, fmt.Errorf("查询组织节点失败: %v", err)
+	}
+	if node == nil || node.Id == 0 {
+		return nil, fmt.Errorf("组织节点不存在")
+	}
+
+	// 2. 获取该节点下所有店铺ID
+	shopIds, err := s.GetShopsByOrgId(ctx, orgId)
+	if err != nil {
+		return nil, fmt.Errorf("获取店铺列表失败: %v", err)
+	}
+
+	// 3. 计算汇总
+	summary, err := s.calcShopStats(ctx, shopIds, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("计算汇总失败: %v", err)
+	}
+
+	// 4. 查询达人明细
+	var items []model.CommissionStatItem
+	total := 0
+
+	if len(shopIds) > 0 {
+		// 先查总数
+		countSQL := `
+			SELECT COUNT(DISTINCT t.id) AS cnt
+			FROM (
+				SELECT o1.talent_id
+				FROM order_info o1
+				LEFT JOIN shop s ON o1.talent_id = s.uid
+				WHERE s.id IN (?)
+				  AND o1.pay_finish_time >= ?
+				  AND o1.pay_finish_time < ?
+				  AND o1.main_order_no IS NOT NULL
+				  AND o1.main_order_no != ''
+				  AND o1.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
+				  AND o1.order_status != '已关闭'
+				GROUP BY o1.talent_id
+			) o
+			LEFT JOIN shop s ON o.talent_id = s.uid
+			LEFT JOIN trader_shop_relation tsr ON tsr.shop_id = s.id
+			LEFT JOIN trader t ON tsr.trader_id = t.id AND t.status = 1
+			WHERE t.id IS NOT NULL
+		`
+		if keyword != "" {
+			countSQL += " AND t.name LIKE '%" + keyword + "%'"
+		}
+
+		countResult, err := g.DB().GetOne(ctx, countSQL, shopIds, startDate, endDate)
+		if err == nil {
+			total = countResult["cnt"].Int()
+		}
+
+		// 查询明细
+		sql := `
+			SELECT
+				t.id AS trader_id,
+				t.name AS trader_name,
+				COUNT(DISTINCT o.main_order_no) AS order_count,
+				COALESCE(SUM(o.product_num), 0) AS product_num,
+				COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
+				COALESCE(SUM(o.cost_amount), 0) AS cost_amount,
+				COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
+			FROM (
+				SELECT
+					o1.main_order_no,
+					o1.talent_id,
+					SUM(COALESCE(o1.product_num, 0)) AS product_num,
+					SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0)) AS pay_amount,
+					SUM(COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0)) AS cost_amount,
+					SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
+				FROM order_info o1
+				LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
+				LEFT JOIN shop s ON o1.talent_id = s.uid
+				WHERE s.id IN (?)
+				  AND o1.pay_finish_time >= ?
+				  AND o1.pay_finish_time < ?
+				  AND o1.main_order_no IS NOT NULL
+				  AND o1.main_order_no != ''
+				  AND o1.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
+				  AND o1.order_status != '已关闭'
+				GROUP BY o1.main_order_no, o1.talent_id
+			) o
+			LEFT JOIN shop s ON o.talent_id = s.uid
+			LEFT JOIN trader_shop_relation tsr ON tsr.shop_id = s.id
+			LEFT JOIN trader t ON tsr.trader_id = t.id AND t.status = 1
+			WHERE t.id IS NOT NULL
+		`
+		if keyword != "" {
+			sql += " AND t.name LIKE '%" + keyword + "%'"
+		}
+		sql += " GROUP BY t.id, t.name ORDER BY order_count DESC"
+		sql += fmt.Sprintf(" LIMIT %d, %d", (page-1)*pageSize, pageSize)
+
+		result, err := g.DB().GetAll(ctx, sql, shopIds, startDate, endDate)
+		if err != nil {
+			return nil, fmt.Errorf("查询达人佣金明细失败: %v", err)
+		}
+
+		items = make([]model.CommissionStatItem, 0, len(result))
+		for _, row := range result {
+			payAmount := row["pay_amount"].Float64()
+			costAmount := row["cost_amount"].Float64()
+			reserveAmount := row["reserve_amount"].Float64()
+			commission := roundFloat2(payAmount-reserveAmount-costAmount, 2)
+			items = append(items, model.CommissionStatItem{
+				TraderId:   row["trader_id"].Int64(),
+				TraderName: row["trader_name"].String(),
+				OrderCount: row["order_count"].Int(),
+				ProductNum: row["product_num"].Int(),
+				PayAmount:  roundFloat2(payAmount, 2),
+				Commission: commission,
+			})
+		}
+	}
+
+	return &model.CommissionStatsRes{
+		OrgId:     node.Id,
+		OrgName:   node.Name,
+		Summary:   *summary,
+		Items:     items,
+		Total:     total,
+		StartDate: startDate,
+		EndDate:   endDate,
+	}, nil
+}
+
 // roundFloat2 四舍五入保留指定小数位
 func roundFloat2(val float64, precision int) float64 {
 	ratio := 1.0

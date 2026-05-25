@@ -1,6 +1,6 @@
-# 抖音电商罗盘自动化爬虫 - 架构设计文档
+# 电商罗盘自动化爬虫系统 - 架构设计文档
 
-## 📐 系统架构
+## 系统架构
 
 ### 整体架构图
 
@@ -15,37 +15,35 @@
 ┌───────▼─────────────▼─────────────▼─────────────────────────┐
 │                    API 网关层 (Controller)                   │
 │  ┌─────────────────────────────────────────────────────┐    │
-│  │           /crawl  - 爬虫任务接口                      │    │
-│  │           /swagger - API 文档                         │    │
+│  │           /api/*  - RESTful API 接口                 │    │
+│  │           /ws/*   - WebSocket 实时通信                │    │
 │  └─────────────────────────────────────────────────────┘    │
 └────────────────────────┬────────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────────┐
-│                    业务逻辑层 (Logic)                        │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │              Crawler Logic                          │    │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │    │
-│  │  │ 登录模块     │  │ 数据抓取模块 │  │ 数据处理模块 │ │    │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘ │    │
-│  └─────────────────────────────────────────────────────┘    │
+│                    中间件层 (Middleware)                      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │   CORS   │  │  JWT认证  │  │ 权限验证  │  │ 操作日志  │   │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
 └────────────────────────┬────────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────────┐
-│                    服务层 (Service)                          │
+│                    业务逻辑层 (Service)                      │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │ CookieManager│  │CheckpointMgr │  │ ExportManager│      │
+│  │  订单服务     │  │  店铺服务     │  │  商品服务     │      │
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
-│  ┌──────────────┐  ┌──────────────┐                        │
-│  │ RankingList  │  │ VideoAnalysis│                        │
-│  │   Service    │  │   Service    │                        │
-│  └──────────────┘  └──────────────┘                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │  组织架构服务  │  │  投手服务     │  │  用户权限服务  │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │  爬虫服务     │  │  调度服务     │  │  导出服务     │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
 └────────────────────────┬────────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────────┐
 │                    数据访问层 (Model/DAO)                    │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │ TikTokRanking│  │ VideoAnalysis│  │ CrawlerTask  │      │
-│  │    List      │  │     Data     │  │     Log      │      │
+│  │  OrderModel  │  │  ShopModel   │  │  GoodsModel  │      │
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
 └────────────────────────┬────────────────────────────────────┘
                          │
@@ -61,7 +59,7 @@
 
 ---
 
-## 🏗️ 技术栈
+## 技术栈
 
 ### 后端框架
 - **GoFrame v2.10** - 企业级 Go 应用开发框架
@@ -77,11 +75,13 @@
 | Cookie 管理 | 自定义实现 | 持久化登录状态 |
 | 断点续爬 | 文件系统 + JSON | 任务进度保存与恢复 |
 | 数据导出 | Excelize / encoding/csv | CSV/Excel 导出 |
-| 日志系统 | SimpleLogger | 文件轮转、分级记录 |
+| 日志系统 | GoFrame glog | 文件轮转、分级记录 |
+| 认证授权 | JWT + RBAC | 用户认证和权限控制 |
+| 实时通信 | WebSocket | 爬虫状态实时推送 |
 
 ---
 
-## 📁 目录结构
+## 目录结构
 
 ```
 go-crawler/
@@ -89,50 +89,70 @@ go-crawler/
 │   └── hello/
 │       └── v1/
 │           ├── hello.go        # Hello 接口定义
-│           └── crawl.go        # 爬虫接口定义
+│           ├── crawl.go        # 爬虫接口定义
+│           └── ...             # 其他接口定义
 │
 ├── internal/                   # 内部实现层
 │   ├── cmd/                    # 命令入口
-│   │   └── cmd.go              # 主命令定义
+│   │   └── cmd.go              # 主命令定义（路由注册）
 │   │
 │   ├── controller/             # 控制器层
+│   │   ├── auth/               # 认证控制器
+│   │   ├── system/             # 系统管理控制器
+│   │   │   ├── order.go        # 订单管理
+│   │   │   ├── shop.go         # 店铺管理
+│   │   │   ├── goods.go        # 商品管理
+│   │   │   ├── user.go         # 用户管理
+│   │   │   ├── role.go         # 角色管理
+│   │   │   ├── dept.go         # 部门管理
+│   │   │   ├── order_analysis.go # 订单分析
+│   │   │   ├── org_structure.go  # 组织架构
+│   │   │   ├── trader.go       # 投手管理
+│   │   │   └── ...
 │   │   ├── crawler/            # 爬虫控制器
-│   │   │   └── crawler.go      # V1 版本控制器
-│   │   └── hello/              # Hello 控制器
+│   │   ├── scheduler/          # 调度控制器
+│   │   ├── ws/                 # WebSocket 控制器
+│   │   └── ...
 │   │
-│   ├── logic/                  # 业务逻辑层
+│   ├── service/                # 服务层（业务逻辑）
+│   │   ├── auth.go             # 认证服务
+│   │   ├── order.go            # 订单服务
+│   │   ├── shop.go             # 店铺服务
+│   │   ├── goods.go            # 商品服务
+│   │   ├── org_structure.go    # 组织架构服务
+│   │   ├── trader.go           # 投手服务
+│   │   ├── scheduler.go        # 调度服务
+│   │   ├── crawler.go          # 爬虫服务
+│   │   └── ...
+│   │
+│   ├── model/                  # 数据模型层
+│   │   ├── order.go            # 订单模型
+│   │   ├── shop.go             # 店铺模型
+│   │   ├── goods.go            # 商品模型
+│   │   ├── org_structure.go    # 组织架构模型
+│   │   ├── trader.go           # 投手模型
+│   │   └── ...
+│   │
+│   ├── logic/                  # 业务逻辑层（爬虫）
 │   │   └── crawler/            # 爬虫逻辑
 │   │       ├── crawler.go      # 核心爬虫逻辑
 │   │       └── logger.go       # 日志工具
 │   │
-│   ├── service/                # 服务层
-│   │   ├── cookie_manager.go   # Cookie 管理
-│   │   ├── checkpoint_manager.go # 断点管理
-│   │   ├── export_manager.go   # 导出管理
-│   │   ├── crawler.go          # 爬虫接口定义
-│   │   ├── tiktok_ranking_list.go # 榜单服务
-│   │   └── video_analysis.go   # 视频分析服务
+│   ├── middleware/             # 中间件
+│   │   ├── middleware.go       # 认证、权限中间件
+│   │   └── operation_log.go   # 操作日志中间件
 │   │
-│   ├── model/                  # 数据模型层
-│   │   ├── tiktok_ranking_list.go # 榜单模型
-│   │   ├── entity/             # 数据库实体
-│   │   └── do/                 # 数据对象
-│   │
-│   ├── dao/                    # 数据访问层
-│   │   └── .gitkeep
-│   │
+│   ├── dao/                    # 数据访问层（待完善）
 │   ├── consts/                 # 常量定义
-│   │   └── .gitkeep
-│   │
 │   ├── logger/                 # 日志组件
-│   │   └── .gitkeep
-│   │
 │   └── packed/                 # 打包资源
-│       └── .gitkeep
 │
 ├── database/                   # 数据库相关
-│   └── init.sql                # 初始化脚本
+│   ├── init.sql                # 初始化脚本
+│   ├── rbac_schema.sql         # RBAC 权限表结构
+│   └── migration_*.sql         # 数据库迁移脚本
 │
+├── docs/                       # 文档目录
 ├── logs/                       # 日志目录（运行时生成）
 ├── cookies/                    # Cookie 存储（运行时生成）
 ├── checkpoints/                # 断点文件（运行时生成）
@@ -144,260 +164,316 @@ go-crawler/
 ├── config.yaml                 # 配置文件
 ├── docker-compose.yaml         # Docker 编排
 ├── Dockerfile                  # 容器镜像
-├── Makefile                    # 构建脚本
-├── hack/                       # 构建脚本
-│   ├── hack-cli.mk             # CLI 命令
-│   └── hack.mk                 # 通用命令
-│
-├── README.md                   # 项目说明
-├── USAGE.md                    # 使用指南
-└── ARCHITECTURE.md             # 架构文档（本文件）
+└── Makefile                    # 构建脚本
 ```
 
 ---
 
-## 🔄 核心流程
+## 核心模块说明
 
-### 1. 爬虫执行流程
+### 1. 爬虫模块 (Crawler)
 
+**职责**: 自动化抓取电商平台数据
+
+**核心组件**:
+- `internal/logic/crawler/` - 爬虫核心逻辑
+- `internal/service/crawler.go` - 爬虫服务接口
+- `internal/service/cookie_manager.go` - Cookie 管理
+- `internal/service/checkpoint_manager.go` - 断点管理
+
+**工作流程**:
+1. 启动浏览器实例（go-rod）
+2. 加载已保存的 Cookie 或执行登录
+3. 拦截 API 请求获取数据
+4. 解析并存储到数据库
+5. 支持断点续爬
+
+### 2. 订单管理模块 (Order)
+
+**职责**: 管理多平台订单数据
+
+**核心组件**:
+- `internal/service/order.go` - 抖音订单服务
+- `internal/service/kuaishou_order.go` - 快手订单服务
+- `internal/service/shipinhao_order.go` - 视频号订单服务
+- `internal/service/order_analysis.go` - 订单分析服务
+
+**支持平台**:
+- 抖音电商
+- 快手电商
+- 视频号电商
+
+### 3. 组织架构模块 (OrgStructure)
+
+**职责**: 管理公司、部门、投手的层级关系
+
+**核心组件**:
+- `internal/service/org_structure.go` - 组织架构服务
+- `internal/model/org_structure.go` - 组织架构模型
+
+**层级结构**:
 ```
-开始
-  │
-  ▼
-启动浏览器
-  │
-  ▼
-加载 Cookie ────→ Cookie 有效？───是──→ 跳过登录
-  │                    │
-  否                   │
-  │                    │
-  ▼                    │
-执行登录 ←────────────┘
-(扫码/密码)
-  │
-  ▼
-保存新 Cookie
-  │
-  ▼
-导航到商品榜单页
-  │
-  ▼
-点击"短视频榜"Tab
-  │
-  ▼
-分页抓取 (20 页×10 条) ──→ 每页保存 ──→ 数据库
-  │                           │
-  │                           ▼
-  │                    保存断点信息
-  │
-  ▼
-去重处理
-  │
-  ▼
-获取商品详情
-(首次上架时间、最低价)
-  │
-  ▼
-获取视频分析数据
-  │
-  ▼
-保存视频数据到数据库
-  │
-  ▼
-导出数据文件
-(CSV/Excel)
-  │
-  ▼
-标记任务完成
-  │
-  ▼
-结束
+公司 (Company)
+  └── 部门 (Department)
+        └── 投手 (Trader)
 ```
 
-### 2. 断点续爬流程
+**ID 编码规则**:
+- Company: 1 ~ 999,999
+- Department: 1,000,000 + 原 ID
+- Trader: 2,000,000 + 原 ID
+
+### 4. 权限管理模块 (Permission)
+
+**职责**: RBAC 权限控制
+
+**核心组件**:
+- `internal/service/auth.go` - 认证服务
+- `internal/service/role.go` - 角色服务
+- `internal/service/permission.go` - 权限服务
+- `internal/middleware/middleware.go` - 权限中间件
+
+**权限模型**:
+- 用户 (User)
+- 角色 (Role)
+- 权限 (Permission)
+- 菜单 (Menu)
+
+### 5. 调度模块 (Scheduler)
+
+**职责**: 定时任务调度
+
+**核心组件**:
+- `internal/service/scheduler.go` - 调度服务
+
+**任务类型**:
+- 商品榜单抓取
+- 视频池抓取
+
+---
+
+## 数据流
+
+### 1. 爬虫数据流
 
 ```
-任务启动
-  │
-  ▼
-检查断点文件
-  │
-  ├─ 无断点 ──→ 从第 1 页开始
-  │
-  ├─ 有断点 ──→ 读取进度
-  │               │
-  │               ▼
-  │           状态检查
-  │               │
-  │               ├─ completed ──→ 直接返回
-  │               │
-  │               ├─ failed ──→ 询问是否恢复
-  │               │
-  │               └─ running ──→ 从断点页继续
-  │
-  ▼
-正常爬取
-  │
-  ▼
-每页保存后更新断点
-  │
-  ▼
-完成后删除断点
+电商平台 → go-rod 拦截 → 数据解析 → MySQL 存储
+                    ↓
+              Cookie 持久化
+                    ↓
+              断点保存
 ```
 
-### 3. 数据流转
+### 2. API 数据流
 
 ```
-网页 HTML
-  │
-  ▼ (go-rod 解析)
-DOM 元素
-  │
-  ▼ (选择器提取)
-原始文本
-  │
-  ▼ (清洗转换)
-ProductInfo 结构体
-  │
-  ├─→ TikTokRankingListInput ──→ MySQL
-  │
-  ├─→ ProductDetail ───────────→ 合并到主数据
-  │
-  └─→ VideoAnalysis ───────────→ MySQL
-                                      │
-                                      ▼
-                              CSV/Excel 导出
+前端请求 → Controller → Service → Model → MySQL
+                ↓
+           Middleware (JWT/权限/日志)
+```
+
+### 3. 导出数据流
+
+```
+MySQL 查询 → 数据处理 → Excelize 生成 → 文件下载
 ```
 
 ---
 
-## 🔐 安全机制
+## API 结构
 
-### 1. Cookie 安全
-- Cookie 仅保存在本地文件系统
-- 每次会话自动刷新过期时间
-- 支持手动清除 (`rm cookies/cookies.json`)
+### 认证接口
 
-### 2. 防反爬策略
-```go
-// User-Agent 伪装
-userAgent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..."
-
-// 禁用自动化特征
-l.Set("disable-blink-features", "AutomationControlled")
-
-// 添加随机延迟
-SlowMotion(100 * time.Millisecond)
-
-// 多选择器容错
-selectors := []string{".el-table__row", ".ant-table-row", ...}
+```
+POST /api/login              # 用户登录
+POST /api/feishu/login       # 飞书登录
+GET  /api/feishu/callback    # 飞书回调
 ```
 
-### 3. 数据一致性
-- 数据库事务保证批量插入的原子性
-- 断点续爬防止数据丢失
-- 每页保存模式降低单次失败影响
+### 系统管理接口
+
+```
+# 用户管理
+GET    /api/system/user/list
+POST   /api/system/user/save
+PUT    /api/system/user/save
+POST   /api/system/user/delete
+
+# 角色管理
+GET    /api/system/role/list
+POST   /api/system/role/save
+POST   /api/system/role/delete
+
+# 部门管理
+GET    /api/system/dept/list
+POST   /api/system/dept/save
+PUT    /api/system/dept/update
+DELETE /api/system/dept/delete
+
+# 店铺管理
+GET    /api/system/shop/list
+POST   /api/system/shop/save
+POST   /api/system/shop/delete
+POST   /api/system/shop/import
+
+# 订单管理
+GET    /api/system/order/list
+GET    /api/system/order/detail
+GET    /api/system/order/export
+
+# 商品管理
+GET    /api/system/goods/list
+POST   /api/system/goods/save
+POST   /api/system/goods/import
+
+# 订单分析
+GET    /api/order-analysis/group-stats
+GET    /api/order-analysis/shop-stats
+GET    /api/order-analysis/overview
+GET    /api/order-analysis/group-export
+
+# 组织架构
+GET    /api/system/org/tree
+GET    /api/system/org/list
+POST   /api/system/org/save
+DELETE /api/system/org/delete
+
+# 投手管理
+GET    /api/system/trader/list
+POST   /api/system/trader/save
+POST   /api/system/trader/bind-shop
+POST   /api/system/trader/unbind-shop
+```
+
+### 爬虫接口
+
+```
+POST /api/crawl/start        # 启动爬虫任务
+POST /api/crawl/stop         # 停止爬虫任务
+GET  /api/crawl/status       # 获取爬虫状态
+```
+
+### WebSocket 接口
+
+```
+WS /api/ws/log/{taskId}          # 爬虫日志实时推送
+WS /api/ws/crawl-assist/{taskId} # 爬虫辅助通信
+```
 
 ---
 
-## 📊 数据模型
+## 数据库设计
 
-### 1. 商品榜单表 (tiktok_ranking_list)
+### 核心表结构
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | BIGINT | 主键 |
-| task_id | VARCHAR(64) | 任务 ID |
-| rank | INT | 排名 |
-| product_name | VARCHAR(255) | 商品名称 |
-| shop_name | VARCHAR(255) | 店铺名称 |
-| payment_amount | VARCHAR(32) | 支付金额 |
-| click_count | VARCHAR(32) | 点击次数 |
-| sales_volume | VARCHAR(32) | 成交件数 |
-| delivery_video_num | VARCHAR(32) | 带货视频数 |
-| first_shelf_time | VARCHAR(32) | 首次上架时间 |
-| min_price | VARCHAR(32) | 最低到手价 |
-| first_list | TINYINT | 是否首次上榜 |
-| created_at | TIMESTAMP | 创建时间 |
+| 表名 | 说明 | 主要字段 |
+|------|------|---------|
+| order_info | 抖音订单 | main_order_no, shop_name, product_name |
+| kuaishou_orders | 快手订单 | order_no, shop_name, product_name |
+| shipinhao_orders | 视频号订单 | order_no, shop_name, product_name |
+| shop | 店铺/账号 | platform, uid, account_name, operator |
+| goods | 商品 | goods_code, goods_name, base_price |
+| trader | 投手 | name, company_id, group_id, role |
+| sys_user | 用户 | username, password, status |
+| sys_role | 角色 | name, code, status |
+| sys_permission | 权限 | name, code, status |
+| sys_menu | 菜单 | name, path, component, parent_id |
+| sys_company | 公司 | name, code, parent_id |
+| sys_department | 部门 | name, company_id, parent_id |
 
-### 2. 视频分析表 (video_analysis_data)
+### 关联关系
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | BIGINT | 主键 |
-| task_id | VARCHAR(64) | 任务 ID |
-| product_id | VARCHAR(64) | 商品 ID |
-| product_name | VARCHAR(255) | 商品名称 |
-| video_id | VARCHAR(64) | 视频 ID |
-| video_desc | VARCHAR(512) | 视频描述 |
-| payment_amount | VARCHAR(32) | 支付金额 |
-| expose_user_count | VARCHAR(32) | 曝光人数 |
-| click_user_count | VARCHAR(32) | 点击人数 |
-| convert_user_count | VARCHAR(32) | 成交人数 |
-| click_rate | VARCHAR(16) | 点击率 |
-| click_convert_rate | VARCHAR(16) | 点击转化率 |
-| expose_convert_rate | VARCHAR(16) | 曝光转化率 |
-| order_count | VARCHAR(32) | 订单数 |
-| sales_volume | VARCHAR(32) | 成交量 |
-| created_at | TIMESTAMP | 创建时间 |
-
-### 3. 任务日志表 (crawler_task_log)
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | BIGINT | 主键 |
-| task_id | VARCHAR(64) | 任务 ID（唯一） |
-| status | VARCHAR(32) | 状态 |
-| current_step | INT | 当前步骤 |
-| current_page | INT | 当前页码 |
-| total_pages | INT | 总页数 |
-| scraped_count | INT | 已抓取数 |
-| start_time | TIMESTAMP | 开始时间 |
-| end_time | TIMESTAMP | 结束时间 |
-| error_message | TEXT | 错误信息 |
-| created_at | TIMESTAMP | 创建时间 |
-| updated_at | TIMESTAMP | 更新时间 |
+- 用户 ↔ 角色: 多对多 (sys_user_role)
+- 角色 ↔ 权限: 多对多 (sys_role_permission)
+- 角色 ↔ 菜单: 多对多 (sys_role_menu)
+- 投手 ↔ 店铺: 多对多 (trader_shop_relation)
+- 店铺 ↔ 组织: 多对一 (shop.company_id, shop.department_id)
 
 ---
 
-## ⚡ 性能优化
+## 部署架构
 
-### 1. 并发控制
-- 单浏览器实例，避免资源竞争
-- 请求间隔控制（SlowMotion）
-- 数据库连接池管理
+### 开发环境
 
-### 2. 内存管理
-- 流式数据处理，避免一次性加载
-- 及时关闭页面和浏览器
-- 日志文件轮转（保留 7 天）
+```
+本地开发 → config.yaml → MySQL (远程)
+                    ↓
+              go-rod (本地浏览器)
+```
 
-### 3. 容错机制
-- 多选择器兜底策略
-- 超时重试（3 次）
-- 异常捕获和日志记录
+### 生产环境
 
----
-
-## 🔮 扩展方向
-
-### 短期优化
-1. 增加代理 IP 池支持
-2. 实现分布式爬虫集群
-3. 添加数据质量校验
-4. 支持更多榜单类型（直播榜、达人榜）
-
-### 长期规划
-1. 混合架构：浏览器自动化 + HTTP 请求模拟
-2. 智能调度系统：任务队列 + 优先级管理
-3. 数据可视化 Dashboard
-4. API 限流和权限控制
+```
+Docker 容器 → docker-compose.yaml
+                    ↓
+              MySQL (阿里云 RDS)
+                    ↓
+              文件存储 (Cookie/Checkpoint/Export)
+```
 
 ---
 
-## 📞 联系方式
+## 性能优化
 
-如有技术问题，请查阅：
-- 使用指南：USAGE.md
-- 日志文件：logs/crawler-*.log
-- SQL 日志：logs/sql/*.log
+### 1. 数据库优化
+
+- 连接池配置: maxIdle=10, maxOpen=100
+- 索引优化: 关键查询字段添加索引
+- 分页查询: 避免全表扫描
+
+### 2. 爬虫优化
+
+- 并发控制: 避免过度请求
+- 断点续爬: 避免重复抓取
+- Cookie 复用: 减少登录次数
+
+### 3. 导出优化
+
+- 流式写入: 避免内存溢出
+- 分批查询: 大数据量分批处理
+
+---
+
+## 安全设计
+
+### 1. 认证安全
+
+- JWT Token: 24小时过期
+- 密码加密: bcrypt 哈希
+- 飞书 OAuth2.0 集成
+
+### 2. 权限安全
+
+- RBAC 模型: 细粒度权限控制
+- 白名单机制: 特定用户跳过权限验证
+- 操作日志: 记录关键操作
+
+### 3. 数据安全
+
+- SQL 参数化: 防止 SQL 注入
+- CORS 配置: 跨域访问控制
+- 敏感信息: 配置文件不提交到版本控制
+
+---
+
+## 监控与日志
+
+### 日志分类
+
+| 日志类型 | 路径 | 说明 |
+|---------|------|------|
+| 应用日志 | logs/server/ | 服务运行日志 |
+| SQL 日志 | logs/sql/ | 数据库查询日志 |
+| 爬虫日志 | logs/ | 爬虫运行日志 |
+
+### 日志配置
+
+```yaml
+logger:
+  path: "./logs/server"
+  file: "{Y-m-d}.log"
+  level: "all"
+  rotateSize: "100M"
+  rotateBackupLimit: 7
+  rotateBackupExpire: "30d"
+```

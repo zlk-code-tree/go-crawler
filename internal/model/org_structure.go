@@ -152,3 +152,24 @@ type OrgStatsNode struct {
 	Summary  StatsSummary   `json:"summary" dc:"该节点汇总统计"`
 	Children []OrgStatsNode `json:"children,omitempty" dc:"直接子节点统计"`
 }
+
+// CommissionStatItem 达人佣金统计项
+type CommissionStatItem struct {
+	TraderId   int64   `json:"traderId" dc:"投手ID"`
+	TraderName string  `json:"name" dc:"投手名称"`
+	OrderCount int     `json:"orderCount" dc:"有效订单数"`
+	ProductNum int     `json:"productCount" dc:"商品数量"`
+	PayAmount  float64 `json:"payableAmount" dc:"应付金额（销售额）"`
+	Commission float64 `json:"commission" dc:"佣金"`
+}
+
+// CommissionStatsRes 达人佣金统计响应
+type CommissionStatsRes struct {
+	OrgId     int64                `json:"orgId" dc:"节点ID"`
+	OrgName   string               `json:"orgName" dc:"节点名称"`
+	Summary   StatsSummary         `json:"summary" dc:"汇总统计"`
+	Items     []CommissionStatItem `json:"items" dc:"达人佣金列表"`
+	Total     int                  `json:"total" dc:"总数"`
+	StartDate string               `json:"startDate" dc:"开始日期"`
+	EndDate   string               `json:"endDate" dc:"结束日期"`
+}

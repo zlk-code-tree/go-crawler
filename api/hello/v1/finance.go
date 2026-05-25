@@ -1,0 +1,96 @@
+package v1
+
+import (
+	"go-crawler/internal/model"
+
+	"github.com/gogf/gf/v2/frame/g"
+)
+
+// ==================== 佣金统计 ====================
+
+// FinanceStatsReq 佣金统计请求
+type FinanceStatsReq struct {
+	g.Meta    `path:"/finance/commission-stats" method:"get" tags:"Finance" summary:"获取佣金统计"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型：today/yesterday/week/month/custom"`
+	StartDate string `json:"startDate" in:"query" d:"" dc:"开始日期（custom时必填，格式：2006-01-02）"`
+	EndDate   string `json:"endDate" in:"query" d:"" dc:"结束日期（custom时必填，格式：2006-01-02）"`
+	NodeId    int64  `json:"nodeId" in:"query" d:"0" dc:"组织节点ID（0=全部）"`
+	NodeType  string `json:"nodeType" in:"query" d:"company" v:"required|in:company,department,trader#节点类型不能为空|节点类型非法" dc:"节点类型：company/department/trader"`
+}
+
+// FinanceStatsRes 佣金统计响应
+type FinanceStatsRes = model.FinanceStatsRes
+
+// ==================== 下级节点查询 ====================
+
+// FinanceChildrenReq 获取下级节点请求
+type FinanceChildrenReq struct {
+	g.Meta    `path:"/finance/commission-children" method:"get" tags:"Finance" summary:"获取下级节点统计"`
+	NodeId    int64  `json:"nodeId" in:"query" v:"required#节点ID不能为空" dc:"节点ID"`
+	NodeType  string `json:"nodeType" in:"query" v:"required|in:company,department,trader#节点类型不能为空|节点类型非法" dc:"节点类型：company/department/trader"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
+	StartDate string `json:"startDate" in:"query" d:"" dc:"开始日期"`
+	EndDate   string `json:"endDate" in:"query" d:"" dc:"结束日期"`
+}
+
+// FinanceChildrenRes 获取下级节点响应
+type FinanceChildrenRes = model.FinanceChildrenRes
+
+// ==================== 投手详情 ====================
+
+// FinanceTraderDetailReq 投手详情统计请求
+type FinanceTraderDetailReq struct {
+	g.Meta    `path:"/finance/trader-detail" method:"get" tags:"Finance" summary:"获取投手详情统计"`
+	TraderId  int64  `json:"traderId" in:"query" v:"required#投手ID不能为空" dc:"投手ID"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
+	StartDate string `json:"startDate" in:"query" d:"" dc:"开始日期"`
+	EndDate   string `json:"endDate" in:"query" d:"" dc:"结束日期"`
+}
+
+// FinanceTraderDetailRes 投手详情统计响应
+type FinanceTraderDetailRes = model.FinanceTraderDetailRes
+
+// ==================== 店铺明细 ====================
+
+// FinanceShopDetailReq 店铺明细统计请求
+type FinanceShopDetailReq struct {
+	g.Meta    `path:"/finance/shop-detail" method:"get" tags:"Finance" summary:"获取店铺明细统计"`
+	ShopId    int    `json:"shopId" in:"query" v:"required#店铺ID不能为空" dc:"店铺ID"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
+	StartDate string `json:"startDate" in:"query" d:"" dc:"开始日期"`
+	EndDate   string `json:"endDate" in:"query" d:"" dc:"结束日期"`
+}
+
+// FinanceShopDetailRes 店铺明细统计响应
+type FinanceShopDetailRes = model.FinanceShopDetailRes
+
+// ==================== 手动触发聚合 ====================
+
+// FinanceAggregateReq 手动触发聚合请求
+type FinanceAggregateReq struct {
+	g.Meta    `path:"/finance/aggregate" method:"post" tags:"Finance" summary:"手动触发日聚合任务"`
+	Date      string `json:"date" v:"required#日期不能为空" dc:"统计日期（格式：2006-01-02）"`
+}
+
+// FinanceAggregateRes 手动触发聚合响应
+type FinanceAggregateRes struct {
+	g.Meta  `mime:"application/json"`
+	Success bool   `json:"success" dc:"是否成功"`
+	Message string `json:"message" dc:"提示信息"`
+}
+
+// ==================== 历史数据回填 ====================
+
+// FinanceBackfillReq 历史数据回填请求
+type FinanceBackfillReq struct {
+	g.Meta    `path:"/finance/backfill" method:"post" tags:"Finance" summary:"历史数据回填"`
+	StartDate string `json:"startDate" v:"required#开始日期不能为空" dc:"开始日期（格式：2006-01-02）"`
+	EndDate   string `json:"endDate" v:"required#结束日期不能为空" dc:"结束日期（格式：2006-01-02）"`
+}
+
+// FinanceBackfillRes 历史数据回填响应
+type FinanceBackfillRes struct {
+	g.Meta  `mime:"application/json"`
+	Success bool   `json:"success" dc:"是否成功"`
+	Message string `json:"message" dc:"提示信息"`
+}

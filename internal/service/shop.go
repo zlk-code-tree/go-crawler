@@ -25,7 +25,7 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword stri
 	params := []interface{}{}
 
 	if keyword != "" {
-		query += " AND (uid LIKE ? OR douyin_name LIKE ? OR douyin_id LIKE ? OR operation_leader LIKE ?)"
+		query += " AND (uid LIKE ? OR account_name LIKE ? OR platform_nickname LIKE ? OR operator LIKE ?)"
 		searchKey := "%" + keyword + "%"
 		params = append(params, searchKey, searchKey, searchKey, searchKey)
 	}
@@ -43,7 +43,7 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword stri
 	totalQuery := "SELECT COUNT(*) as total FROM shop WHERE 1=1"
 	totalParams := []interface{}{}
 	if keyword != "" {
-		totalQuery += " AND (uid LIKE ? OR douyin_name LIKE ? OR douyin_id LIKE ? OR operation_leader LIKE ?)"
+		totalQuery += " AND (uid LIKE ? OR account_name LIKE ? OR platform_nickname LIKE ? OR operator LIKE ?)"
 		searchKey := "%" + keyword + "%"
 		totalParams = append(totalParams, searchKey, searchKey, searchKey, searchKey)
 	}
@@ -57,15 +57,22 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword stri
 	shops := make([]g.Map, len(result))
 	for i, row := range result {
 		shops[i] = g.Map{
-			"id":               row["id"],
-			"uid":              row["uid"],
-			"douyinName":       row["douyin_name"],
-			"douyinId":         row["douyin_id"],
-			"operationLeader":  row["operation_leader"],
-			"accountOwnership": row["account_ownership"],
-			"shopPlatform":     row["shop_platform"],
-			"createdAt":        row["created_at"],
-			"updatedAt":        row["updated_at"],
+			"id":                row["id"],
+			"platform":          row["platform"],
+			"uid":               row["uid"],
+			"accountName":       row["account_name"],
+			"platformNickname":  row["platform_nickname"],
+			"operator":          row["operator"],
+			"accountOwnership":  row["account_ownership"],
+			"companyId":         row["company_id"],
+			"departmentId":      row["department_id"],
+			"groupType":         row["group_type"],
+			"memberName":        row["member_name"],
+			"talentImage":       row["talent_image"],
+			"bindStatus":        row["bind_status"],
+			"status":            row["status"],
+			"createdAt":         row["created_at"],
+			"updatedAt":         row["updated_at"],
 		}
 	}
 
@@ -88,15 +95,22 @@ func (s *ShopService) Detail(ctx context.Context, id int) (g.Map, error) {
 	}
 
 	shop := g.Map{
-		"id":               result["id"],
-		"uid":              result["uid"],
-		"douyinName":       result["douyin_name"],
-		"douyinId":         result["douyin_id"],
-		"operationLeader":  result["operation_leader"],
-		"accountOwnership": result["account_ownership"],
-		"shopPlatform":     result["shop_platform"],
-		"createdAt":        result["created_at"],
-		"updatedAt":        result["updated_at"],
+		"id":                result["id"],
+		"platform":          result["platform"],
+		"uid":               result["uid"],
+		"accountName":       result["account_name"],
+		"platformNickname":  result["platform_nickname"],
+		"operator":          result["operator"],
+		"accountOwnership":  result["account_ownership"],
+		"companyId":         result["company_id"],
+		"departmentId":      result["department_id"],
+		"groupType":         result["group_type"],
+		"memberName":        result["member_name"],
+		"talentImage":       result["talent_image"],
+		"bindStatus":        result["bind_status"],
+		"status":            result["status"],
+		"createdAt":         result["created_at"],
+		"updatedAt":         result["updated_at"],
 	}
 
 	return shop, nil
@@ -104,8 +118,8 @@ func (s *ShopService) Detail(ctx context.Context, id int) (g.Map, error) {
 
 // Save 保存店铺
 func (s *ShopService) Save(ctx context.Context, req *model.ShopSaveReq) (int64, error) {
-	// 检查UID是否已存在（排除自己）
-	query := g.DB().Model("shop").Where("uid", req.Uid)
+	// 检查同一平台下 uid 是否已存在（排除自己）
+	query := g.DB().Model("shop").Where("platform", req.Platform).Where("uid", req.Uid)
 	if req.Id > 0 {
 		query = query.WhereNot("id", req.Id)
 	}
@@ -114,16 +128,16 @@ func (s *ShopService) Save(ctx context.Context, req *model.ShopSaveReq) (int64, 
 		return 0, err
 	}
 	if count > 0 {
-		return 0, gerror.New("店铺唯一标识已存在")
+		return 0, gerror.New("该平台下账号ID已存在")
 	}
 
 	data := g.Map{
-		"uid":               req.Uid,
-		"douyin_name":       req.DouyinName,
-		"douyin_id":         req.DouyinId,
-		"operation_leader":  req.OperationLeader,
-		"account_ownership": req.AccountOwnership,
-		"shop_platform":     req.ShopPlatform,
+		"platform":            req.Platform,
+		"uid": req.Uid,
+		"account_name":        req.AccountName,
+		"platform_nickname":   req.PlatformNickname,
+		"operator":            req.Operator,
+		"account_ownership":   req.AccountOwnership,
 	}
 
 	if req.Id > 0 {
@@ -155,7 +169,7 @@ func (s *ShopService) ExportToExcel(ctx context.Context, keyword string) (string
 	params := []interface{}{}
 
 	if keyword != "" {
-		query += " AND (uid LIKE ? OR douyin_name LIKE ? OR douyin_id LIKE ? OR operation_leader LIKE ?)"
+		query += " AND (uid LIKE ? OR account_name LIKE ? OR platform_nickname LIKE ? OR operator LIKE ?)"
 		searchKey := "%" + keyword + "%"
 		params = append(params, searchKey, searchKey, searchKey, searchKey)
 	}
@@ -179,7 +193,7 @@ func (s *ShopService) ExportToExcel(ctx context.Context, keyword string) (string
 	f.SetActiveSheet(index)
 
 	// 设置表头
-	headers := []string{"uid", "douyin_name", "douyin_id", "operation_leader", "account_ownership", "shop_platform"}
+	headers := []string{"platform", "uid", "account_name", "platform_nickname", "operator", "account_ownership"}
 	for i, header := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheetName, cell, header)
@@ -199,21 +213,21 @@ func (s *ShopService) ExportToExcel(ctx context.Context, keyword string) (string
 	// 写入数据
 	for i, row := range result {
 		rowNum := i + 2
-		f.SetCellValue(sheetName, fmt.Sprintf("A%d", rowNum), row["uid"])
-		f.SetCellValue(sheetName, fmt.Sprintf("B%d", rowNum), row["douyin_name"])
-		f.SetCellValue(sheetName, fmt.Sprintf("C%d", rowNum), row["douyin_id"])
-		f.SetCellValue(sheetName, fmt.Sprintf("D%d", rowNum), row["operation_leader"])
-		f.SetCellValue(sheetName, fmt.Sprintf("E%d", rowNum), row["account_ownership"])
-		f.SetCellValue(sheetName, fmt.Sprintf("F%d", rowNum), row["shop_platform"])
+		f.SetCellValue(sheetName, fmt.Sprintf("A%d", rowNum), row["platform"])
+		f.SetCellValue(sheetName, fmt.Sprintf("B%d", rowNum), row["uid"])
+		f.SetCellValue(sheetName, fmt.Sprintf("C%d", rowNum), row["account_name"])
+		f.SetCellValue(sheetName, fmt.Sprintf("D%d", rowNum), row["platform_nickname"])
+		f.SetCellValue(sheetName, fmt.Sprintf("E%d", rowNum), row["operator"])
+		f.SetCellValue(sheetName, fmt.Sprintf("F%d", rowNum), row["account_ownership"])
 	}
 
 	// 设置列宽
 	f.SetColWidth(sheetName, "A", "A", 20)
 	f.SetColWidth(sheetName, "B", "B", 25)
-	f.SetColWidth(sheetName, "C", "C", 20)
-	f.SetColWidth(sheetName, "D", "D", 15)
-	f.SetColWidth(sheetName, "E", "E", 20)
-	f.SetColWidth(sheetName, "F", "F", 15)
+	f.SetColWidth(sheetName, "C", "C", 25)
+	f.SetColWidth(sheetName, "D", "D", 20)
+	f.SetColWidth(sheetName, "E", "E", 15)
+	f.SetColWidth(sheetName, "F", "F", 20)
 
 	// 保存文件
 	exportDir := "./exports"
@@ -235,7 +249,8 @@ type ImportResult struct {
 }
 
 // ImportFromExcel 从Excel导入店铺数据（优化版：流式处理+批量入库）
-func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*ImportResult, error) {
+// defaultPlatform 参数可选，非空时覆盖Excel中的平台列
+func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, defaultPlatform string) (*ImportResult, error) {
 	g.Log().Infof(ctx, "开始导入店铺文件: %s", filePath)
 
 	f, err := excelize.OpenFile(filePath)
@@ -278,30 +293,38 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 
 	// 验证表头 - 支持中英文表头
 	headerMapping := map[string]string{
-		"uid":               "uid",
-		"UID":               "uid",
-		"店铺唯一标识":             "uid",
-		"douyin_name":       "douyin_name",
-		"抖音名称":               "douyin_name",
-		"抖音号名称":              "douyin_name",
-		"douyin_id":         "douyin_id",
-		"抖音ID":              "douyin_id",
-		"抖音号":                "douyin_id",
-		"operation_leader":   "operation_leader",
-		"运营负责人":              "operation_leader",
-		"运营组长":               "operation_leader",
-		"account_ownership": "account_ownership",
-		"账号归属":               "account_ownership",
-		"shop_platform":      "shop_platform",
-		"店铺平台":               "shop_platform",
+		"platform":            "platform",
+		"平台":                  "platform",
+		"uid": "uid",
+		"平台账号ID":              "uid",
+		"UID":                 "uid",
+		"店铺唯一标识":              "uid",
+		"短视频ID":               "uid",
+		"account_name":        "account_name",
+		"抖音名称":                "account_name",
+		"抖音号名称":               "account_name",
+		"账号名称":                "account_name",
+		"platform_nickname":   "platform_nickname",
+		"抖音ID":               "platform_nickname",
+		"抖音号":                 "platform_nickname",
+		"平台昵称":                "platform_nickname",
+		"operator":            "operator",
+		"运营者":                 "operator",
+		"运营负责人":               "operator",
+		"运营组长":                "operator",
+		"account_ownership":   "account_ownership",
+		"账号归属":                "account_ownership",
 	}
 
 	// 打印读取到的表头
 	g.Log().Infof(ctx, "Excel表头: %v", headers)
 
 	// 检查必要的表头是否存在（支持中英文）
-	// 注意：shop_platform 在数据库中有默认值'抖音'，所以不是必须的
-	requiredHeaders := []string{"uid", "douyin_name", "operation_leader"}
+	// 当 defaultPlatform 非空时，platform 列不再是必填
+	requiredHeaders := []string{"uid", "account_name", "operator"}
+	if defaultPlatform == "" {
+		requiredHeaders = append([]string{"platform"}, requiredHeaders...)
+	}
 	headerIndex := make(map[string]int) // 记录每个字段在Excel中的列索引
 
 	for _, required := range requiredHeaders {
@@ -317,12 +340,15 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 		if !found {
 			// 改进错误提示：显示实际读取到的表头
 			g.Log().Errorf(ctx, "缺少必要的列: %s, 实际读取到的表头: %v", required, headers)
-			return nil, gerror.New(fmt.Sprintf("缺少必要的列: %s\n实际读取到的表头: %v\n支持的中文列名：店铺唯一标识(UID)、抖音名称、运营组长", required, headers))
+			return nil, gerror.New(fmt.Sprintf("缺少必要的列: %s\n实际读取到的表头: %v\n支持的中文列名：平台、达人ID(UID)、账号名称(抖音名称)、运营者(运营组长)", required, headers))
 		}
 	}
 
-	// 可选列的映射（包括 shop_platform，数据库有默认值）
-	optionalHeaders := []string{"douyin_id", "account_ownership", "shop_platform"}
+	// 可选列的映射（当 defaultPlatform 非空时，platform 也变为可选）
+	optionalHeaders := []string{"platform_nickname", "account_ownership"}
+	if defaultPlatform != "" {
+		optionalHeaders = append([]string{"platform"}, optionalHeaders...)
+	}
 	for _, opt := range optionalHeaders {
 		for i, h := range headers {
 			h = strings.TrimSpace(h)
@@ -338,11 +364,12 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 	batch := make([]g.Map, 0, batchSize)
 	rowNum := 1 // 从第2行开始（第1行是表头）
 
-	// 预加载所有已存在的UID到内存，避免每行都查询数据库
-	existingUIDs := make(map[string]bool)
-	existingRows, _ := g.DB().Model("shop").Fields("uid").All()
+	// 预加载所有已存在的 platform+uid 到内存，避免每行都查询数据库
+	existingKeys := make(map[string]bool)
+	existingRows, _ := g.DB().Model("shop").Fields("platform, uid").All()
 	for _, row := range existingRows {
-		existingUIDs[row["uid"].String()] = true
+		key := row["platform"].String() + "|" + row["uid"].String()
+		existingKeys[key] = true
 	}
 
 	// 流式读取并批量处理
@@ -365,58 +392,68 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 			return ""
 		}
 
-		uid := getCol("uid")
-		douyinName := getCol("douyin_name")
-		operationLeader := getCol("operation_leader")
-		shopPlatform := getCol("shop_platform")
+		platform := getCol("platform")
+		// 如果传入了 defaultPlatform 参数，覆盖 Excel 中的平台列
+		if defaultPlatform != "" {
+			platform = defaultPlatform
+		}
+		platformAccountId := getCol("uid")
+		accountName := getCol("account_name")
+		operator := getCol("operator")
+		platformNickname := getCol("platform_nickname")
+		accountOwnership := getCol("account_ownership")
 
 		// 跳过空行
-		if uid == "" && douyinName == "" {
+		if platformAccountId == "" && accountName == "" {
 			result.SkipCount++
 			continue
 		}
 
 		// 验证必填字段
-		if uid == "" {
-			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: uid(店铺唯一标识/UID)不能为空", rowNum))
+		if platform == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: platform(平台)不能为空", rowNum))
 			result.FailCount++
 			continue
 		}
-		if douyinName == "" {
-			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: douyin_name(抖音名称/抖音号名称)不能为空", rowNum))
+		// 统一平台值为英文标识
+		platform = normalizePlatform(platform)
+		if platformAccountId == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: uid(达人ID)不能为空", rowNum))
 			result.FailCount++
 			continue
 		}
-		if operationLeader == "" {
-			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: operation_leader(运营负责人/运营组长)不能为空", rowNum))
+		if accountName == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: account_name(账号名称)不能为空", rowNum))
 			result.FailCount++
 			continue
 		}
-		// shopPlatform 可选，如果为空则使用数据库默认值'抖音'
-		if shopPlatform == "" {
-			shopPlatform = "抖音"
+		if operator == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: operator(运营者/运营组长)不能为空", rowNum))
+			result.FailCount++
+			continue
 		}
 
-		// 检查UID是否已存在
-		if existingUIDs[uid] {
-			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: uid=%s 已存在", rowNum, uid))
+		// 检查同一平台下 uid 是否已存在
+		key := platform + "|" + platformAccountId
+		if existingKeys[key] {
+			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: platform=%s, uid=%s 已存在", rowNum, platform, platformAccountId))
 			result.SkipCount++
 			continue
 		}
 
 		// 添加到批次
 		data := g.Map{
-			"uid":               uid,
-			"douyin_name":       douyinName,
-			"douyin_id":         getCol("douyin_id"),
-			"operation_leader":  operationLeader,
-			"account_ownership": getCol("account_ownership"),
-			"shop_platform":     shopPlatform,
-			"created_at":        time.Now(),
-			"updated_at":        time.Now(),
+			"platform":            platform,
+			"uid": platformAccountId,
+			"account_name":        accountName,
+			"platform_nickname":   platformNickname,
+			"operator":            operator,
+			"account_ownership":   accountOwnership,
+			"created_at":          time.Now(),
+			"updated_at":          time.Now(),
 		}
 		batch = append(batch, data)
-		existingUIDs[uid] = true // 标记为已存在，避免同一批次内重复
+		existingKeys[key] = true // 标记为已存在，避免同一批次内重复
 
 		// 达到批次大小，执行批量插入
 		if len(batch) >= batchSize {
@@ -455,4 +492,18 @@ func (s *ShopService) batchInsert(ctx context.Context, batch []g.Map) error {
 	}
 	_, err := g.DB().Model("shop").Ctx(ctx).Data(batch).Insert()
 	return err
+}
+
+// normalizePlatform 将中文平台名统一转为英文标识
+func normalizePlatform(p string) string {
+	switch strings.TrimSpace(p) {
+	case "抖音", "douyin":
+		return "douyin"
+	case "快手", "kuaishou":
+		return "kuaishou"
+	case "视频号", "shipinhao":
+		return "shipinhao"
+	default:
+		return strings.ToLower(strings.TrimSpace(p))
+	}
 }

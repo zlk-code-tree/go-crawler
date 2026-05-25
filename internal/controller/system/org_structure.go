@@ -218,3 +218,28 @@ func (c *OrgStructureController) Stats(ctx context.Context, req *v1.OrgStatsReq)
 	}
 	return
 }
+
+// CommissionStats 达人佣金统计 GET /api/org/commission-stats
+func (c *OrgStructureController) CommissionStats(ctx context.Context, req *v1.OrgCommissionStatsReq) (res *v1.OrgCommissionStatsRes, err error) {
+	orgService := service.NewOrgStructureService()
+
+	// 解析时间范围
+	orderService := service.NewOrderAnalysisService()
+	startDate, endDate := orderService.ParseTimeRange(req.Preset, req.StartDate, req.EndDate)
+
+	stats, err := orgService.GetCommissionStats(ctx, req.OrgId, startDate, endDate, req.Keyword, req.Page, req.PageSize)
+	if err != nil {
+		return nil, gerror.New("查询失败: " + err.Error())
+	}
+
+	res = &v1.OrgCommissionStatsRes{
+		OrgId:     stats.OrgId,
+		OrgName:   stats.OrgName,
+		Summary:   stats.Summary,
+		Items:     stats.Items,
+		Total:     stats.Total,
+		StartDate: stats.StartDate,
+		EndDate:   stats.EndDate,
+	}
+	return
+}

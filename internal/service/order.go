@@ -572,6 +572,42 @@ func getCol(cols []string, headerMap map[string]int, header string) string {
 	return ""
 }
 
+// alignCols 移除数据列尾部的空列，使列数不超过目标列数
+func alignCols(cols []string, targetLen int) []string {
+	if len(cols) <= targetLen {
+		return cols
+	}
+	result := make([]string, len(cols))
+	copy(result, cols)
+	for len(result) > targetLen && result[len(result)-1] == "" {
+		result = result[:len(result)-1]
+	}
+	return result
+}
+
+// getColFlex 获取列值，支持模糊匹配：当精确索引为空时，搜索附近索引
+func getColFlex(cols []string, headerMap map[string]int, header string) string {
+	idx, exists := headerMap[header]
+	if !exists {
+		return ""
+	}
+	if idx < len(cols) {
+		if v := strings.TrimSpace(cols[idx]); v != "" {
+			return v
+		}
+	}
+	// 精确索引为空或越界，搜索附近（Excel列错位通常偏移1-2列）
+	for _, offset := range []int{1, -1, 2, -2} {
+		adj := idx + offset
+		if adj >= 0 && adj < len(cols) {
+			if v := strings.TrimSpace(cols[adj]); v != "" {
+				return v
+			}
+		}
+	}
+	return ""
+}
+
 // 辅助函数：截断字符串到指定字符数（不是字节数），并清理非法字符
 func truncateString(s string, maxLen int) string {
 	s = cleanIllegalChars(s)

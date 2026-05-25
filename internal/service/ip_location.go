@@ -27,7 +27,12 @@ var (
 	ipCacheMu sync.RWMutex
 )
 
-const ipCacheTTL = 24 * time.Hour
+const (
+	ipCacheTTL      = 24 * time.Hour
+	ipQueryTimeout  = 3 * time.Second
+	ipMaxRetries    = 2
+	ipRetryInterval = 500 * time.Millisecond
+)
 
 // ipApiResponse ip-api.com 返回结构
 type ipApiResponse struct {
@@ -36,6 +41,13 @@ type ipApiResponse struct {
 	Region  string `json:"regionName"`
 	Country string `json:"country"`
 	Message string `json:"message"`
+}
+
+// ipInfoResponse ipinfo.io 返回结构
+type ipInfoResponse struct {
+	City    string `json:"city"`
+	Region  string `json:"region"`
+	Country string `json:"country"`
 }
 
 type IpLocationService struct{}
@@ -66,7 +78,7 @@ func (s *IpLocationService) GetLocationByIP(ip string) string {
 	}
 	ipCacheMu.RUnlock()
 
-	// 调用外部 API 查询
+	// 调用外部 API 查询（主 API 带重试，失败后尝试备选 API）
 	location := queryIPFromAPI(ip)
 
 	// 写缓存
@@ -80,47 +92,119 @@ func (s *IpLocationService) GetLocationByIP(ip string) string {
 	return location
 }
 
-// queryIPFromAPI 通过 HTTP API 查询 IP 地理位置
+// queryIPFromAPI 查询 IP 地理位置：优先 ip-api.com（带重试），失败则降级 ipinfo.io
 func queryIPFromAPI(ip string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	// 主 API：ip-api.com（带重试）
+	location := queryIPFromIPApi(ip)
+	if location != "未知" {
+		return location
+	}
+
+	// 备选 API：ipinfo.io
+	ipLogger.Infof(context.Background(), "ip-api 查询失败 [%s]，降级到 ipinfo.io", ip)
+	location = queryIPFromIPInfo(ip)
+	if location != "未知" {
+		return location
+	}
+
+	return "未知"
+}
+
+// queryIPFromIPApi 通过 ip-api.com 查询（带重试机制）
+func queryIPFromIPApi(ip string) string {
+	var lastErr error
+	for attempt := 0; attempt <= ipMaxRetries; attempt++ {
+		if attempt > 0 {
+			time.Sleep(ipRetryInterval)
+			ipLogger.Debugf(context.Background(), "ip-api 重试第 %d 次 [%s]", attempt, ip)
+		}
+
+		location, err := doQueryIPApi(ip)
+		if err == nil {
+			return location
+		}
+		lastErr = err
+	}
+
+	ipLogger.Warningf(context.Background(), "ip-api 查询最终失败 [%s]（已重试 %d 次）: %v", ip, ipMaxRetries, lastErr)
+	return "未知"
+}
+
+// doQueryIPApi 单次调用 ip-api.com
+func doQueryIPApi(ip string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), ipQueryTimeout)
 	defer cancel()
 
 	url := fmt.Sprintf("http://ip-api.com/json/%s?lang=zh-CN&fields=status,message,city,regionName,country", ip)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		ipLogger.Warningf(context.Background(), "IP地理位置请求构建失败: %v", err)
-		return "未知"
+		return "未知", fmt.Errorf("请求构建失败: %w", err)
 	}
 
-	client := &http.Client{Timeout: 3 * time.Second}
+	client := &http.Client{Timeout: ipQueryTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
-		ipLogger.Warningf(context.Background(), "IP地理位置查询失败 [%s]: %v", ip, err)
-		return "未知"
+		return "未知", fmt.Errorf("请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
 	var result ipApiResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		ipLogger.Warningf(context.Background(), "IP地理位置解析失败 [%s]: %v", ip, err)
-		return "未知"
+		return "未知", fmt.Errorf("解析失败: %w", err)
 	}
 
 	if result.Status != "success" {
-		ipLogger.Warningf(context.Background(), "IP地理位置查询返回失败 [%s]: %s", ip, result.Message)
+		return "未知", fmt.Errorf("API返回失败: %s", result.Message)
+	}
+
+	return joinLocationParts(result.Country, result.Region, result.City), nil
+}
+
+// queryIPFromIPInfo 通过 ipinfo.io 查询（备选 API）
+func queryIPFromIPInfo(ip string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), ipQueryTimeout)
+	defer cancel()
+
+	url := fmt.Sprintf("https://ipinfo.io/%s/json", ip)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		ipLogger.Warningf(context.Background(), "ipinfo 请求构建失败 [%s]: %v", ip, err)
 		return "未知"
 	}
 
-	// 拼接：国家-省/区域-城市
+	client := &http.Client{Timeout: ipQueryTimeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		ipLogger.Warningf(context.Background(), "ipinfo 查询失败 [%s]: %v", ip, err)
+		return "未知"
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		ipLogger.Warningf(context.Background(), "ipinfo 返回非200 [%s]: %d", ip, resp.StatusCode)
+		return "未知"
+	}
+
+	var result ipInfoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		ipLogger.Warningf(context.Background(), "ipinfo 解析失败 [%s]: %v", ip, err)
+		return "未知"
+	}
+
+	return joinLocationParts(result.Country, result.Region, result.City)
+}
+
+// joinLocationParts 拼接地理位置字符串：国家 省/区域 城市
+func joinLocationParts(country, region, city string) string {
 	parts := make([]string, 0, 3)
-	if result.Country != "" {
-		parts = append(parts, result.Country)
+	if country != "" {
+		parts = append(parts, country)
 	}
-	if result.Region != "" && result.Region != result.Country {
-		parts = append(parts, result.Region)
+	if region != "" && region != country {
+		parts = append(parts, region)
 	}
-	if result.City != "" && result.City != result.Region {
-		parts = append(parts, result.City)
+	if city != "" && city != region {
+		parts = append(parts, city)
 	}
 
 	if len(parts) == 0 {
