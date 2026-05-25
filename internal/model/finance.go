@@ -147,3 +147,48 @@ type FinanceShopDetailRes struct {
 	EndDate      string               `json:"endDate"`
 	Summary      FinanceStatsSummary  `json:"summary"`
 }
+
+// ============================================
+// 投手订单列表
+// ============================================
+
+// FinanceTraderOrdersReq 投手订单列表请求
+type FinanceTraderOrdersReq struct {
+	TraderId  int64  `json:"traderId" v:"required"`
+	TimeType  string `json:"timeType"`
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+	Page      int    `json:"page" d:"1"`
+	PageSize  int    `json:"pageSize" d:"20"`
+}
+
+// FinanceTraderOrdersRes 投手订单列表响应
+type FinanceTraderOrdersRes struct {
+	TraderId   int64                `json:"traderId"`
+	TraderName string               `json:"traderName"`
+	TimeType   string               `json:"timeType"`
+	StartDate  string               `json:"startDate"`
+	EndDate    string               `json:"endDate"`
+	Summary    FinanceStatsSummary  `json:"summary"`
+	Total      int                  `json:"total"`
+	Page       int                  `json:"page"`
+	PageSize   int                  `json:"pageSize"`
+	Orders     []FinanceOrderItem   `json:"orders"`
+}
+
+// FinanceOrderItem 订单明细项
+type FinanceOrderItem struct {
+	MainOrderNo    string  `json:"mainOrderNo"`
+	ProductName    string  `json:"productName"`
+	ProductNum     int     `json:"productNum"`
+	ProductPrice   float64 `json:"productPrice"`
+	OrderPayAmount float64 `json:"orderPayAmount"`
+	CostAmount     float64 `json:"costAmount"`
+	ReserveAmount  float64 `json:"reserveAmount"`
+	Commission     float64 `json:"commission"`
+	Platform       string  `json:"platform"`
+	ShopName       string  `json:"shopName"`
+	OrderStatus    string  `json:"orderStatus"`
+	AfterSaleStatus string `json:"afterSaleStatus"`
+	PayFinishTime  string  `json:"payFinishTime"`
+}

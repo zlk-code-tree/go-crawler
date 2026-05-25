@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go-crawler/internal/model"
+	"sort"
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
@@ -657,67 +658,58 @@ func (s *FinanceCommissionService) getDeptAndChildrenIds(ctx context.Context, de
 	return ids
 }
 
-// statsOrdersByShopIds 统计店铺订单数据（跨三张订单表）
+// platformTableMap 平台→订单表映射
+var platformTableMap = map[string]string{
+	"douyin":     "order_info",
+	"kuaishou":   "kuaishou_orders",
+	"shipinhao":  "shipinhao_orders",
+}
+
+// statsOrdersByShopIds 统计店铺订单数据（根据店铺 platform 只查对应订单表）
 func (s *FinanceCommissionService) statsOrdersByShopIds(ctx context.Context, shopIds []int, startDate, endDate string) (*model.FinanceStatsSummary, error) {
 	if len(shopIds) == 0 {
 		return &model.FinanceStatsSummary{}, nil
 	}
 
-	// 获取店铺的 uid 列表
+	// 获取店铺的 uid 和 platform
 	shops, err := g.DB().Model("shop").
 		Where("id IN(?)", shopIds).
-		Fields("uid").
+		Fields("uid, platform").
 		All()
 	if err != nil {
 		return nil, err
 	}
 
-	var uids []string
+	// 按 platform 分组 uid
+	platformUids := make(map[string][]string)
 	for _, shop := range shops {
 		uid := shop["uid"].String()
-		if uid != "" {
-			uids = append(uids, uid)
+		platform := shop["platform"].String()
+		if uid != "" && platform != "" {
+			platformUids[platform] = append(platformUids[platform], uid)
 		}
 	}
 
-	if len(uids) == 0 {
+	if len(platformUids) == 0 {
 		return &model.FinanceStatsSummary{}, nil
 	}
 
-	// 统计三张订单表
+	// 按平台分别统计对应订单表
 	totalStats := &model.FinanceStatsSummary{}
-
-	// 抖音订单
-	douyinStats, _ := s.statsOrderTable(ctx, "order_info", uids, startDate, endDate)
-	if douyinStats != nil {
-		totalStats.OrderCount += douyinStats.OrderCount
-		totalStats.ProductNum += douyinStats.ProductNum
-		totalStats.PayAmount += douyinStats.PayAmount
-		totalStats.CostAmount += douyinStats.CostAmount
-		totalStats.ReserveAmount += douyinStats.ReserveAmount
-		totalStats.Commission += douyinStats.Commission
-	}
-
-	// 快手订单
-	kuaishouStats, _ := s.statsOrderTable(ctx, "kuaishou_orders", uids, startDate, endDate)
-	if kuaishouStats != nil {
-		totalStats.OrderCount += kuaishouStats.OrderCount
-		totalStats.ProductNum += kuaishouStats.ProductNum
-		totalStats.PayAmount += kuaishouStats.PayAmount
-		totalStats.CostAmount += kuaishouStats.CostAmount
-		totalStats.ReserveAmount += kuaishouStats.ReserveAmount
-		totalStats.Commission += kuaishouStats.Commission
-	}
-
-	// 视频号订单
-	shipinhaoStats, _ := s.statsOrderTable(ctx, "shipinhao_orders", uids, startDate, endDate)
-	if shipinhaoStats != nil {
-		totalStats.OrderCount += shipinhaoStats.OrderCount
-		totalStats.ProductNum += shipinhaoStats.ProductNum
-		totalStats.PayAmount += shipinhaoStats.PayAmount
-		totalStats.CostAmount += shipinhaoStats.CostAmount
-		totalStats.ReserveAmount += shipinhaoStats.ReserveAmount
-		totalStats.Commission += shipinhaoStats.Commission
+	for platform, uids := range platformUids {
+		tableName, ok := platformTableMap[platform]
+		if !ok {
+			continue
+		}
+		stats, _ := s.statsOrderTable(ctx, tableName, uids, startDate, endDate)
+		if stats != nil {
+			totalStats.OrderCount += stats.OrderCount
+			totalStats.ProductNum += stats.ProductNum
+			totalStats.PayAmount += stats.PayAmount
+			totalStats.CostAmount += stats.CostAmount
+			totalStats.ReserveAmount += stats.ReserveAmount
+			totalStats.Commission += stats.Commission
+		}
 	}
 
 	return totalStats, nil
@@ -768,6 +760,223 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 	}, nil
 }
 
+
+// ============================================
+// 投手订单列表
+// ============================================
+
+// GetTraderOrderList 获取投手关联的订单列表
+func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *model.FinanceTraderOrdersReq) (*model.FinanceTraderOrdersRes, error) {
+	startDate, endDate := s.ParseTimeRange(req.TimeType, req.StartDate, req.EndDate)
+	realTraderId := model.DecodeTraderID(req.TraderId)
+
+	// 获取投手信息
+	trader, err := g.DB().Model("trader").Where("id", realTraderId).One()
+	if err != nil || trader.IsEmpty() {
+		return nil, fmt.Errorf("投手不存在")
+	}
+
+	// 获取投手关联的店铺
+	shops, err := g.DB().Model("shop s").
+		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
+		Where("tsr.trader_id", realTraderId).
+		Where("s.status", 1).
+		Fields("s.id, s.uid, s.account_name, s.platform_nickname, s.platform").
+		All()
+	if err != nil {
+		return nil, fmt.Errorf("查询投手店铺失败: %v", err)
+	}
+
+	// 构建 uid → 店铺信息 映射，按 platform 分组 uid
+	type shopInfo struct {
+		name     string
+		platform string
+	}
+	uidShopMap := make(map[string]shopInfo)
+	platformUids := make(map[string][]string) // platform → uids
+	for _, shop := range shops {
+		uid := shop["uid"].String()
+		platform := shop["platform"].String()
+		if uid == "" || platform == "" {
+			continue
+		}
+		name := shop["account_name"].String()
+		if shop["platform_nickname"].String() != "" {
+			name = shop["platform_nickname"].String()
+		}
+		uidShopMap[uid] = shopInfo{name: name, platform: platform}
+		platformUids[platform] = append(platformUids[platform], uid)
+	}
+
+	res := &model.FinanceTraderOrdersRes{
+		TraderId:   req.TraderId,
+		TraderName: trader["name"].String(),
+		TimeType:   req.TimeType,
+		StartDate:  startDate,
+		EndDate:    endDate,
+		Page:       req.Page,
+		PageSize:   req.PageSize,
+		Orders:     []model.FinanceOrderItem{},
+	}
+
+	if len(uidShopMap) == 0 {
+		return res, nil
+	}
+
+	// 分页参数
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := req.PageSize
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	// 日期范围
+	endDateNext := endDate
+	if t, err := time.Parse("2006-01-02", endDate); err == nil {
+		endDateNext = t.Add(24 * time.Hour).Format("2006-01-02")
+	}
+
+	validFilter := "AND after_sale_status NOT IN ('退款成功', '已全额退款', '待退货') AND order_status != '已关闭'"
+
+	// 根据店铺 platform 只查对应订单表
+	var totalCount int
+	var allOrders []model.FinanceOrderItem
+	var totalPay, totalCost float64
+
+	for platform, uids := range platformUids {
+		tableName, ok := platformTableMap[platform]
+		if !ok {
+			continue
+		}
+
+		// 查询该平台的订单数
+		countSQL := fmt.Sprintf(`
+			SELECT COUNT(*) AS cnt
+			FROM %s
+			WHERE talent_id IN(?)
+			  AND pay_finish_time >= ?
+			  AND pay_finish_time < ?
+			  AND main_order_no IS NOT NULL
+			  AND main_order_no != ''
+			  %s
+		`, tableName, validFilter)
+
+		countResult, err := g.DB().GetOne(ctx, countSQL, uids, startDate, endDateNext)
+		if err != nil {
+			continue
+		}
+		tableCount := countResult["cnt"].Int()
+		totalCount += tableCount
+
+		if tableCount == 0 {
+			continue
+		}
+
+		// 查询该平台的汇总
+		sumSQL := fmt.Sprintf(`
+			SELECT
+				COALESCE(SUM(order_pay_amount), 0) AS pay_amount,
+				COALESCE(SUM(product_price * product_num), 0) AS cost_amount
+			FROM %s
+			WHERE talent_id IN(?)
+			  AND pay_finish_time >= ?
+			  AND pay_finish_time < ?
+			  AND main_order_no IS NOT NULL
+			  AND main_order_no != ''
+			  %s
+		`, tableName, validFilter)
+
+		sumResult, err := g.DB().GetOne(ctx, sumSQL, uids, startDate, endDateNext)
+		if err == nil {
+			totalPay += sumResult["pay_amount"].Float64()
+			totalCost += sumResult["cost_amount"].Float64()
+		}
+
+		// 查询该平台的订单明细（带分页）
+		sql := fmt.Sprintf(`
+			SELECT
+				main_order_no,
+				product_name,
+				product_num,
+				product_price,
+				order_pay_amount,
+				order_status,
+				after_sale_status,
+				IFNULL(pay_finish_time, '') AS pay_finish_time,
+				talent_id
+			FROM %s
+			WHERE talent_id IN(?)
+			  AND pay_finish_time >= ?
+			  AND pay_finish_time < ?
+			  AND main_order_no IS NOT NULL
+			  AND main_order_no != ''
+			  %s
+			ORDER BY pay_finish_time DESC
+			LIMIT ?, ?
+		`, tableName, validFilter)
+
+		result, err := g.DB().GetAll(ctx, sql, uids, startDate, endDateNext, (page-1)*pageSize, pageSize)
+		if err != nil {
+			continue
+		}
+
+		for _, row := range result {
+			talentId := row["talent_id"].String()
+			shop := uidShopMap[talentId]
+			payAmount := row["order_pay_amount"].Float64()
+			costAmount := row["product_price"].Float64() * float64(row["product_num"].Int())
+			reserveAmount := roundFloatFinance(payAmount*0.05, 2)
+			commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
+
+			payTime := row["pay_finish_time"].String()
+			if len(payTime) >= 10 {
+				payTime = payTime[:10]
+			}
+
+			allOrders = append(allOrders, model.FinanceOrderItem{
+				MainOrderNo:     row["main_order_no"].String(),
+				ProductName:     row["product_name"].String(),
+				ProductNum:      row["product_num"].Int(),
+				ProductPrice:    row["product_price"].Float64(),
+				OrderPayAmount:  payAmount,
+				CostAmount:      roundFloatFinance(costAmount, 2),
+				ReserveAmount:   reserveAmount,
+				Commission:      commission,
+				Platform:        shop.platform,
+				ShopName:        shop.name,
+				OrderStatus:     row["order_status"].String(),
+				AfterSaleStatus: row["after_sale_status"].String(),
+				PayFinishTime:   payTime,
+			})
+		}
+	}
+
+	// 按付款时间倒序排序
+	sort.Slice(allOrders, func(i, j int) bool {
+		return allOrders[i].PayFinishTime > allOrders[j].PayFinishTime
+	})
+
+	// 截取当前页
+	if len(allOrders) > pageSize {
+		allOrders = allOrders[:pageSize]
+	}
+
+	totalReserve := roundFloatFinance(totalPay*0.05, 2)
+	res.Summary = model.FinanceStatsSummary{
+		OrderCount:    totalCount,
+		PayAmount:     roundFloatFinance(totalPay, 2),
+		CostAmount:    roundFloatFinance(totalCost, 2),
+		ReserveAmount: totalReserve,
+		Commission:    roundFloatFinance(totalPay-totalCost-totalReserve, 2),
+	}
+	res.Total = totalCount
+	res.Orders = allOrders
+
+	return res, nil
+}
 
 // roundFloatFinance 四舍五入（财务专用）
 func roundFloatFinance(f float64, n int) float64 {

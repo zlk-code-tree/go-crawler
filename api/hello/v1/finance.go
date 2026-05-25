@@ -94,3 +94,19 @@ type FinanceBackfillRes struct {
 	Success bool   `json:"success" dc:"是否成功"`
 	Message string `json:"message" dc:"提示信息"`
 }
+
+// ==================== 投手订单列表 ====================
+
+// FinanceTraderOrdersReq 投手订单列表请求
+type FinanceTraderOrdersReq struct {
+	g.Meta    `path:"/finance/trader-orders" method:"get" tags:"Finance" summary:"获取投手订单列表"`
+	TraderId  int64  `json:"traderId" in:"query" v:"required#投手ID不能为空" dc:"投手ID"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
+	StartDate string `json:"startDate" in:"query" d:"" dc:"开始日期"`
+	EndDate   string `json:"endDate" in:"query" d:"" dc:"结束日期"`
+	Page      int    `json:"page" in:"query" d:"1" dc:"页码"`
+	PageSize  int    `json:"pageSize" in:"query" d:"20" dc:"每页数量"`
+}
+
+// FinanceTraderOrdersRes 投手订单列表响应
+type FinanceTraderOrdersRes = model.FinanceTraderOrdersRes

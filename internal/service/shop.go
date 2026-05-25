@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go-crawler/internal/model"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -193,7 +194,7 @@ func (s *ShopService) ExportToExcel(ctx context.Context, keyword string) (string
 	f.SetActiveSheet(index)
 
 	// 设置表头
-	headers := []string{"platform", "uid", "account_name", "platform_nickname", "operator", "account_ownership"}
+	headers := []string{"平台", "达人ID", "账号名称", "平台昵称", "运营者", "账号归属"}
 	for i, header := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheetName, cell, header)
@@ -231,6 +232,7 @@ func (s *ShopService) ExportToExcel(ctx context.Context, keyword string) (string
 
 	// 保存文件
 	exportDir := "./exports"
+	os.MkdirAll(exportDir, 0755)
 	filename := filepath.Join(exportDir, fmt.Sprintf("shop_export_%s.xlsx", time.Now().Format("20060102150405")))
 	if err := f.SaveAs(filename); err != nil {
 		return "", fmt.Errorf("保存Excel文件失败：%w", err)

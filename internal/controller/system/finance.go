@@ -112,6 +112,27 @@ func (c *FinanceController) Aggregate(ctx context.Context, req *v1.FinanceAggreg
 	}, nil
 }
 
+// TraderOrders 获取投手订单列表 GET /api/finance/trader-orders
+func (c *FinanceController) TraderOrders(ctx context.Context, req *v1.FinanceTraderOrdersReq) (res *v1.FinanceTraderOrdersRes, err error) {
+	financeService := service.NewFinanceCommissionService()
+
+	ordersReq := &model.FinanceTraderOrdersReq{
+		TraderId:  req.TraderId,
+		TimeType:  req.TimeType,
+		StartDate: req.StartDate,
+		EndDate:   req.EndDate,
+		Page:      req.Page,
+		PageSize:  req.PageSize,
+	}
+
+	result, err := financeService.GetTraderOrderList(ctx, ordersReq)
+	if err != nil {
+		return nil, gerror.New("查询失败: " + err.Error())
+	}
+
+	return result, nil
+}
+
 // Backfill 历史数据回填 POST /api/finance/backfill
 func (c *FinanceController) Backfill(ctx context.Context, req *v1.FinanceBackfillReq) (res *v1.FinanceBackfillRes, err error) {
 	aggregateService := service.NewFinanceAggregateService()
