@@ -82,6 +82,16 @@ var (
 				permissionCtrl.New(),
 					ctrlVideo.New(),
 				)
+
+				// 达人订单匹配路由（显式绑定，支持多级路径）
+				matchCtrl := system.NewOrderMatchController()
+				group.POST("/order-match/import-orders", matchCtrl.OrderMatchImportOrders)
+				group.POST("/order-match/import-jingxuan", matchCtrl.OrderMatchImportJingxuan)
+				group.POST("/order-match/run", matchCtrl.OrderMatchRun)
+				group.GET("/order-match/stats", matchCtrl.OrderMatchStats)
+				group.GET("/order-match/order-list", matchCtrl.OrderMatchOrderList)
+				group.GET("/order-match/jingxuan-list", matchCtrl.OrderMatchJingxuanList)
+				group.GET("/order-match/result-list", matchCtrl.OrderMatchResultList)
 			})
 
 			// 导出类接口: 需要 JWT 认证，但使用 raw *ghttp.Request 直接处理文件下载
@@ -92,6 +102,8 @@ var (
 				oaCtrl := system.NewOrderAnalysisController()
 				group.GET("/order-analysis/group-export", oaCtrl.GroupExport)
 				group.GET("/order-analysis/export-shop-orders", oaCtrl.ExportShopOrders)
+				matchCtrl := system.NewOrderMatchController()
+				group.GET("/order-match/export", matchCtrl.OrderMatchExport)
 			})
 
 			// WebSocket 路由（不经过标准 response 中间件）

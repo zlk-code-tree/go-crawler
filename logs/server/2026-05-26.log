@@ -1,0 +1,311 @@
+2026-05-26T15:19:40.610+08:00 [INFO] {a8e38a72760cb31866f07830e202cc41} [OrderMatch] 导入普通订单: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_orders_1779779980609348000.xlsx
+2026-05-26T15:20:49.066+08:00 [INFO] {804a1161860cb31869f07830d2569e14} [OrderMatch] 导入普通订单: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_orders_1779780049059871000.xlsx
+2026-05-26T15:20:57.155+08:00 [INFO] {b03b1643880cb3186bf0783000c652b6} [OrderMatch] 导入精选联盟: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_jingxuan_1779780057148151000.xlsx
+2026-05-26T15:20:57.157+08:00 [INFO] {b03b1643880cb3186bf0783000c652b6} [OrderMatch] 导入精选联盟: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_jingxuan_1779780057148151000.xlsx
+2026-05-26T15:31:51.513+08:00 [INFO] {90ddd09f200db3189e87c062b464bb0b} [OrderMatch] 导入普通订单: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_orders_1779780711513005000.xlsx
+2026-05-26T15:32:49.085+08:00 [INFO] {f08756072e0db318ac87c062b5fcc450} [OrderMatch] 导入普通订单: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_orders_1779780769085273000.xlsx
+2026-05-26T15:33:24.660+08:00 [INFO] {a807b54f360db318b287c062566efa13} [OrderMatch] 导入普通订单: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_orders_1779780804659990000.xlsx
+2026-05-26T15:34:20.877+08:00 [INFO] {602bd064430db318b887c0622dffea07} [OrderMatch] 导入普通订单: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_orders_1779780860869689000.xlsx
+2026-05-26T15:41:14.377+08:00 [INFO] {680d35aba30db318a60d752a277996ff} [OrderMatch] 导入普通订单: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_orders_1779781274369590000.xlsx
+2026-05-26T15:45:43.127+08:00 [INFO] {a038663ce20db318ae97ed7e2fb5dd84} [OrderMatch] 导入普通订单: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_orders_1779781543121512000.xlsx
+2026-05-26T15:49:08.811+08:00 [INFO] {e849ab22120eb318b797ed7ea7fec3c1} [OrderMatch] 导入精选联盟: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_jingxuan_1779781748808485000.xlsx
+2026-05-26T15:49:08.811+08:00 [INFO] {e849ab22120eb318b797ed7ea7fec3c1} [OrderMatch] 导入精选联盟: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_jingxuan_1779781748808485000.xlsx
+2026-05-26T15:58:07.222+08:00 [INFO] {b0e0967d8f0eb31814bca34be611eacf} [OrderMatch] 导入精选联盟: platform=douyin, file=/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/match_jingxuan_1779782287211059000.xlsx
+2026-05-26T16:53:36.651+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 订单文件保存成功: /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/order_import_5_0_1779785616.xlsx
+2026-05-26T16:53:36.651+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 开始导入订单文件: /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/uploads/order_import_5_0_1779785616.xlsx
+2026-05-26T16:53:36.928+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 订单Excel表头: [店铺 主订单编号 子订单编号 选购商品 商品规格 商品数量 商品ID 商家编码 商品单价 订单应付金额 运费 优惠总金额 平台优惠 商家优惠 达人优惠 商家改价 支付优惠 红包抵扣 支付方式 手续费 收件人 收件人手机号 省 市 区 街道 详细地址 是否修改过地址 地址修改时段 买家留言 订单提交时间 旗帜颜色 商家备注 订单完成时间 支付完成时间 APP渠道 流量来源 订单状态 承诺发货时间 订单类型 鲁班落地页ID 达人ID 达人昵称 所属门店ID 售后状态 取消原因 预约发货时间 仓库ID 仓库名称 是否安心购 广告渠道 流量类型 流量体裁 流量渠道 发货主体 发货主体明细 发货时间 降价类优惠 平台实际承担优惠金额 商家实际承担优惠金额 达人实际承担优惠金额 预计送达时间 是否平台仓自流转 车型 商品69码 发货SN码 发货IMEI码1 发货IMEI码2 预约送达时间 建议发货时间（起） 建议发货时间（止） 物流SN码 物流IMEI码1 物流IMEI码2]
+2026-05-26T16:53:36.981+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 已存在订单数量: 0
+2026-05-26T16:53:37.031+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第1批，共1000条数据
+2026-05-26T16:53:37.818+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第2-1001行）
+2026-05-26T16:53:37.879+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第2批，共1000条数据
+2026-05-26T16:53:38.605+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第1002-2001行）
+2026-05-26T16:53:38.661+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第3批，共1000条数据
+2026-05-26T16:53:39.314+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第2002-3001行）
+2026-05-26T16:53:39.375+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第4批，共1000条数据
+2026-05-26T16:53:40.081+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第3002-4001行）
+2026-05-26T16:53:40.137+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第5批，共1000条数据
+2026-05-26T16:53:40.915+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第4002-5001行）
+2026-05-26T16:53:40.973+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第6批，共1000条数据
+2026-05-26T16:53:41.669+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第5002-6001行）
+2026-05-26T16:53:41.729+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第7批，共1000条数据
+2026-05-26T16:53:42.422+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第6002-7001行）
+2026-05-26T16:53:42.480+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第8批，共1000条数据
+2026-05-26T16:53:43.161+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第7002-8001行）
+2026-05-26T16:53:43.226+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第9批，共1000条数据
+2026-05-26T16:53:43.872+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第8002-9001行）
+2026-05-26T16:53:43.930+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第10批，共1000条数据
+2026-05-26T16:53:44.571+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第9002-10001行）
+2026-05-26T16:53:44.631+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第11批，共1000条数据
+2026-05-26T16:53:45.210+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第10002-11001行）
+2026-05-26T16:53:45.269+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第12批，共1000条数据
+2026-05-26T16:53:45.838+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第11002-12001行）
+2026-05-26T16:53:45.896+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第13批，共1000条数据
+2026-05-26T16:53:46.495+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第12002-13001行）
+2026-05-26T16:53:46.557+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第14批，共1000条数据
+2026-05-26T16:53:47.141+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第13002-14001行）
+2026-05-26T16:53:47.202+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第15批，共1000条数据
+2026-05-26T16:53:47.888+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第14002-15001行）
+2026-05-26T16:53:47.950+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第16批，共1000条数据
+2026-05-26T16:53:48.567+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第15002-16001行）
+2026-05-26T16:53:48.627+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第17批，共1000条数据
+2026-05-26T16:53:49.265+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第16002-17001行）
+2026-05-26T16:53:49.324+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第18批，共1000条数据
+2026-05-26T16:53:49.915+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第17002-18001行）
+2026-05-26T16:53:49.976+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第19批，共1000条数据
+2026-05-26T16:53:50.604+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第18002-19001行）
+2026-05-26T16:53:50.654+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第20批，共1000条数据
+2026-05-26T16:53:51.245+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第19002-20001行）
+2026-05-26T16:53:51.304+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第21批，共1000条数据
+2026-05-26T16:53:51.900+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第20002-21001行）
+2026-05-26T16:53:51.963+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第22批，共1000条数据
+2026-05-26T16:53:52.564+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第21002-22001行）
+2026-05-26T16:53:52.622+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第23批，共1000条数据
+2026-05-26T16:53:53.253+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第22002-23001行）
+2026-05-26T16:53:53.314+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第24批，共1000条数据
+2026-05-26T16:53:53.906+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第23002-24001行）
+2026-05-26T16:53:53.961+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第25批，共1000条数据
+2026-05-26T16:53:54.518+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第24002-25001行）
+2026-05-26T16:53:54.579+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第26批，共1000条数据
+2026-05-26T16:53:55.144+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第25002-26001行）
+2026-05-26T16:53:55.205+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第27批，共1000条数据
+2026-05-26T16:53:55.795+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第26002-27001行）
+2026-05-26T16:53:55.858+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第28批，共1000条数据
+2026-05-26T16:53:56.417+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第27002-28001行）
+2026-05-26T16:53:56.479+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第29批，共1000条数据
+2026-05-26T16:53:57.106+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第28002-29001行）
+2026-05-26T16:53:57.167+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第30批，共1000条数据
+2026-05-26T16:53:57.834+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第29002-30001行）
+2026-05-26T16:53:57.895+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第31批，共1000条数据
+2026-05-26T16:53:58.681+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第30002-31001行）
+2026-05-26T16:53:58.743+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第32批，共1000条数据
+2026-05-26T16:53:59.367+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第31002-32001行）
+2026-05-26T16:53:59.430+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第33批，共1000条数据
+2026-05-26T16:54:00.079+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第32002-33001行）
+2026-05-26T16:54:00.142+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第34批，共1000条数据
+2026-05-26T16:54:00.765+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第33002-34001行）
+2026-05-26T16:54:00.826+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第35批，共1000条数据
+2026-05-26T16:54:01.541+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第34002-35001行）
+2026-05-26T16:54:01.604+08:00 [DEBU] {30b3e0ae9611b318a73433260b35e361} 准备批量插入第36批，共1000条数据
+2026-05-26T16:54:02.277+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：1000条（约第35002-36001行）
+2026-05-26T16:54:02.382+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 批量插入成功：112条（最后一批）
+2026-05-26T16:54:02.382+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 订单导入完成: 成功36112条，跳过0条（含空行0+已存在0+验证失败0），失败0条
+2026-05-26T16:54:02.384+08:00 [INFO] {30b3e0ae9611b318a73433260b35e361} 订单导入完成: 成功36112条，跳过0条，失败0条
+2026-05-26T16:58:31.713+08:00 [INFO] {a0bcea63db11b318d934332609eee6ee} [OrderMatch] 开始执行订单匹配
+2026-05-26T16:58:31.802+08:00 [INFO] {a0bcea63db11b318d934332609eee6ee} [OrderMatch] 开始匹配平台: douyin
+2026-05-26T16:58:40.632+08:00 [INFO] {606f8577dd11b318dc34332614d5b62b} [OrderMatch] 开始执行订单匹配
+2026-05-26T16:58:40.648+08:00 [INFO] {606f8577dd11b318dc34332614d5b62b} [OrderMatch] 开始匹配平台: douyin
+2026-05-26T16:59:53.143+08:00 [INFO] {68726e59ee11b318ee25061fc0cc4a64} [OrderMatch] 开始执行订单匹配
+2026-05-26T16:59:53.278+08:00 [INFO] {68726e59ee11b318ee25061fc0cc4a64} [OrderMatch] 开始匹配平台: douyin
+2026-05-26T16:59:53.377+08:00 [INFO] {68726e59ee11b318ee25061fc0cc4a64} [OrderMatch] 平台douyin匹配完成: 匹配0, 回填成功0, 未匹配0
+2026-05-26T16:59:53.377+08:00 [INFO] {68726e59ee11b318ee25061fc0cc4a64} [OrderMatch] 全部匹配完成: 总计0, 回填成功0, 未匹配0
+2026-05-26T17:07:52.424+08:00 [INFO] {e0cfd2f05d12b3181de1bb63353c2e48} [OrderMatch] 开始执行订单匹配
+2026-05-26T17:07:52.565+08:00 [INFO] {e0cfd2f05d12b3181de1bb63353c2e48} [OrderMatch] 开始匹配平台: douyin, 生产表: order_info, 匹配字段: main_order_no
+2026-05-26T17:07:52.595+08:00 [INFO] {e0cfd2f05d12b3181de1bb63353c2e48} [OrderMatch] Step1 匹配写入结果表: 0条
+2026-05-26T17:07:52.655+08:00 [INFO] {e0cfd2f05d12b3181de1bb63353c2e48} [OrderMatch] Step3 回流生产表: 0条
+2026-05-26T17:07:52.672+08:00 [INFO] {e0cfd2f05d12b3181de1bb63353c2e48} [OrderMatch] 平台douyin匹配完成: 匹配0, 回填成功0, 未匹配0
+2026-05-26T17:07:52.672+08:00 [INFO] {e0cfd2f05d12b3181de1bb63353c2e48} [OrderMatch] 全部匹配完成: 总计0, 回填成功0, 未匹配0
+2026-05-26T17:11:21.472+08:00 [INFO] {c08a059d8e12b3181f509436dbb3c4d3} [OrderMatch] 开始执行订单匹配
+2026-05-26T17:11:21.657+08:00 [INFO] {c08a059d8e12b3181f509436dbb3c4d3} [OrderMatch] 开始匹配平台: douyin, 生产表: order_info, 匹配字段: main_order_no
+2026-05-26T17:11:21.695+08:00 [INFO] {c08a059d8e12b3181f509436dbb3c4d3} [OrderMatch] Step1 匹配写入结果表: 0条
+2026-05-26T17:11:21.733+08:00 [INFO] {c08a059d8e12b3181f509436dbb3c4d3} [OrderMatch] Step2 标记match_orders已匹配: 0条
+2026-05-26T17:11:21.772+08:00 [INFO] {c08a059d8e12b3181f509436dbb3c4d3} [OrderMatch] Step3 回流生产表: 0条
+2026-05-26T17:11:21.792+08:00 [ERRO] {c08a059d8e12b3181f509436dbb3c4d3} [OrderMatch] Step4 标记match_result失败[douyin]: 
+			UPDATE match_result mr
+			SET mr.match_status = 1, mr.matched_table = 'order_info'
+			WHERE mr.match_status = 0 AND mr.platform = 'douyin'
+			  AND EXISTS (SELECT 1 FROM order_info t WHERE t.main_order_no COLLATE utf8mb4_general_ci = mr.order_no COLLATE utf8mb4_general_ci AND t.talent_id = mr.talent_id): Error 1267 (HY000): Illegal mix of collations (utf8mb4_unicode_ci,IMPLICIT) and (utf8mb4_0900_ai_ci,IMPLICIT) for operation '=' 
+Stack:
+1.  go-crawler/internal/service.(*OrderMatchService).MatchOrders
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/order_match.go:545
+2.  go-crawler/internal/controller/system.(*OrderMatchController).OrderMatchRun
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/order_match.go:107
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-05-26T17:11:21.792+08:00 [INFO] {c08a059d8e12b3181f509436dbb3c4d3} [OrderMatch] 平台douyin匹配完成: 匹配0, 回填成功0, 未匹配0
+2026-05-26T17:11:21.793+08:00 [INFO] {c08a059d8e12b3181f509436dbb3c4d3} [OrderMatch] 全部匹配完成: 总计0, 回填成功0, 未匹配0
+2026-05-26T17:12:37.244+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] 开始执行订单匹配
+2026-05-26T17:12:37.358+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] 开始匹配平台: douyin, 生产表: order_info, 匹配字段: main_order_no
+2026-05-26T17:12:37.482+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] 诊断: match_orders=36099, 缺少达人=0, match_jingxuan_orders=24994
+2026-05-26T17:12:37.542+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] 诊断 match_orders.order_no 示例: [6926432752084548773]
+2026-05-26T17:12:37.543+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] 诊断 match_orders.order_no 示例: [6926432773811437406]
+2026-05-26T17:12:37.543+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] 诊断 match_orders.order_no 示例: [6926432782941323108]
+2026-05-26T17:12:37.543+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432752084548773]
+2026-05-26T17:12:37.543+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432773811437406]
+2026-05-26T17:12:37.543+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432782941323108]
+2026-05-26T17:12:37.575+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] Step1 匹配写入结果表: 0条
+2026-05-26T17:12:37.606+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] Step2 标记match_orders已匹配: 0条
+2026-05-26T17:12:37.636+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] Step3 回流生产表: 0条
+2026-05-26T17:12:37.653+08:00 [ERRO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] Step4 标记match_result失败[douyin]: 
+			UPDATE match_result mr
+			SET mr.match_status = 1, mr.matched_table = 'order_info'
+			WHERE mr.match_status = 0 AND mr.platform = 'douyin'
+			  AND EXISTS (SELECT 1 FROM order_info t WHERE t.main_order_no COLLATE utf8mb4_general_ci = mr.order_no COLLATE utf8mb4_general_ci AND t.talent_id = mr.talent_id): Error 1267 (HY000): Illegal mix of collations (utf8mb4_unicode_ci,IMPLICIT) and (utf8mb4_0900_ai_ci,IMPLICIT) for operation '=' 
+Stack:
+1.  go-crawler/internal/service.(*OrderMatchService).MatchOrders
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/order_match.go:561
+2.  go-crawler/internal/controller/system.(*OrderMatchController).OrderMatchRun
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/order_match.go:107
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-05-26T17:12:37.653+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] 平台douyin匹配完成: 匹配0, 回填成功0, 未匹配0
+2026-05-26T17:12:37.653+08:00 [INFO] {20957141a012b318a0d5de27be93ba44} [OrderMatch] 全部匹配完成: 总计0, 回填成功0, 未匹配0
+2026-05-26T17:20:30.047+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] 开始执行订单匹配
+2026-05-26T17:20:30.081+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] 开始匹配平台: douyin, 生产表: order_info, 匹配字段: main_order_no
+2026-05-26T17:20:30.248+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] 诊断: match_orders=36099, 缺少达人=0, match_jingxuan_orders=24994
+2026-05-26T17:20:30.310+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] 诊断 match_orders.order_no 示例: [6926432752084548773]
+2026-05-26T17:20:30.310+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] 诊断 match_orders.order_no 示例: [6926432773811437406]
+2026-05-26T17:20:30.310+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] 诊断 match_orders.order_no 示例: [6926432782941323108]
+2026-05-26T17:20:30.310+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432752084548773]
+2026-05-26T17:20:30.310+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432773811437406]
+2026-05-26T17:20:30.310+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432782941323108]
+2026-05-26T17:20:30.376+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] Step1 匹配写入结果表: 0条
+2026-05-26T17:20:30.407+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] Step2 标记match_orders已匹配: 0条
+2026-05-26T17:20:30.439+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] Step3 回流生产表: 0条
+2026-05-26T17:20:30.472+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] Step4 标记match_result已回填: 0条
+2026-05-26T17:20:30.472+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] 平台douyin匹配完成: 匹配0, 回填成功0, 未匹配0
+2026-05-26T17:20:30.472+08:00 [INFO] {e0afb8560e13b3186a546432f6ddb6e9} [OrderMatch] 全部匹配完成: 总计0, 回填成功0, 未匹配0
+2026-05-26T17:25:20.652+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] 开始执行订单匹配
+2026-05-26T17:25:20.687+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] 开始匹配平台: douyin, 生产表: order_info, 匹配字段: main_order_no
+2026-05-26T17:25:20.854+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] 诊断: match_orders=36099, 缺少达人=0, match_jingxuan_orders=24994
+2026-05-26T17:25:20.920+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] 诊断 match_orders talent_id=[4191751621587565] product_name=[生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维]
+2026-05-26T17:25:20.920+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] 诊断 match_orders talent_id=[905609422842103] product_name=[生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维]
+2026-05-26T17:25:20.920+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] 诊断 match_orders talent_id=[553773448313672] product_name=[这书能让孩子戒掉手机 培养自控自律专注力 精准破解手机成瘾难题]
+2026-05-26T17:25:20.920+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432752084548773]
+2026-05-26T17:25:20.920+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432773811437406]
+2026-05-26T17:25:20.920+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432782941323108]
+2026-05-26T17:25:20.986+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] Step1 匹配写入结果表: 0条
+2026-05-26T17:25:21.019+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] Step2 标记match_orders已匹配: 0条
+2026-05-26T17:25:21.054+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] Step3 回流生产表: 0条
+2026-05-26T17:25:21.087+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] Step4 标记match_result已回填: 0条
+2026-05-26T17:25:21.087+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] 平台douyin匹配完成: 匹配0, 回填成功0, 未匹配0
+2026-05-26T17:25:21.087+08:00 [INFO] {a88127005213b318bd830718398b1835} [OrderMatch] 全部匹配完成: 总计0, 回填成功0, 未匹配0
+2026-05-26T17:29:04.431+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] 开始执行订单匹配
+2026-05-26T17:29:04.556+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] 开始匹配平台: douyin, 生产表: order_info, 匹配字段: main_order_no
+2026-05-26T17:29:04.785+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] 诊断: match_orders=36099, 缺少达人=0, match_jingxuan_orders=24994
+2026-05-26T17:29:04.845+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] 诊断 match_orders talent_id=[4191751621587565] product_name=[生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维]
+2026-05-26T17:29:04.845+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] 诊断 match_orders talent_id=[905609422842103] product_name=[生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维]
+2026-05-26T17:29:04.845+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] 诊断 match_orders talent_id=[553773448313672] product_name=[这书能让孩子戒掉手机 培养自控自律专注力 精准破解手机成瘾难题]
+2026-05-26T17:29:04.845+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432752084548773]
+2026-05-26T17:29:04.845+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432773811437406]
+2026-05-26T17:29:04.845+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432782941323108]
+2026-05-26T17:29:04.897+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] Step1 匹配写入结果表: 0条
+2026-05-26T17:29:04.927+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] Step2 标记match_orders已匹配: 0条
+2026-05-26T17:29:04.957+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] Step3 回流生产表: 0条
+2026-05-26T17:29:04.987+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] Step4 标记match_result已回填: 0条
+2026-05-26T17:29:04.987+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] 平台douyin匹配完成: 匹配0, 回填成功0, 未匹配0
+2026-05-26T17:29:04.987+08:00 [INFO] {e8cc571a8613b318a721617c26fbcc67} [OrderMatch] 全部匹配完成: 总计0, 回填成功0, 未匹配0
+2026-05-26T17:33:11.926+08:00 [INFO] {88bf3bbabf13b318d0739954a2f1560e} [OrderMatch] 开始执行订单匹配
+2026-05-26T17:33:12.095+08:00 [INFO] {88bf3bbabf13b318d0739954a2f1560e} [OrderMatch] 开始匹配平台: douyin, 生产表: order_info, 匹配字段: main_order_no
+2026-05-26T17:33:12.340+08:00 [INFO] {88bf3bbabf13b318d0739954a2f1560e} [OrderMatch] 诊断: match_orders=36099, 缺少达人=9010, match_jingxuan_orders=24994
+2026-05-26T17:33:12.415+08:00 [INFO] {88bf3bbabf13b318d0739954a2f1560e} [OrderMatch] 诊断 match_orders talent_id=[4191751621587565] product_name=[生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维]
+2026-05-26T17:33:12.415+08:00 [INFO] {88bf3bbabf13b318d0739954a2f1560e} [OrderMatch] 诊断 match_orders talent_id=[905609422842103] product_name=[生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维]
+2026-05-26T17:33:12.415+08:00 [INFO] {88bf3bbabf13b318d0739954a2f1560e} [OrderMatch] 诊断 match_orders talent_id=[553773448313672] product_name=[这书能让孩子戒掉手机 培养自控自律专注力 精准破解手机成瘾难题]
+2026-05-26T17:33:12.415+08:00 [INFO] {88bf3bbabf13b318d0739954a2f1560e} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432752084548773]
+2026-05-26T17:33:12.415+08:00 [INFO] {88bf3bbabf13b318d0739954a2f1560e} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432773811437406]
+2026-05-26T17:33:12.416+08:00 [INFO] {88bf3bbabf13b318d0739954a2f1560e} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432782941323108]
+2026-05-26T17:33:12.697+08:00 [INFO] {88bf3bbabf13b318d0739954a2f1560e} [OrderMatch] Step1 匹配写入结果表: 4501条
+2026-05-26T17:33:21.940+08:00 [ERRO] {88bf3bbabf13b318d0739954a2f1560e} [OrderMatch] Step2 标记match_orders失败[douyin]: 
+			UPDATE match_orders mo
+			INNER JOIN match_result mr ON mo.platform = mr.platform AND mo.order_no COLLATE utf8mb4_general_ci = mr.order_no COLLATE utf8mb4_general_ci
+			SET mo.status = 1
+			WHERE mr.match_status = 0 AND mr.platform = 'douyin': context canceled 
+Stack:
+1.  go-crawler/internal/service.(*OrderMatchService).MatchOrders
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/order_match.go:533
+2.  go-crawler/internal/controller/system.(*OrderMatchController).OrderMatchRun
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/order_match.go:107
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-05-26T17:33:21.941+08:00 [ERRO] {88bf3bbabf13b318d0739954a2f1560e} [OrderMatch] Step3 回流失败[douyin]: 
+			UPDATE order_info t
+			INNER JOIN match_result mr ON t.main_order_no COLLATE utf8mb4_general_ci = mr.order_no COLLATE utf8mb4_general_ci
+			SET t.talent_id = mr.talent_id, t.talent_name = mr.talent_name
+			WHERE mr.match_status = 0 AND mr.platform = 'douyin'
+			  AND (t.talent_id = '' OR t.talent_id IS NULL): context canceled 
+Stack:
+1.  go-crawler/internal/service.(*OrderMatchService).MatchOrders
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/order_match.go:548
+2.  go-crawler/internal/controller/system.(*OrderMatchController).OrderMatchRun
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/order_match.go:107
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-05-26T17:37:01.757+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] 开始执行订单匹配
+2026-05-26T17:37:01.871+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] 开始匹配平台: douyin, 生产表: order_info, 匹配字段: main_order_no
+2026-05-26T17:37:02.088+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] 诊断: match_orders=36099, 缺少达人=9010, match_jingxuan_orders=24994
+2026-05-26T17:37:02.146+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] 诊断 match_orders talent_id=[4191751621587565] product_name=[生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维]
+2026-05-26T17:37:02.146+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] 诊断 match_orders talent_id=[905609422842103] product_name=[生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维]
+2026-05-26T17:37:02.146+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] 诊断 match_orders talent_id=[553773448313672] product_name=[这书能让孩子戒掉手机 培养自控自律专注力 精准破解手机成瘾难题]
+2026-05-26T17:37:02.146+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432752084548773]
+2026-05-26T17:37:02.146+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432773811437406]
+2026-05-26T17:37:02.146+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432782941323108]
+2026-05-26T17:37:02.306+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] Step1 匹配写入结果表: 0条
+2026-05-26T17:37:02.335+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] Step2 标记match_orders已匹配: 0条
+2026-05-26T17:37:02.364+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] Step3 回流生产表: 0条
+2026-05-26T17:37:02.395+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] Step4 标记match_result已回填: 0条
+2026-05-26T17:37:02.395+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] 平台douyin匹配完成: 匹配0, 回填成功0, 未匹配0
+2026-05-26T17:37:02.395+08:00 [INFO] {68aa2b3df513b318379cd3416ff8ce33} [OrderMatch] 全部匹配完成: 总计0, 回填成功0, 未匹配0
+2026-05-26T17:40:40.986+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 开始执行订单匹配
+2026-05-26T17:40:41.105+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 开始匹配平台: douyin, 生产表: order_info, 匹配字段: main_order_no
+2026-05-26T17:40:41.349+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 诊断: match_orders=36099, 缺少达人=9010, match_jingxuan_orders=24994
+2026-05-26T17:40:41.408+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 诊断 match_orders talent_id=[4191751621587565] product_name=[生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维]
+2026-05-26T17:40:41.408+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 诊断 match_orders talent_id=[905609422842103] product_name=[生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维]
+2026-05-26T17:40:41.408+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 诊断 match_orders talent_id=[553773448313672] product_name=[这书能让孩子戒掉手机 培养自控自律专注力 精准破解手机成瘾难题]
+2026-05-26T17:40:41.408+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432752084548773]
+2026-05-26T17:40:41.408+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432773811437406]
+2026-05-26T17:40:41.409+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432782941323108]
+2026-05-26T17:40:41.623+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 诊断 talent_id=0 与 jingxuan 交集: 4501
+2026-05-26T17:40:41.653+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 诊断 JOIN: match_orders.order_no=[6926432818794691760] jingxuan.order_no=[]
+2026-05-26T17:40:41.653+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 诊断 JOIN: match_orders.order_no=[6926432844493782452] jingxuan.order_no=[]
+2026-05-26T17:40:41.653+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 诊断 JOIN: match_orders.order_no=[6926432862159732276] jingxuan.order_no=[6926432862159732276]
+2026-05-26T17:40:41.850+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] Step1 匹配写入结果表: 0条
+2026-05-26T17:40:41.880+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] Step2 标记match_orders已匹配: 0条
+2026-05-26T17:40:41.910+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] Step3 回流生产表: 0条
+2026-05-26T17:40:41.938+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] Step4 标记match_result已回填: 0条
+2026-05-26T17:40:41.939+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 平台douyin匹配完成: 匹配0, 回填成功0, 未匹配0
+2026-05-26T17:40:41.939+08:00 [INFO] {404f43482814b318dd172d6d4f32691c} [OrderMatch] 全部匹配完成: 总计0, 回填成功0, 未匹配0
+2026-05-26T17:47:16.477+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 开始执行订单匹配
+2026-05-26T17:47:16.655+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 开始匹配平台: douyin, 生产表: order_info, 匹配字段: main_order_no
+2026-05-26T17:47:16.888+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 诊断: match_orders=36099, 缺少达人=9010, match_jingxuan_orders=24994
+2026-05-26T17:47:16.960+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 诊断 match_orders talent_id=[4191751621587565] product_name=[生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维]
+2026-05-26T17:47:16.961+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 诊断 match_orders talent_id=[905609422842103] product_name=[生命里的第一课 培养孩子的人生观价值观 指引人生方向培养思维]
+2026-05-26T17:47:16.961+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 诊断 match_orders talent_id=[553773448313672] product_name=[这书能让孩子戒掉手机 培养自控自律专注力 精准破解手机成瘾难题]
+2026-05-26T17:47:16.961+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432752084548773]
+2026-05-26T17:47:16.961+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432773811437406]
+2026-05-26T17:47:16.961+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 诊断 match_jingxuan_orders.order_no 示例: [6926432782941323108]
+2026-05-26T17:47:17.131+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 诊断 talent_id=0 与 jingxuan 交集: 4501
+2026-05-26T17:47:17.168+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 诊断 JOIN: match_orders.order_no=[6926432818794691760] jingxuan.order_no=[]
+2026-05-26T17:47:17.168+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 诊断 JOIN: match_orders.order_no=[6926432844493782452] jingxuan.order_no=[]
+2026-05-26T17:47:17.168+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 诊断 JOIN: match_orders.order_no=[6926432862159732276] jingxuan.order_no=[6926432862159732276]
+2026-05-26T17:47:17.311+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] Step1 匹配写入结果表: 0条
+2026-05-26T17:47:17.348+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] Step2 标记match_orders已匹配: 0条
+2026-05-26T17:47:17.385+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] Step3 回流生产表: 0条
+2026-05-26T17:47:17.421+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] Step4 标记match_result已回填: 0条
+2026-05-26T17:47:17.422+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 平台douyin匹配完成: 匹配0, 回填成功0, 未匹配0
+2026-05-26T17:47:17.422+08:00 [INFO] {80b7605d8414b3181705ef2354f204a5} [OrderMatch] 全部匹配完成: 总计0, 回填成功0, 未匹配0
+2026-05-26T17:59:14.167+08:00 [INFO] {804809772b15b3185c35a3102f7e11e8} [OrderMatch] 开始执行订单匹配
+2026-05-26T17:59:14.215+08:00 [INFO] {804809772b15b3185c35a3102f7e11e8} [OrderMatch] 开始匹配平台: douyin, 生产表: order_info, 匹配字段: main_order_no
+2026-05-26T17:59:14.468+08:00 [INFO] {804809772b15b3185c35a3102f7e11e8} [OrderMatch] Step1 匹配写入结果表: 4501条
+2026-05-26T18:00:00.549+08:00 [INFO] {804809772b15b3185c35a3102f7e11e8} [OrderMatch] Step2 回流生产表: 4501条
+2026-05-26T18:00:00.943+08:00 [INFO] {804809772b15b3185c35a3102f7e11e8} [OrderMatch] Step3 标记match_result已回填: 4501条
+2026-05-26T18:00:00.943+08:00 [INFO] {804809772b15b3185c35a3102f7e11e8} [OrderMatch] 平台douyin匹配完成: 匹配4501, 回填成功4501, 未匹配0
+2026-05-26T18:00:00.943+08:00 [INFO] {804809772b15b3185c35a3102f7e11e8} [OrderMatch] 全部匹配完成: 总计4501, 回填成功4501, 未匹配0
