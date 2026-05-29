@@ -48,6 +48,7 @@ type OrderInfo struct {
 	LubanPageId            string    `json:"lubanPageId"`
 	TalentId               string    `json:"talentId"`
 	TalentName             string    `json:"talentName"`
+	AccountType            string    `json:"accountType"`
 	StoreId                string    `json:"storeId"`
 	AfterSaleStatus        string    `json:"afterSaleStatus"`
 	CancelReason           string    `json:"cancelReason"`

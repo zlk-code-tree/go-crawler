@@ -375,9 +375,8 @@ func (s *GoodsService) ImportFromExcel(ctx context.Context, filePath string) (*G
 			basePrice = parsePrice(getCol(cols, headerMap, priceHeader))
 		}
 
-		// 检查商品编码+名称是否已存在
+		// 检查商品编码是否已存在
 		if goodsMap, exists := existingGoodsMap[goodsCode]; exists {
-			// 商品编码已存在
 			if existingPrice, nameExists := goodsMap[goodsName]; nameExists {
 				// 商品编码和名称都相同
 				if existingPrice == basePrice {
@@ -397,11 +396,33 @@ func (s *GoodsService) ImportFromExcel(ctx context.Context, filePath string) (*G
 						result.FailCount++
 					} else {
 						result.SuccessCount++
-						// 更新内存中的价格
 						existingGoodsMap[goodsCode][goodsName] = basePrice
 					}
 					continue
 				}
+			} else {
+				// 商品编码存在但名称不同，更新名称和价格
+				data := g.Map{
+					"goods_name":  goodsName,
+					"base_price":  basePrice,
+					"update_time": time.Now(),
+				}
+				_, err := g.DB().Model("goods").Where("goods_code", goodsCode).Data(data).Update()
+				if err != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("第%d行: 更新商品失败: %v", rowNum, err))
+					result.FailCount++
+				} else {
+					result.SuccessCount++
+					// 更新内存：删除旧名称映射，添加新名称
+					delete(existingGoodsMap[goodsCode], "")
+					for oldName := range goodsMap {
+						if oldName != goodsName {
+							delete(goodsMap, oldName)
+						}
+					}
+					existingGoodsMap[goodsCode][goodsName] = basePrice
+				}
+				continue
 			}
 		}
 

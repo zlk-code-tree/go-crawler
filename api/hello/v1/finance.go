@@ -110,3 +110,15 @@ type FinanceTraderOrdersReq struct {
 
 // FinanceTraderOrdersRes 投手订单列表响应
 type FinanceTraderOrdersRes = model.FinanceTraderOrdersRes
+
+// FinanceTraderPlatformStatsReq 投手平台统计明细请求
+type FinanceTraderPlatformStatsReq struct {
+	g.Meta    `path:"/finance/trader-platform-stats" method:"get" tags:"Finance" summary:"获取投手平台统计明细"`
+	TraderId  int64  `json:"traderId" in:"query" v:"required#投手ID不能为空" dc:"投手ID"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
+	StartDate string `json:"startDate" in:"query" d:"" dc:"开始日期"`
+	EndDate   string `json:"endDate" in:"query" d:"" dc:"结束日期"`
+}
+
+// FinanceTraderPlatformStatsRes 投手平台统计明细响应
+type FinanceTraderPlatformStatsRes = model.FinanceTraderPlatformStatsRes

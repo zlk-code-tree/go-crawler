@@ -133,6 +133,25 @@ func (c *FinanceController) TraderOrders(ctx context.Context, req *v1.FinanceTra
 	return result, nil
 }
 
+// TraderPlatformStats 获取投手平台统计明细 GET /api/finance/trader-platform-stats
+func (c *FinanceController) TraderPlatformStats(ctx context.Context, req *v1.FinanceTraderPlatformStatsReq) (res *v1.FinanceTraderPlatformStatsRes, err error) {
+	financeService := service.NewFinanceCommissionService()
+
+	statsReq := &model.FinanceTraderPlatformStatsReq{
+		TraderId:  req.TraderId,
+		TimeType:  req.TimeType,
+		StartDate: req.StartDate,
+		EndDate:   req.EndDate,
+	}
+
+	result, err := financeService.GetTraderPlatformStats(ctx, statsReq)
+	if err != nil {
+		return nil, gerror.New("查询失败: " + err.Error())
+	}
+
+	return result, nil
+}
+
 // Backfill 历史数据回填 POST /api/finance/backfill
 func (c *FinanceController) Backfill(ctx context.Context, req *v1.FinanceBackfillReq) (res *v1.FinanceBackfillRes, err error) {
 	aggregateService := service.NewFinanceAggregateService()

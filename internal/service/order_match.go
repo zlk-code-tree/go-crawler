@@ -80,12 +80,15 @@ var ordersHeaderPlatform = map[string]map[string]string{
 		"店铺名":    "shop_name",
 		"商品名":    "product_name",
 		"下单时间":   "pay_finish_time",
+		"售后状态":   "after_sale_status",
 	},
 	"shipinhao": {
-		"订单编号":   "order_no",
-		"商品数量（件）": "product_num",
-		"实付金额":   "order_pay_amount",
-		"下单时间":   "pay_finish_time",
+		"订单编号":       "order_no",
+		"商品数量（件）":   "product_num",
+		"实付金额":       "order_pay_amount",
+		"下单时间":       "pay_finish_time",
+		"售后状态":       "after_sale_status",
+		"带货账号类型":    "account_type",
 	},
 }
 
@@ -243,7 +246,7 @@ func (s *OrderMatchService) ImportOrders(ctx context.Context, filePath, platform
 		}
 	}
 
-	optionalHeaders := []string{"shop_name", "product_name", "product_num", "order_pay_amount", "order_status", "talent_id", "talent_name", "pay_finish_time"}
+	optionalHeaders := []string{"shop_name", "product_name", "product_num", "order_pay_amount", "order_status", "talent_id", "talent_name", "pay_finish_time", "after_sale_status", "account_type"}
 	for _, opt := range optionalHeaders {
 		for i, h := range headers {
 			h = strings.TrimSpace(h)
@@ -299,6 +302,8 @@ func (s *OrderMatchService) ImportOrders(ctx context.Context, filePath, platform
 			"talent_id":         getCol("talent_id"),
 			"talent_name":       getCol("talent_name"),
 			"pay_finish_time":   getCol("pay_finish_time"),
+			"after_sale_status": getCol("after_sale_status"),
+			"account_type":      getCol("account_type"),
 			"created_at":        time.Now(),
 		}
 		batch = append(batch, data)
@@ -492,15 +497,46 @@ func (s *OrderMatchService) MatchOrders(ctx context.Context) (*model.OrderMatchR
 
 		g.Log().Infof(ctx, "[OrderMatch] 开始匹配平台: %s, 生产表: %s, 匹配字段: %s", platform, tableName, updateField)
 
-		// Step 1: 匹配 — 从普通订单中找出达人信息缺失的(talent_id=0)，关联精选联盟获取达人信息，写入结果表
-		sqlMatch := `
-			INSERT IGNORE INTO match_result (platform, order_no, talent_id, talent_name, match_status, matched_table, created_at)
-			SELECT mo.platform, mo.order_no, mj.talent_id, mj.talent_name, 0, '', NOW()
-			FROM match_orders mo
-			INNER JOIN match_jingxuan_orders mj ON mo.platform = mj.platform AND mo.order_no = mj.order_no
-			WHERE mo.talent_id = 0
-			  AND mo.platform = ?`
-		res, err := g.DB().Exec(ctx, sqlMatch, platform)
+		// Step 1: 匹配 — 以 match_orders 为基础表，按平台筛选后关联 match_jingxuan_orders
+		var sqlMatch string
+		switch platform {
+		case "douyin":
+			sqlMatch = `
+				INSERT IGNORE INTO match_result (platform, order_no, talent_id, talent_name, match_status, matched_table, created_at)
+				SELECT mo.platform, mo.order_no, mj.talent_id, mj.talent_name, 0, '', NOW()
+				FROM match_orders mo
+				INNER JOIN match_jingxuan_orders mj ON mo.platform = mj.platform AND mo.order_no = mj.order_no
+				WHERE mo.platform = 'douyin'
+				  AND mo.talent_id = 0`
+		case "kuaishou":
+			sqlMatch = `
+				INSERT IGNORE INTO match_result (platform, order_no, talent_id, talent_name, match_status, matched_table, created_at)
+				SELECT mo.platform, mo.order_no, mj.talent_id, mj.talent_name, 0, '', NOW()
+				FROM match_orders mo
+				INNER JOIN match_jingxuan_orders mj ON mo.platform = mj.platform AND mo.order_no = mj.order_no
+				WHERE mo.platform = 'kuaishou'
+				  AND mo.order_status IN ('已发货', '待发货')
+				  AND (mo.after_sale_status = '' OR mo.after_sale_status = '退款关闭' OR mo.after_sale_status IS NULL)
+				  AND (mo.talent_id = '' OR mo.talent_id IS NULL OR mo.talent_id = '0')
+				  AND (mo.product_name LIKE 'zl%%' OR mo.product_name LIKE 'qz%%'
+				    OR mo.product_name LIKE 'z1%%' OR mo.product_name LIKE 'z2%%' OR mo.product_name LIKE 'z3%%'
+				    OR mo.product_name LIKE 'zl1%%' OR mo.product_name LIKE 'zl2%%' OR mo.product_name LIKE 'zl3%%')`
+		case "shipinhao":
+			sqlMatch = `
+				INSERT IGNORE INTO match_result (platform, order_no, talent_id, talent_name, match_status, matched_table, created_at)
+				SELECT mo.platform, mo.order_no, mj.talent_id, mj.talent_name, 0, '', NOW()
+				FROM match_orders mo
+				INNER JOIN match_jingxuan_orders mj ON mo.platform = mj.platform AND mo.order_no = mj.order_no
+				WHERE mo.platform = 'shipinhao'
+				  AND mo.order_status IN ('已发货', '待发货', '已完成')
+				  AND (mo.after_sale_status = '无' OR mo.after_sale_status = '用户取消申请' OR mo.after_sale_status IS NULL OR mo.after_sale_status = '')
+				  AND (mo.talent_id = '' OR mo.talent_id IS NULL OR mo.talent_id = '0')
+				  AND mo.account_type = '带货机构'`
+		default:
+			g.Log().Warningf(ctx, "[OrderMatch] 未知平台匹配规则: %s，跳过", platform)
+			continue
+		}
+		res, err := g.DB().Exec(ctx, sqlMatch)
 		if err != nil {
 			g.Log().Errorf(ctx, "[OrderMatch] Step1 匹配失败[%s]: %v", platform, err)
 			return nil, fmt.Errorf("匹配失败[%s]: %v", platform, err)

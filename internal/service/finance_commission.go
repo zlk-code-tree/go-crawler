@@ -61,19 +61,29 @@ func (s *FinanceCommissionService) GetStats(ctx context.Context, req *model.Fina
 	startDate, endDate := s.ParseTimeRange(req.TimeType, req.StartDate, req.EndDate)
 	today := time.Now().Format("2006-01-02")
 
-	// 情况1：查询历史数据（直接查预聚合表）
-	if endDate < today {
-		return s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType)
+	// 情况1：查询今日数据（实时计算）
+	if startDate >= today {
+		return s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType)
 	}
 
-	// 情况2：查询今日数据（实时计算）
-	if startDate >= today {
+	// 情况2：查询历史数据（先查预聚合表，为空则实时计算）
+	if endDate < today {
+		result, _ := s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType)
+		if result != nil && result.Summary.OrderCount > 0 {
+			return result, nil
+		}
+		// 预聚合表无数据，实时计算
 		return s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType)
 	}
 
 	// 情况3：跨今天（历史 + 今日）
 	historyStats, _ := s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, today, req.TimeType)
 	todayStats, _ := s.getStatsRealtime(ctx, req.NodeId, req.NodeType, today, endDate, req.TimeType)
+
+	// 如果历史表无数据，用实时计算补充历史部分
+	if historyStats == nil || historyStats.Summary.OrderCount == 0 {
+		historyStats, _ = s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, today, req.TimeType)
+	}
 
 	return s.mergeStats(historyStats, todayStats, req.TimeType, startDate, endDate), nil
 }
@@ -85,13 +95,14 @@ func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId
 		Where("stat_date <= ?", endDate).
 		Where("platform = ''") // 只查汇总数据
 
-	// 根据节点类型筛选（需要解码ID）
+	// 根据节点类型筛选（nodeId 为编码后的ID，需要解码）
+	// 只查 shop_id > 0 的行（店铺维度），避免公司/部门汇总行重复计算
 	switch nodeType {
 	case "company":
-		query = query.Where("company_id = ? AND department_id = 0 AND trader_id = 0 AND shop_id = 0", nodeId)
+		query = query.Where("company_id = ? AND shop_id > 0", nodeId)
 	case "department":
 		realDeptId := model.DecodeDeptID(nodeId)
-		query = query.Where("department_id = ? AND trader_id = 0 AND shop_id = 0", realDeptId)
+		query = query.Where("department_id = ? AND shop_id > 0", realDeptId)
 	case "trader":
 		realTraderId := model.DecodeTraderID(nodeId)
 		query = query.Where("trader_id = ? AND shop_id = 0", realTraderId)
@@ -111,18 +122,21 @@ func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId
 		return nil, fmt.Errorf("查询预聚合数据失败: %v", err)
 	}
 
+	summary := model.FinanceStatsSummary{
+		OrderCount:    result["order_count"].Int(),
+		ProductNum:    result["product_num"].Int(),
+		PayAmount:     result["pay_amount"].Float64(),
+		CostAmount:    result["cost_amount"].Float64(),
+		ReserveAmount: result["reserve_amount"].Float64(),
+		Commission:    result["commission"].Float64(),
+	}
+	g.Log().Infof(ctx, "[Finance] 预聚合查询: nodeId=%d, nodeType=%s, date=%s~%s, orderCount=%d, commission=%.2f", nodeId, nodeType, startDate, endDate, summary.OrderCount, summary.Commission)
+
 	return &model.FinanceStatsRes{
 		TimeType:  timeType,
 		StartDate: startDate,
 		EndDate:   endDate,
-		Summary: model.FinanceStatsSummary{
-			OrderCount:    result["order_count"].Int(),
-			ProductNum:    result["product_num"].Int(),
-			PayAmount:     result["pay_amount"].Float64(),
-			CostAmount:    result["cost_amount"].Float64(),
-			ReserveAmount: result["reserve_amount"].Float64(),
-			Commission:    result["commission"].Float64(),
-		},
+		Summary:   summary,
 	}, nil
 }
 
@@ -131,10 +145,14 @@ func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId 
 	// 1. 获取该节点下的所有店铺ID
 	shopIds, err := s.getShopIdsByNode(ctx, nodeId, nodeType)
 	if err != nil {
+		g.Log().Warningf(ctx, "[Finance] getShopIdsByNode 失败: nodeType=%s, nodeId=%d, err=%v", nodeType, nodeId, err)
 		return nil, err
 	}
 
+	g.Log().Infof(ctx, "[Finance] 实时统计: nodeType=%s, nodeId=%d, shopIds=%v, date=%s~%s", nodeType, nodeId, shopIds, startDate, endDate)
+
 	if len(shopIds) == 0 {
+		g.Log().Warningf(ctx, "[Finance] 节点下无店铺: nodeType=%s, nodeId=%d", nodeType, nodeId)
 		return &model.FinanceStatsRes{
 			TimeType:  timeType,
 			StartDate: startDate,
@@ -146,8 +164,11 @@ func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId 
 	// 2. 统计这些店铺的订单数据（跨三张订单表）
 	stats, err := s.statsOrdersByShopIds(ctx, shopIds, startDate, endDate)
 	if err != nil {
+		g.Log().Warningf(ctx, "[Finance] statsOrdersByShopIds 失败: shopIds=%v, err=%v", shopIds, err)
 		return nil, err
 	}
+
+	g.Log().Infof(ctx, "[Finance] 实时统计结果: orderCount=%d, payAmount=%.2f, commission=%.2f", stats.OrderCount, stats.PayAmount, stats.Commission)
 
 	return &model.FinanceStatsRes{
 		TimeType:  timeType,
@@ -219,7 +240,7 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 
 	// 1. 获取子公司
 	subCompanies, err := g.DB().Model("sys_company").
-		Where("parent_id = companyId").
+		Where("parent_id", companyId).
 		Where("status", 1).
 		Order("sort ASC, id ASC").
 		All()
@@ -256,7 +277,7 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 		for _, dept := range departments {
 			deptId := dept["id"].Int64()
 			stats, _ := s.GetStats(ctx, &model.FinanceStatsReq{
-				NodeId:    deptId,
+				NodeId:    model.EncodeDeptID(deptId),
 				NodeType:  "department",
 				StartDate: startDate,
 				EndDate:   endDate,
@@ -310,7 +331,7 @@ func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, de
 		for _, sd := range subDepts {
 			sdId := sd["id"].Int64()
 			stats, _ := s.GetStats(ctx, &model.FinanceStatsReq{
-				NodeId:    sdId,
+				NodeId:    model.EncodeDeptID(sdId),
 				NodeType:  "department",
 				StartDate: startDate,
 				EndDate:   endDate,
@@ -339,14 +360,14 @@ func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, de
 		for _, trader := range traders {
 			traderId := trader["id"].Int64()
 			stats, _ := s.GetStats(ctx, &model.FinanceStatsReq{
-				NodeId:    traderId,
+				NodeId:    model.EncodeTraderID(traderId),
 				NodeType:  "trader",
 				StartDate: startDate,
 				EndDate:   endDate,
 				TimeType:  "custom",
 			})
 			children = append(children, model.NodeStatsItem{
-				Id:         model.EncodeTraderID(traderId), // 返回编码后的ID
+				Id:         model.EncodeTraderID(traderId),
 				Name:       trader["name"].String(),
 				Type:       "trader",
 				OrderCount: stats.Summary.OrderCount,
@@ -385,7 +406,6 @@ func (s *FinanceCommissionService) getTraderChildren(ctx context.Context, trader
 	shops, err := g.DB().Model("shop s").
 		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
 		Where("tsr.trader_id", realTraderId).
-		Where("s.status", 1).
 		Fields("s.id, s.platform, s.uid, s.account_name, s.platform_nickname").
 		All()
 
@@ -475,7 +495,6 @@ func (s *FinanceCommissionService) getTraderShopStats(ctx context.Context, trade
 	shops, err := g.DB().Model("shop s").
 		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
 		Where("tsr.trader_id", traderId).
-		Where("s.status", 1).
 		Fields("s.id, s.platform, s.uid, s.account_name, s.platform_nickname").
 		All()
 	if err != nil {
@@ -558,57 +577,76 @@ func (s *FinanceCommissionService) getShopIdsByNode(ctx context.Context, nodeId 
 	case "company":
 		// 获取该公司及所有子公司的ID
 		companyIds := s.getCompanyAndChildrenIds(ctx, nodeId)
-		// 查询这些公司下的店铺
-		var shopIds []int
-		err := g.DB().Model("shop").
+		// 通过 trader 关联获取店铺：公司 → trader(company_id) → trader_shop_relation → shop
+		traderIdVars, err := g.DB().Model("trader").
 			Where("company_id IN(?)", companyIds).
 			Where("status", 1).
-			Fields("id").
-			Scan(&shopIds)
+			Array("id")
 		if err != nil {
 			return nil, err
 		}
-		return shopIds, nil
-
-	case "department":
-		// 解码部门ID
-		realDeptId := model.DecodeDeptID(nodeId)
-		// 获取该部门及所有子部门的ID
-		deptIds := s.getDeptAndChildrenIds(ctx, realDeptId)
-		// 通过 trader 关联获取店铺：部门 → trader(group_id) → trader_shop_relation → shop
 		var traderIds []int64
-		err := g.DB().Model("trader").
-			Where("group_id IN(?)", deptIds).
-			Where("status", 1).
-			Fields("id").
-			Scan(&traderIds)
-		if err != nil {
-			return nil, err
+		for _, v := range traderIdVars {
+			traderIds = append(traderIds, v.Int64())
 		}
 		if len(traderIds) == 0 {
 			return nil, nil
 		}
-		var shopIds []int
-		err = g.DB().Model("trader_shop_relation").
+		shopIdVars, err := g.DB().Model("trader_shop_relation").
 			Where("trader_id IN(?)", traderIds).
-			Fields("shop_id").
-			Scan(&shopIds)
+			Array("shop_id")
 		if err != nil {
 			return nil, err
+		}
+		var shopIds []int
+		for _, v := range shopIdVars {
+			shopIds = append(shopIds, v.Int())
+		}
+		return shopIds, nil
+
+	case "department":
+		// nodeId 为编码后的ID，需要解码
+		realDeptId := model.DecodeDeptID(nodeId)
+		deptIds := s.getDeptAndChildrenIds(ctx, realDeptId)
+		// 通过 trader 关联获取店铺：部门 → trader(group_id) → trader_shop_relation → shop
+		traderIdVars, err := g.DB().Model("trader").
+			Where("group_id IN(?)", deptIds).
+			Where("status", 1).
+			Array("id")
+		if err != nil {
+			return nil, err
+		}
+		var traderIds []int64
+		for _, v := range traderIdVars {
+			traderIds = append(traderIds, v.Int64())
+		}
+		if len(traderIds) == 0 {
+			return nil, nil
+		}
+		shopIdVars, err := g.DB().Model("trader_shop_relation").
+			Where("trader_id IN(?)", traderIds).
+			Array("shop_id")
+		if err != nil {
+			return nil, err
+		}
+		var shopIds []int
+		for _, v := range shopIdVars {
+			shopIds = append(shopIds, v.Int())
 		}
 		return shopIds, nil
 
 	case "trader":
-		// 解码投手ID
+		// nodeId 为编码后的ID，需要解码
 		realTraderId := model.DecodeTraderID(nodeId)
-		// 查询投手关联的店铺
-		var shopIds []int
-		err := g.DB().Model("trader_shop_relation").
+		shopIdVars, err := g.DB().Model("trader_shop_relation").
 			Where("trader_id", realTraderId).
-			Fields("shop_id").
-			Scan(&shopIds)
+			Array("shop_id")
 		if err != nil {
 			return nil, err
+		}
+		var shopIds []int
+		for _, v := range shopIdVars {
+			shopIds = append(shopIds, v.Int())
 		}
 		return shopIds, nil
 	}
@@ -690,7 +728,10 @@ func (s *FinanceCommissionService) statsOrdersByShopIds(ctx context.Context, sho
 		}
 	}
 
+	g.Log().Infof(ctx, "[Finance] statsOrdersByShopIds: shopIds=%v, platformUids=%v", shopIds, platformUids)
+
 	if len(platformUids) == 0 {
+		g.Log().Warningf(ctx, "[Finance] 店铺uid为空: shopIds=%v, shops=%v", shopIds, shops)
 		return &model.FinanceStatsSummary{}, nil
 	}
 
@@ -718,22 +759,28 @@ func (s *FinanceCommissionService) statsOrdersByShopIds(ctx context.Context, sho
 // statsOrderTable 统计单张订单表
 func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableName string, uids []string, startDate, endDate string) (*model.FinanceStatsSummary, error) {
 	// 构建有效订单过滤条件
-	validFilter := "AND after_sale_status NOT IN ('退款成功', '已全额退款', '待退货') AND order_status != '已关闭'"
+	validFilter := "AND o.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货') AND o.order_status != '已关闭'"
+
+	collateClause := ""
+	if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
+		collateClause = "COLLATE utf8mb4_unicode_ci"
+	}
 
 	sql := fmt.Sprintf(`
 		SELECT
-			COUNT(DISTINCT main_order_no) AS order_count,
-			COALESCE(SUM(product_num), 0) AS product_num,
-			COALESCE(SUM(order_pay_amount), 0) AS pay_amount,
-			COALESCE(SUM(product_price * product_num), 0) AS cost_amount
-		FROM %s
-		WHERE talent_id IN(?)
-		  AND pay_finish_time >= ?
-		  AND pay_finish_time < ?
-		  AND main_order_no IS NOT NULL
-		  AND main_order_no != ''
+			COUNT(DISTINCT o.main_order_no) AS order_count,
+			COALESCE(SUM(o.product_num), 0) AS product_num,
+			COALESCE(SUM(o.order_pay_amount), 0) AS pay_amount,
+			COALESCE(SUM(COALESCE(g.base_price, o.product_price) * o.product_num), 0) AS cost_amount
+		FROM %s o
+		LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+		WHERE o.talent_id IN(?)
+		  AND o.pay_finish_time >= ?
+		  AND o.pay_finish_time < ?
+		  AND o.main_order_no IS NOT NULL
+		  AND o.main_order_no != ''
 		  %s
-	`, tableName, validFilter)
+	`, tableName, collateClause, validFilter)
 
 	endDateNext := endDate + " 00:00:00"
 	if t, err := time.Parse("2006-01-02", endDate); err == nil {
@@ -780,7 +827,6 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 	shops, err := g.DB().Model("shop s").
 		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
 		Where("tsr.trader_id", realTraderId).
-		Where("s.status", 1).
 		Fields("s.id, s.uid, s.account_name, s.platform_nickname, s.platform").
 		All()
 	if err != nil {
@@ -852,15 +898,20 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			continue
 		}
 
+		collateClause := ""
+		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
+			collateClause = "COLLATE utf8mb4_unicode_ci"
+		}
+
 		// 查询该平台的订单数
 		countSQL := fmt.Sprintf(`
 			SELECT COUNT(*) AS cnt
-			FROM %s
-			WHERE talent_id IN(?)
-			  AND pay_finish_time >= ?
-			  AND pay_finish_time < ?
-			  AND main_order_no IS NOT NULL
-			  AND main_order_no != ''
+			FROM %s o
+			WHERE o.talent_id IN(?)
+			  AND o.pay_finish_time >= ?
+			  AND o.pay_finish_time < ?
+			  AND o.main_order_no IS NOT NULL
+			  AND o.main_order_no != ''
 			  %s
 		`, tableName, validFilter)
 
@@ -878,16 +929,17 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		// 查询该平台的汇总
 		sumSQL := fmt.Sprintf(`
 			SELECT
-				COALESCE(SUM(order_pay_amount), 0) AS pay_amount,
-				COALESCE(SUM(product_price * product_num), 0) AS cost_amount
-			FROM %s
-			WHERE talent_id IN(?)
-			  AND pay_finish_time >= ?
-			  AND pay_finish_time < ?
-			  AND main_order_no IS NOT NULL
-			  AND main_order_no != ''
+				COALESCE(SUM(o.order_pay_amount), 0) AS pay_amount,
+				COALESCE(SUM(COALESCE(g.base_price, o.product_price) * o.product_num), 0) AS cost_amount
+			FROM %s o
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			WHERE o.talent_id IN(?)
+			  AND o.pay_finish_time >= ?
+			  AND o.pay_finish_time < ?
+			  AND o.main_order_no IS NOT NULL
+			  AND o.main_order_no != ''
 			  %s
-		`, tableName, validFilter)
+		`, tableName, collateClause, validFilter)
 
 		sumResult, err := g.DB().GetOne(ctx, sumSQL, uids, startDate, endDateNext)
 		if err == nil {
@@ -898,25 +950,27 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		// 查询该平台的订单明细（带分页）
 		sql := fmt.Sprintf(`
 			SELECT
-				main_order_no,
-				product_name,
-				product_num,
-				product_price,
-				order_pay_amount,
-				order_status,
-				after_sale_status,
-				IFNULL(pay_finish_time, '') AS pay_finish_time,
-				talent_id
-			FROM %s
-			WHERE talent_id IN(?)
-			  AND pay_finish_time >= ?
-			  AND pay_finish_time < ?
-			  AND main_order_no IS NOT NULL
-			  AND main_order_no != ''
+				o.main_order_no,
+				o.product_name,
+				o.product_num,
+				o.product_price,
+				COALESCE(g.base_price, o.product_price) AS base_price,
+				o.order_pay_amount,
+				o.order_status,
+				o.after_sale_status,
+				IFNULL(o.pay_finish_time, '') AS pay_finish_time,
+				o.talent_id
+			FROM %s o
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			WHERE o.talent_id IN(?)
+			  AND o.pay_finish_time >= ?
+			  AND o.pay_finish_time < ?
+			  AND o.main_order_no IS NOT NULL
+			  AND o.main_order_no != ''
 			  %s
-			ORDER BY pay_finish_time DESC
+			ORDER BY o.pay_finish_time DESC
 			LIMIT ?, ?
-		`, tableName, validFilter)
+		`, tableName, collateClause, validFilter)
 
 		result, err := g.DB().GetAll(ctx, sql, uids, startDate, endDateNext, (page-1)*pageSize, pageSize)
 		if err != nil {
@@ -927,7 +981,8 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			talentId := row["talent_id"].String()
 			shop := uidShopMap[talentId]
 			payAmount := row["order_pay_amount"].Float64()
-			costAmount := row["product_price"].Float64() * float64(row["product_num"].Int())
+			basePrice := row["base_price"].Float64()
+			costAmount := basePrice * float64(row["product_num"].Int())
 			reserveAmount := roundFloatFinance(payAmount*0.05, 2)
 			commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
 
@@ -940,7 +995,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 				MainOrderNo:     row["main_order_no"].String(),
 				ProductName:     row["product_name"].String(),
 				ProductNum:      row["product_num"].Int(),
-				ProductPrice:    row["product_price"].Float64(),
+				ProductPrice:    basePrice,
 				OrderPayAmount:  payAmount,
 				CostAmount:      roundFloatFinance(costAmount, 2),
 				ReserveAmount:   reserveAmount,
@@ -985,4 +1040,88 @@ func roundFloatFinance(f float64, n int) float64 {
 		pow *= 10
 	}
 	return float64(int(f*pow+0.5)) / pow
+}
+
+// platformNameMap 平台标识→中文名称
+var platformNameMap = map[string]string{
+	"douyin":    "抖音",
+	"kuaishou":  "快手",
+	"shipinhao": "视频号",
+}
+
+// GetTraderPlatformStats 获取投手各平台统计明细
+func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, req *model.FinanceTraderPlatformStatsReq) (*model.FinanceTraderPlatformStatsRes, error) {
+	startDate, endDate := s.ParseTimeRange(req.TimeType, req.StartDate, req.EndDate)
+	realTraderId := model.DecodeTraderID(req.TraderId)
+
+	// 获取投手信息
+	trader, err := g.DB().Model("trader").Where("id", realTraderId).One()
+	if err != nil || trader.IsEmpty() {
+		return nil, fmt.Errorf("投手不存在")
+	}
+
+	// 获取投手关联的店铺
+	shops, err := g.DB().Model("shop s").
+		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
+		Where("tsr.trader_id", realTraderId).
+		Fields("s.id, s.uid, s.platform").
+		All()
+	if err != nil {
+		return nil, fmt.Errorf("查询投手店铺失败: %v", err)
+	}
+
+	// 按 platform 分组 uid
+	platformUids := make(map[string][]string)
+	for _, shop := range shops {
+		uid := shop["uid"].String()
+		platform := shop["platform"].String()
+		if uid != "" && platform != "" {
+			platformUids[platform] = append(platformUids[platform], uid)
+		}
+	}
+
+	// 按平台统计
+	totalStats := &model.FinanceStatsSummary{}
+	var platformStats []model.PlatformStats
+	for platform, uids := range platformUids {
+		tableName, ok := platformTableMap[platform]
+		if !ok {
+			continue
+		}
+		stats, _ := s.statsOrderTable(ctx, tableName, uids, startDate, endDate)
+		if stats != nil {
+			totalStats.OrderCount += stats.OrderCount
+			totalStats.ProductNum += stats.ProductNum
+			totalStats.PayAmount += stats.PayAmount
+			totalStats.CostAmount += stats.CostAmount
+			totalStats.ReserveAmount += stats.ReserveAmount
+			totalStats.Commission += stats.Commission
+
+			platformStats = append(platformStats, model.PlatformStats{
+				Platform:      platform,
+				PlatformName:  platformNameMap[platform],
+				OrderCount:    stats.OrderCount,
+				ProductNum:    stats.ProductNum,
+				PayAmount:     roundFloatFinance(stats.PayAmount, 2),
+				CostAmount:    roundFloatFinance(stats.CostAmount, 2),
+				ReserveAmount: roundFloatFinance(stats.ReserveAmount, 2),
+				Commission:    roundFloatFinance(stats.Commission, 2),
+			})
+		}
+	}
+
+	// 按订单数降序排序
+	sort.Slice(platformStats, func(i, j int) bool {
+		return platformStats[i].OrderCount > platformStats[j].OrderCount
+	})
+
+	return &model.FinanceTraderPlatformStatsRes{
+		TraderId:      req.TraderId,
+		TraderName:    trader["name"].String(),
+		TimeType:      req.TimeType,
+		StartDate:     startDate,
+		EndDate:       endDate,
+		Summary:       *totalStats,
+		PlatformStats: platformStats,
+	}, nil
 }

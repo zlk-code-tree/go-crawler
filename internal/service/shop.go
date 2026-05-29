@@ -72,7 +72,6 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword, pla
 			"accountName":       row["account_name"],
 			"platformNickname":  row["platform_nickname"],
 			"operator":          row["operator"],
-			"accountOwnership":  row["account_ownership"],
 			"companyId":         row["company_id"],
 			"departmentId":      row["department_id"],
 			"groupType":         row["group_type"],
@@ -110,7 +109,6 @@ func (s *ShopService) Detail(ctx context.Context, id int) (g.Map, error) {
 		"accountName":       result["account_name"],
 		"platformNickname":  result["platform_nickname"],
 		"operator":          result["operator"],
-		"accountOwnership":  result["account_ownership"],
 		"companyId":         result["company_id"],
 		"departmentId":      result["department_id"],
 		"groupType":         result["group_type"],
@@ -146,7 +144,6 @@ func (s *ShopService) Save(ctx context.Context, req *model.ShopSaveReq) (int64, 
 		"account_name":        req.AccountName,
 		"platform_nickname":   req.PlatformNickname,
 		"operator":            req.Operator,
-		"account_ownership":   req.AccountOwnership,
 	}
 
 	if req.Id > 0 {
@@ -199,7 +196,7 @@ func (s *ShopService) ExportTemplate(ctx context.Context) (string, error) {
 	f.SetActiveSheet(index)
 
 	// 表头（与导出一致）
-	headers := []string{"平台", "达人ID", "账号名称", "平台昵称", "运营者", "账号归属"}
+	headers := []string{"平台", "达人ID", "账号名称", "平台昵称", "运营者"}
 	for i, header := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheetName, cell, header)
@@ -217,7 +214,7 @@ func (s *ShopService) ExportTemplate(ctx context.Context) (string, error) {
 	}
 
 	// 示例数据（提示用户填写格式）
-	sampleRow := []string{"douyin", "123456789", "示例账号名称", "示例昵称", "张三", "自播"}
+	sampleRow := []string{"douyin", "123456789", "示例账号名称", "示例昵称", "张三"}
 	for i, val := range sampleRow {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 2)
 		f.SetCellValue(sheetName, cell, val)
@@ -229,7 +226,6 @@ func (s *ShopService) ExportTemplate(ctx context.Context) (string, error) {
 	f.SetColWidth(sheetName, "C", "C", 20)
 	f.SetColWidth(sheetName, "D", "D", 18)
 	f.SetColWidth(sheetName, "E", "E", 12)
-	f.SetColWidth(sheetName, "F", "F", 15)
 
 	// 添加"填写说明"工作表
 	helpSheet := "填写说明"
@@ -241,8 +237,7 @@ func (s *ShopService) ExportTemplate(ctx context.Context) (string, error) {
 
 	f.SetCellValue(helpSheet, "A5", "【运营者】必填，运营负责人姓名")
 	f.SetCellValue(helpSheet, "A6", "【平台昵称】选填，如抖音号、快手号")
-	f.SetCellValue(helpSheet, "A7", "【账号归属】选填，账号归属信息")
-	f.SetCellValue(helpSheet, "A9", "注意：达人ID在同一平台下不能重复")
+	f.SetCellValue(helpSheet, "A8", "注意：达人ID在同一平台下不能重复")
 	helpStyle, _ := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true, Size: 12}})
 	f.SetCellStyle(helpSheet, "A1", "A1", helpStyle)
 	f.SetColWidth(helpSheet, "A", "A", 60)
@@ -290,7 +285,7 @@ func (s *ShopService) ExportToExcel(ctx context.Context, keyword string) (string
 	f.SetActiveSheet(index)
 
 	// 设置表头
-	headers := []string{"平台", "达人ID", "账号名称", "平台昵称", "运营者", "账号归属"}
+	headers := []string{"平台", "达人ID", "账号名称", "平台昵称", "运营者"}
 	for i, header := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheetName, cell, header)
@@ -315,7 +310,6 @@ func (s *ShopService) ExportToExcel(ctx context.Context, keyword string) (string
 		f.SetCellValue(sheetName, fmt.Sprintf("C%d", rowNum), row["account_name"])
 		f.SetCellValue(sheetName, fmt.Sprintf("D%d", rowNum), row["platform_nickname"])
 		f.SetCellValue(sheetName, fmt.Sprintf("E%d", rowNum), row["operator"])
-		f.SetCellValue(sheetName, fmt.Sprintf("F%d", rowNum), row["account_ownership"])
 	}
 
 	// 设置列宽
@@ -324,7 +318,6 @@ func (s *ShopService) ExportToExcel(ctx context.Context, keyword string) (string
 	f.SetColWidth(sheetName, "C", "C", 25)
 	f.SetColWidth(sheetName, "D", "D", 20)
 	f.SetColWidth(sheetName, "E", "E", 15)
-	f.SetColWidth(sheetName, "F", "F", 20)
 
 	// 保存文件
 	exportDir := "./exports"
@@ -406,8 +399,6 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 		"运营者":                 "operator",
 		"运营负责人":               "operator",
 		"运营组长":                "operator",
-		"account_ownership":   "account_ownership",
-		"账号归属":                "account_ownership",
 	}
 
 	// 打印读取到的表头
@@ -435,7 +426,7 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 	}
 
 	// 可选列的映射
-	optionalHeaders := []string{"uid", "platform_nickname", "account_ownership"}
+	optionalHeaders := []string{"uid", "platform_nickname"}
 	for _, opt := range optionalHeaders {
 		for i, h := range headers {
 			h = strings.TrimSpace(h)
@@ -484,7 +475,6 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 		accountName := getCol("account_name")
 		operator := getCol("operator")
 		platformNickname := getCol("platform_nickname")
-		accountOwnership := getCol("account_ownership")
 
 		// 跳过空行
 		if platformAccountId == "" && accountName == "" {
@@ -525,7 +515,6 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 			"account_name":        accountName,
 			"platform_nickname":   platformNickname,
 			"operator":            operator,
-			"account_ownership":   accountOwnership,
 			"created_at":          time.Now(),
 			"updated_at":          time.Now(),
 		}

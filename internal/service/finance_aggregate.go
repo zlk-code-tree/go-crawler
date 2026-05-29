@@ -50,28 +50,41 @@ func (s *FinanceAggregateService) DailyAggregateJob(ctx context.Context, date st
 		companyId := shop["company_id"].Int64()
 		departmentId := shop["department_id"].Int64()
 
-		// 4.1 写入店铺维度
-		s.saveStat(ctx, date, companyId, departmentId, 0, shopId, "", stat)
-
-		// 4.2 写入投手维度
+		// 4.2 写入投手维度，同时从投手获取组织信息
 		traders, _ := g.DB().Model("trader_shop_relation").
 			Where("shop_id", shopId).
 			All()
 		for _, trader := range traders {
 			traderId := trader["trader_id"].Int64()
-			// 获取投手的部门ID
 			traderInfo, _ := g.DB().Model("trader").Where("id", traderId).One()
 			if !traderInfo.IsEmpty() {
+				traderCompanyId := traderInfo["company_id"].Int64()
 				traderGroupId := traderInfo["group_id"].Int64()
-				s.saveStat(ctx, date, companyId, traderGroupId, traderId, 0, "", stat)
+
+				// 如果 shop 的 company_id/department_id 为0，从投手获取
+				if companyId == 0 && traderCompanyId > 0 {
+					companyId = traderCompanyId
+				}
+				if departmentId == 0 && traderGroupId > 0 {
+					departmentId = traderGroupId
+				}
+
+				s.saveStat(ctx, date, traderCompanyId, traderGroupId, traderId, 0, "", stat)
 			}
 		}
 
+		// 4.1 写入店铺维度
+		s.saveStat(ctx, date, companyId, departmentId, 0, shopId, "", stat)
+
 		// 4.3 写入部门维度（汇总）
-		s.saveStat(ctx, date, companyId, departmentId, 0, 0, "", stat)
+		if departmentId > 0 {
+			s.saveStat(ctx, date, companyId, departmentId, 0, 0, "", stat)
+		}
 
 		// 4.4 写入公司维度（汇总）
-		s.saveStat(ctx, date, companyId, 0, 0, 0, "", stat)
+		if companyId > 0 {
+			s.saveStat(ctx, date, companyId, 0, 0, 0, "", stat)
+		}
 
 		// 4.5 写入平台维度（可选）
 		platform := shop["platform"].String()
@@ -109,16 +122,17 @@ func (s *FinanceAggregateService) getAllValidOrders(ctx context.Context, date st
 	// 1. 抖音订单
 	sql := fmt.Sprintf(`
 		SELECT
-			talent_id,
-			COUNT(DISTINCT main_order_no) AS order_count,
-			COALESCE(SUM(product_num), 0) AS product_num,
-			COALESCE(SUM(order_pay_amount), 0) AS pay_amount,
-			COALESCE(SUM(product_price * product_num), 0) AS cost_amount
-		FROM order_info
-		WHERE pay_finish_time >= ? AND pay_finish_time <= ?
-		  AND main_order_no IS NOT NULL AND main_order_no != ''
+			o.talent_id,
+			COUNT(DISTINCT o.main_order_no) AS order_count,
+			COALESCE(SUM(o.product_num), 0) AS product_num,
+			COALESCE(SUM(o.order_pay_amount), 0) AS pay_amount,
+			COALESCE(SUM(COALESCE(g.base_price, o.product_price) * o.product_num), 0) AS cost_amount
+		FROM order_info o
+		LEFT JOIN goods g ON o.seller_code = g.goods_code
+		WHERE o.pay_finish_time >= ? AND o.pay_finish_time <= ?
+		  AND o.main_order_no IS NOT NULL AND o.main_order_no != ''
 		  %s
-		GROUP BY talent_id
+		GROUP BY o.talent_id
 	`, validFilter)
 
 	result, err := g.DB().GetAll(ctx, sql, startTime, endTime)
@@ -146,16 +160,17 @@ func (s *FinanceAggregateService) getAllValidOrders(ctx context.Context, date st
 	// 2. 快手订单
 	sql = fmt.Sprintf(`
 		SELECT
-			talent_id,
-			COUNT(DISTINCT order_no) AS order_count,
-			COALESCE(SUM(product_num), 0) AS product_num,
-			COALESCE(SUM(order_pay_amount), 0) AS pay_amount,
-			COALESCE(SUM(product_price * product_num), 0) AS cost_amount
-		FROM kuaishou_orders
-		WHERE pay_finish_time >= ? AND pay_finish_time <= ?
-		  AND order_no IS NOT NULL AND order_no != ''
+			o.talent_id,
+			COUNT(DISTINCT o.order_no) AS order_count,
+			COALESCE(SUM(o.product_num), 0) AS product_num,
+			COALESCE(SUM(o.order_pay_amount), 0) AS pay_amount,
+			COALESCE(SUM(COALESCE(g.base_price, o.product_price) * o.product_num), 0) AS cost_amount
+		FROM kuaishou_orders o
+		LEFT JOIN goods g ON o.seller_code COLLATE utf8mb4_unicode_ci = g.goods_code
+		WHERE o.pay_finish_time >= ? AND o.pay_finish_time <= ?
+		  AND o.order_no IS NOT NULL AND o.order_no != ''
 		  %s
-		GROUP BY talent_id
+		GROUP BY o.talent_id
 	`, validFilter)
 
 	result, err = g.DB().GetAll(ctx, sql, startTime, endTime)
@@ -183,16 +198,17 @@ func (s *FinanceAggregateService) getAllValidOrders(ctx context.Context, date st
 	// 3. 视频号订单
 	sql = fmt.Sprintf(`
 		SELECT
-			talent_id,
-			COUNT(DISTINCT order_no) AS order_count,
-			COALESCE(SUM(product_num), 0) AS product_num,
-			COALESCE(SUM(order_pay_amount), 0) AS pay_amount,
-			COALESCE(SUM(product_price * product_num), 0) AS cost_amount
-		FROM shipinhao_orders
-		WHERE pay_finish_time >= ? AND pay_finish_time <= ?
-		  AND order_no IS NOT NULL AND order_no != ''
+			o.talent_id,
+			COUNT(DISTINCT o.order_no) AS order_count,
+			COALESCE(SUM(o.product_num), 0) AS product_num,
+			COALESCE(SUM(o.order_pay_amount), 0) AS pay_amount,
+			COALESCE(SUM(COALESCE(g.base_price, o.product_price) * o.product_num), 0) AS cost_amount
+		FROM shipinhao_orders o
+		LEFT JOIN goods g ON o.seller_code COLLATE utf8mb4_unicode_ci = g.goods_code
+		WHERE o.pay_finish_time >= ? AND o.pay_finish_time <= ?
+		  AND o.order_no IS NOT NULL AND o.order_no != ''
 		  %s
-		GROUP BY talent_id
+		GROUP BY o.talent_id
 	`, validFilter)
 
 	result, err = g.DB().GetAll(ctx, sql, startTime, endTime)
@@ -226,7 +242,7 @@ func (s *FinanceAggregateService) aggregateByShop(orders []OrderStatItem) map[in
 
 	for _, order := range orders {
 		// 通过 talent_id 查找店铺
-		shop, err := g.DB().Model("shop").Where("uid", order.TalentId).Where("status", 1).One()
+		shop, err := g.DB().Model("shop").Where("uid", order.TalentId).One()
 		if err != nil || shop.IsEmpty() {
 			continue
 		}

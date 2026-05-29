@@ -385,6 +385,7 @@ func (s *ShipinhaoOrderService) ImportFromExcel(ctx context.Context, filePath st
 		"CPS达人ID":   "达人ID",
 		"CPS达人昵称":  "达人昵称",
 		"带货账号昵称":  "达人昵称",
+		"带货账号类型":  "account_type",
 		"带货方式":    "流量来源",
 	}
 
@@ -534,6 +535,7 @@ func (s *ShipinhaoOrderService) ImportFromExcel(ctx context.Context, filePath st
 			"luban_page_id":          truncateString(getColFlex(cols, headerMap, "鲁班落地页ID"), 50),
 			"talent_id":              truncateString(getColFlex(cols, headerMap, "达人ID"), 50),
 			"talent_name":            truncateString(getColFlex(cols, headerMap, "达人昵称"), 50),
+			"account_type":           truncateString(getColFlex(cols, headerMap, "带货账号类型"), 50),
 			"store_id":               truncateString(getColFlex(cols, headerMap, "所属门店ID"), 50),
 			"after_sale_status":      truncateString(getColFlex(cols, headerMap, "售后状态"), 20),
 			"cancel_reason":          truncateString(getColFlex(cols, headerMap, "取消原因"), 100),

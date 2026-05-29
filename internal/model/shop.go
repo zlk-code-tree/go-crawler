@@ -9,7 +9,6 @@ type Shop struct {
 	Uid string    `json:"uid"` // 达人ID
 	AccountName       string    `json:"accountName"`       // 账号名称
 	PlatformNickname  string    `json:"platformNickname"`  // 平台昵称（抖音号等）
-	AccountOwnership  string    `json:"accountOwnership"`  // 账号归属
 	Operator          string    `json:"operator"`          // 运营者
 	CompanyId         int64     `json:"companyId"`         // 所属公司ID（关联sys_company）
 	DepartmentId      int64     `json:"departmentId"`      // 所属部门ID（关联sys_department）
@@ -39,7 +38,6 @@ type ShopSaveReq struct {
 	AccountName       string `json:"accountName" v:"required#账号名称不能为空"`
 	PlatformNickname  string `json:"platformNickname"`
 	Operator          string `json:"operator" v:"required#运营者不能为空"`
-	AccountOwnership  string `json:"accountOwnership"`
 }
 
 // ShopExcelRow Excel导入行数据
@@ -49,5 +47,4 @@ type ShopExcelRow struct {
 	AccountName       string `json:"accountName"`
 	PlatformNickname  string `json:"platformNickname"`
 	Operator          string `json:"operator"`
-	AccountOwnership  string `json:"accountOwnership"`
 }

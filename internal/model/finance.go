@@ -148,6 +148,37 @@ type FinanceShopDetailRes struct {
 	Summary      FinanceStatsSummary  `json:"summary"`
 }
 
+// FinanceTraderPlatformStatsReq 投手平台统计明细请求
+type FinanceTraderPlatformStatsReq struct {
+	TraderId  int64  `json:"traderId" in:"query" v:"required#投手ID不能为空"`
+	TimeType  string `json:"timeType" in:"query" d:"today"`
+	StartDate string `json:"startDate" in:"query"`
+	EndDate   string `json:"endDate" in:"query"`
+}
+
+// FinanceTraderPlatformStatsRes 投手平台统计明细响应
+type FinanceTraderPlatformStatsRes struct {
+	TraderId      int64                `json:"traderId"`
+	TraderName    string               `json:"traderName"`
+	TimeType      string               `json:"timeType"`
+	StartDate     string               `json:"startDate"`
+	EndDate       string               `json:"endDate"`
+	Summary       FinanceStatsSummary  `json:"summary"`
+	PlatformStats []PlatformStats      `json:"platformStats"`
+}
+
+// PlatformStats 单平台统计
+type PlatformStats struct {
+	Platform      string  `json:"platform"`
+	PlatformName  string  `json:"platformName"`
+	OrderCount    int     `json:"orderCount"`
+	ProductNum    int     `json:"productNum"`
+	PayAmount     float64 `json:"payAmount"`
+	CostAmount    float64 `json:"costAmount"`
+	ReserveAmount float64 `json:"reserveAmount"`
+	Commission    float64 `json:"commission"`
+}
+
 // ============================================
 // 投手订单列表
 // ============================================
