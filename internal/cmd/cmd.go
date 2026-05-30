@@ -104,6 +104,8 @@ var (
 				group.GET("/order-analysis/export-shop-orders", oaCtrl.ExportShopOrders)
 				matchCtrl := system.NewOrderMatchController()
 				group.GET("/order-match/export", matchCtrl.OrderMatchExport)
+				financeCtrl := system.NewFinanceController()
+				group.GET("/finance/trader-export", financeCtrl.TraderExport)
 			})
 
 			// WebSocket 路由（不经过标准 response 中间件）

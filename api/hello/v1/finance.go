@@ -122,3 +122,14 @@ type FinanceTraderPlatformStatsReq struct {
 
 // FinanceTraderPlatformStatsRes 投手平台统计明细响应
 type FinanceTraderPlatformStatsRes = model.FinanceTraderPlatformStatsRes
+
+// ==================== 投手订单导出 ====================
+
+// FinanceTraderExportReq 导出投手订单请求
+type FinanceTraderExportReq struct {
+	g.Meta    `path:"/finance/trader-export" method:"get" tags:"Finance" summary:"导出投手订单明细"`
+	TraderId  int64  `json:"traderId" in:"query" v:"required#投手ID不能为空" dc:"投手ID"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
+	StartDate string `json:"startDate" in:"query" dc:"开始日期"`
+	EndDate   string `json:"endDate" in:"query" dc:"结束日期"`
+}

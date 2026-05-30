@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"go-crawler/internal/model"
+	"os"
+	"path/filepath"
 	"sort"
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/xuri/excelize/v2"
 )
 
 // FinanceCommissionService 财务管理 - 达人佣金统计服务
@@ -52,6 +55,26 @@ func (s *FinanceCommissionService) ParseTimeRange(timeType, startDate, endDate s
 	return
 }
 
+// IsDateTime 检查字符串是否包含时间部分
+func IsDateTime(s string) bool {
+	return len(s) > 10 && s[10] == ' '
+}
+
+// CalcEndDateNext 计算结束时间的下一个时间点（用于 < 查询）
+func CalcEndDateNext(endDate string) string {
+	if IsDateTime(endDate) {
+		// 带时间：加1小时
+		if t, err := time.Parse("2006-01-02 15:04:05", endDate); err == nil {
+			return t.Add(time.Hour).Format("2006-01-02 15:04:05")
+		}
+	}
+	// 纯日期：加1天
+	if t, err := time.Parse("2006-01-02", endDate); err == nil {
+		return t.Add(24 * time.Hour).Format("2006-01-02")
+	}
+	return endDate
+}
+
 // ============================================
 // 统计查询（核心方法）
 // ============================================
@@ -90,9 +113,19 @@ func (s *FinanceCommissionService) GetStats(ctx context.Context, req *model.Fina
 
 // getStatsFromTable 从预聚合表查询
 func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId int64, nodeType, startDate, endDate, timeType string) (*model.FinanceStatsRes, error) {
+	// stat_date 是 DATE 类型，截取日期部分
+	queryStart := startDate
+	queryEnd := endDate
+	if len(queryStart) > 10 {
+		queryStart = queryStart[:10]
+	}
+	if len(queryEnd) > 10 {
+		queryEnd = queryEnd[:10]
+	}
+
 	query := g.DB().Model("finance_daily_stats").
-		Where("stat_date >= ?", startDate).
-		Where("stat_date <= ?", endDate).
+		Where("stat_date >= ?", queryStart).
+		Where("stat_date <= ?", queryEnd).
 		Where("platform = ''") // 只查汇总数据
 
 	// 根据节点类型筛选（nodeId 为编码后的ID，需要解码）
@@ -782,10 +815,7 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 		  %s
 	`, tableName, collateClause, validFilter)
 
-	endDateNext := endDate + " 00:00:00"
-	if t, err := time.Parse("2006-01-02", endDate); err == nil {
-		endDateNext = t.Add(24 * time.Hour).Format("2006-01-02")
-	}
+	endDateNext := CalcEndDateNext(endDate)
 
 	result, err := g.DB().GetOne(ctx, sql, uids, startDate, endDateNext)
 	if err != nil {
@@ -880,10 +910,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 	}
 
 	// 日期范围
-	endDateNext := endDate
-	if t, err := time.Parse("2006-01-02", endDate); err == nil {
-		endDateNext = t.Add(24 * time.Hour).Format("2006-01-02")
-	}
+	endDateNext := CalcEndDateNext(endDate)
 
 	validFilter := "AND after_sale_status NOT IN ('退款成功', '已全额退款', '待退货') AND order_status != '已关闭'"
 
@@ -1124,4 +1151,178 @@ func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, r
 		Summary:       *totalStats,
 		PlatformStats: platformStats,
 	}, nil
+}
+
+// ExportTraderOrders 导出投手订单明细（按平台分Sheet）
+func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, traderId int64, timeType, startDate, endDate string) (string, error) {
+	startDate, endDate = s.ParseTimeRange(timeType, startDate, endDate)
+	realTraderId := model.DecodeTraderID(traderId)
+
+	// 获取投手信息
+	trader, err := g.DB().Model("trader").Where("id", realTraderId).One()
+	if err != nil || trader.IsEmpty() {
+		return "", fmt.Errorf("投手不存在")
+	}
+
+	// 获取投手关联的店铺
+	shops, err := g.DB().Model("shop s").
+		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
+		Where("tsr.trader_id", realTraderId).
+		Fields("s.id, s.uid, s.account_name, s.platform_nickname, s.platform").
+		All()
+	if err != nil {
+		return "", fmt.Errorf("查询投手店铺失败: %v", err)
+	}
+
+	// 按 platform 分组 uid，同时构建 uid→店铺名 映射
+	platformUids := make(map[string][]string)
+	uidShopMap := make(map[string]string)
+	for _, shop := range shops {
+		uid := shop["uid"].String()
+		platform := shop["platform"].String()
+		if uid == "" || platform == "" {
+			continue
+		}
+		name := shop["account_name"].String()
+		if shop["platform_nickname"].String() != "" {
+			name = shop["platform_nickname"].String()
+		}
+		uidShopMap[uid] = name
+		platformUids[platform] = append(platformUids[platform], uid)
+	}
+
+	if len(platformUids) == 0 {
+		return "", fmt.Errorf("投手无关联店铺")
+	}
+
+	// 日期范围
+	endDateNext := CalcEndDateNext(endDate)
+
+	validFilter := "AND o.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货') AND o.order_status != '已关闭'"
+
+	// 创建 Excel
+	f := excelize.NewFile()
+	defer f.Close()
+	firstSheet := true
+
+	headers := []string{"订单号", "商品名称", "数量", "单价", "应付金额", "货款", "留底", "佣金", "店铺", "订单状态", "售后状态", "付款时间"}
+	colWidths := []float64{22, 40, 8, 12, 14, 14, 14, 14, 20, 12, 12, 14}
+
+	// 表头样式
+	headerStyle, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true},
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#CCCCCC"}, Pattern: 1},
+		Alignment: &excelize.Alignment{Horizontal: "center"},
+	})
+
+	for platform, uids := range platformUids {
+		tableName, ok := platformTableMap[platform]
+		if !ok {
+			continue
+		}
+
+		collateClause := ""
+		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
+			collateClause = "COLLATE utf8mb4_unicode_ci"
+		}
+
+		sql := fmt.Sprintf(`
+			SELECT
+				o.main_order_no,
+				o.product_name,
+				o.product_num,
+				COALESCE(g.base_price, o.product_price) AS base_price,
+				o.order_pay_amount,
+				o.order_status,
+				o.after_sale_status,
+				IFNULL(o.pay_finish_time, '') AS pay_finish_time,
+				o.talent_id
+			FROM %s o
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			WHERE o.talent_id IN(?)
+			  AND o.pay_finish_time >= ?
+			  AND o.pay_finish_time < ?
+			  AND o.main_order_no IS NOT NULL
+			  AND o.main_order_no != ''
+			  %s
+			ORDER BY o.pay_finish_time DESC
+		`, tableName, collateClause, validFilter)
+
+		result, err := g.DB().GetAll(ctx, sql, uids, startDate, endDateNext)
+		if err != nil || len(result) == 0 {
+			continue
+		}
+
+		// 创建 sheet
+		sheetName := platformNameMap[platform]
+		if sheetName == "" {
+			sheetName = platform
+		}
+		if firstSheet {
+			// 重命名默认 sheet
+			f.SetSheetName("Sheet1", sheetName)
+			firstSheet = false
+		} else {
+			f.NewSheet(sheetName)
+		}
+
+		// 设置列宽
+		for i, w := range colWidths {
+			col, _ := excelize.ColumnNumberToName(i + 1)
+			f.SetColWidth(sheetName, col, col, w)
+		}
+
+		// 写表头
+		for i, h := range headers {
+			cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+			f.SetCellValue(sheetName, cell, h)
+		}
+		f.SetRowStyle(sheetName, 1, 1, headerStyle)
+
+		// 写数据
+		for rowIdx, row := range result {
+			talentId := row["talent_id"].String()
+			payAmount := row["order_pay_amount"].Float64()
+			basePrice := row["base_price"].Float64()
+			productNum := row["product_num"].Int()
+			costAmount := basePrice * float64(productNum)
+			reserveAmount := roundFloatFinance(payAmount*0.05, 2)
+			commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
+
+			payTime := row["pay_finish_time"].String()
+			if len(payTime) >= 10 {
+				payTime = payTime[:10]
+			}
+
+			dataRow := []interface{}{
+				row["main_order_no"].String(),
+				row["product_name"].String(),
+				productNum,
+				basePrice,
+				payAmount,
+				roundFloatFinance(costAmount, 2),
+				reserveAmount,
+				commission,
+				uidShopMap[talentId],
+				row["order_status"].String(),
+				row["after_sale_status"].String(),
+				payTime,
+			}
+			for colIdx, val := range dataRow {
+				cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+2)
+				f.SetCellValue(sheetName, cell, val)
+			}
+		}
+	}
+
+	// 保存文件
+	exportDir := "./exports"
+	os.MkdirAll(exportDir, 0755)
+	fileName := fmt.Sprintf("投手订单_%s_%s_%s.xlsx", trader["name"].String(), startDate, endDate)
+	filePath := filepath.Join(exportDir, fileName)
+	if err := f.SaveAs(filePath); err != nil {
+		return "", fmt.Errorf("保存Excel失败: %v", err)
+	}
+
+	return filePath, nil
 }

@@ -2,12 +2,17 @@ package system
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 
 	v1 "go-crawler/api/hello/v1"
 	"go-crawler/internal/model"
 	"go-crawler/internal/service"
 
 	"github.com/gogf/gf/v2/errors/gerror"
+	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/net/ghttp"
 )
 
 // FinanceController 财务管理控制器
@@ -167,4 +172,29 @@ func (c *FinanceController) Backfill(ctx context.Context, req *v1.FinanceBackfil
 		Success: true,
 		Message: "回填成功",
 	}, nil
+}
+
+// TraderExport 导出投手订单明细 GET /api/finance/trader-export
+func (c *FinanceController) TraderExport(r *ghttp.Request) {
+	traderId := r.Get("traderId").Int64()
+	timeType := r.Get("timeType").String()
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+
+	if traderId == 0 {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "投手ID不能为空"})
+		return
+	}
+
+	financeService := service.NewFinanceCommissionService()
+	filename, err := financeService.ExportTraderOrders(r.Context(), traderId, timeType, startDate, endDate)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
+		return
+	}
+
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+	defer os.Remove(filename)
 }
