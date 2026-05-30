@@ -117,10 +117,10 @@ var jingxuanHeaderPlatform = map[string]map[string]string{
 		"预估佣金":    "commission_rate",
 	},
 	"shipinhao": {
-		"订单编号":    "order_no",
-		"推广者ID":   "talent_id",
-		"推广者昵称":   "talent_name",
-		"佣金率":     "commission_rate",
+		"订单编号":          "order_no",
+		"推广带货者ID":      "talent_id",
+		"推广带货者昵称":     "talent_name",
+		"带货者佣金率":       "commission_rate",
 	},
 }
 
