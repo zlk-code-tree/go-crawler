@@ -803,8 +803,9 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 		SELECT
 			COUNT(DISTINCT o.main_order_no) AS order_count,
 			COALESCE(SUM(o.product_num), 0) AS product_num,
-			COALESCE(SUM(o.order_pay_amount), 0) AS pay_amount,
-			COALESCE(SUM(COALESCE(g.base_price, o.product_price) * o.product_num), 0) AS cost_amount
+			COALESCE(SUM(o.order_pay_amount + COALESCE(o.platform_discount, 0) + COALESCE(o.talent_discount, 0)), 0) AS pay_amount,
+			COALESCE(SUM(COALESCE(g.base_price, 0) * o.product_num), 0) AS cost_amount,
+			COALESCE(SUM(COALESCE(o.product_price, 0) * o.product_num * 0.05), 0) AS reserve_amount
 		FROM %s o
 		LEFT JOIN goods g ON o.seller_code %s = g.goods_code
 		WHERE o.talent_id IN(?)
@@ -824,7 +825,7 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 
 	payAmount := result["pay_amount"].Float64()
 	costAmount := result["cost_amount"].Float64()
-	reserveAmount := payAmount * 0.05 // 留底5%
+	reserveAmount := result["reserve_amount"].Float64()
 	commission := payAmount - costAmount - reserveAmount
 
 	return &model.FinanceStatsSummary{
@@ -917,7 +918,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 	// 根据店铺 platform 只查对应订单表
 	var totalCount int
 	var allOrders []model.FinanceOrderItem
-	var totalPay, totalCost float64
+	var totalPay, totalCost, totalReserve float64
 
 	for platform, uids := range platformUids {
 		tableName, ok := platformTableMap[platform]
@@ -956,8 +957,9 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		// 查询该平台的汇总
 		sumSQL := fmt.Sprintf(`
 			SELECT
-				COALESCE(SUM(o.order_pay_amount), 0) AS pay_amount,
-				COALESCE(SUM(COALESCE(g.base_price, o.product_price) * o.product_num), 0) AS cost_amount
+				COALESCE(SUM(o.order_pay_amount + COALESCE(o.platform_discount, 0) + COALESCE(o.talent_discount, 0)), 0) AS pay_amount,
+				COALESCE(SUM(COALESCE(g.base_price, 0) * o.product_num), 0) AS cost_amount,
+				COALESCE(SUM(COALESCE(o.product_price, 0) * o.product_num * 0.05), 0) AS reserve_amount
 			FROM %s o
 			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
 			WHERE o.talent_id IN(?)
@@ -972,6 +974,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		if err == nil {
 			totalPay += sumResult["pay_amount"].Float64()
 			totalCost += sumResult["cost_amount"].Float64()
+			totalReserve += sumResult["reserve_amount"].Float64()
 		}
 
 		// 查询该平台的订单明细（带分页）
@@ -981,8 +984,10 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 				o.product_name,
 				o.product_num,
 				o.product_price,
-				COALESCE(g.base_price, o.product_price) AS base_price,
+				COALESCE(g.base_price, 0) AS base_price,
 				o.order_pay_amount,
+				COALESCE(o.platform_discount, 0) AS platform_discount,
+				COALESCE(o.talent_discount, 0) AS talent_discount,
 				o.order_status,
 				o.after_sale_status,
 				IFNULL(o.pay_finish_time, '') AS pay_finish_time,
@@ -1007,10 +1012,12 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		for _, row := range result {
 			talentId := row["talent_id"].String()
 			shop := uidShopMap[talentId]
-			payAmount := row["order_pay_amount"].Float64()
+			productNum := row["product_num"].Int()
+			productPrice := row["product_price"].Float64()
+			payAmount := row["order_pay_amount"].Float64() + row["platform_discount"].Float64() + row["talent_discount"].Float64()
 			basePrice := row["base_price"].Float64()
-			costAmount := basePrice * float64(row["product_num"].Int())
-			reserveAmount := roundFloatFinance(payAmount*0.05, 2)
+			costAmount := basePrice * float64(productNum)
+			reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.05, 2)
 			commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
 
 			payTime := row["pay_finish_time"].String()
@@ -1046,12 +1053,11 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		allOrders = allOrders[:pageSize]
 	}
 
-	totalReserve := roundFloatFinance(totalPay*0.05, 2)
 	res.Summary = model.FinanceStatsSummary{
 		OrderCount:    totalCount,
 		PayAmount:     roundFloatFinance(totalPay, 2),
 		CostAmount:    roundFloatFinance(totalCost, 2),
-		ReserveAmount: totalReserve,
+		ReserveAmount: roundFloatFinance(totalReserve, 2),
 		Commission:    roundFloatFinance(totalPay-totalCost-totalReserve, 2),
 	}
 	res.Total = totalCount
@@ -1231,8 +1237,11 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 				o.main_order_no,
 				o.product_name,
 				o.product_num,
-				COALESCE(g.base_price, o.product_price) AS base_price,
+				o.product_price,
+				COALESCE(g.base_price, 0) AS base_price,
 				o.order_pay_amount,
+				COALESCE(o.platform_discount, 0) AS platform_discount,
+				COALESCE(o.talent_discount, 0) AS talent_discount,
 				o.order_status,
 				o.after_sale_status,
 				IFNULL(o.pay_finish_time, '') AS pay_finish_time,
@@ -1282,11 +1291,12 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 		// 写数据
 		for rowIdx, row := range result {
 			talentId := row["talent_id"].String()
-			payAmount := row["order_pay_amount"].Float64()
-			basePrice := row["base_price"].Float64()
 			productNum := row["product_num"].Int()
+			productPrice := row["product_price"].Float64()
+			payAmount := row["order_pay_amount"].Float64() + row["platform_discount"].Float64() + row["talent_discount"].Float64()
+			basePrice := row["base_price"].Float64()
 			costAmount := basePrice * float64(productNum)
-			reserveAmount := roundFloatFinance(payAmount*0.05, 2)
+			reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.05, 2)
 			commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
 
 			payTime := row["pay_finish_time"].String()
