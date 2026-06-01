@@ -32,6 +32,7 @@ func (c *FinanceController) CommissionStats(ctx context.Context, req *v1.Finance
 		EndDate:   req.EndDate,
 		NodeId:    req.NodeId,
 		NodeType:  req.NodeType,
+		Platform:  req.Platform,
 	}
 
 	result, err := financeService.GetStats(ctx, statsReq)
@@ -52,6 +53,7 @@ func (c *FinanceController) CommissionChildren(ctx context.Context, req *v1.Fina
 		TimeType:  req.TimeType,
 		StartDate: req.StartDate,
 		EndDate:   req.EndDate,
+		Platform:  req.Platform,
 	}
 
 	result, err := financeService.GetChildren(ctx, childrenReq)

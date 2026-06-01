@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/xuri/excelize/v2"
 )
@@ -83,36 +84,37 @@ func CalcEndDateNext(endDate string) string {
 func (s *FinanceCommissionService) GetStats(ctx context.Context, req *model.FinanceStatsReq) (*model.FinanceStatsRes, error) {
 	startDate, endDate := s.ParseTimeRange(req.TimeType, req.StartDate, req.EndDate)
 	today := time.Now().Format("2006-01-02")
+	platform := req.Platform
 
 	// 情况1：查询今日数据（实时计算）
 	if startDate >= today {
-		return s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType)
+		return s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
 	}
 
 	// 情况2：查询历史数据（先查预聚合表，为空则实时计算）
 	if endDate < today {
-		result, _ := s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType)
+		result, _ := s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
 		if result != nil && result.Summary.OrderCount > 0 {
 			return result, nil
 		}
 		// 预聚合表无数据，实时计算
-		return s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType)
+		return s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
 	}
 
 	// 情况3：跨今天（历史 + 今日）
-	historyStats, _ := s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, today, req.TimeType)
-	todayStats, _ := s.getStatsRealtime(ctx, req.NodeId, req.NodeType, today, endDate, req.TimeType)
+	historyStats, _ := s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, today, req.TimeType, platform)
+	todayStats, _ := s.getStatsRealtime(ctx, req.NodeId, req.NodeType, today, endDate, req.TimeType, platform)
 
 	// 如果历史表无数据，用实时计算补充历史部分
 	if historyStats == nil || historyStats.Summary.OrderCount == 0 {
-		historyStats, _ = s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, today, req.TimeType)
+		historyStats, _ = s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, today, req.TimeType, platform)
 	}
 
 	return s.mergeStats(historyStats, todayStats, req.TimeType, startDate, endDate), nil
 }
 
 // getStatsFromTable 从预聚合表查询
-func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId int64, nodeType, startDate, endDate, timeType string) (*model.FinanceStatsRes, error) {
+func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId int64, nodeType, startDate, endDate, timeType, platform string) (*model.FinanceStatsRes, error) {
 	// stat_date 是 DATE 类型，截取日期部分
 	queryStart := startDate
 	queryEnd := endDate
@@ -125,8 +127,12 @@ func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId
 
 	query := g.DB().Model("finance_daily_stats").
 		Where("stat_date >= ?", queryStart).
-		Where("stat_date <= ?", queryEnd).
-		Where("platform = ''") // 只查汇总数据
+		Where("stat_date <= ?", queryEnd)
+	if platform != "" {
+		query = query.Where("platform = ?", platform) // 指定平台
+	} else {
+		query = query.Where("platform = ''") // 全部平台汇总
+	}
 
 	// 根据节点类型筛选（nodeId 为编码后的ID，需要解码）
 	// 只查 shop_id > 0 的行（店铺维度），避免公司/部门汇总行重复计算
@@ -174,9 +180,9 @@ func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId
 }
 
 // getStatsRealtime 实时计算统计
-func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId int64, nodeType, startDate, endDate, timeType string) (*model.FinanceStatsRes, error) {
+func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId int64, nodeType, startDate, endDate, timeType, platform string) (*model.FinanceStatsRes, error) {
 	// 1. 获取该节点下的所有店铺ID
-	shopIds, err := s.getShopIdsByNode(ctx, nodeId, nodeType)
+	shopIds, err := s.getShopIdsByNode(ctx, nodeId, nodeType, platform)
 	if err != nil {
 		g.Log().Warningf(ctx, "[Finance] getShopIdsByNode 失败: nodeType=%s, nodeId=%d, err=%v", nodeType, nodeId, err)
 		return nil, err
@@ -245,18 +251,18 @@ func (s *FinanceCommissionService) GetChildren(ctx context.Context, req *model.F
 
 	switch req.NodeType {
 	case "company":
-		return s.getCompanyChildren(ctx, req.NodeId, startDate, endDate, req.TimeType)
+		return s.getCompanyChildren(ctx, req.NodeId, startDate, endDate, req.TimeType, req.Platform)
 	case "department":
-		return s.getDepartmentChildren(ctx, req.NodeId, startDate, endDate, req.TimeType)
+		return s.getDepartmentChildren(ctx, req.NodeId, startDate, endDate, req.TimeType, req.Platform)
 	case "trader":
-		return s.getTraderChildren(ctx, req.NodeId, startDate, endDate, req.TimeType)
+		return s.getTraderChildren(ctx, req.NodeId, startDate, endDate, req.TimeType, req.Platform)
 	}
 
 	return nil, fmt.Errorf("不支持的节点类型: %s", req.NodeType)
 }
 
 // getCompanyChildren 获取公司下级节点
-func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, companyId int64, startDate, endDate, timeType string) (*model.FinanceChildrenRes, error) {
+func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, companyId int64, startDate, endDate, timeType, platform string) (*model.FinanceChildrenRes, error) {
 	// 获取当前公司信息
 	company, err := g.DB().Model("sys_company").Where("id", companyId).One()
 	if err != nil || company.IsEmpty() {
@@ -285,6 +291,7 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 				StartDate: startDate,
 				EndDate:   endDate,
 				TimeType:  "custom",
+				Platform:  platform,
 			})
 			children = append(children, model.NodeStatsItem{
 				Id:         sc["id"].Int64(),
@@ -315,6 +322,7 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 				StartDate: startDate,
 				EndDate:   endDate,
 				TimeType:  "custom",
+				Platform:  platform,
 			})
 			children = append(children, model.NodeStatsItem{
 				Id:         model.EncodeDeptID(deptId), // 返回编码后的ID
@@ -336,7 +344,7 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 }
 
 // getDepartmentChildren 获取部门下级节点
-func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, deptId int64, startDate, endDate, timeType string) (*model.FinanceChildrenRes, error) {
+func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, deptId int64, startDate, endDate, timeType, platform string) (*model.FinanceChildrenRes, error) {
 	// 解码部门ID：前端传来的是编码后的ID（1000000 + 原始ID），需要解码
 	realDeptId := model.DecodeDeptID(deptId)
 
@@ -369,6 +377,7 @@ func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, de
 				StartDate: startDate,
 				EndDate:   endDate,
 				TimeType:  "custom",
+				Platform:  platform,
 			})
 			children = append(children, model.NodeStatsItem{
 				Id:         model.EncodeDeptID(sdId), // 返回编码后的ID
@@ -398,6 +407,7 @@ func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, de
 				StartDate: startDate,
 				EndDate:   endDate,
 				TimeType:  "custom",
+				Platform:  platform,
 			})
 			children = append(children, model.NodeStatsItem{
 				Id:         model.EncodeTraderID(traderId),
@@ -419,7 +429,7 @@ func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, de
 }
 
 // getTraderChildren 获取投手下级节点（关联的店铺）
-func (s *FinanceCommissionService) getTraderChildren(ctx context.Context, traderId int64, startDate, endDate, timeType string) (*model.FinanceChildrenRes, error) {
+func (s *FinanceCommissionService) getTraderChildren(ctx context.Context, traderId int64, startDate, endDate, timeType, platform string) (*model.FinanceChildrenRes, error) {
 	// 解码投手ID
 	realTraderId := model.DecodeTraderID(traderId)
 
@@ -436,10 +446,13 @@ func (s *FinanceCommissionService) getTraderChildren(ctx context.Context, trader
 	}
 
 	// 获取投手关联的店铺
-	shops, err := g.DB().Model("shop s").
+	shopQuery := g.DB().Model("shop s").
 		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
-		Where("tsr.trader_id", realTraderId).
-		Fields("s.id, s.platform, s.uid, s.account_name, s.platform_nickname").
+		Where("tsr.trader_id", realTraderId)
+	if platform != "" {
+		shopQuery = shopQuery.Where("s.platform", platform)
+	}
+	shops, err := shopQuery.Fields("s.id, s.platform, s.uid, s.account_name, s.platform_nickname").
 		All()
 
 	var children []model.NodeStatsItem
@@ -604,17 +617,17 @@ func (s *FinanceCommissionService) GetShopDetail(ctx context.Context, req *model
 // 辅助方法
 // ============================================
 
-// getShopIdsByNode 根据组织节点获取店铺ID列表
-func (s *FinanceCommissionService) getShopIdsByNode(ctx context.Context, nodeId int64, nodeType string) ([]int, error) {
+// getShopIdsByNode 根据组织节点获取店铺ID列表（platform 为空则不过滤）
+func (s *FinanceCommissionService) getShopIdsByNode(ctx context.Context, nodeId int64, nodeType, platform string) ([]int, error) {
 	switch nodeType {
 	case "company":
 		// 获取该公司及所有子公司的ID
 		companyIds := s.getCompanyAndChildrenIds(ctx, nodeId)
 		// 通过 trader 关联获取店铺：公司 → trader(company_id) → trader_shop_relation → shop
-		traderIdVars, err := g.DB().Model("trader").
+		traderQuery := g.DB().Model("trader").
 			Where("company_id IN(?)", companyIds).
-			Where("status", 1).
-			Array("id")
+			Where("status", 1)
+		traderIdVars, err := traderQuery.Array("id")
 		if err != nil {
 			return nil, err
 		}
@@ -625,9 +638,13 @@ func (s *FinanceCommissionService) getShopIdsByNode(ctx context.Context, nodeId 
 		if len(traderIds) == 0 {
 			return nil, nil
 		}
-		shopIdVars, err := g.DB().Model("trader_shop_relation").
-			Where("trader_id IN(?)", traderIds).
-			Array("shop_id")
+		shopQuery := g.DB().Model("trader_shop_relation tsr").
+			LeftJoin("shop s", "tsr.shop_id = s.id").
+			Where("tsr.trader_id IN(?)", traderIds)
+		if platform != "" {
+			shopQuery = shopQuery.Where("s.platform", platform)
+		}
+		shopIdVars, err := shopQuery.Array("tsr.shop_id")
 		if err != nil {
 			return nil, err
 		}
@@ -642,10 +659,10 @@ func (s *FinanceCommissionService) getShopIdsByNode(ctx context.Context, nodeId 
 		realDeptId := model.DecodeDeptID(nodeId)
 		deptIds := s.getDeptAndChildrenIds(ctx, realDeptId)
 		// 通过 trader 关联获取店铺：部门 → trader(group_id) → trader_shop_relation → shop
-		traderIdVars, err := g.DB().Model("trader").
+		traderQuery := g.DB().Model("trader").
 			Where("group_id IN(?)", deptIds).
-			Where("status", 1).
-			Array("id")
+			Where("status", 1)
+		traderIdVars, err := traderQuery.Array("id")
 		if err != nil {
 			return nil, err
 		}
@@ -656,9 +673,13 @@ func (s *FinanceCommissionService) getShopIdsByNode(ctx context.Context, nodeId 
 		if len(traderIds) == 0 {
 			return nil, nil
 		}
-		shopIdVars, err := g.DB().Model("trader_shop_relation").
-			Where("trader_id IN(?)", traderIds).
-			Array("shop_id")
+		shopQuery := g.DB().Model("trader_shop_relation tsr").
+			LeftJoin("shop s", "tsr.shop_id = s.id").
+			Where("tsr.trader_id IN(?)", traderIds)
+		if platform != "" {
+			shopQuery = shopQuery.Where("s.platform", platform)
+		}
+		shopIdVars, err := shopQuery.Array("tsr.shop_id")
 		if err != nil {
 			return nil, err
 		}
@@ -671,9 +692,13 @@ func (s *FinanceCommissionService) getShopIdsByNode(ctx context.Context, nodeId 
 	case "trader":
 		// nodeId 为编码后的ID，需要解码
 		realTraderId := model.DecodeTraderID(nodeId)
-		shopIdVars, err := g.DB().Model("trader_shop_relation").
-			Where("trader_id", realTraderId).
-			Array("shop_id")
+		shopQuery := g.DB().Model("trader_shop_relation tsr").
+			LeftJoin("shop s", "tsr.shop_id = s.id").
+			Where("tsr.trader_id", realTraderId)
+		if platform != "" {
+			shopQuery = shopQuery.Where("s.platform", platform)
+		}
+		shopIdVars, err := shopQuery.Array("tsr.shop_id")
 		if err != nil {
 			return nil, err
 		}
@@ -736,30 +761,85 @@ var platformTableMap = map[string]string{
 	"shipinhao":  "shipinhao_orders",
 }
 
+// buildPlatformUids 构建 platform→uids 映射，uid 为空时通过 account_name 匹配订单表 talent_name 获取 talent_id
+func (s *FinanceCommissionService) buildPlatformUids(ctx context.Context, shops gdb.Result) map[string][]string {
+	platformUids := make(map[string][]string)
+	var emptyUidShops []gdb.Record
+
+	for _, shop := range shops {
+		uid := shop["uid"].String()
+		platform := shop["platform"].String()
+		if platform == "" {
+			continue
+		}
+		if uid != "" {
+			platformUids[platform] = append(platformUids[platform], uid)
+		} else {
+			emptyUidShops = append(emptyUidShops, shop)
+		}
+	}
+
+	// uid 为空的店铺，通过 account_name 匹配订单表的 talent_name 获取 talent_id
+	if len(emptyUidShops) > 0 {
+		var emptyNames []string
+		for _, shop := range emptyUidShops {
+			name := shop["account_name"].String()
+			if name != "" {
+				emptyNames = append(emptyNames, name)
+			}
+		}
+		if len(emptyNames) > 0 {
+			for _, tableName := range platformTableMap {
+				collate := ""
+				if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
+					collate = "COLLATE utf8mb4_unicode_ci"
+				}
+				sql := fmt.Sprintf(`
+					SELECT DISTINCT talent_id, talent_name
+					FROM %s
+					WHERE talent_name %s IN(?)
+					  AND talent_id IS NOT NULL AND talent_id != ''
+				`, tableName, collate)
+				rows, _ := g.DB().GetAll(ctx, sql, emptyNames)
+				nameTidMap := make(map[string]string)
+				for _, row := range rows {
+					tid := row["talent_id"].String()
+					tname := row["talent_name"].String()
+					if tid != "" && tname != "" {
+						nameTidMap[tname] = tid
+					}
+				}
+				for _, shop := range emptyUidShops {
+					name := shop["account_name"].String()
+					platform := shop["platform"].String()
+					if tid, ok := nameTidMap[name]; ok {
+						platformUids[platform] = append(platformUids[platform], tid)
+					}
+				}
+			}
+		}
+	}
+
+	return platformUids
+}
+
 // statsOrdersByShopIds 统计店铺订单数据（根据店铺 platform 只查对应订单表）
 func (s *FinanceCommissionService) statsOrdersByShopIds(ctx context.Context, shopIds []int, startDate, endDate string) (*model.FinanceStatsSummary, error) {
 	if len(shopIds) == 0 {
 		return &model.FinanceStatsSummary{}, nil
 	}
 
-	// 获取店铺的 uid 和 platform
+	// 获取店铺的 uid、platform、account_name
 	shops, err := g.DB().Model("shop").
 		Where("id IN(?)", shopIds).
-		Fields("uid, platform").
+		Fields("uid, platform, account_name").
 		All()
 	if err != nil {
 		return nil, err
 	}
 
-	// 按 platform 分组 uid
-	platformUids := make(map[string][]string)
-	for _, shop := range shops {
-		uid := shop["uid"].String()
-		platform := shop["platform"].String()
-		if uid != "" && platform != "" {
-			platformUids[platform] = append(platformUids[platform], uid)
-		}
-	}
+	// 构建 platform→uids（uid 为空时自动通过 account_name 匹配订单表）
+	platformUids := s.buildPlatformUids(ctx, shops)
 
 	g.Log().Infof(ctx, "[Finance] statsOrdersByShopIds: shopIds=%v, platformUids=%v", shopIds, platformUids)
 
@@ -794,27 +874,32 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 	// 构建有效订单过滤条件
 	validFilter := "AND o.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货') AND o.order_status != '已关闭'"
 
+	// kuaishou/shipinhao 表用 order_no，douyin 用 main_order_no
+	orderNoCol := "main_order_no"
 	collateClause := ""
+	talentCollate := ""
 	if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
+		orderNoCol = "order_no"
 		collateClause = "COLLATE utf8mb4_unicode_ci"
+		talentCollate = "COLLATE utf8mb4_unicode_ci"
 	}
 
 	sql := fmt.Sprintf(`
 		SELECT
-			COUNT(DISTINCT o.main_order_no) AS order_count,
+			COUNT(DISTINCT o.%s) AS order_count,
 			COALESCE(SUM(o.product_num), 0) AS product_num,
 			COALESCE(SUM(o.order_pay_amount + COALESCE(o.platform_discount, 0) + COALESCE(o.talent_discount, 0)), 0) AS pay_amount,
 			COALESCE(SUM(COALESCE(g.base_price, 0) * o.product_num), 0) AS cost_amount,
 			COALESCE(SUM(COALESCE(o.product_price, 0) * o.product_num * 0.05), 0) AS reserve_amount
 		FROM %s o
 		LEFT JOIN goods g ON o.seller_code %s = g.goods_code
-		WHERE o.talent_id IN(?)
+		WHERE o.talent_id %s IN(?)
 		  AND o.pay_finish_time >= ?
 		  AND o.pay_finish_time < ?
-		  AND o.main_order_no IS NOT NULL
-		  AND o.main_order_no != ''
+		  AND o.%s IS NOT NULL
+		  AND o.%s != ''
 		  %s
-	`, tableName, collateClause, validFilter)
+	`, orderNoCol, tableName, talentCollate, collateClause, orderNoCol, orderNoCol, validFilter)
 
 	endDateNext := CalcEndDateNext(endDate)
 
@@ -870,7 +955,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		platform string
 	}
 	uidShopMap := make(map[string]shopInfo)
-	platformUids := make(map[string][]string) // platform → uids
+	platformUids := s.buildPlatformUids(ctx, shops)
 	for _, shop := range shops {
 		uid := shop["uid"].String()
 		platform := shop["platform"].String()
@@ -882,7 +967,14 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			name = shop["platform_nickname"].String()
 		}
 		uidShopMap[uid] = shopInfo{name: name, platform: platform}
-		platformUids[platform] = append(platformUids[platform], uid)
+	}
+	// 为通过 account_name 匹配到的 uid 也建立 shopInfo 映射
+	for platform, uids := range platformUids {
+		for _, uid := range uids {
+			if _, exists := uidShopMap[uid]; !exists {
+				uidShopMap[uid] = shopInfo{name: uid, platform: platform}
+			}
+		}
 	}
 
 	res := &model.FinanceTraderOrdersRes{
@@ -926,22 +1018,26 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			continue
 		}
 
+		orderNoCol := "main_order_no"
 		collateClause := ""
+		talentCollate := ""
 		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
+			orderNoCol = "order_no"
 			collateClause = "COLLATE utf8mb4_unicode_ci"
+			talentCollate = "COLLATE utf8mb4_unicode_ci"
 		}
 
 		// 查询该平台的订单数
 		countSQL := fmt.Sprintf(`
 			SELECT COUNT(*) AS cnt
 			FROM %s o
-			WHERE o.talent_id IN(?)
+			WHERE o.talent_id %s IN(?)
 			  AND o.pay_finish_time >= ?
 			  AND o.pay_finish_time < ?
-			  AND o.main_order_no IS NOT NULL
-			  AND o.main_order_no != ''
+			  AND o.%s IS NOT NULL
+			  AND o.%s != ''
 			  %s
-		`, tableName, validFilter)
+		`, tableName, talentCollate, orderNoCol, orderNoCol, validFilter)
 
 		countResult, err := g.DB().GetOne(ctx, countSQL, uids, startDate, endDateNext)
 		if err != nil {
@@ -962,13 +1058,13 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 				COALESCE(SUM(COALESCE(o.product_price, 0) * o.product_num * 0.05), 0) AS reserve_amount
 			FROM %s o
 			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
-			WHERE o.talent_id IN(?)
+			WHERE o.talent_id %s IN(?)
 			  AND o.pay_finish_time >= ?
 			  AND o.pay_finish_time < ?
-			  AND o.main_order_no IS NOT NULL
-			  AND o.main_order_no != ''
+			  AND o.%s IS NOT NULL
+			  AND o.%s != ''
 			  %s
-		`, tableName, collateClause, validFilter)
+		`, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
 
 		sumResult, err := g.DB().GetOne(ctx, sumSQL, uids, startDate, endDateNext)
 		if err == nil {
@@ -980,7 +1076,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		// 查询该平台的订单明细（带分页）
 		sql := fmt.Sprintf(`
 			SELECT
-				o.main_order_no,
+				o.%s AS main_order_no,
 				o.product_name,
 				o.product_num,
 				o.product_price,
@@ -994,15 +1090,15 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 				o.talent_id
 			FROM %s o
 			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
-			WHERE o.talent_id IN(?)
+			WHERE o.talent_id %s IN(?)
 			  AND o.pay_finish_time >= ?
 			  AND o.pay_finish_time < ?
-			  AND o.main_order_no IS NOT NULL
-			  AND o.main_order_no != ''
+			  AND o.%s IS NOT NULL
+			  AND o.%s != ''
 			  %s
 			ORDER BY o.pay_finish_time DESC
 			LIMIT ?, ?
-		`, tableName, collateClause, validFilter)
+		`, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
 
 		result, err := g.DB().GetAll(ctx, sql, uids, startDate, endDateNext, (page-1)*pageSize, pageSize)
 		if err != nil {
@@ -1097,21 +1193,14 @@ func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, r
 	shops, err := g.DB().Model("shop s").
 		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
 		Where("tsr.trader_id", realTraderId).
-		Fields("s.id, s.uid, s.platform").
+		Fields("s.id, s.uid, s.platform, s.account_name").
 		All()
 	if err != nil {
 		return nil, fmt.Errorf("查询投手店铺失败: %v", err)
 	}
 
-	// 按 platform 分组 uid
-	platformUids := make(map[string][]string)
-	for _, shop := range shops {
-		uid := shop["uid"].String()
-		platform := shop["platform"].String()
-		if uid != "" && platform != "" {
-			platformUids[platform] = append(platformUids[platform], uid)
-		}
-	}
+	// 按 platform 分组 uid（uid 为空时自动匹配）
+	platformUids := s.buildPlatformUids(ctx, shops)
 
 	// 按平台统计
 	totalStats := &model.FinanceStatsSummary{}
@@ -1181,12 +1270,11 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 	}
 
 	// 按 platform 分组 uid，同时构建 uid→店铺名 映射
-	platformUids := make(map[string][]string)
+	platformUids := s.buildPlatformUids(ctx, shops)
 	uidShopMap := make(map[string]string)
 	for _, shop := range shops {
 		uid := shop["uid"].String()
-		platform := shop["platform"].String()
-		if uid == "" || platform == "" {
+		if uid == "" {
 			continue
 		}
 		name := shop["account_name"].String()
@@ -1194,7 +1282,14 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 			name = shop["platform_nickname"].String()
 		}
 		uidShopMap[uid] = name
-		platformUids[platform] = append(platformUids[platform], uid)
+	}
+	// 为通过 account_name 匹配到的 uid 也建立映射
+	for _, uids := range platformUids {
+		for _, uid := range uids {
+			if _, exists := uidShopMap[uid]; !exists {
+				uidShopMap[uid] = uid
+			}
+		}
 	}
 
 	if len(platformUids) == 0 {
@@ -1227,14 +1322,18 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 			continue
 		}
 
+		orderNoCol := "main_order_no"
 		collateClause := ""
+		talentCollate := ""
 		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
+			orderNoCol = "order_no"
 			collateClause = "COLLATE utf8mb4_unicode_ci"
+			talentCollate = "COLLATE utf8mb4_unicode_ci"
 		}
 
 		sql := fmt.Sprintf(`
 			SELECT
-				o.main_order_no,
+				o.%s AS main_order_no,
 				o.product_name,
 				o.product_num,
 				o.product_price,
@@ -1248,14 +1347,14 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 				o.talent_id
 			FROM %s o
 			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
-			WHERE o.talent_id IN(?)
+			WHERE o.talent_id %s IN(?)
 			  AND o.pay_finish_time >= ?
 			  AND o.pay_finish_time < ?
-			  AND o.main_order_no IS NOT NULL
-			  AND o.main_order_no != ''
+			  AND o.%s IS NOT NULL
+			  AND o.%s != ''
 			  %s
 			ORDER BY o.pay_finish_time DESC
-		`, tableName, collateClause, validFilter)
+		`, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
 
 		result, err := g.DB().GetAll(ctx, sql, uids, startDate, endDateNext)
 		if err != nil || len(result) == 0 {

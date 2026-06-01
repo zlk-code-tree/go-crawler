@@ -16,6 +16,7 @@ type FinanceStatsReq struct {
 	EndDate   string `json:"endDate" in:"query" d:"" dc:"结束日期（custom时必填，格式：2006-01-02）"`
 	NodeId    int64  `json:"nodeId" in:"query" d:"0" dc:"组织节点ID（0=全部）"`
 	NodeType  string `json:"nodeType" in:"query" d:"company" v:"required|in:company,department,trader#节点类型不能为空|节点类型非法" dc:"节点类型：company/department/trader"`
+	Platform  string `json:"platform" in:"query" d:"" dc:"平台筛选：douyin/kuaishou/shipinhao（空=全部）"`
 }
 
 // FinanceStatsRes 佣金统计响应
@@ -31,6 +32,7 @@ type FinanceChildrenReq struct {
 	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
 	StartDate string `json:"startDate" in:"query" d:"" dc:"开始日期"`
 	EndDate   string `json:"endDate" in:"query" d:"" dc:"结束日期"`
+	Platform  string `json:"platform" in:"query" d:"" dc:"平台筛选：douyin/kuaishou/shipinhao（空=全部）"`
 }
 
 // FinanceChildrenRes 获取下级节点响应

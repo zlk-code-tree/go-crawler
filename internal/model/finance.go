@@ -36,6 +36,7 @@ type FinanceStatsReq struct {
 	EndDate      string `json:"endDate"`                 // 结束日期（custom时必填）
 	NodeId       int64  `json:"nodeId"`                  // 组织节点ID
 	NodeType     string `json:"nodeType" v:"required"`   // 节点类型：company/department/trader
+	Platform     string `json:"platform"`                // 平台筛选：douyin/kuaishou/shipinhao（空=全部）
 }
 
 // FinanceChildrenReq 获取下级节点请求
@@ -45,6 +46,7 @@ type FinanceChildrenReq struct {
 	TimeType     string `json:"timeType"`
 	StartDate    string `json:"startDate"`
 	EndDate      string `json:"endDate"`
+	Platform     string `json:"platform"`                // 平台筛选：douyin/kuaishou/shipinhao（空=全部）
 }
 
 // FinanceTraderDetailReq 投手详情统计请求
