@@ -89,8 +89,8 @@ type ProductInfo struct {
 	Rank             int    // 排名
 	ProductID        string // 商品 ID（从 API 响应获取）
 	ProductName      string // 商品名称
-	ShopID           string // 店铺 ID
-	ShopName         string // 店铺名称
+	ShopID           string // 账号 ID
+	ShopName         string // 账号名称
 	PaymentAmount    string // 短视频用户支付金额
 	ClickCount       string // 短视频点击次数
 	SalesVolume      string // 短视频成交件数

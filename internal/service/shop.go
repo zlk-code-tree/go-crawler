@@ -20,9 +20,9 @@ func NewShopService() *ShopService {
 	return &ShopService{}
 }
 
-// List 查询店铺列表
+// List 查询账号列表
 func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword, platform string) ([]g.Map, int64, error) {
-	query := "SELECT * FROM shop WHERE 1=1"
+	query := "SELECT * FROM account WHERE 1=1"
 	params := []interface{}{}
 
 	if keyword != "" {
@@ -45,7 +45,7 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword, pla
 	}
 
 	// 获取总数
-	totalQuery := "SELECT COUNT(*) as total FROM shop WHERE 1=1"
+	totalQuery := "SELECT COUNT(*) as total FROM account WHERE 1=1"
 	totalParams := []interface{}{}
 	if keyword != "" {
 		totalQuery += " AND (uid LIKE ? OR account_name LIKE ? OR platform_nickname LIKE ? OR operator LIKE ?)"
@@ -87,13 +87,13 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword, pla
 	return shops, total, nil
 }
 
-// Detail 获取店铺详情
+// Detail 获取账号详情
 func (s *ShopService) Detail(ctx context.Context, id int) (g.Map, error) {
 	if id <= 0 {
-		return nil, gerror.New("店铺ID不能为空")
+		return nil, gerror.New("账号ID不能为空")
 	}
 
-	result, err := g.DB().Model("shop").Where("id", id).One()
+	result, err := g.DB().Model("account").Where("id", id).One()
 	if err != nil {
 		return nil, err
 	}
@@ -123,10 +123,10 @@ func (s *ShopService) Detail(ctx context.Context, id int) (g.Map, error) {
 	return shop, nil
 }
 
-// Save 保存店铺
+// Save 保存账号
 func (s *ShopService) Save(ctx context.Context, req *model.ShopSaveReq) (int64, error) {
 	// 检查同一平台下 uid 是否已存在（排除自己）
-	query := g.DB().Model("shop").Where("platform", req.Platform).Where("uid", req.Uid)
+	query := g.DB().Model("account").Where("platform", req.Platform).Where("uid", req.Uid)
 	if req.Id > 0 {
 		query = query.WhereNot("id", req.Id)
 	}
@@ -148,19 +148,19 @@ func (s *ShopService) Save(ctx context.Context, req *model.ShopSaveReq) (int64, 
 
 	if req.Id > 0 {
 		data["updated_at"] = time.Now()
-		_, err := g.DB().Model("shop").Where("id", req.Id).Data(data).Update()
+		_, err := g.DB().Model("account").Where("id", req.Id).Data(data).Update()
 		return int64(req.Id), err
 	} else {
 		data["created_at"] = time.Now()
 		data["updated_at"] = time.Now()
-		id, err := g.DB().Model("shop").Data(data).InsertAndGetId()
+		id, err := g.DB().Model("account").Data(data).InsertAndGetId()
 		return id, err
 	}
 }
 
-// Stats 店铺平台统计
+// Stats 账号平台统计
 func (s *ShopService) Stats(ctx context.Context) (g.Map, error) {
-	rows, err := g.DB().GetAll(ctx, "SELECT platform, COUNT(*) as cnt FROM shop GROUP BY platform")
+	rows, err := g.DB().GetAll(ctx, "SELECT platform, COUNT(*) as cnt FROM account GROUP BY platform")
 	if err != nil {
 		return nil, err
 	}
@@ -176,13 +176,13 @@ func (s *ShopService) Stats(ctx context.Context) (g.Map, error) {
 	return stats, nil
 }
 
-// Delete 删除店铺
+// Delete 删除账号
 func (s *ShopService) Delete(ctx context.Context, id int) error {
 	if id <= 0 {
-		return gerror.New("店铺ID不能为空")
+		return gerror.New("账号ID不能为空")
 	}
 
-	_, err := g.DB().Model("shop").Where("id", id).Delete()
+	_, err := g.DB().Model("account").Where("id", id).Delete()
 	return err
 }
 
@@ -191,7 +191,7 @@ func (s *ShopService) ExportTemplate(ctx context.Context) (string, error) {
 	f := excelize.NewFile()
 	defer f.Close()
 
-	sheetName := "店铺信息"
+	sheetName := "账号信息"
 	index, _ := f.NewSheet(sheetName)
 	f.SetActiveSheet(index)
 
@@ -254,10 +254,10 @@ func (s *ShopService) ExportTemplate(ctx context.Context) (string, error) {
 	return filename, nil
 }
 
-// ExportToExcel 导出店铺数据到Excel
+// ExportToExcel 导出账号数据到Excel
 func (s *ShopService) ExportToExcel(ctx context.Context, keyword string) (string, error) {
 	// 查询所有符合条件的店铺
-	query := "SELECT * FROM shop WHERE 1=1"
+	query := "SELECT * FROM account WHERE 1=1"
 	params := []interface{}{}
 
 	if keyword != "" {
@@ -280,7 +280,7 @@ func (s *ShopService) ExportToExcel(ctx context.Context, keyword string) (string
 	f := excelize.NewFile()
 	defer f.Close()
 
-	sheetName := "店铺信息"
+	sheetName := "账号信息"
 	index, _ := f.NewSheet(sheetName)
 	f.SetActiveSheet(index)
 
@@ -339,10 +339,10 @@ type ImportResult struct {
 	Errors       []string `json:"errors"`       // 错误信息列表
 }
 
-// ImportFromExcel 从Excel导入店铺数据（优化版：流式处理+批量入库）
+// ImportFromExcel 从Excel导入账号数据（优化版：流式处理+批量入库）
 // 平台信息从Excel的"平台"列读取
 func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*ImportResult, error) {
-	g.Log().Infof(ctx, "开始导入店铺文件: %s", filePath)
+	g.Log().Infof(ctx, "开始导入账号文件: %s", filePath)
 
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
@@ -444,7 +444,7 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 
 	// 预加载所有已存在的 platform+account_name 到内存，避免每行都查询数据库
 	existingKeys := make(map[string]bool)
-	existingRows, _ := g.DB().Model("shop").Fields("platform, account_name").All()
+	existingRows, _ := g.DB().Model("account").Fields("platform, account_name").All()
 	for _, row := range existingRows {
 		key := row["platform"].String() + "|" + row["account_name"].String()
 		existingKeys[key] = true
@@ -562,7 +562,7 @@ func (s *ShopService) batchInsert(ctx context.Context, batch []g.Map) (int, int,
 	}
 	success, skip := 0, 0
 	for _, data := range batch {
-		_, err := g.DB().Model("shop").Ctx(ctx).Data(data).Insert()
+		_, err := g.DB().Model("account").Ctx(ctx).Data(data).Insert()
 		if err != nil {
 			if strings.Contains(err.Error(), "Duplicate entry") || strings.Contains(err.Error(), "1062") {
 				skip++

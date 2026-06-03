@@ -30,7 +30,7 @@ type Result struct {
 type ProductInfo struct {
 	Rank             int    `json:"rank" dc:"排名"`
 	ProductName      string `json:"product_name" dc:"商品名称"`
-	ShopName         string `json:"shop_name" dc:"店铺名称"`
+	ShopName         string `json:"shop_name" dc:"账号名称"`
 	PaymentAmount    string `json:"payment_amount" dc:"短视频用户支付金额"`
 	ClickCount       string `json:"click_count" dc:"短视频点击次数"`
 	SalesVolume      string `json:"sales_volume" dc:"短视频成交件数"`

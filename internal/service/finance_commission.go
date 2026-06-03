@@ -135,16 +135,16 @@ func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId
 	}
 
 	// 根据节点类型筛选（nodeId 为编码后的ID，需要解码）
-	// 只查 shop_id > 0 的行（店铺维度），避免公司/部门汇总行重复计算
+	// 只查 account_id > 0 的行（账号维度），避免公司/部门汇总行重复计算
 	switch nodeType {
 	case "company":
-		query = query.Where("company_id = ? AND shop_id > 0", nodeId)
+		query = query.Where("company_id = ? AND account_id > 0", nodeId)
 	case "department":
 		realDeptId := model.DecodeDeptID(nodeId)
-		query = query.Where("department_id = ? AND shop_id > 0", realDeptId)
+		query = query.Where("department_id = ? AND account_id > 0", realDeptId)
 	case "trader":
 		realTraderId := model.DecodeTraderID(nodeId)
-		query = query.Where("trader_id = ? AND shop_id = 0", realTraderId)
+		query = query.Where("trader_id = ? AND account_id = 0", realTraderId)
 	}
 
 	// 聚合统计
@@ -181,17 +181,17 @@ func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId
 
 // getStatsRealtime 实时计算统计
 func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId int64, nodeType, startDate, endDate, timeType, platform string) (*model.FinanceStatsRes, error) {
-	// 1. 获取该节点下的所有店铺ID
-	shopIds, err := s.getShopIdsByNode(ctx, nodeId, nodeType, platform)
+	// 1. 获取该节点下的所有账号ID
+	accountIds, err := s.getAccountIdsByNode(ctx, nodeId, nodeType, platform)
 	if err != nil {
-		g.Log().Warningf(ctx, "[Finance] getShopIdsByNode 失败: nodeType=%s, nodeId=%d, err=%v", nodeType, nodeId, err)
+		g.Log().Warningf(ctx, "[Finance] getAccountIdsByNode 失败: nodeType=%s, nodeId=%d, err=%v", nodeType, nodeId, err)
 		return nil, err
 	}
 
-	g.Log().Infof(ctx, "[Finance] 实时统计: nodeType=%s, nodeId=%d, shopIds=%v, date=%s~%s", nodeType, nodeId, shopIds, startDate, endDate)
+	g.Log().Infof(ctx, "[Finance] 实时统计: nodeType=%s, nodeId=%d, accountIds=%v, date=%s~%s", nodeType, nodeId, accountIds, startDate, endDate)
 
-	if len(shopIds) == 0 {
-		g.Log().Warningf(ctx, "[Finance] 节点下无店铺: nodeType=%s, nodeId=%d", nodeType, nodeId)
+	if len(accountIds) == 0 {
+		g.Log().Warningf(ctx, "[Finance] 节点下无账号: nodeType=%s, nodeId=%d", nodeType, nodeId)
 		return &model.FinanceStatsRes{
 			TimeType:  timeType,
 			StartDate: startDate,
@@ -200,10 +200,10 @@ func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId 
 		}, nil
 	}
 
-	// 2. 统计这些店铺的订单数据（跨三张订单表）
-	stats, err := s.statsOrdersByShopIds(ctx, shopIds, startDate, endDate)
+	// 2. 统计这些账号的订单数据（跨三张订单表）
+	stats, err := s.statsOrdersByAccountIds(ctx, accountIds, startDate, endDate)
 	if err != nil {
-		g.Log().Warningf(ctx, "[Finance] statsOrdersByShopIds 失败: shopIds=%v, err=%v", shopIds, err)
+		g.Log().Warningf(ctx, "[Finance] statsOrdersByAccountIds 失败: accountIds=%v, err=%v", accountIds, err)
 		return nil, err
 	}
 
@@ -446,19 +446,19 @@ func (s *FinanceCommissionService) getTraderChildren(ctx context.Context, trader
 	}
 
 	// 获取投手关联的店铺
-	shopQuery := g.DB().Model("shop s").
-		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
+	shopQuery := g.DB().Model("account a").
+		LeftJoin("trader_account_relation tsr", "a.id = tsr.account_id").
 		Where("tsr.trader_id", realTraderId)
 	if platform != "" {
-		shopQuery = shopQuery.Where("s.platform", platform)
+		shopQuery = shopQuery.Where("a.platform", platform)
 	}
-	shops, err := shopQuery.Fields("s.id, s.platform, s.uid, s.account_name, s.platform_nickname").
+	shops, err := shopQuery.Fields("a.id, a.platform, a.uid, a.account_name, a.platform_nickname").
 		All()
 
 	var children []model.NodeStatsItem
 	if err == nil {
 		for _, shop := range shops {
-			stats, _ := s.statsOrdersByShopIds(ctx, []int{shop["id"].Int()}, startDate, endDate)
+			stats, _ := s.statsOrdersByAccountIds(ctx, []int{shop["id"].Int()}, startDate, endDate)
 			if stats == nil {
 				stats = &model.FinanceStatsSummary{}
 			}
@@ -516,7 +516,7 @@ func (s *FinanceCommissionService) GetTraderDetail(ctx context.Context, req *mod
 		return nil, err
 	}
 
-	// 获取店铺明细
+	// 获取账号明细
 	shopStats, err := s.getTraderShopStats(ctx, req.TraderId, startDate, endDate)
 	if err != nil {
 		return nil, err
@@ -535,13 +535,13 @@ func (s *FinanceCommissionService) GetTraderDetail(ctx context.Context, req *mod
 	}, nil
 }
 
-// getTraderShopStats 获取投手关联店铺的统计
+// getTraderShopStats 获取投手关联账号的统计
 func (s *FinanceCommissionService) getTraderShopStats(ctx context.Context, traderId int64, startDate, endDate string) ([]model.ShopStatsItem, error) {
 	// 获取投手关联的店铺
-	shops, err := g.DB().Model("shop s").
-		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
+	shops, err := g.DB().Model("account a").
+		LeftJoin("trader_account_relation tsr", "a.id = tsr.account_id").
 		Where("tsr.trader_id", traderId).
-		Fields("s.id, s.platform, s.uid, s.account_name, s.platform_nickname").
+		Fields("a.id, a.platform, a.uid, a.account_name, a.platform_nickname").
 		All()
 	if err != nil {
 		return nil, err
@@ -549,8 +549,8 @@ func (s *FinanceCommissionService) getTraderShopStats(ctx context.Context, trade
 
 	var result []model.ShopStatsItem
 	for _, shop := range shops {
-		shopId := shop["id"].Int()
-		stats, _ := s.statsOrdersByShopIds(ctx, []int{shopId}, startDate, endDate)
+		accountId := shop["id"].Int()
+		stats, _ := s.statsOrdersByAccountIds(ctx, []int{accountId}, startDate, endDate)
 		if stats == nil {
 			stats = &model.FinanceStatsSummary{}
 		}
@@ -561,7 +561,7 @@ func (s *FinanceCommissionService) getTraderShopStats(ctx context.Context, trade
 		}
 
 		result = append(result, model.ShopStatsItem{
-			ShopId:     shopId,
+			AccountId:     accountId,
 			ShopName:   shopName,
 			Uid:        shop["uid"].String(),
 			Platform:   shop["platform"].String(),
@@ -580,18 +580,18 @@ func (s *FinanceCommissionService) getTraderShopStats(ctx context.Context, trade
 // 店铺明细查询
 // ============================================
 
-// GetShopDetail 获取店铺明细统计
+// GetShopDetail 获取账号明细统计
 func (s *FinanceCommissionService) GetShopDetail(ctx context.Context, req *model.FinanceShopDetailReq) (*model.FinanceShopDetailRes, error) {
 	startDate, endDate := s.ParseTimeRange(req.TimeType, req.StartDate, req.EndDate)
 
-	// 获取店铺信息
-	shop, err := g.DB().Model("shop").Where("id", req.ShopId).One()
+	// 获取账号信息
+	shop, err := g.DB().Model("account").Where("id", req.AccountId).One()
 	if err != nil || shop.IsEmpty() {
-		return nil, fmt.Errorf("店铺不存在")
+		return nil, fmt.Errorf("账号不存在")
 	}
 
 	// 统计数据
-	stats, _ := s.statsOrdersByShopIds(ctx, []int{req.ShopId}, startDate, endDate)
+	stats, _ := s.statsOrdersByAccountIds(ctx, []int{req.AccountId}, startDate, endDate)
 	if stats == nil {
 		stats = &model.FinanceStatsSummary{}
 	}
@@ -602,7 +602,7 @@ func (s *FinanceCommissionService) GetShopDetail(ctx context.Context, req *model
 	}
 
 	return &model.FinanceShopDetailRes{
-		ShopId:    req.ShopId,
+		AccountId:    req.AccountId,
 		ShopName:  shopName,
 		Uid:       shop["uid"].String(),
 		Platform:  shop["platform"].String(),
@@ -617,13 +617,13 @@ func (s *FinanceCommissionService) GetShopDetail(ctx context.Context, req *model
 // 辅助方法
 // ============================================
 
-// getShopIdsByNode 根据组织节点获取店铺ID列表（platform 为空则不过滤）
-func (s *FinanceCommissionService) getShopIdsByNode(ctx context.Context, nodeId int64, nodeType, platform string) ([]int, error) {
+// getAccountIdsByNode 根据组织节点获取账号ID列表（platform 为空则不过滤）
+func (s *FinanceCommissionService) getAccountIdsByNode(ctx context.Context, nodeId int64, nodeType, platform string) ([]int, error) {
 	switch nodeType {
 	case "company":
 		// 获取该公司及所有子公司的ID
 		companyIds := s.getCompanyAndChildrenIds(ctx, nodeId)
-		// 通过 trader 关联获取店铺：公司 → trader(company_id) → trader_shop_relation → shop
+		// 通过 trader 关联获取账号：公司 → trader(company_id) → trader_account_relation → shop
 		traderQuery := g.DB().Model("trader").
 			Where("company_id IN(?)", companyIds).
 			Where("status", 1)
@@ -638,27 +638,27 @@ func (s *FinanceCommissionService) getShopIdsByNode(ctx context.Context, nodeId 
 		if len(traderIds) == 0 {
 			return nil, nil
 		}
-		shopQuery := g.DB().Model("trader_shop_relation tsr").
-			LeftJoin("shop s", "tsr.shop_id = s.id").
+		shopQuery := g.DB().Model("trader_account_relation tsr").
+			LeftJoin("account a", "tsr.account_id = a.id").
 			Where("tsr.trader_id IN(?)", traderIds)
 		if platform != "" {
-			shopQuery = shopQuery.Where("s.platform", platform)
+			shopQuery = shopQuery.Where("a.platform", platform)
 		}
-		shopIdVars, err := shopQuery.Array("tsr.shop_id")
+		accountIdVars, err := shopQuery.Array("tsr.account_id")
 		if err != nil {
 			return nil, err
 		}
-		var shopIds []int
-		for _, v := range shopIdVars {
-			shopIds = append(shopIds, v.Int())
+		var accountIds []int
+		for _, v := range accountIdVars {
+			accountIds = append(accountIds, v.Int())
 		}
-		return shopIds, nil
+		return accountIds, nil
 
 	case "department":
 		// nodeId 为编码后的ID，需要解码
 		realDeptId := model.DecodeDeptID(nodeId)
 		deptIds := s.getDeptAndChildrenIds(ctx, realDeptId)
-		// 通过 trader 关联获取店铺：部门 → trader(group_id) → trader_shop_relation → shop
+		// 通过 trader 关联获取账号：部门 → trader(group_id) → trader_account_relation → shop
 		traderQuery := g.DB().Model("trader").
 			Where("group_id IN(?)", deptIds).
 			Where("status", 1)
@@ -673,40 +673,40 @@ func (s *FinanceCommissionService) getShopIdsByNode(ctx context.Context, nodeId 
 		if len(traderIds) == 0 {
 			return nil, nil
 		}
-		shopQuery := g.DB().Model("trader_shop_relation tsr").
-			LeftJoin("shop s", "tsr.shop_id = s.id").
+		shopQuery := g.DB().Model("trader_account_relation tsr").
+			LeftJoin("account a", "tsr.account_id = a.id").
 			Where("tsr.trader_id IN(?)", traderIds)
 		if platform != "" {
-			shopQuery = shopQuery.Where("s.platform", platform)
+			shopQuery = shopQuery.Where("a.platform", platform)
 		}
-		shopIdVars, err := shopQuery.Array("tsr.shop_id")
+		accountIdVars, err := shopQuery.Array("tsr.account_id")
 		if err != nil {
 			return nil, err
 		}
-		var shopIds []int
-		for _, v := range shopIdVars {
-			shopIds = append(shopIds, v.Int())
+		var accountIds []int
+		for _, v := range accountIdVars {
+			accountIds = append(accountIds, v.Int())
 		}
-		return shopIds, nil
+		return accountIds, nil
 
 	case "trader":
 		// nodeId 为编码后的ID，需要解码
 		realTraderId := model.DecodeTraderID(nodeId)
-		shopQuery := g.DB().Model("trader_shop_relation tsr").
-			LeftJoin("shop s", "tsr.shop_id = s.id").
+		shopQuery := g.DB().Model("trader_account_relation tsr").
+			LeftJoin("account a", "tsr.account_id = a.id").
 			Where("tsr.trader_id", realTraderId)
 		if platform != "" {
-			shopQuery = shopQuery.Where("s.platform", platform)
+			shopQuery = shopQuery.Where("a.platform", platform)
 		}
-		shopIdVars, err := shopQuery.Array("tsr.shop_id")
+		accountIdVars, err := shopQuery.Array("tsr.account_id")
 		if err != nil {
 			return nil, err
 		}
-		var shopIds []int
-		for _, v := range shopIdVars {
-			shopIds = append(shopIds, v.Int())
+		var accountIds []int
+		for _, v := range accountIdVars {
+			accountIds = append(accountIds, v.Int())
 		}
-		return shopIds, nil
+		return accountIds, nil
 	}
 
 	return nil, nil
@@ -823,15 +823,15 @@ func (s *FinanceCommissionService) buildPlatformUids(ctx context.Context, shops 
 	return platformUids
 }
 
-// statsOrdersByShopIds 统计店铺订单数据（根据店铺 platform 只查对应订单表）
-func (s *FinanceCommissionService) statsOrdersByShopIds(ctx context.Context, shopIds []int, startDate, endDate string) (*model.FinanceStatsSummary, error) {
-	if len(shopIds) == 0 {
+// statsOrdersByAccountIds 统计账号订单数据（根据店铺 platform 只查对应订单表）
+func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, accountIds []int, startDate, endDate string) (*model.FinanceStatsSummary, error) {
+	if len(accountIds) == 0 {
 		return &model.FinanceStatsSummary{}, nil
 	}
 
-	// 获取店铺的 uid、platform、account_name
-	shops, err := g.DB().Model("shop").
-		Where("id IN(?)", shopIds).
+	// 获取账号的 uid、platform、account_name
+	shops, err := g.DB().Model("account").
+		Where("id IN(?)", accountIds).
 		Fields("uid, platform, account_name").
 		All()
 	if err != nil {
@@ -841,10 +841,10 @@ func (s *FinanceCommissionService) statsOrdersByShopIds(ctx context.Context, sho
 	// 构建 platform→uids（uid 为空时自动通过 account_name 匹配订单表）
 	platformUids := s.buildPlatformUids(ctx, shops)
 
-	g.Log().Infof(ctx, "[Finance] statsOrdersByShopIds: shopIds=%v, platformUids=%v", shopIds, platformUids)
+	g.Log().Infof(ctx, "[Finance] statsOrdersByAccountIds: accountIds=%v, platformUids=%v", accountIds, platformUids)
 
 	if len(platformUids) == 0 {
-		g.Log().Warningf(ctx, "[Finance] 店铺uid为空: shopIds=%v, shops=%v", shopIds, shops)
+		g.Log().Warningf(ctx, "[Finance] 账号uid为空: accountIds=%v, shops=%v", accountIds, shops)
 		return &model.FinanceStatsSummary{}, nil
 	}
 
@@ -940,16 +940,16 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 	}
 
 	// 获取投手关联的店铺
-	shops, err := g.DB().Model("shop s").
-		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
+	shops, err := g.DB().Model("account a").
+		LeftJoin("trader_account_relation tsr", "a.id = tsr.account_id").
 		Where("tsr.trader_id", realTraderId).
 		Fields("s.id, s.uid, s.account_name, s.platform_nickname, s.platform").
 		All()
 	if err != nil {
-		return nil, fmt.Errorf("查询投手店铺失败: %v", err)
+		return nil, fmt.Errorf("查询投手账号失败: %v", err)
 	}
 
-	// 构建 uid → 店铺信息 映射，按 platform 分组 uid
+	// 构建 uid → 账号信息 映射，按 platform 分组 uid
 	type shopInfo struct {
 		name     string
 		platform string
@@ -1190,13 +1190,13 @@ func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, r
 	}
 
 	// 获取投手关联的店铺
-	shops, err := g.DB().Model("shop s").
-		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
+	shops, err := g.DB().Model("account a").
+		LeftJoin("trader_account_relation tsr", "a.id = tsr.account_id").
 		Where("tsr.trader_id", realTraderId).
 		Fields("s.id, s.uid, s.platform, s.account_name").
 		All()
 	if err != nil {
-		return nil, fmt.Errorf("查询投手店铺失败: %v", err)
+		return nil, fmt.Errorf("查询投手账号失败: %v", err)
 	}
 
 	// 按 platform 分组 uid（uid 为空时自动匹配）
@@ -1260,16 +1260,16 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 	}
 
 	// 获取投手关联的店铺
-	shops, err := g.DB().Model("shop s").
-		LeftJoin("trader_shop_relation tsr", "s.id = tsr.shop_id").
+	shops, err := g.DB().Model("account a").
+		LeftJoin("trader_account_relation tsr", "a.id = tsr.account_id").
 		Where("tsr.trader_id", realTraderId).
 		Fields("s.id, s.uid, s.account_name, s.platform_nickname, s.platform").
 		All()
 	if err != nil {
-		return "", fmt.Errorf("查询投手店铺失败: %v", err)
+		return "", fmt.Errorf("查询投手账号失败: %v", err)
 	}
 
-	// 按 platform 分组 uid，同时构建 uid→店铺名 映射
+	// 按 platform 分组 uid，同时构建 uid→账号名 映射
 	platformUids := s.buildPlatformUids(ctx, shops)
 	uidShopMap := make(map[string]string)
 	for _, shop := range shops {
@@ -1293,7 +1293,7 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 	}
 
 	if len(platformUids) == 0 {
-		return "", fmt.Errorf("投手无关联店铺")
+		return "", fmt.Errorf("投手无关联账号")
 	}
 
 	// 日期范围

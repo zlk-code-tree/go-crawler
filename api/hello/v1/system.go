@@ -302,7 +302,7 @@ type SystemOrderAnalysisGroupStatsRes struct {
 }
 
 type SystemOrderAnalysisShopStatsReq struct {
-	g.Meta   `path:"/order-analysis/shop-stats" method:"get" tags:"System-OrderAnalysis" summary:"店铺维度统计"`
+	g.Meta   `path:"/order-analysis/shop-stats" method:"get" tags:"System-OrderAnalysis" summary:"账号维度统计"`
 	TimeType string `json:"timeType" in:"query" d:"today" dc:"时间类型: today/yesterday/week/month"`
 	GroupId  int    `json:"groupId" in:"query" d:"0" dc:"小组ID，0表示全部"`
 }
@@ -325,13 +325,13 @@ type SystemOrderAnalysisGroupListRes struct {
 }
 
 type SystemOrderAnalysisShopListReq struct {
-	g.Meta     `path:"/order-analysis/shops" method:"get" tags:"System-OrderAnalysis" summary:"获取店铺列表"`
-	GroupName string `json:"groupName" in:"query" d:"" dc:"小组名称，为空则获取所有店铺"`
+	g.Meta     `path:"/order-analysis/shops" method:"get" tags:"System-OrderAnalysis" summary:"获取账号列表"`
+	GroupName string `json:"groupName" in:"query" d:"" dc:"小组名称，为空则获取所有账号"`
 }
 
 type SystemOrderAnalysisShopListRes struct {
 	g.Meta `mime:"application/json"`
-	Data   interface{} `json:"data" dc:"店铺列表"`
+	Data   interface{} `json:"data" dc:"账号列表"`
 }
 
 type SystemOrderAnalysisResultReq struct {
@@ -408,8 +408,8 @@ type SystemOrderAnalysisRankReq struct {
 type RankItem struct {
 	Rank       int     `json:"rank" dc:"排名"`
 	GroupName  string  `json:"groupName" dc:"小组名称"`
-	ShopName   string  `json:"shopName" dc:"店铺名称"`
-	ShopId     int     `json:"shopId,omitempty" dc:"店铺ID"`
+	ShopName   string  `json:"shopName" dc:"账号名称"`
+	AccountId  int     `json:"accountId,omitempty" dc:"账号ID"`
 	OrderCount int     `json:"orderCount" dc:"订单数"`
 	GoodsCount int     `json:"goodsCount" dc:"商品数量"`
 	PayAmount  float64 `json:"payAmount" dc:"应付金额"`
@@ -420,8 +420,8 @@ type SystemOrderAnalysisRankRes struct {
 	g.Meta `mime:"application/json"`
 	// 小组排名
 	GroupRank interface{} `json:"groupRank" dc:"小组排名"`
-	// 店铺排名
-	ShopRank  interface{} `json:"shopRank" dc:"店铺排名"`
+	// 账号排名
+	ShopRank  interface{} `json:"shopRank" dc:"账号排名"`
 	StartDate string      `json:"startDate" dc:"开始日期"`
 	EndDate   string      `json:"endDate" dc:"结束日期"`
 }
@@ -440,14 +440,14 @@ type SystemOrderAnalysisGroupExportRes struct {
 	g.Meta `mime:"application/json"`
 }
 
-// ShopExportReq 店铺订单明细导出请求
+// ShopExportReq 账号订单明细导出请求
 type SystemOrderAnalysisShopExportReq struct {
-	g.Meta   `path:"/order-analysis/export-shop-orders" method:"get" tags:"System-OrderAnalysis" summary:"导出店铺订单明细"`
-	ShopId   int    `json:"shopId" in:"query" v:"required" dc:"店铺ID"`
+	g.Meta   `path:"/order-analysis/export-shop-orders" method:"get" tags:"System-OrderAnalysis" summary:"导出账号订单明细"`
+	AccountId int    `json:"accountId" in:"query" v:"required" dc:"账号ID"`
 	TimeType string `json:"timeType" in:"query" d:"today" dc:"时间类型: today/yesterday/last7/last30/thisMonth"`
 }
 
-// ShopExportRes 店铺订单明细导出响应
+// ShopExportRes 账号订单明细导出响应
 type SystemOrderAnalysisShopExportRes struct {
 	g.Meta `mime:"application/json"`
 }
@@ -455,7 +455,7 @@ type SystemOrderAnalysisShopExportRes struct {
 // RankExportReq 排名数据导出请求
 type SystemOrderAnalysisRankExportReq struct {
 	g.Meta   `path:"/order-analysis/export-rank" method:"get" tags:"System-OrderAnalysis" summary:"导出排名数据"`
-	Type     string `json:"type" in:"query" v:"required|in:group,shop" dc:"导出类型: group=小组排名,shop=店铺排名"`
+	Type     string `json:"type" in:"query" v:"required|in:group,shop" dc:"导出类型: group=小组排名,shop=账号排名"`
 	TimeType string `json:"timeType" in:"query" d:"thisMonth" dc:"时间类型: today/yesterday/last7/last30/thisMonth"`
 }
 
@@ -464,19 +464,19 @@ type SystemOrderAnalysisRankExportRes struct {
 	g.Meta `mime:"application/json"`
 }
 
-// ShopTalentStatsReq 店铺达人明细请求
+// ShopTalentStatsReq 账号达人明细请求
 type SystemOrderAnalysisShopTalentStatsReq struct {
-	g.Meta    `path:"/order-analysis/shop-talent-stats" method:"get" tags:"System-OrderAnalysis" summary:"店铺达人明细"`
-	ShopName  string `json:"shopName" in:"query" v:"required" dc:"店铺名称"`
+	g.Meta    `path:"/order-analysis/shop-talent-stats" method:"get" tags:"System-OrderAnalysis" summary:"账号达人明细"`
+	ShopName  string `json:"shopName" in:"query" v:"required" dc:"账号名称"`
 	Preset    string `json:"preset" in:"query" d:"thisMonth" dc:"预设时间: today/yesterday/last7/last30/thisMonth"`
 	StartDate string `json:"startDate" in:"query" d:"" dc:"自定义开始日期"`
 	EndDate   string `json:"endDate" in:"query" d:"" dc:"自定义结束日期"`
 }
 
-// ShopTalentStatsRes 店铺达人明细响应
+// ShopTalentStatsRes 账号达人明细响应
 type SystemOrderAnalysisShopTalentStatsRes struct {
 	g.Meta    `mime:"application/json"`
-	ShopName  string                     `json:"shopName" dc:"店铺名称"`
+	ShopName  string                     `json:"shopName" dc:"账号名称"`
 	GroupName string                     `json:"groupName" dc:"所属小组"`
 	Stats     []model.ShopTalentStatItem `json:"stats" dc:"达人统计列表"`
 	StartDate string                     `json:"startDate" dc:"开始日期"`

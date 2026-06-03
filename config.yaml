@@ -72,11 +72,30 @@ permission:
   # 权限白名单，白名单中的用户跳过权限验证
   whitelist:
     - admin  # 超级用户
-    - user1  # 其他需要跳过权限验证的用户
-    - user2  # 其他需要跳过权限验证的用户
+    - zhanglikun  # 其他需要跳过权限验证的用户
+
+# 第三方平台对接配置
+platform:
+  douyin:
+    appKey: "7643346354286151194"           # 抖店开放平台 AppKey
+    appSecret: "169c1d3d-df15-4bc9-b5ac-e772441cca5e"  # 抖店开放平台 AppSecret
+    baseUrl: "https://openapi-fxg.jinritemai.com"  # 抖店API地址
+    timeout: 15000                   # 请求超时(ms)
+  kuaishou:
+    appKey: ""
+    appSecret: ""
+    baseUrl: ""
+  shipinhao:
+    appKey: ""
+    appSecret: ""
+    baseUrl: ""
 
 # 飞书配置
 feishu:
   appId: "cli_a96309db59fadbef"  # 飞书开放平台应用ID
   appSecret: "H9UZDDSudwbXrKHko4AMVlJOBYIUTrXu"  # 飞书开放平台应用密钥
   redirectUri: "http://localhost:8081/api/FeishuAuthController/FeishuCallback"  # 飞书授权回调地址
+
+# 任务调度监控配置
+task:
+  feishuWebhook: ""  # 飞书机器人webhook地址，用于任务失败告警通知

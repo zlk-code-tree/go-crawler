@@ -99,37 +99,37 @@ type OrgAncestorsRes struct {
 	List   []model.OrgStructure `json:"list" dc:"祖先节点列表（从根到当前节点）"`
 }
 
-// OrgBindShopReq 绑定店铺到组织节点请求
+// OrgBindShopReq 绑定账号到组织节点请求
 type OrgBindShopReq struct {
-	g.Meta `path:"/org/bind-shop" method:"post" tags:"OrgStructure" summary:"绑定店铺到组织节点"`
-	ShopId int   `json:"shopId" v:"required#店铺ID不能为空" dc:"店铺ID"`
-	OrgId  int64 `json:"orgId" v:"required#组织节点ID不能为空" dc:"组织节点ID（必须是投手/employee级别）"`
+	g.Meta `path:"/org/bind-shop" method:"post" tags:"OrgStructure" summary:"绑定账号到组织节点"`
+	AccountId int   `json:"accountId" v:"required#账号ID不能为空" dc:"账号ID"`
+	OrgId     int64 `json:"orgId" v:"required#组织节点ID不能为空" dc:"组织节点ID（必须是投手/employee级别）"`
 }
 
-// OrgBindShopRes 绑定店铺到组织节点响应
+// OrgBindShopRes 绑定账号到组织节点响应
 type OrgBindShopRes struct {
 	g.Meta `mime:"application/json"`
 }
 
-// OrgUnbindShopReq 解绑店铺与组织节点请求
+// OrgUnbindShopReq 解绑账号与组织节点请求
 type OrgUnbindShopReq struct {
-	g.Meta `path:"/org/unbind-shop" method:"post" tags:"OrgStructure" summary:"解绑店铺与组织节点"`
-	ShopId int   `json:"shopId" v:"required#店铺ID不能为空" dc:"店铺ID"`
-	OrgId  int64 `json:"orgId" v:"required#组织节点ID不能为空" dc:"组织节点ID"`
+	g.Meta `path:"/org/unbind-shop" method:"post" tags:"OrgStructure" summary:"解绑账号与组织节点"`
+	AccountId int   `json:"accountId" v:"required#账号ID不能为空" dc:"账号ID"`
+	OrgId     int64 `json:"orgId" v:"required#组织节点ID不能为空" dc:"组织节点ID"`
 }
 
-// OrgUnbindShopRes 解绑店铺与组织节点响应
+// OrgUnbindShopRes 解绑账号与组织节点响应
 type OrgUnbindShopRes struct {
 	g.Meta `mime:"application/json"`
 }
 
-// OrgShopPathReq 获取店铺的组织路径请求
+// OrgShopPathReq 获取账号的组织路径请求
 type OrgShopPathReq struct {
-	g.Meta `path:"/org/shop-path" method:"get" tags:"OrgStructure" summary:"获取店铺的组织路径"`
-	ShopId int `json:"shopId" in:"query" v:"required#店铺ID不能为空" dc:"店铺ID"`
+	g.Meta `path:"/org/shop-path" method:"get" tags:"OrgStructure" summary:"获取账号的组织路径"`
+	AccountId int `json:"accountId" in:"query" v:"required#账号ID不能为空" dc:"账号ID"`
 }
 
-// OrgShopPathRes 获取店铺的组织路径响应
+// OrgShopPathRes 获取账号的组织路径响应
 type OrgShopPathRes struct {
 	g.Meta   `mime:"application/json"`
 	Path     []model.OrgStructure `json:"path" dc:"组织路径"`

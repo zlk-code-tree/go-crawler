@@ -878,7 +878,7 @@ func (s *OrgStructureService) Delete(ctx context.Context, id int64) error {
 	case model.IsTraderID(id):
 		realId := model.DecodeTraderID(id)
 		// 删除关联的店铺关系
-		_, _ = g.DB().Model("trader_shop_relation").Where("trader_id", realId).Delete()
+		_, _ = g.DB().Model("trader_account_relation").Where("trader_id", realId).Delete()
 		_, err = g.DB().Model("trader").Where("id", realId).Data(g.Map{"status": 0, "updated_at": gtime.Now()}).Update()
 		if err != nil {
 			return fmt.Errorf("删除投手失败: %v", err)
@@ -889,13 +889,13 @@ func (s *OrgStructureService) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-// ==================== 店铺绑定 ====================
+// ==================== 账号绑定 ====================
 
-// BindShop 绑定店铺到组织节点（投手级别）
-func (s *OrgStructureService) BindShop(ctx context.Context, shopId int, orgId int64) error {
+// BindShop 绑定账号到组织节点（投手级别）
+func (s *OrgStructureService) BindShop(ctx context.Context, accountId int, orgId int64) error {
 	// 验证 orgId 必须是投手 (employee) 类型
 	if !model.IsTraderID(orgId) {
-		return fmt.Errorf("只能将店铺绑定到投手(employee)级别的组织节点")
+		return fmt.Errorf("只能将账号绑定到投手(employee)级别的组织节点")
 	}
 	realTraderId := model.DecodeTraderID(orgId)
 
@@ -906,9 +906,9 @@ func (s *OrgStructureService) BindShop(ctx context.Context, shopId int, orgId in
 	}
 
 	// 检查是否已绑定
-	count, err := g.DB().Model("trader_shop_relation").
+	count, err := g.DB().Model("trader_account_relation").
 		Where("trader_id", realTraderId).
-		Where("shop_id", shopId).
+		Where("account_id", accountId).
 		Count()
 	if err != nil {
 		return fmt.Errorf("查询绑定关系失败: %v", err)
@@ -918,34 +918,34 @@ func (s *OrgStructureService) BindShop(ctx context.Context, shopId int, orgId in
 	}
 
 	// 写入关联
-	_, err = g.DB().Model("trader_shop_relation").
+	_, err = g.DB().Model("trader_account_relation").
 		Data(g.Map{
 			"trader_id": realTraderId,
-			"shop_id":   shopId,
+			"account_id":   accountId,
 		}).
 		Insert()
 	if err != nil {
-		return fmt.Errorf("绑定店铺失败: %v", err)
+		return fmt.Errorf("绑定账号失败: %v", err)
 	}
 
-	// 更新店铺绑定状态
-	_, _ = g.DB().Model("shop").Where("id", shopId).Data(g.Map{"bind_status": 1}).Update()
+	// 更新账号绑定状态
+	_, _ = g.DB().Model("account").Where("id", accountId).Data(g.Map{"bind_status": 1}).Update()
 	return nil
 }
 
-// UnbindShop 解绑店铺
-func (s *OrgStructureService) UnbindShop(ctx context.Context, shopId int, orgId int64) error {
+// UnbindShop 解绑账号
+func (s *OrgStructureService) UnbindShop(ctx context.Context, accountId int, orgId int64) error {
 	if !model.IsTraderID(orgId) {
-		return fmt.Errorf("只能从投手(employee)节点解绑店铺")
+		return fmt.Errorf("只能从投手(employee)节点解绑账号")
 	}
 	realTraderId := model.DecodeTraderID(orgId)
 
-	result, err := g.DB().Model("trader_shop_relation").
+	result, err := g.DB().Model("trader_account_relation").
 		Where("trader_id", realTraderId).
-		Where("shop_id", shopId).
+		Where("account_id", accountId).
 		Delete()
 	if err != nil {
-		return fmt.Errorf("解绑店铺失败: %v", err)
+		return fmt.Errorf("解绑账号失败: %v", err)
 	}
 	affected, _ := result.RowsAffected()
 	if affected == 0 {
@@ -953,22 +953,22 @@ func (s *OrgStructureService) UnbindShop(ctx context.Context, shopId int, orgId 
 	}
 
 	// 检查店铺是否还被其他投手绑定
-	otherCount, _ := g.DB().Model("trader_shop_relation").Where("shop_id", shopId).Count()
+	otherCount, _ := g.DB().Model("trader_account_relation").Where("account_id", accountId).Count()
 	if otherCount == 0 {
-		_, _ = g.DB().Model("shop").Where("id", shopId).Data(g.Map{"bind_status": 0}).Update()
+		_, _ = g.DB().Model("account").Where("id", accountId).Data(g.Map{"bind_status": 0}).Update()
 	}
 	return nil
 }
 
-// GetShopOrgPath 获取店铺的组织路径
-func (s *OrgStructureService) GetShopOrgPath(ctx context.Context, shopId int) ([]model.OrgStructure, error) {
-	// 通过 trader_shop_relation 找到投手
+// GetShopOrgPath 获取账号的组织路径
+func (s *OrgStructureService) GetShopOrgPath(ctx context.Context, accountId int) ([]model.OrgStructure, error) {
+	// 通过 trader_account_relation 找到投手
 	var rel model.TraderShopRelation
-	err := g.DB().Model("trader_shop_relation").
-		Where("shop_id", shopId).
+	err := g.DB().Model("trader_account_relation").
+		Where("account_id", accountId).
 		Scan(&rel)
 	if err != nil {
-		return nil, fmt.Errorf("查询店铺关联失败: %v", err)
+		return nil, fmt.Errorf("查询账号关联失败: %v", err)
 	}
 	if rel.Id == 0 {
 		return nil, nil // 未绑定
@@ -978,9 +978,9 @@ func (s *OrgStructureService) GetShopOrgPath(ctx context.Context, shopId int) ([
 	return s.GetAncestors(ctx, model.EncodeTraderID(rel.TraderId))
 }
 
-// ==================== 店铺 ID 获取（统计基础） ====================
+// ==================== 账号 ID 获取（统计基础） ====================
 
-// GetShopsByOrgId 获取组织节点下的所有店铺ID（递归下级）
+// GetShopsByOrgId 获取组织节点下的所有账号ID（递归下级）
 func (s *OrgStructureService) GetShopsByOrgId(ctx context.Context, orgId int64) ([]int, error) {
 	switch {
 	case model.IsCompanyID(orgId):
@@ -1016,7 +1016,7 @@ func (s *OrgStructureService) getCompanyShops(ctx context.Context, companyId int
 		return nil, nil
 	}
 
-	return s.getShopIdsByTraderIds(ctx, traderIds)
+	return s.getAccountIdsByTraderIds(ctx, traderIds)
 }
 
 func (s *OrgStructureService) getDepartmentShops(ctx context.Context, deptId int64) ([]int, error) {
@@ -1030,31 +1030,31 @@ func (s *OrgStructureService) getDepartmentShops(ctx context.Context, deptId int
 	if len(traderIds) == 0 {
 		return nil, nil
 	}
-	return s.getShopIdsByTraderIds(ctx, traderIds)
+	return s.getAccountIdsByTraderIds(ctx, traderIds)
 }
 
 func (s *OrgStructureService) getTraderShops(ctx context.Context, traderId int64) ([]int, error) {
-	var shopIds []int
-	err := g.DB().Model("trader_shop_relation").
+	var accountIds []int
+	err := g.DB().Model("trader_account_relation").
 		Where("trader_id", traderId).
-		Fields("shop_id").
-		Scan(&shopIds)
+		Fields("account_id").
+		Scan(&accountIds)
 	if err != nil {
-		return nil, fmt.Errorf("查询投手店铺失败: %v", err)
+		return nil, fmt.Errorf("查询投手账号失败: %v", err)
 	}
-	return shopIds, nil
+	return accountIds, nil
 }
 
-func (s *OrgStructureService) getShopIdsByTraderIds(ctx context.Context, traderIds []int64) ([]int, error) {
-	var shopIds []int
-	err := g.DB().Model("trader_shop_relation").
+func (s *OrgStructureService) getAccountIdsByTraderIds(ctx context.Context, traderIds []int64) ([]int, error) {
+	var accountIds []int
+	err := g.DB().Model("trader_account_relation").
 		Where("trader_id IN(?)", traderIds).
-		Fields("shop_id").
-		Scan(&shopIds)
+		Fields("account_id").
+		Scan(&accountIds)
 	if err != nil {
-		return nil, fmt.Errorf("查询店铺关联失败: %v", err)
+		return nil, fmt.Errorf("查询账号关联失败: %v", err)
 	}
-	return shopIds, nil
+	return accountIds, nil
 }
 
 // ==================== 佣金统计 ====================
@@ -1070,14 +1070,14 @@ func (s *OrgStructureService) GetOrgStats(ctx context.Context, orgId int64, star
 		return nil, fmt.Errorf("组织节点不存在")
 	}
 
-	// 2. 获取该节点下所有店铺ID
-	shopIds, err := s.GetShopsByOrgId(ctx, orgId)
+	// 2. 获取该节点下所有账号ID
+	accountIds, err := s.GetShopsByOrgId(ctx, orgId)
 	if err != nil {
-		return nil, fmt.Errorf("获取店铺列表失败: %v", err)
+		return nil, fmt.Errorf("获取账号列表失败: %v", err)
 	}
 
 	// 3. 计算汇总
-	summary, err := s.calcShopStats(ctx, shopIds, startDate, endDate)
+	summary, err := s.calcShopStats(ctx, accountIds, startDate, endDate)
 	if err != nil {
 		return nil, fmt.Errorf("计算统计失败: %v", err)
 	}
@@ -1090,11 +1090,11 @@ func (s *OrgStructureService) GetOrgStats(ctx context.Context, orgId int64, star
 
 	childStats := make([]model.OrgStatsNode, 0, len(childNodes))
 	for _, child := range childNodes {
-		childShopIds, err := s.GetShopsByOrgId(ctx, child.Id)
+		childAccountIds, err := s.GetShopsByOrgId(ctx, child.Id)
 		if err != nil {
 			continue
 		}
-		childSummary, err := s.calcShopStats(ctx, childShopIds, startDate, endDate)
+		childSummary, err := s.calcShopStats(ctx, childAccountIds, startDate, endDate)
 		if err != nil {
 			continue
 		}
@@ -1115,9 +1115,9 @@ func (s *OrgStructureService) GetOrgStats(ctx context.Context, orgId int64, star
 	}, nil
 }
 
-// calcShopStats 计算店铺列表的佣金统计
-func (s *OrgStructureService) calcShopStats(ctx context.Context, shopIds []int, startDate, endDate string) (*model.StatsSummary, error) {
-	if len(shopIds) == 0 {
+// calcShopStats 计算账号列表的佣金统计
+func (s *OrgStructureService) calcShopStats(ctx context.Context, accountIds []int, startDate, endDate string) (*model.StatsSummary, error) {
+	if len(accountIds) == 0 {
 		return &model.StatsSummary{}, nil
 	}
 
@@ -1135,7 +1135,7 @@ func (s *OrgStructureService) calcShopStats(ctx context.Context, shopIds []int, 
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
-			LEFT JOIN shop s ON o1.talent_id = s.uid
+			LEFT JOIN account a ON o1.talent_id = a.uid
 			WHERE s.id IN (?)
 			  AND o1.pay_finish_time >= ?
 			  AND o1.pay_finish_time < ?
@@ -1147,7 +1147,7 @@ func (s *OrgStructureService) calcShopStats(ctx context.Context, shopIds []int, 
 		) o
 	`
 
-	result, err := g.DB().GetOne(ctx, sql, shopIds, startDate, endDate)
+	result, err := g.DB().GetOne(ctx, sql, accountIds, startDate, endDate)
 	if err != nil {
 		return nil, fmt.Errorf("查询统计失败: %v", err)
 	}
@@ -1176,14 +1176,14 @@ func (s *OrgStructureService) GetCommissionStats(ctx context.Context, orgId int6
 		return nil, fmt.Errorf("组织节点不存在")
 	}
 
-	// 2. 获取该节点下所有店铺ID
-	shopIds, err := s.GetShopsByOrgId(ctx, orgId)
+	// 2. 获取该节点下所有账号ID
+	accountIds, err := s.GetShopsByOrgId(ctx, orgId)
 	if err != nil {
-		return nil, fmt.Errorf("获取店铺列表失败: %v", err)
+		return nil, fmt.Errorf("获取账号列表失败: %v", err)
 	}
 
 	// 3. 计算汇总
-	summary, err := s.calcShopStats(ctx, shopIds, startDate, endDate)
+	summary, err := s.calcShopStats(ctx, accountIds, startDate, endDate)
 	if err != nil {
 		return nil, fmt.Errorf("计算汇总失败: %v", err)
 	}
@@ -1192,14 +1192,14 @@ func (s *OrgStructureService) GetCommissionStats(ctx context.Context, orgId int6
 	var items []model.CommissionStatItem
 	total := 0
 
-	if len(shopIds) > 0 {
+	if len(accountIds) > 0 {
 		// 先查总数
 		countSQL := `
 			SELECT COUNT(DISTINCT t.id) AS cnt
 			FROM (
 				SELECT o1.talent_id
 				FROM order_info o1
-				LEFT JOIN shop s ON o1.talent_id = s.uid
+				LEFT JOIN account a ON o1.talent_id = a.uid
 				WHERE s.id IN (?)
 				  AND o1.pay_finish_time >= ?
 				  AND o1.pay_finish_time < ?
@@ -1209,8 +1209,8 @@ func (s *OrgStructureService) GetCommissionStats(ctx context.Context, orgId int6
 				  AND o1.order_status != '已关闭'
 				GROUP BY o1.talent_id
 			) o
-			LEFT JOIN shop s ON o.talent_id = s.uid
-			LEFT JOIN trader_shop_relation tsr ON tsr.shop_id = s.id
+			LEFT JOIN account a ON o.talent_id = a.uid
+			LEFT JOIN trader_account_relation tsr ON tsr.account_id = a.id
 			LEFT JOIN trader t ON tsr.trader_id = t.id AND t.status = 1
 			WHERE t.id IS NOT NULL
 		`
@@ -1218,7 +1218,7 @@ func (s *OrgStructureService) GetCommissionStats(ctx context.Context, orgId int6
 			countSQL += " AND t.name LIKE '%" + keyword + "%'"
 		}
 
-		countResult, err := g.DB().GetOne(ctx, countSQL, shopIds, startDate, endDate)
+		countResult, err := g.DB().GetOne(ctx, countSQL, accountIds, startDate, endDate)
 		if err == nil {
 			total = countResult["cnt"].Int()
 		}
@@ -1243,7 +1243,7 @@ func (s *OrgStructureService) GetCommissionStats(ctx context.Context, orgId int6
 					SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
 				FROM order_info o1
 				LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
-				LEFT JOIN shop s ON o1.talent_id = s.uid
+				LEFT JOIN account a ON o1.talent_id = a.uid
 				WHERE s.id IN (?)
 				  AND o1.pay_finish_time >= ?
 				  AND o1.pay_finish_time < ?
@@ -1253,8 +1253,8 @@ func (s *OrgStructureService) GetCommissionStats(ctx context.Context, orgId int6
 				  AND o1.order_status != '已关闭'
 				GROUP BY o1.main_order_no, o1.talent_id
 			) o
-			LEFT JOIN shop s ON o.talent_id = s.uid
-			LEFT JOIN trader_shop_relation tsr ON tsr.shop_id = s.id
+			LEFT JOIN account a ON o.talent_id = a.uid
+			LEFT JOIN trader_account_relation tsr ON tsr.account_id = a.id
 			LEFT JOIN trader t ON tsr.trader_id = t.id AND t.status = 1
 			WHERE t.id IS NOT NULL
 		`
@@ -1264,7 +1264,7 @@ func (s *OrgStructureService) GetCommissionStats(ctx context.Context, orgId int6
 		sql += " GROUP BY t.id, t.name ORDER BY order_count DESC"
 		sql += fmt.Sprintf(" LIMIT %d, %d", (page-1)*pageSize, pageSize)
 
-		result, err := g.DB().GetAll(ctx, sql, shopIds, startDate, endDate)
+		result, err := g.DB().GetAll(ctx, sql, accountIds, startDate, endDate)
 		if err != nil {
 			return nil, fmt.Errorf("查询达人佣金明细失败: %v", err)
 		}

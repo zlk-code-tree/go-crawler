@@ -2,7 +2,7 @@ package model
 
 import "time"
 
-// Shop 店铺/账号信息（支持抖音/快手/视频号等多平台）
+// Shop 账号信息（支持抖音/快手/视频号等多平台）
 type Shop struct {
 	Id                int       `json:"id"`
 	Platform          string    `json:"platform"`          // 平台：douyin/kuaishou/shipinhao
@@ -12,7 +12,7 @@ type Shop struct {
 	Operator          string    `json:"operator"`          // 运营者
 	CompanyId         int64     `json:"companyId"`         // 所属公司ID（关联sys_company）
 	DepartmentId      int64     `json:"departmentId"`      // 所属部门ID（关联sys_department）
-	GroupType         string    `json:"groupType"`         // 组类型：invest(投放组)/shop(店铺组)
+	GroupType         string    `json:"groupType"`         // 组类型：invest(投放组)/shop(账号组)
 	MemberName        string    `json:"memberName"`        // 成员名称
 	TalentImage       string    `json:"talentImage"`       // 达人形象（视频号）
 	Extra             string    `json:"extra"`             // JSON扩展字段
@@ -22,7 +22,7 @@ type Shop struct {
 	UpdatedAt         time.Time `json:"updatedAt"`
 }
 
-// ShopListReq 店铺列表请求
+// ShopListReq 账号列表请求
 type ShopListReq struct {
 	Page     int    `json:"page" v:"required|min:1#页码不能为空|页码最小为1"`
 	PageSize int    `json:"pageSize" v:"required|min:1|max:100#每页数量不能为空|每页数量最小为1|每页数量最大为100"`
@@ -30,7 +30,7 @@ type ShopListReq struct {
 	Platform string `json:"platform"` // 平台筛选
 }
 
-// ShopSaveReq 保存店铺请求
+// ShopSaveReq 保存账号请求
 type ShopSaveReq struct {
 	Id                int    `json:"id"`
 	Platform          string `json:"platform" v:"required#平台不能为空"`

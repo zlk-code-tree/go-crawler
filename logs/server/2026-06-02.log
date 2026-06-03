@@ -1,0 +1,468 @@
+2026-06-02T10:08:01.651+08:00 [WARN] {80f38da38421b51826fa655ad01c931c} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T10:08:01.962+08:00 [WARN] {80f38da38421b51826fa655ad01c931c} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T10:08:02.184+08:00 [INFO] {003bc9cd8421b5183cfa655abb895e65} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-02~2026-06-02
+2026-06-02T10:08:02.184+08:00 [WARN] {003bc9cd8421b5183cfa655abb895e65} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-02T10:08:02.276+08:00 [INFO] {003bc9cd8421b5183cfa655abb895e65} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-01~2026-06-02
+2026-06-02T10:08:02.276+08:00 [WARN] {003bc9cd8421b5183cfa655abb895e65} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-02T10:08:02.505+08:00 [WARN] {003bc9cd8421b5183cfa655abb895e65} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T10:08:02.720+08:00 [WARN] {003bc9cd8421b5183cfa655abb895e65} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T10:08:40.398+08:00 [WARN] {9859afaa8d21b51862fa655a7dedfae3} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T10:08:40.780+08:00 [WARN] {9859afaa8d21b51862fa655a7dedfae3} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T10:08:41.012+08:00 [INFO] {785ea2d78d21b51876fa655a5ac176ff} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-02~2026-06-02
+2026-06-02T10:08:41.013+08:00 [WARN] {785ea2d78d21b51876fa655a5ac176ff} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-02T10:08:41.116+08:00 [INFO] {785ea2d78d21b51876fa655a5ac176ff} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-01~2026-06-02
+2026-06-02T10:08:41.116+08:00 [WARN] {785ea2d78d21b51876fa655a5ac176ff} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-02T10:08:41.413+08:00 [WARN] {785ea2d78d21b51876fa655a5ac176ff} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T10:08:41.669+08:00 [WARN] {785ea2d78d21b51876fa655a5ac176ff} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T10:13:29.313+08:00 [WARN] {a03559edd021b518e163d74d9ea6daf9} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T10:13:29.665+08:00 [WARN] {a03559edd021b518e163d74d9ea6daf9} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T10:13:29.951+08:00 [INFO] {a8bf8f1ad121b518f763d74df63fe285} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-02~2026-06-02
+2026-06-02T10:13:29.951+08:00 [WARN] {a8bf8f1ad121b518f763d74df63fe285} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-02T10:13:30.047+08:00 [INFO] {a8bf8f1ad121b518f763d74df63fe285} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-01~2026-06-02
+2026-06-02T10:13:30.047+08:00 [WARN] {a8bf8f1ad121b518f763d74df63fe285} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-02T10:13:30.314+08:00 [WARN] {a8bf8f1ad121b518f763d74df63fe285} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T10:13:30.553+08:00 [WARN] {a8bf8f1ad121b518f763d74df63fe285} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T15:17:08.353+08:00 [WARN] {184beddd6232b518add3355a1ddcb569} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T15:17:08.685+08:00 [WARN] {184beddd6232b518add3355a1ddcb569} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T15:17:08.913+08:00 [INFO] {4016b20c6332b518c3d3355a5db45a20} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-02~2026-06-02
+2026-06-02T15:17:08.913+08:00 [WARN] {4016b20c6332b518c3d3355a5db45a20} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-02T15:17:09.009+08:00 [INFO] {4016b20c6332b518c3d3355a5db45a20} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-01~2026-06-02
+2026-06-02T15:17:09.009+08:00 [WARN] {4016b20c6332b518c3d3355a5db45a20} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-02T15:17:09.280+08:00 [WARN] {4016b20c6332b518c3d3355a5db45a20} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T15:17:09.528+08:00 [WARN] {4016b20c6332b518c3d3355a5db45a20} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T16:20:30.365+08:00 [WARN] {3093b717d835b5189ec48a53f4ed7ba9} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T16:20:30.712+08:00 [WARN] {3093b717d835b5189ec48a53f4ed7ba9} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T16:20:30.945+08:00 [INFO] {60833f47d835b518b4c48a5397eb9160} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-02~2026-06-02
+2026-06-02T16:20:30.945+08:00 [WARN] {60833f47d835b518b4c48a5397eb9160} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-02T16:20:31.047+08:00 [INFO] {60833f47d835b518b4c48a5397eb9160} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-01~2026-06-02
+2026-06-02T16:20:31.047+08:00 [WARN] {60833f47d835b518b4c48a5397eb9160} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-02T16:20:31.327+08:00 [WARN] {60833f47d835b518b4c48a5397eb9160} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T16:20:31.561+08:00 [WARN] {60833f47d835b518b4c48a5397eb9160} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T16:55:42.587+08:00 [WARN] {f05c2edec337b518a1b0cb4ba85ef342} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T16:55:42.990+08:00 [WARN] {f05c2edec337b518a1b0cb4ba85ef342} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T16:55:43.304+08:00 [INFO] {88d3d414c437b518b7b0cb4b59ea1a53} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-02~2026-06-02
+2026-06-02T16:55:43.304+08:00 [WARN] {88d3d414c437b518b7b0cb4b59ea1a53} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-02T16:55:43.433+08:00 [INFO] {88d3d414c437b518b7b0cb4b59ea1a53} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-01~2026-06-02
+2026-06-02T16:55:43.433+08:00 [WARN] {88d3d414c437b518b7b0cb4b59ea1a53} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-02T16:55:43.718+08:00 [WARN] {88d3d414c437b518b7b0cb4b59ea1a53} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T16:55:43.978+08:00 [WARN] {88d3d414c437b518b7b0cb4b59ea1a53} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-02T17:06:26.485+08:00 [INFO] {20cfcbf2cb21b518495f6d56557119ef} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T17:16:30.579+08:00 [INFO] {109326eae538b518fdbf624ef4ea8b07} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T17:17:34.829+08:00 [INFO] {109326eae538b518fdbf624ef4ea8b07} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T17:17:42.502+08:00 [INFO] {109326eae538b518fdbf624ef4ea8b07} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T17:17:55.261+08:00 [INFO] {109326eae538b518fdbf624ef4ea8b07} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T17:18:54.874+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T17:20:22.188+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第1次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 15:20:22 ~ 2026-06-02 17:20:22
+2026-06-02T17:21:48.061+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第2次调用 - 店铺:利云文化图书旗舰店(shopId=126392211) 时间范围:2026-06-02 15:21:48 ~ 2026-06-02 17:21:48
+2026-06-02T17:21:48.274+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=126392211): Code: 10004, Message: {"log_id":"20260602172148A27968472BAE0A3EFCDA","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:23:14.059+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第3次调用 - 店铺:天书万卷图书专营店(shopId=15816973) 时间范围:2026-06-02 15:23:14 ~ 2026-06-02 17:23:14
+2026-06-02T17:23:14.244+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=15816973): Code: 10004, Message: {"log_id":"20260602172314A2E88B12AF88ED869475","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:24:40.075+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第4次调用 - 店铺:闻道清北图书旗舰店(shopId=33415411) 时间范围:2026-06-02 15:24:40 ~ 2026-06-02 17:24:40
+2026-06-02T17:24:40.292+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=33415411): Code: 10004, Message: {"log_id":"202606021724404D313C8DA34D0FC24262","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:26:06.148+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第5次调用 - 店铺:利云图书专营店(shopId=14681168) 时间范围:2026-06-02 15:26:06 ~ 2026-06-02 17:26:06
+2026-06-02T17:26:06.573+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=14681168): Code: 10004, Message: {"log_id":"2026060217260662C5A72F37A297D702C6","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:27:32.053+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第6次调用 - 店铺:利云文化千玺进口图书专营店(shopId=24010828) 时间范围:2026-06-02 15:27:32 ~ 2026-06-02 17:27:32
+2026-06-02T17:27:32.275+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=24010828): Code: 10004, Message: {"log_id":"202606021727323584B76FCAB5165303BE","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:28:58.023+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第7次调用 - 店铺:千玺图书专营店(shopId=195094604) 时间范围:2026-06-02 15:28:58 ~ 2026-06-02 17:28:58
+2026-06-02T17:28:58.201+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=195094604): Code: 10004, Message: {"log_id":"202606021728588FB68A6653F1E13DE021","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:30:24.049+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第8次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 15:30:24 ~ 2026-06-02 17:30:24
+2026-06-02T17:31:50.084+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第9次调用 - 店铺:利云文化图书旗舰店(shopId=126392211) 时间范围:2026-06-02 15:31:50 ~ 2026-06-02 17:31:50
+2026-06-02T17:31:50.357+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=126392211): Code: 10004, Message: {"log_id":"20260602173150BA6B3BC050118F1DA637","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:33:16.025+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第10次调用 - 店铺:天书万卷图书专营店(shopId=15816973) 时间范围:2026-06-02 15:33:16 ~ 2026-06-02 17:33:16
+2026-06-02T17:33:16.358+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=15816973): Code: 10004, Message: {"log_id":"20260602173316EE621C42ACF8166D9678","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:34:42.061+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第11次调用 - 店铺:闻道清北图书旗舰店(shopId=33415411) 时间范围:2026-06-02 15:34:42 ~ 2026-06-02 17:34:42
+2026-06-02T17:34:42.411+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=33415411): Code: 10004, Message: {"log_id":"20260602173442EE9AA4EEB6EC49363925","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:36:08.026+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第12次调用 - 店铺:利云图书专营店(shopId=14681168) 时间范围:2026-06-02 15:36:08 ~ 2026-06-02 17:36:08
+2026-06-02T17:36:08.296+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=14681168): Code: 10004, Message: {"log_id":"20260602173608A9CE2555206D47EF9684","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:37:34.013+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第13次调用 - 店铺:利云文化千玺进口图书专营店(shopId=24010828) 时间范围:2026-06-02 15:37:34 ~ 2026-06-02 17:37:34
+2026-06-02T17:37:34.205+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=24010828): Code: 10004, Message: {"log_id":"20260602173734486E76A5DDE5A3454E66","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:39:00.017+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第14次调用 - 店铺:千玺图书专营店(shopId=195094604) 时间范围:2026-06-02 15:39:00 ~ 2026-06-02 17:39:00
+2026-06-02T17:39:00.322+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=195094604): Code: 10004, Message: {"log_id":"202606021739007BC24F31CE26168D4F35","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:40:26.051+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第15次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 15:40:26 ~ 2026-06-02 17:40:26
+2026-06-02T17:41:52.052+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第16次调用 - 店铺:利云文化图书旗舰店(shopId=126392211) 时间范围:2026-06-02 15:41:52 ~ 2026-06-02 17:41:52
+2026-06-02T17:41:52.294+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=126392211): Code: 10004, Message: {"log_id":"2026060217415275532E6515839AD54BB1","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:43:18.022+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第17次调用 - 店铺:天书万卷图书专营店(shopId=15816973) 时间范围:2026-06-02 15:43:18 ~ 2026-06-02 17:43:18
+2026-06-02T17:43:18.268+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=15816973): Code: 10004, Message: {"log_id":"202606021743180260D470D1CF12C0FECB","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:44:44.010+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第18次调用 - 店铺:闻道清北图书旗舰店(shopId=33415411) 时间范围:2026-06-02 15:44:44 ~ 2026-06-02 17:44:44
+2026-06-02T17:44:44.239+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=33415411): Code: 10004, Message: {"log_id":"20260602174444465E1B65186F5D9D0450","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:46:09.905+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第19次调用 - 店铺:利云图书专营店(shopId=14681168) 时间范围:2026-06-02 15:46:09 ~ 2026-06-02 17:46:09
+2026-06-02T17:46:10.129+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=14681168): Code: 10004, Message: {"log_id":"20260602174610DC7EA87D25D1EC3819D5","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:47:36.159+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第20次调用 - 店铺:利云文化千玺进口图书专营店(shopId=24010828) 时间范围:2026-06-02 15:47:36 ~ 2026-06-02 17:47:36
+2026-06-02T17:47:36.415+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=24010828): Code: 10004, Message: {"log_id":"202606021747367F92633209FDD9446F4B","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:49:01.989+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第21次调用 - 店铺:千玺图书专营店(shopId=195094604) 时间范围:2026-06-02 15:49:01 ~ 2026-06-02 17:49:01
+2026-06-02T17:49:02.188+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=195094604): Code: 10004, Message: {"log_id":"20260602174902B1C8B5C3755048901FA1","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:50:28.035+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第22次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 15:50:28 ~ 2026-06-02 17:50:28
+2026-06-02T17:51:54.097+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第23次调用 - 店铺:利云文化图书旗舰店(shopId=126392211) 时间范围:2026-06-02 15:51:54 ~ 2026-06-02 17:51:54
+2026-06-02T17:51:54.314+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=126392211): Code: 10004, Message: {"log_id":"20260602175154A6E78072C1BF8A3C0B55","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:53:20.006+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第24次调用 - 店铺:天书万卷图书专营店(shopId=15816973) 时间范围:2026-06-02 15:53:20 ~ 2026-06-02 17:53:20
+2026-06-02T17:53:20.230+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=15816973): Code: 10004, Message: {"log_id":"2026060217532030E706DDC4981096080A","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:54:46.011+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第25次调用 - 店铺:闻道清北图书旗舰店(shopId=33415411) 时间范围:2026-06-02 15:54:46 ~ 2026-06-02 17:54:46
+2026-06-02T17:54:46.208+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=33415411): Code: 10004, Message: {"log_id":"20260602175446B60EA01742B43842BAB9","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:56:11.926+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第26次调用 - 店铺:利云图书专营店(shopId=14681168) 时间范围:2026-06-02 15:56:11 ~ 2026-06-02 17:56:11
+2026-06-02T17:56:12.183+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=14681168): Code: 10004, Message: {"log_id":"20260602175612CED7935EC3D2456CA0AD","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:57:37.882+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第27次调用 - 店铺:利云文化千玺进口图书专营店(shopId=24010828) 时间范围:2026-06-02 15:57:37 ~ 2026-06-02 17:57:37
+2026-06-02T17:57:38.076+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=24010828): Code: 10004, Message: {"log_id":"202606021757388847C164E147832F23AA","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T17:59:03.875+08:00 [INFO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 第28次调用 - 店铺:千玺图书专营店(shopId=195094604) 时间范围:2026-06-02 15:59:03 ~ 2026-06-02 17:59:03
+2026-06-02T17:59:04.096+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=195094604): Code: 10004, Message: {"log_id":"202606021759048A50462699E65821D8A2","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T18:00:59.827+08:00 [ERRO] {58d298ba0739b5185efeaa3c54fde9fe} [DouyinPoller] 获取店铺列表失败: SELECT * FROM `store` WHERE (`platform`='douyin') AND (`status`=1): dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:127
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T18:01:14.119+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:02:40.329+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 第1次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 16:02:40 ~ 2026-06-02 18:02:40
+2026-06-02T18:03:49.805+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:04:24.514+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:04:44.260+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:06:51.671+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 第1次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 16:06:51 ~ 2026-06-02 18:06:51
+2026-06-02T18:07:36.423+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 第2次调用 - 店铺:利云文化图书旗舰店(shopId=126392211) 时间范围:2026-06-02 16:07:36 ~ 2026-06-02 18:07:36
+2026-06-02T18:07:36.609+08:00 [ERRO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=126392211): Code: 10004, Message: {"log_id":"202606021807369A4A7125CFFEB03FA5B4","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T18:09:02.434+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 第3次调用 - 店铺:天书万卷图书专营店(shopId=15816973) 时间范围:2026-06-02 16:09:02 ~ 2026-06-02 18:09:02
+2026-06-02T18:09:02.612+08:00 [ERRO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] API调用失败: 获取抖店 access_token 失败(shopId=15816973): Code: 10004, Message: {"log_id":"20260602180902563D888CAB981FC44FB9","code":50002,"msg":"业务处理失败","sub_code":"isv.business-failed:31005","sub_msg":"根据appId和authId未找到授权记录","data":{"access_token":"","expires_in":0,"scope":"","shop_id":0,"shop_name":"","refresh_token":"","authority_id":"","auth_subject_type":"","shop_biz_type":0}} 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:173
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T18:09:40.117+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:10:23.204+08:00 [INFO] [DouyinPoller] 已停止
+2026-06-02T18:11:49.215+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:13:15.256+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 第1次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 16:13:15 ~ 2026-06-02 18:13:15
+2026-06-02T18:14:10.138+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:14:17.642+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:15:43.901+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 第1次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 16:15:43 ~ 2026-06-02 18:15:43
+2026-06-02T18:17:06.612+08:00 [INFO] [DouyinPoller] 已停止
+2026-06-02T18:19:56.168+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:20:01.002+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:20:10.846+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:21:37.083+08:00 [DEBU] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 没有启用的抖音店铺
+2026-06-02T18:23:03.028+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 第2次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 16:23:03 ~ 2026-06-02 18:23:03
+2026-06-02T18:23:26.590+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:23:45.379+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:25:11.585+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 第1次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 16:25:11 ~ 2026-06-02 18:25:11
+2026-06-02T18:25:19.375+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:25:29.082+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:25:50.224+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:27:16.480+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 第1次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 16:27:16 ~ 2026-06-02 18:27:16
+2026-06-02T18:28:42.264+08:00 [INFO] {9823f4b3563bb51874f768161b4ff360} [DouyinPoller] 第2次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 16:28:42 ~ 2026-06-02 18:28:42
+2026-06-02T18:29:15.721+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:29:20.545+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T18:30:46.792+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 16:30:46 ~ 2026-06-02 18:30:46
+2026-06-02T18:30:47.130+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:30:47.130+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用1/1000次
+2026-06-02T18:32:12.735+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:30:46 ~ 2026-06-02 18:32:12
+2026-06-02T18:32:13.132+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:32:13.132+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用2/1000次
+2026-06-02T18:33:38.713+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:32:12 ~ 2026-06-02 18:33:38
+2026-06-02T18:33:39.098+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:33:39.098+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用3/1000次
+2026-06-02T18:35:04.763+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:33:38 ~ 2026-06-02 18:35:04
+2026-06-02T18:35:05.088+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:35:05.088+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用4/1000次
+2026-06-02T18:36:30.721+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第5次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:35:04 ~ 2026-06-02 18:36:30
+2026-06-02T18:36:31.048+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:36:31.048+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用5/1000次
+2026-06-02T18:37:56.738+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第6次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:36:30 ~ 2026-06-02 18:37:56
+2026-06-02T18:37:57.100+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:37:57.100+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用6/1000次
+2026-06-02T18:39:22.967+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第7次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:37:56 ~ 2026-06-02 18:39:22
+2026-06-02T18:39:23.289+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:39:23.290+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用7/1000次
+2026-06-02T18:40:48.729+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第8次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:39:22 ~ 2026-06-02 18:40:48
+2026-06-02T18:40:49.013+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:40:49.013+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用8/1000次
+2026-06-02T18:42:14.694+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第9次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:40:48 ~ 2026-06-02 18:42:14
+2026-06-02T18:42:15.019+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:42:15.019+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用9/1000次
+2026-06-02T18:44:10.591+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第10次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:42:14 ~ 2026-06-02 18:44:10
+2026-06-02T18:44:10.886+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:44:10.886+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用10/1000次
+2026-06-02T18:45:06.740+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第11次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:44:10 ~ 2026-06-02 18:45:06
+2026-06-02T18:45:06.964+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:45:06.965+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用11/1000次
+2026-06-02T18:46:33.689+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第12次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:45:06 ~ 2026-06-02 18:46:33
+2026-06-02T18:46:34.007+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:46:34.007+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用12/1000次
+2026-06-02T18:47:59.737+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第13次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:46:33 ~ 2026-06-02 18:47:59
+2026-06-02T18:48:00.109+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:48:00.109+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用13/1000次
+2026-06-02T18:49:25.668+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第14次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:47:59 ~ 2026-06-02 18:49:25
+2026-06-02T18:49:25.979+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:49:25.979+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用14/1000次
+2026-06-02T18:51:00.916+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取店铺列表失败: SELECT * FROM `store` WHERE (`platform`='douyin') AND (`status`=1) AND (`author`=1): dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:127
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T18:52:16.694+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第16次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:49:25 ~ 2026-06-02 18:52:16
+2026-06-02T18:52:16.975+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:52:16.975+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用16/1000次
+2026-06-02T18:53:42.690+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第17次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:52:16 ~ 2026-06-02 18:53:42
+2026-06-02T18:53:43.045+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:53:43.045+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用17/1000次
+2026-06-02T18:55:08.670+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第18次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:53:42 ~ 2026-06-02 18:55:08
+2026-06-02T18:55:09.010+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:55:09.010+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用18/1000次
+2026-06-02T18:56:34.871+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第19次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:55:08 ~ 2026-06-02 18:56:34
+2026-06-02T18:56:35.188+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:56:35.189+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用19/1000次
+2026-06-02T18:58:00.684+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第20次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:56:34 ~ 2026-06-02 18:58:00
+2026-06-02T18:58:00.979+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:58:00.979+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用20/1000次
+2026-06-02T18:59:26.659+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第21次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:58:00 ~ 2026-06-02 18:59:26
+2026-06-02T18:59:27.002+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T18:59:27.003+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用21/1000次
+2026-06-02T19:00:52.662+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第22次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 18:59:26 ~ 2026-06-02 19:00:52
+2026-06-02T19:00:53.013+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:00:53.013+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用22/1000次
+2026-06-02T19:02:18.681+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第23次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:00:52 ~ 2026-06-02 19:02:18
+2026-06-02T19:02:18.952+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:02:18.953+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用23/1000次
+2026-06-02T19:03:44.669+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第24次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:02:18 ~ 2026-06-02 19:03:44
+2026-06-02T19:03:44.986+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:03:44.986+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用24/1000次
+2026-06-02T19:05:10.678+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第25次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:03:44 ~ 2026-06-02 19:05:10
+2026-06-02T19:05:11.106+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:05:11.106+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用25/1000次
+2026-06-02T19:06:36.689+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第26次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:05:10 ~ 2026-06-02 19:06:36
+2026-06-02T19:06:37.037+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:06:37.037+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用26/1000次
+2026-06-02T19:08:02.743+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第27次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:06:36 ~ 2026-06-02 19:08:02
+2026-06-02T19:08:03.068+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:08:03.068+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用27/1000次
+2026-06-02T19:09:28.774+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第28次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:08:02 ~ 2026-06-02 19:09:28
+2026-06-02T19:09:29.203+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:09:29.203+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用28/1000次
+2026-06-02T19:10:54.668+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第29次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:09:28 ~ 2026-06-02 19:10:54
+2026-06-02T19:10:54.958+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:10:54.958+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用29/1000次
+2026-06-02T19:12:20.755+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第30次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:10:54 ~ 2026-06-02 19:12:20
+2026-06-02T19:12:21.050+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:12:21.050+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用30/1000次
+2026-06-02T19:13:46.767+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第31次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:12:20 ~ 2026-06-02 19:13:46
+2026-06-02T19:13:47.045+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:13:47.045+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用31/1000次
+2026-06-02T19:15:12.740+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第32次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:13:46 ~ 2026-06-02 19:15:12
+2026-06-02T19:15:12.976+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:15:12.976+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用32/1000次
+2026-06-02T19:16:38.770+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第33次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:15:12 ~ 2026-06-02 19:16:38
+2026-06-02T19:16:39.083+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:16:39.083+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用33/1000次
+2026-06-02T19:18:04.756+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第34次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:16:38 ~ 2026-06-02 19:18:04
+2026-06-02T19:18:05.085+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:18:05.085+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用34/1000次
+2026-06-02T19:19:30.760+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第35次调用 - 店铺:利云文化官方旗舰店(shopId=21739359) 时间范围:2026-06-02 19:18:04 ~ 2026-06-02 19:19:30
+2026-06-02T19:19:31.091+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取到 0 条订单(共0条，第1/0页)
+2026-06-02T19:19:31.091+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 完成: 保存0条, 当日已用35/1000次
+2026-06-02T19:21:26.574+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取店铺列表失败: SELECT * FROM `store` WHERE (`platform`='douyin') AND (`status`=1) AND (`author`=1): dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:127
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:59
+
+2026-06-02T19:22:09.477+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-02T19:23:35.769+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 写入开始日志失败: SHOW FULL COLUMNS FROM `task_execution_log`: Error 1146 (42S02): Table 'ly_crawler.task_execution_log' doesn't exist 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:180
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:60
+
+2026-06-02T19:23:36.052+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1次 完成: 利云文化官方旗舰店, 保存0条, 581ms, 当日1/1000
+2026-06-02T19:25:02.077+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 写入开始日志失败: SHOW FULL COLUMNS FROM `task_execution_log`: Error 1146 (42S02): Table 'ly_crawler.task_execution_log' doesn't exist 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:180
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:60
+
+2026-06-02T19:25:03.065+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2次 完成: 利云文化官方旗舰店, 保存0条, 1594ms, 当日2/1000
+2026-06-02T19:26:28.752+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 写入开始日志失败: SHOW FULL COLUMNS FROM `task_execution_log`: Error 1146 (42S02): Table 'ly_crawler.task_execution_log' doesn't exist 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:180
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:60
+
+2026-06-02T19:26:29.050+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3次 完成: 利云文化官方旗舰店, 保存0条, 579ms, 当日3/1000
+2026-06-02T19:27:54.656+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 写入开始日志失败: SHOW FULL COLUMNS FROM `task_execution_log`: Error 1146 (42S02): Table 'ly_crawler.task_execution_log' doesn't exist 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:180
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:60
+
+2026-06-02T19:27:54.969+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4次 完成: 利云文化官方旗舰店, 保存0条, 482ms, 当日4/1000
+2026-06-02T19:29:21.137+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第5次 完成: 利云文化官方旗舰店, 保存0条, 587ms, 当日5/1000
+2026-06-02T19:30:47.170+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第6次 完成: 利云文化官方旗舰店, 保存0条, 622ms, 当日6/1000
+2026-06-02T19:32:13.214+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第7次 完成: 利云文化官方旗舰店, 保存0条, 622ms, 当日7/1000
+2026-06-02T20:08:01.128+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取店铺列表失败: SELECT * FROM `store` WHERE (`platform`='douyin') AND (`status`=1) AND (`author`=1): dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:136
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:60
+
+2026-06-02T20:40:59.851+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 获取店铺列表失败: SELECT * FROM `store` WHERE (`platform`='douyin') AND (`status`=1) AND (`author`=1): dial tcp: lookup rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com: no such host 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:136
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:60
+

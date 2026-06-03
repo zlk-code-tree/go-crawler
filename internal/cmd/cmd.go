@@ -22,6 +22,9 @@ import (
 	ctrlVideo "go-crawler/internal/controller/video"
 	ctrlWs "go-crawler/internal/controller/ws"
 	"go-crawler/internal/middleware"
+
+	// 注册第三方平台实现（init() 自动注册）
+	douyinPoller "go-crawler/internal/service/platform/douyin"
 )
 
 var (
@@ -70,7 +73,7 @@ var (
 					system.NewProfileController(),
 					system.NewOperationLogController(),
 					system.NewLoginLogController(),
-				system.NewShopController(),
+				system.NewAccountController(),
 				system.NewOrderController(),
 				system.NewKuaishouOrderController(),
 				system.NewShipinhaoOrderController(),
@@ -79,6 +82,8 @@ var (
 				system.NewOrgStructureController(),
 				system.NewTraderController(),
 				system.NewFinanceController(),
+				system.NewTaskScheduleController(),
+			system.NewPlatformController(),
 				permissionCtrl.New(),
 					ctrlVideo.New(),
 				)
@@ -92,6 +97,13 @@ var (
 				group.GET("/order-match/order-list", matchCtrl.OrderMatchOrderList)
 				group.GET("/order-match/jingxuan-list", matchCtrl.OrderMatchJingxuanList)
 				group.GET("/order-match/result-list", matchCtrl.OrderMatchResultList)
+				// 店铺管理 CRUD
+				storeCtrl := system.NewStoreController()
+				group.GET("/store/list", storeCtrl.List)
+				group.GET("/store/detail", storeCtrl.Detail)
+				group.POST("/store/save", storeCtrl.Save)
+				group.POST("/store/delete", storeCtrl.Delete)
+				group.GET("/store/stats", storeCtrl.Stats)
 			})
 
 			// 导出类接口: 需要 JWT 认证，但使用 raw *ghttp.Request 直接处理文件下载
@@ -106,6 +118,16 @@ var (
 				group.GET("/order-match/export", matchCtrl.OrderMatchExport)
 				financeCtrl := system.NewFinanceController()
 				group.GET("/finance/trader-export", financeCtrl.TraderExport)
+				// 抖店轮询器控制
+				douyinPollerCtrl := system.NewDouyinPollerController()
+				group.POST("/douyin-poller/start", douyinPollerCtrl.Start)
+				group.POST("/douyin-poller/stop", douyinPollerCtrl.Stop)
+				group.GET("/douyin-poller/status", douyinPollerCtrl.Status)
+				// 店铺管理 导入/导出
+				storeFileCtrl := system.NewStoreController()
+				group.GET("/store/export", storeFileCtrl.Export)
+				group.POST("/store/import", storeFileCtrl.Import)
+				group.GET("/store/export-template", storeFileCtrl.ExportTemplate)
 			})
 
 			// WebSocket 路由（不经过标准 response 中间件）
@@ -123,6 +145,9 @@ var (
 					crawler.New(),
 				)
 			})
+
+			// 自动启动抖店订单轮询器
+			douyinPoller.GetPoller().Start(ctx)
 
 			s.Run()
 			return nil

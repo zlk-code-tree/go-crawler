@@ -96,36 +96,36 @@ func (c *TraderController) Delete(ctx context.Context, req *v1.TraderDeleteReq) 
 	return
 }
 
-// BindShop 批量绑定店铺到投手 POST /api/trader/bind-shop
+// BindShop 批量绑定账号到投手 POST /api/trader/bind-shop
 func (c *TraderController) BindShop(ctx context.Context, req *v1.TraderBindShopReq) (res *v1.TraderBindShopRes, err error) {
-	// 手动解析请求体，确保 shopIds 数组正确绑定
+	// 手动解析请求体，确保 accountIds 数组正确绑定
 	r := ghttp.RequestFromCtx(ctx)
 	body := r.GetBody()
 	g.Log().Infof(ctx, "[BindShop] 原始body=%s", string(body))
 	var bodyMap map[string]interface{}
 	if err := gjson.DecodeTo(body, &bodyMap); err == nil {
 		g.Log().Infof(ctx, "[BindShop] bodyMap=%v", bodyMap)
-		if ids, ok := bodyMap["shopIds"]; ok {
-			g.Log().Infof(ctx, "[BindShop] shopIds原始值=%v, 类型=%T", ids, ids)
+		if ids, ok := bodyMap["accountIds"]; ok {
+			g.Log().Infof(ctx, "[BindShop] accountIds原始值=%v, 类型=%T", ids, ids)
 		}
 	}
-	g.Log().Infof(ctx, "[BindShop] 结构体绑定: traderId=%d, shopIds=%v, len=%d", req.TraderId, req.ShopIds, len(req.ShopIds))
+	g.Log().Infof(ctx, "[BindShop] 结构体绑定: traderId=%d, accountIds=%v, len=%d", req.TraderId, req.AccountIds, len(req.AccountIds))
 
-	// 优先使用手动解析的 shopIds（绕过 GoFrame 结构体绑定问题）
+	// 优先使用手动解析的 accountIds（绕过 GoFrame 结构体绑定问题）
 	traderId := req.TraderId
-	shopIds := req.ShopIds
-	if ids, ok := bodyMap["shopIds"]; ok && len(shopIds) <= 1 {
-		if idList, ok := ids.([]interface{}); ok && len(idList) > len(shopIds) {
-			shopIds = make([]int64, 0, len(idList))
+	accountIds := req.AccountIds
+	if ids, ok := bodyMap["accountIds"]; ok && len(accountIds) <= 1 {
+		if idList, ok := ids.([]interface{}); ok && len(idList) > len(accountIds) {
+			accountIds = make([]int64, 0, len(idList))
 			for _, id := range idList {
-				shopIds = append(shopIds, gconv.Int64(id))
+				accountIds = append(accountIds, gconv.Int64(id))
 			}
-			g.Log().Infof(ctx, "[BindShop] 手动解析shopIds=%v, len=%d", shopIds, len(shopIds))
+			g.Log().Infof(ctx, "[BindShop] 手动解析accountIds=%v, len=%d", accountIds, len(accountIds))
 		}
 	}
 
 	traderService := service.NewTraderService()
-	boundCount, err := traderService.BindShop(ctx, traderId, shopIds)
+	boundCount, err := traderService.BindShop(ctx, traderId, accountIds)
 	if err != nil {
 		return nil, gerror.New("绑定失败: " + err.Error())
 	}
@@ -136,7 +136,7 @@ func (c *TraderController) BindShop(ctx context.Context, req *v1.TraderBindShopR
 	return
 }
 
-// BindableShops 获取可绑定的店铺列表 GET /api/trader/bindable-shops
+// BindableShops 获取可绑定的账号列表 GET /api/trader/bindable-shops
 func (c *TraderController) BindableShops(ctx context.Context, req *v1.TraderBindableShopsReq) (res *v1.TraderBindableShopsRes, err error) {
 	traderService := service.NewTraderService()
 
@@ -151,11 +151,11 @@ func (c *TraderController) BindableShops(ctx context.Context, req *v1.TraderBind
 	return
 }
 
-// UnbindShop 解绑店铺 POST /api/trader/unbind-shop
+// UnbindShop 解绑账号 POST /api/trader/unbind-shop
 func (c *TraderController) UnbindShop(ctx context.Context, req *v1.TraderUnbindShopReq) (res *v1.TraderUnbindShopRes, err error) {
 	traderService := service.NewTraderService()
 
-	err = traderService.UnbindShop(ctx, req.TraderId, req.ShopId)
+	err = traderService.UnbindShop(ctx, req.TraderId, req.AccountId)
 	if err != nil {
 		return nil, gerror.New("解绑失败: " + err.Error())
 	}
@@ -164,7 +164,7 @@ func (c *TraderController) UnbindShop(ctx context.Context, req *v1.TraderUnbindS
 	return
 }
 
-// GetShops 获取投手管理的店铺列表 GET /api/trader/get-shops
+// GetShops 获取投手管理的账号列表 GET /api/trader/get-shops
 func (c *TraderController) GetShops(ctx context.Context, req *v1.TraderGetShopsReq) (res *v1.TraderGetShopsRes, err error) {
 	traderService := service.NewTraderService()
 

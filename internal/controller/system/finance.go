@@ -83,12 +83,12 @@ func (c *FinanceController) TraderDetail(ctx context.Context, req *v1.FinanceTra
 	return result, nil
 }
 
-// ShopDetail 获取店铺明细统计 GET /api/finance/shop-detail
+// ShopDetail 获取账号明细统计 GET /api/finance/shop-detail
 func (c *FinanceController) ShopDetail(ctx context.Context, req *v1.FinanceShopDetailReq) (res *v1.FinanceShopDetailRes, err error) {
 	financeService := service.NewFinanceCommissionService()
 
 	detailReq := &model.FinanceShopDetailReq{
-		ShopId:    req.ShopId,
+		AccountId:    req.AccountId,
 		TimeType:  req.TimeType,
 		StartDate: req.StartDate,
 		EndDate:   req.EndDate,

@@ -41,7 +41,7 @@ func (c *OrderAnalysisController) GroupStats(ctx context.Context, req *v1.System
 	return
 }
 
-// ShopStats 店铺维度统计 GET /api/order-analysis/shop-stats
+// ShopStats 账号维度统计 GET /api/order-analysis/shop-stats
 func (c *OrderAnalysisController) ShopStats(ctx context.Context, req *v1.SystemOrderAnalysisShopStatsReq) (res *v1.SystemOrderAnalysisShopStatsRes, err error) {
 	analysisService := service.NewOrderAnalysisService()
 
@@ -76,7 +76,7 @@ func (c *OrderAnalysisController) GroupList(ctx context.Context, req *v1.SystemO
 	return
 }
 
-// ShopList 获取所有店铺列表（用于下拉筛选） GET /api/order-analysis/shops
+// ShopList 获取所有账号列表（用于下拉筛选） GET /api/order-analysis/shops
 func (c *OrderAnalysisController) ShopList(ctx context.Context, req *v1.SystemOrderAnalysisShopListReq) (res *v1.SystemOrderAnalysisShopListRes, err error) {
 	analysisService := service.NewOrderAnalysisService()
 	shops, err := analysisService.GetShopList(ctx, req.GroupName)
@@ -152,7 +152,7 @@ func (c *OrderAnalysisController) Rank(ctx context.Context, req *v1.SystemOrderA
 	return
 }
 
-// ShopTalentStats 店铺达人明细 GET /api/order-analysis/shop-talent-stats
+// ShopTalentStats 账号达人明细 GET /api/order-analysis/shop-talent-stats
 func (c *OrderAnalysisController) ShopTalentStats(ctx context.Context, req *v1.SystemOrderAnalysisShopTalentStatsReq) (res *v1.SystemOrderAnalysisShopTalentStatsRes, err error) {
 	analysisService := service.NewOrderAnalysisService()
 
@@ -162,8 +162,8 @@ func (c *OrderAnalysisController) ShopTalentStats(ctx context.Context, req *v1.S
 		return nil, gerror.New("查询失败: " + err.Error())
 	}
 
-	// 查询该店铺的小组信息
-	shopInfo, _ := g.DB().Model("shop").
+	// 查询该账号的小组信息
+	shopInfo, _ := g.DB().Model("account").
 		Fields("operator").
 		Where("account_name = ?", req.ShopName).
 		Where("operator IS NOT NULL AND operator != ''").
@@ -196,7 +196,7 @@ func (c *OrderAnalysisController) AnalysisResult(ctx context.Context, req *v1.Sy
 		return nil, gerror.New("查询失败: " + err.Error())
 	}
 
-	// 获取店铺统计
+	// 获取账号统计
 	shopStats, err := analysisService.ShopStats(ctx, startDate, endDate, req.GroupId)
 	if err != nil {
 		return nil, gerror.New("查询失败: " + err.Error())
@@ -239,19 +239,19 @@ func (c *OrderAnalysisController) GroupExport(r *ghttp.Request) {
 	defer os.Remove(filename)
 }
 
-// ExportShopOrders 导出店铺订单明细 GET /api/order-analysis/export-shop-orders
+// ExportShopOrders 导出账号订单明细 GET /api/order-analysis/export-shop-orders
 func (c *OrderAnalysisController) ExportShopOrders(r *ghttp.Request) {
-	shopId := r.Get("shopId").Int()
+	accountId := r.Get("accountId").Int()
 	timeType := r.Get("timeType").String()
 	startDate := r.Get("startDate").String()
 	endDate := r.Get("endDate").String()
-	if shopId == 0 {
-		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "店铺ID不能为空"})
+	if accountId == 0 {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "账号ID不能为空"})
 		return
 	}
 
 	analysisService := service.NewOrderAnalysisService()
-	filename, err := analysisService.ExportShopDetails(r.Context(), shopId, timeType, startDate, endDate)
+	filename, err := analysisService.ExportShopDetails(r.Context(), accountId, timeType, startDate, endDate)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return

@@ -40,9 +40,9 @@ func (s *FinanceAggregateService) DailyAggregateJob(ctx context.Context, date st
 	shopMap := s.aggregateByShop(orders)
 
 	// 4. 写入各维度统计
-	for shopId, stat := range shopMap {
-		// 获取店铺信息
-		shop, err := g.DB().Model("shop").Where("id", shopId).One()
+	for accountId, stat := range shopMap {
+		// 获取账号信息
+		shop, err := g.DB().Model("account").Where("id", accountId).One()
 		if err != nil || shop.IsEmpty() {
 			continue
 		}
@@ -51,8 +51,8 @@ func (s *FinanceAggregateService) DailyAggregateJob(ctx context.Context, date st
 		departmentId := shop["department_id"].Int64()
 
 		// 4.2 写入投手维度，同时从投手获取组织信息
-		traders, _ := g.DB().Model("trader_shop_relation").
-			Where("shop_id", shopId).
+		traders, _ := g.DB().Model("trader_account_relation").
+			Where("account_id", accountId).
 			All()
 		for _, trader := range traders {
 			traderId := trader["trader_id"].Int64()
@@ -73,8 +73,8 @@ func (s *FinanceAggregateService) DailyAggregateJob(ctx context.Context, date st
 			}
 		}
 
-		// 4.1 写入店铺维度
-		s.saveStat(ctx, date, companyId, departmentId, 0, shopId, "", stat)
+		// 4.1 写入账号维度
+		s.saveStat(ctx, date, companyId, departmentId, 0, accountId, "", stat)
 
 		// 4.3 写入部门维度（汇总）
 		if departmentId > 0 {
@@ -89,17 +89,17 @@ func (s *FinanceAggregateService) DailyAggregateJob(ctx context.Context, date st
 		// 4.5 写入平台维度（可选）
 		platform := shop["platform"].String()
 		if platform != "" {
-			s.saveStat(ctx, date, companyId, departmentId, 0, shopId, platform, stat)
+			s.saveStat(ctx, date, companyId, departmentId, 0, accountId, platform, stat)
 		}
 	}
 
-	g.Log().Infof(ctx, "[FinanceAggregate] 日聚合任务完成, 日期: %s, 店铺数: %d", date, len(shopMap))
+	g.Log().Infof(ctx, "[FinanceAggregate] 日聚合任务完成, 日期: %s, 账号数: %d", date, len(shopMap))
 	return nil
 }
 
 // OrderStatItem 订单统计项
 type OrderStatItem struct {
-	ShopId        int
+	AccountId        int
 	TalentId      string
 	OrderCount    int
 	ProductNum    int
@@ -242,13 +242,13 @@ func (s *FinanceAggregateService) aggregateByShop(orders []OrderStatItem) map[in
 
 	for _, order := range orders {
 		// 通过 talent_id 查找店铺
-		shop, err := g.DB().Model("shop").Where("uid", order.TalentId).One()
+		shop, err := g.DB().Model("account").Where("uid", order.TalentId).One()
 		if err != nil || shop.IsEmpty() {
 			continue
 		}
 
-		shopId := shop["id"].Int()
-		if existing, ok := shopMap[shopId]; ok {
+		accountId := shop["id"].Int()
+		if existing, ok := shopMap[accountId]; ok {
 			// 合并统计
 			existing.OrderCount += order.OrderCount
 			existing.ProductNum += order.ProductNum
@@ -256,10 +256,10 @@ func (s *FinanceAggregateService) aggregateByShop(orders []OrderStatItem) map[in
 			existing.CostAmount += order.CostAmount
 			existing.ReserveAmount += order.ReserveAmount
 			existing.Commission += order.Commission
-			shopMap[shopId] = existing
+			shopMap[accountId] = existing
 		} else {
-			order.ShopId = shopId
-			shopMap[shopId] = order
+			order.AccountId = accountId
+			shopMap[accountId] = order
 		}
 	}
 
@@ -276,13 +276,13 @@ func (s *FinanceAggregateService) aggregateByShop(orders []OrderStatItem) map[in
 }
 
 // saveStat 保存统计数据
-func (s *FinanceAggregateService) saveStat(ctx context.Context, date string, companyId, departmentId, traderId int64, shopId int, platform string, stat OrderStatItem) {
+func (s *FinanceAggregateService) saveStat(ctx context.Context, date string, companyId, departmentId, traderId int64, accountId int, platform string, stat OrderStatItem) {
 	data := g.Map{
 		"stat_date":      date,
 		"company_id":     companyId,
 		"department_id":  departmentId,
 		"trader_id":      traderId,
-		"shop_id":        shopId,
+		"account_id":        accountId,
 		"platform":       platform,
 		"order_count":    stat.OrderCount,
 		"product_num":    stat.ProductNum,

@@ -28,23 +28,23 @@ type TraderWithShops struct {
 	Role        int           `json:"role"`
 	Status      int           `json:"status"`
 	Remark      string        `json:"remark"`
-	Shops       []TraderShop  `json:"shops"`       // 管理的店铺列表
+	Shops       []TraderShop  `json:"shops"`       // 管理的账号列表
 	CreatedAt   time.Time     `json:"createdAt"`
 	UpdatedAt   time.Time     `json:"updatedAt"`
 }
 
-// TraderShop 投手关联的店铺信息
+// TraderShop 投手关联的账号信息
 type TraderShop struct {
-	ShopId            int    `json:"shopId"`
-	ShopName          string `json:"shopName"`          // 店铺名称
+	AccountId         int    `json:"accountId"`
+	ShopName          string `json:"shopName"`          // 账号名称
 	Uid       string `json:"uid"`          // 达人ID
 }
 
-// TraderShopRelation 投手-店铺关联
+// TraderShopRelation 投手-账号关联
 type TraderShopRelation struct {
 	Id        int64     `json:"id"`
 	TraderId  int64     `json:"traderId"`
-	ShopId    int       `json:"shopId"`
+	AccountId int       `json:"accountId"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -68,21 +68,21 @@ type TraderSaveReq struct {
 	Remark    string `json:"remark"`
 }
 
-// TraderBindShopReq 绑定店铺请求（支持批量）
+// TraderBindShopReq 绑定账号请求（支持批量）
 type TraderBindShopReq struct {
-	TraderId int64   `json:"traderId" v:"required#投手ID不能为空"`
-	ShopIds  []int64 `json:"shopIds" v:"required#店铺ID列表不能为空"`
+	TraderId   int64   `json:"traderId" v:"required#投手ID不能为空"`
+	AccountIds []int64 `json:"accountIds" v:"required#账号ID列表不能为空"`
 }
 
-// TraderUnbindShopReq 解绑店铺请求
+// TraderUnbindShopReq 解绑账号请求
 type TraderUnbindShopReq struct {
-	TraderId int64 `json:"traderId" v:"required#投手ID不能为空"`
-	ShopId   int   `json:"shopId" v:"required#店铺ID不能为空"`
+	TraderId  int64 `json:"traderId" v:"required#投手ID不能为空"`
+	AccountId int   `json:"accountId" v:"required#账号ID不能为空"`
 }
 
-// BindableShop 可绑定的店铺信息
+// BindableShop 可绑定的账号信息
 type BindableShop struct {
-	ShopId            int    `json:"shopId"`
+	AccountId         int    `json:"accountId"`
 	ShopName          string `json:"shopName"`
 	Uid      string `json:"uid"`      // 达人ID
 	Platform          string `json:"platform"` // 平台：douyin/kuaishou/shipinhao

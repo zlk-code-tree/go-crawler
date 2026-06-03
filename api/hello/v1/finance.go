@@ -54,16 +54,16 @@ type FinanceTraderDetailRes = model.FinanceTraderDetailRes
 
 // ==================== 店铺明细 ====================
 
-// FinanceShopDetailReq 店铺明细统计请求
+// FinanceShopDetailReq 账号明细统计请求
 type FinanceShopDetailReq struct {
-	g.Meta    `path:"/finance/shop-detail" method:"get" tags:"Finance" summary:"获取店铺明细统计"`
-	ShopId    int    `json:"shopId" in:"query" v:"required#店铺ID不能为空" dc:"店铺ID"`
+	g.Meta    `path:"/finance/shop-detail" method:"get" tags:"Finance" summary:"获取账号明细统计"`
+	AccountId int    `json:"accountId" in:"query" v:"required#账号ID不能为空" dc:"账号ID"`
 	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
 	StartDate string `json:"startDate" in:"query" d:"" dc:"开始日期"`
 	EndDate   string `json:"endDate" in:"query" d:"" dc:"结束日期"`
 }
 
-// FinanceShopDetailRes 店铺明细统计响应
+// FinanceShopDetailRes 账号明细统计响应
 type FinanceShopDetailRes = model.FinanceShopDetailRes
 
 // ==================== 手动触发聚合 ====================

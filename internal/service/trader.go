@@ -92,7 +92,7 @@ func (s *TraderService) GetDetail(ctx context.Context, id int64) (*model.TraderW
 		return nil, fmt.Errorf("投手不存在")
 	}
 
-	// 获取管理的店铺列表
+	// 获取管理的账号列表
 	shops, err := s.GetShops(ctx, id)
 	if err != nil {
 		return nil, err
@@ -161,34 +161,34 @@ func (s *TraderService) Delete(ctx context.Context, id int64) error {
 	}
 
 	// 获取该投手绑定的店铺ID列表
-	var shopIds []int64
-	err = g.DB().Model("trader_shop_relation").
+	var accountIds []int64
+	err = g.DB().Model("trader_account_relation").
 		Where("trader_id", id).
-		Fields("shop_id").
-		Scan(&shopIds)
+		Fields("account_id").
+		Scan(&accountIds)
 	if err != nil {
-		return fmt.Errorf("查询投手店铺关联失败: %v", err)
+		return fmt.Errorf("查询投手账号关联失败: %v", err)
 	}
 
 	// 删除关联的店铺关系
-	_, err = g.DB().Model("trader_shop_relation").
+	_, err = g.DB().Model("trader_account_relation").
 		Where("trader_id", id).
 		Delete()
 	if err != nil {
-		return fmt.Errorf("删除投手店铺关联失败: %v", err)
+		return fmt.Errorf("删除投手账号关联失败: %v", err)
 	}
 
-	// 更新店铺绑定状态（仅更新没有被其他投手绑定的店铺）
-	for _, shopId := range shopIds {
-		otherCount, err := g.DB().Model("trader_shop_relation").
-			Where("shop_id", shopId).
+	// 更新账号绑定状态（仅更新没有被其他投手绑定的账号）
+	for _, accountId := range accountIds {
+		otherCount, err := g.DB().Model("trader_account_relation").
+			Where("account_id", accountId).
 			Count()
 		if err != nil {
 			continue
 		}
 		if otherCount == 0 {
-			_, _ = g.DB().Model("shop").
-				Where("id", shopId).
+			_, _ = g.DB().Model("account").
+				Where("id", accountId).
 				Data(g.Map{"bind_status": 0}).
 				Update()
 		}
@@ -208,9 +208,9 @@ func (s *TraderService) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-// BindShop 批量绑定店铺到投手
-func (s *TraderService) BindShop(ctx context.Context, traderId int64, shopIds []int64) (int, error) {
-	g.Log().Infof(ctx, "[BindShop-Service] traderId=%d, shopIds=%v, len=%d", traderId, shopIds, len(shopIds))
+// BindShop 批量绑定账号到投手
+func (s *TraderService) BindShop(ctx context.Context, traderId int64, accountIds []int64) (int, error) {
+	g.Log().Infof(ctx, "[BindShop-Service] traderId=%d, accountIds=%v, len=%d", traderId, accountIds, len(accountIds))
 	// 验证投手是否存在
 	trader, err := s.GetById(ctx, traderId)
 	if err != nil {
@@ -221,65 +221,65 @@ func (s *TraderService) BindShop(ctx context.Context, traderId int64, shopIds []
 	}
 
 	boundCount := 0
-	for i, shopId := range shopIds {
-		g.Log().Infof(ctx, "[BindShop-Service] 处理第%d个: shopId=%d", i+1, shopId)
+	for i, accountId := range accountIds {
+		g.Log().Infof(ctx, "[BindShop-Service] 处理第%d个: accountId=%d", i+1, accountId)
 		// 验证店铺是否存在
-		shopCount, err := g.DB().Model("shop").Where("id", shopId).Count()
+		shopCount, err := g.DB().Model("account").Where("id", accountId).Count()
 		if err != nil {
-			g.Log().Warningf(ctx, "[BindShop-Service] 查询店铺失败: shopId=%d, err=%v", shopId, err)
+			g.Log().Warningf(ctx, "[BindShop-Service] 查询账号失败: accountId=%d, err=%v", accountId, err)
 			continue
 		}
 		if shopCount == 0 {
-			g.Log().Warningf(ctx, "[BindShop-Service] 店铺不存在: shopId=%d", shopId)
+			g.Log().Warningf(ctx, "[BindShop-Service] 账号不存在: accountId=%d", accountId)
 			continue
 		}
 
 		// 检查是否已绑定
-		count, err := g.DB().Model("trader_shop_relation").
+		count, err := g.DB().Model("trader_account_relation").
 			Where("trader_id", traderId).
-			Where("shop_id", shopId).
+			Where("account_id", accountId).
 			Count()
 		if err != nil {
-			g.Log().Warningf(ctx, "[BindShop-Service] 查询绑定关系失败: shopId=%d, err=%v", shopId, err)
+			g.Log().Warningf(ctx, "[BindShop-Service] 查询绑定关系失败: accountId=%d, err=%v", accountId, err)
 			continue
 		}
 		if count > 0 {
-			g.Log().Infof(ctx, "[BindShop-Service] 已绑定，跳过: shopId=%d", shopId)
+			g.Log().Infof(ctx, "[BindShop-Service] 已绑定，跳过: accountId=%d", accountId)
 			continue
 		}
 
 		// 写入关联关系
-		_, err = g.DB().Model("trader_shop_relation").
+		_, err = g.DB().Model("trader_account_relation").
 			Data(g.Map{
 				"trader_id": traderId,
-				"shop_id":   shopId,
+				"account_id":   accountId,
 			}).
 			Insert()
 		if err != nil {
-			g.Log().Warningf(ctx, "[BindShop-Service] 写入关联失败: shopId=%d, err=%v", shopId, err)
+			g.Log().Warningf(ctx, "[BindShop-Service] 写入关联失败: accountId=%d, err=%v", accountId, err)
 			continue
 		}
 
-		// 更新店铺绑定状态(bind_status字段可能不存在，忽略错误)
-		_, _ = g.DB().Model("shop").
-			Where("id", shopId).
+		// 更新账号绑定状态(bind_status字段可能不存在，忽略错误)
+		_, _ = g.DB().Model("account").
+			Where("id", accountId).
 			Data(g.Map{"bind_status": 1}).
 			Update()
 
-		g.Log().Infof(ctx, "[BindShop-Service] 绑定成功: shopId=%d", shopId)
+		g.Log().Infof(ctx, "[BindShop-Service] 绑定成功: accountId=%d", accountId)
 		boundCount++
 	}
 	return boundCount, nil
 }
 
-// UnbindShop 解绑店铺
-func (s *TraderService) UnbindShop(ctx context.Context, traderId int64, shopId int) error {
-	result, err := g.DB().Model("trader_shop_relation").
+// UnbindShop 解绑账号
+func (s *TraderService) UnbindShop(ctx context.Context, traderId int64, accountId int) error {
+	result, err := g.DB().Model("trader_account_relation").
 		Where("trader_id", traderId).
-		Where("shop_id", shopId).
+		Where("account_id", accountId).
 		Delete()
 	if err != nil {
-		return fmt.Errorf("解绑店铺失败: %v", err)
+		return fmt.Errorf("解绑账号失败: %v", err)
 	}
 
 	// 检查删除是否生效
@@ -288,58 +288,58 @@ func (s *TraderService) UnbindShop(ctx context.Context, traderId int64, shopId i
 		return fmt.Errorf("绑定关系不存在")
 	}
 
-	// 检查该店铺是否还被其他投手绑定
-	otherCount, err := g.DB().Model("trader_shop_relation").
-		Where("shop_id", shopId).
+	// 检查该账号是否还被其他投手绑定
+	otherCount, err := g.DB().Model("trader_account_relation").
+		Where("account_id", accountId).
 		Count()
 	if err != nil {
-		return fmt.Errorf("查询店铺绑定状态失败: %v", err)
+		return fmt.Errorf("查询账号绑定状态失败: %v", err)
 	}
 
-	// 如果没有其他投手绑定，更新店铺为未绑定
+	// 如果没有其他投手绑定，更新账号为未绑定
 	if otherCount == 0 {
-		_, err = g.DB().Model("shop").
-			Where("id", shopId).
+		_, err = g.DB().Model("account").
+			Where("id", accountId).
 			Data(g.Map{"bind_status": 0}).
 			Update()
 		if err != nil {
-			return fmt.Errorf("更新店铺绑定状态失败: %v", err)
+			return fmt.Errorf("更新账号绑定状态失败: %v", err)
 		}
 	}
 
 	return nil
 }
 
-// GetBindableShops 获取可绑定的店铺列表（未被当前投手绑定的店铺）
+// GetBindableShops 获取可绑定的账号列表（未被当前投手绑定的店铺）
 func (s *TraderService) GetBindableShops(ctx context.Context, traderId int64, keyword string, platform string) ([]model.BindableShop, error) {
-	query := g.DB().Model("shop s").
-		Where("s.id NOT IN (?)", g.DB().Raw("SELECT shop_id FROM trader_shop_relation WHERE trader_id = ?", traderId))
+	query := g.DB().Model("account a").
+		Where("a.id NOT IN (?)", g.DB().Raw("SELECT account_id FROM trader_account_relation WHERE trader_id = ?", traderId))
 
 	if keyword != "" {
-		query = query.Where("s.account_name LIKE ? OR s.uid LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+		query = query.Where("a.account_name LIKE ? OR a.uid LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 	}
 	if platform != "" {
-		query = query.Where("s.platform", platform)
+		query = query.Where("a.platform", platform)
 	}
 
 	var shops []model.BindableShop
-	err := query.Fields("s.id AS shop_id, s.account_name AS shop_name, s.uid, s.platform").Scan(&shops)
+	err := query.Fields("a.id AS account_id, a.account_name AS shop_name, a.uid, a.platform").Scan(&shops)
 	if err != nil {
-		return nil, fmt.Errorf("查询可绑定店铺失败: %v", err)
+		return nil, fmt.Errorf("查询可绑定账号失败: %v", err)
 	}
 	return shops, nil
 }
 
-// GetShops 获取投手管理的店铺列表
+// GetShops 获取投手管理的账号列表
 func (s *TraderService) GetShops(ctx context.Context, traderId int64) ([]model.TraderShop, error) {
 	var shops []model.TraderShop
-	err := g.DB().Model("trader_shop_relation r").
-		LeftJoin("shop s", "r.shop_id = s.id").
+	err := g.DB().Model("trader_account_relation r").
+		LeftJoin("account a", "r.account_id = a.id").
 		Where("r.trader_id", traderId).
-		Fields("r.shop_id, s.account_name AS shop_name, s.uid").
+		Fields("r.account_id, a.account_name AS shop_name, a.uid").
 		Scan(&shops)
 	if err != nil {
-		return nil, fmt.Errorf("查询投手店铺失败: %v", err)
+		return nil, fmt.Errorf("查询投手账号失败: %v", err)
 	}
 	return shops, nil
 }

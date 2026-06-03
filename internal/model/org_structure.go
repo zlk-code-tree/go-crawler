@@ -85,18 +85,18 @@ type OrgSaveReq struct {
 	Remark   string `json:"remark"`
 }
 
-// ShopOrgRelation 店铺组织关联
+// ShopOrgRelation 账号组织关联
 type ShopOrgRelation struct {
 	Id        int64     `json:"id"`
-	ShopId    int       `json:"shopId"`
+	AccountId int       `json:"accountId"`
 	OrgId     int64     `json:"orgId"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// ShopOrgBindReq 店铺绑定组织请求
+// ShopOrgBindReq 账号绑定组织请求
 type ShopOrgBindReq struct {
-	ShopId int   `json:"shopId" v:"required#店铺ID不能为空"`
-	OrgId  int64 `json:"orgId" v:"required#组织节点ID不能为空"`
+	AccountId int   `json:"accountId" v:"required#账号ID不能为空"`
+	OrgId     int64 `json:"orgId" v:"required#组织节点ID不能为空"`
 }
 
 // OrgFilterReq 组织筛选请求（用于订单统计）

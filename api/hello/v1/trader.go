@@ -70,31 +70,31 @@ type TraderDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
 
-// ==================== 批量绑定店铺 ====================
+// ==================== 批量绑定账号 ====================
 
-// TraderBindShopReq 批量绑定店铺请求
+// TraderBindShopReq 批量绑定账号请求
 type TraderBindShopReq struct {
-	g.Meta   `path:"/trader/bind-shop" method:"post" tags:"Trader" summary:"批量绑定店铺到投手"`
+	g.Meta   `path:"/trader/bind-shop" method:"post" tags:"Trader" summary:"批量绑定账号到投手"`
 	TraderId int64   `json:"traderId" v:"required#投手ID不能为空" dc:"投手ID"`
-	ShopIds  []int64 `json:"shopIds" v:"required#店铺ID列表不能为空" dc:"店铺ID列表"`
+	AccountIds []int64 `json:"accountIds" v:"required#账号ID列表不能为空" dc:"账号ID列表"`
 }
 
-// TraderBindShopRes 批量绑定店铺响应
+// TraderBindShopRes 批量绑定账号响应
 type TraderBindShopRes struct {
 	g.Meta     `mime:"application/json"`
 	BoundCount int `json:"boundCount" dc:"成功绑定数量"`
 }
 
-// ==================== 解绑店铺 ====================
+// ==================== 解绑账号 ====================
 
-// TraderUnbindShopReq 解绑店铺请求
+// TraderUnbindShopReq 解绑账号请求
 type TraderUnbindShopReq struct {
-	g.Meta   `path:"/trader/unbind-shop" method:"post" tags:"Trader" summary:"解绑店铺"`
+	g.Meta   `path:"/trader/unbind-shop" method:"post" tags:"Trader" summary:"解绑账号"`
 	TraderId int64 `json:"traderId" v:"required#投手ID不能为空" dc:"投手ID"`
-	ShopId   int   `json:"shopId" v:"required#店铺ID不能为空" dc:"店铺ID"`
+	AccountId int   `json:"accountId" v:"required#账号ID不能为空" dc:"账号ID"`
 }
 
-// TraderUnbindShopRes 解绑店铺响应
+// TraderUnbindShopRes 解绑账号响应
 type TraderUnbindShopRes struct {
 	g.Meta `mime:"application/json"`
 }
@@ -103,28 +103,28 @@ type TraderUnbindShopRes struct {
 
 // TraderGetShopsReq 获取投手管理的店铺请求
 type TraderGetShopsReq struct {
-	g.Meta   `path:"/trader/get-shops" method:"get" tags:"Trader" summary:"获取投手管理的店铺列表"`
+	g.Meta   `path:"/trader/get-shops" method:"get" tags:"Trader" summary:"获取投手管理的账号列表"`
 	TraderId int64 `json:"traderId" in:"query" v:"required#投手ID不能为空" dc:"投手ID"`
 }
 
 // TraderGetShopsRes 获取投手管理的店铺响应
 type TraderGetShopsRes struct {
 	g.Meta `mime:"application/json"`
-	Shops  []model.TraderShop `json:"shops" dc:"店铺列表"`
+	Shops  []model.TraderShop `json:"shops" dc:"账号列表"`
 }
 
-// ==================== 获取可绑定店铺 ====================
+// ==================== 获取可绑定账号 ====================
 
-// TraderBindableShopsReq 获取可绑定店铺请求
+// TraderBindableShopsReq 获取可绑定账号请求
 type TraderBindableShopsReq struct {
-	g.Meta   `path:"/trader/bindable-shops" method:"get" tags:"Trader" summary:"获取可绑定的店铺列表"`
+	g.Meta   `path:"/trader/bindable-shops" method:"get" tags:"Trader" summary:"获取可绑定的账号列表"`
 	TraderId int64  `json:"traderId" in:"query" v:"required#投手ID不能为空" dc:"投手ID"`
-	Keyword  string `json:"keyword" in:"query" d:"" dc:"搜索关键词（匹配店铺名称、UID）"`
+	Keyword  string `json:"keyword" in:"query" d:"" dc:"搜索关键词（匹配账号名称、UID）"`
 	Platform string `json:"platform" in:"query" d:"" dc:"平台筛选：抖音/快手/视频号"`
 }
 
-// TraderBindableShopsRes 获取可绑定店铺响应
+// TraderBindableShopsRes 获取可绑定账号响应
 type TraderBindableShopsRes struct {
 	g.Meta `mime:"application/json"`
-	Shops  []model.BindableShop `json:"shops" dc:"可绑定的店铺列表"`
+	Shops  []model.BindableShop `json:"shops" dc:"可绑定的账号列表"`
 }

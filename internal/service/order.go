@@ -34,7 +34,7 @@ func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, sh
 		params = append(params, searchKey, searchKey, searchKey)
 	}
 
-	// 店铺筛选
+	// 账号筛选
 	if shopName != "" {
 		query += " AND shop_name = ?"
 		params = append(params, shopName)

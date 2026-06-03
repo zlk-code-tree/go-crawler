@@ -8,7 +8,7 @@ type TikTokRankingListInput struct {
 	ProductId           string    `json:"product_id" db:"product_id"`                           // 商品 ID
 	Rank                int       `json:"rank" db:"rank"`                                       // 排名
 	ProductName         string    `json:"product_name" db:"product_name"`                       // 商品名称
-	ShopName            string    `json:"shop_name" db:"shop_name"`                             // 店铺名称
+	ShopName            string    `json:"shop_name" db:"shop_name"`                             // 账号名称
 	PaymentAmount       string    `json:"payment_amount" db:"payment_amount"`                   // 短视频用户支付金额
 	ClickCount          string    `json:"click_count" db:"click_count"`                         // 短视频点击次数
 	SalesVolume         string    `json:"sales_volume" db:"sales_volume"`                       // 短视频成交件数

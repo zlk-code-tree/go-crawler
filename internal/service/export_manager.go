@@ -50,7 +50,7 @@ func (em *ExportManager) ExportToCSV(ctx context.Context, taskId string, product
 
 	// 写入表头
 	headers := []string{
-		"排名", "商品名称", "店铺名称", "短视频用户支付金额",
+		"排名", "商品名称", "账号名称", "短视频用户支付金额",
 		"短视频点击次数", "短视频成交件数", "带货视频数",
 		"首次上架时间", "最低到手价", "创建时间",
 	}
@@ -98,7 +98,7 @@ func (em *ExportManager) ExportToExcel(ctx context.Context, taskId string, produ
 
 	// 设置表头
 	headers := []string{
-		"排名", "商品名称", "店铺名称", "短视频用户支付金额",
+		"排名", "商品名称", "账号名称", "短视频用户支付金额",
 		"短视频点击次数", "短视频成交件数", "带货视频数",
 		"首次上架时间", "最低到手价", "创建时间",
 	}

@@ -1,0 +1,58 @@
+package product_setOffline_request
+
+import (
+	"doudian.com/open/sdk_golang/api/product_setOffline/response"
+	"doudian.com/open/sdk_golang/core"
+	"encoding/json"
+)
+
+type ProductSetOfflineRequest struct {
+	doudian_sdk.BaseDoudianOpApiRequest
+	Param *ProductSetOfflineParam 
+}
+func (c *ProductSetOfflineRequest) GetUrlPath() string{
+	return "/product/setOffline"
+}
+
+
+func New() *ProductSetOfflineRequest{
+	request := &ProductSetOfflineRequest{
+		Param: &ProductSetOfflineParam{},
+	}
+	request.SetConfig(doudian_sdk.GlobalConfig)
+	request.SetClient(doudian_sdk.DefaultDoudianOpApiClient)
+	return request
+
+}
+
+
+func (c *ProductSetOfflineRequest) Execute(accessToken *doudian_sdk.AccessToken) (*product_setOffline_response.ProductSetOfflineResponse, error){
+	responseJson, err := c.GetClient().Request(c, accessToken)
+	if err != nil {
+		return nil, err
+	}
+	response := &product_setOffline_response.ProductSetOfflineResponse{}
+	_ = json.Unmarshal([]byte(responseJson), response)
+	return response, nil
+
+}
+
+
+func (c *ProductSetOfflineRequest) GetParamObject() interface{}{
+	return c.Param
+}
+
+
+func (c *ProductSetOfflineRequest) GetParams() *ProductSetOfflineParam{
+	return c.Param
+}
+
+
+type ProductSetOfflineParam struct {
+	// 商品ID
+	ProductId int64 `json:"product_id"`
+	// 推荐使用，外部商家编码，支持字符串。
+	OuterProductId string `json:"outer_product_id"`
+	// 小时达二期店铺场景才可以传，小时达二期场景可以通过传入主品id+门店id对该门店下的子品进行操作
+	StoreId int64 `json:"store_id"`
+}

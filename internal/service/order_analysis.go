@@ -70,7 +70,7 @@ func (s *OrderAnalysisService) GroupStats(ctx context.Context, startDate, endDat
 	// 构建统计SQL - 先按 main_order_no 聚合，避免 JOIN 导致重复计算
 	sql := `
 		SELECT
-			COALESCE(s.operator, '未分配小组') AS group_name,
+			COALESCE(a.operator, '未分配小组') AS group_name,
 			COUNT(DISTINCT o.main_order_no) AS order_count,
 			COALESCE(SUM(o.product_num), 0) AS product_num,
 			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
@@ -94,9 +94,9 @@ func (s *OrderAnalysisService) GroupStats(ctx context.Context, startDate, endDat
 			  ` + s.GetValidOrderFilter() + `
 			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
 		) o
-		LEFT JOIN shop s ON o.talent_id = s.uid
-		GROUP BY s.operator
-		ORDER BY s.operator
+		LEFT JOIN account a ON o.talent_id = a.uid
+		GROUP BY a.operator
+		ORDER BY a.operator
 	`
 
 	result, err := g.DB().GetAll(ctx, sql, startDate, endDate)
@@ -125,22 +125,22 @@ func (s *OrderAnalysisService) GroupStats(ctx context.Context, startDate, endDat
 	return stats, nil
 }
 
-// ShopStats 店铺维度统计
+// ShopStats 账号维度统计
 func (s *OrderAnalysisService) ShopStats(ctx context.Context, startDate, endDate string, groupId int) ([]model.ShopStatItem, error) {
-	// 构建店铺筛选条件
+	// 构建账号筛选条件
 	shopFilter := ""
 	params := []interface{}{startDate, endDate}
 	if groupId > 0 {
-		shopFilter = " AND s.id = ?"
+		shopFilter = " AND a.id = ?"
 		params = append(params, groupId)
 	}
 
 	// 构建统计SQL
 	sql := `
 		SELECT
-			s.id AS shop_id,
+			a.id AS account_id,
 			o.shop_name AS shop_name,
-			COALESCE(s.operator, '未分配小组') AS group_name,
+			COALESCE(a.operator, '未分配小组') AS group_name,
 			COUNT(DISTINCT o.main_order_no) AS order_count,
 			COALESCE(SUM(o.product_num), 0) AS product_num,
 			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
@@ -164,9 +164,9 @@ func (s *OrderAnalysisService) ShopStats(ctx context.Context, startDate, endDate
 			  ` + s.GetValidOrderFilter() + `
 			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
 		) o
-		LEFT JOIN shop s ON o.talent_id = s.uid
+		LEFT JOIN account a ON o.talent_id = a.uid
 		WHERE 1=1 ` + shopFilter + `
-		GROUP BY s.id, o.shop_name, s.operator
+		GROUP BY a.id, o.shop_name, a.operator
 		ORDER BY o.shop_name
 	`
 
@@ -183,7 +183,7 @@ func (s *OrderAnalysisService) ShopStats(ctx context.Context, startDate, endDate
 		reserveAmount := row["reserve_amount"].Float64()
 
 		stats = append(stats, model.ShopStatItem{
-			ShopId:        row["shop_id"].Int(),
+			AccountId:        row["account_id"].Int(),
 			ShopName:      row["shop_name"].String(),
 			GroupName:     row["group_name"].String(),
 			OrderCount:    row["order_count"].Int(),
@@ -203,7 +203,7 @@ func (s *OrderAnalysisService) GetAllGroups(ctx context.Context) ([]map[string]i
 	sql := `
 		SELECT DISTINCT 
 			COALESCE(operator, '未分配小组') AS group_name
-		FROM shop 
+		FROM account 
 		ORDER BY group_name
 	`
 
@@ -222,23 +222,23 @@ func (s *OrderAnalysisService) GetAllGroups(ctx context.Context) ([]map[string]i
 	return groups, nil
 }
 
-// GetAllShops 获取所有店铺列表（用于下拉筛选）
+// GetAllShops 获取所有账号列表（用于下拉筛选）
 func (s *OrderAnalysisService) GetAllShops(ctx context.Context) ([]map[string]interface{}, error) {
 	sql := `
 		SELECT id, account_name, COALESCE(operator, '未分配小组') AS group_name
-		FROM shop 
+		FROM account 
 		ORDER BY account_name
 	`
 
 	result, err := g.DB().GetAll(ctx, sql)
 	if err != nil {
-		return nil, fmt.Errorf("查询店铺列表失败: %v", err)
+		return nil, fmt.Errorf("查询账号列表失败: %v", err)
 	}
 
 	shops := make([]map[string]interface{}, 0, len(result))
 	for _, row := range result {
 		shops = append(shops, map[string]interface{}{
-			"shopId":    row["id"].Int(),
+			"accountId":    row["id"].Int(),
 			"shopName":  row["account_name"],
 			"groupName": row["group_name"],
 		})
@@ -506,12 +506,12 @@ func (s *OrderAnalysisService) queryDailyStats(ctx context.Context, startDate, e
 	return rows, nil
 }
 
-// Rank 排名榜单：小组排名 + 店铺排名
+// Rank 排名榜单：小组排名 + 账号排名
 func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate string) (groupRank, shopRank []model.RankItem, err error) {
 	// 小组排名
 	groupSQL := `
 		SELECT
-			COALESCE(s.operator, '未分配小组') AS group_name,
+			COALESCE(a.operator, '未分配小组') AS group_name,
 			COUNT(DISTINCT o.main_order_no) AS order_count,
 			COALESCE(SUM(o.product_num), 0) AS goods_count,
 			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
@@ -535,9 +535,9 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 			  ` + s.GetValidOrderFilter() + `
 			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
 		) o
-		LEFT JOIN shop s ON o.talent_id = s.uid
-		WHERE s.operator IS NOT NULL AND s.operator != ''
-		GROUP BY s.operator
+		LEFT JOIN account a ON o.talent_id = a.uid
+		WHERE a.operator IS NOT NULL AND a.operator != ''
+		GROUP BY a.operator
 		ORDER BY order_count DESC
 	`
 
@@ -562,15 +562,15 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 		})
 	}
 
-	// 店铺排名 + 达人明细（一次查询，在内存中聚合）
-	// 按 shop_name + talent_id 分组，得到每个店铺内每位达人的统计数据
+	// 账号排名 + 达人明细（一次查询，在内存中聚合）
+	// 按 shop_name + talent_id 分组，得到每个账号内每位达人的统计数据
 	shopTalentSQL := `
 		SELECT
 			o.shop_name,
 			o.talent_id,
-			COALESCE(MAX(s.account_name), '未知达人') AS talent_name,
-			COALESCE(GROUP_CONCAT(DISTINCT s.operator ORDER BY s.operator SEPARATOR ', '), '未分配小组') AS group_name,
-			COALESCE(MAX(s.uid), 0) AS shop_id,
+			COALESCE(MAX(a.account_name), '未知达人') AS talent_name,
+			COALESCE(GROUP_CONCAT(DISTINCT a.operator ORDER BY a.operator SEPARATOR ', '), '未分配小组') AS group_name,
+			COALESCE(MAX(a.uid), 0) AS account_id,
 			COUNT(DISTINCT o.main_order_no) AS talent_order_count,
 			COALESCE(SUM(o.product_num), 0) AS talent_goods_count,
 			COALESCE(SUM(o.pay_amount), 0) AS talent_pay_amount,
@@ -594,21 +594,21 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 			  ` + s.GetValidOrderFilter() + `
 			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
 		) o
-		LEFT JOIN shop s ON o.talent_id = s.uid
-		WHERE s.operator IS NOT NULL AND s.operator != ''
+		LEFT JOIN account a ON o.talent_id = a.uid
+		WHERE a.operator IS NOT NULL AND a.operator != ''
 		GROUP BY o.shop_name, o.talent_id
 		ORDER BY o.shop_name, talent_order_count DESC
 	`
 
 	shopTalentResult, e := g.DB().GetAll(ctx, shopTalentSQL, startDate, endDate)
 	if e != nil {
-		err = fmt.Errorf("店铺排名查询失败: %v", e)
+		err = fmt.Errorf("账号排名查询失败: %v", e)
 		return
 	}
 
 	// 在内存中聚合：shopName -> { totals, talents[] }
 	type shopAggregate struct {
-		shopId     int
+		accountId     int
 		groupName  string
 		orderCount int
 		goodsCount int
@@ -623,7 +623,7 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 	for _, row := range shopTalentResult {
 		shopName := row["shop_name"].String()
 		groupName := row["group_name"].String()
-		shopId := row["shop_id"].Int()
+		accountId := row["account_id"].Int()
 
 		talentPay := row["talent_pay_amount"].Float64()
 		talentCost := row["talent_cost_amount"].Float64()
@@ -650,7 +650,7 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 			agg.talents = append(agg.talents, talentItem)
 		} else {
 			shopMap[shopName] = &shopAggregate{
-				shopId:     shopId,
+				accountId:     accountId,
 				groupName:  groupName,
 				orderCount: talentItem.OrderCount,
 				goodsCount: talentItem.GoodsCount,
@@ -675,7 +675,7 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 			Rank:       i + 1,
 			Name:       name,
 			GroupName:  agg.groupName,
-			ShopId:     agg.shopId,
+			AccountId:     agg.accountId,
 			OrderCount: agg.orderCount,
 			GoodsCount: agg.goodsCount,
 			PayAmount:  roundFloat(agg.payAmount, 2),
@@ -691,7 +691,7 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 func (s *OrderAnalysisService) GetGroupList(ctx context.Context) ([]string, error) {
 	sql := `
 		SELECT DISTINCT COALESCE(operator, '未分配小组') AS group_name
-		FROM shop 
+		FROM account 
 		ORDER BY group_name
 	`
 
@@ -710,7 +710,7 @@ func (s *OrderAnalysisService) GetGroupList(ctx context.Context) ([]string, erro
 	return groups, nil
 }
 
-// GetShopList 获取所有店铺列表
+// GetShopList 获取所有账号列表
 func (s *OrderAnalysisService) GetShopList(ctx context.Context, groupName string) ([]model.ShopInfo, error) {
 	query := "SELECT id, account_name AS shop_name, COALESCE(operator, '未分配小组') AS group_name FROM shop"
 	params := []interface{}{}
@@ -724,13 +724,13 @@ func (s *OrderAnalysisService) GetShopList(ctx context.Context, groupName string
 
 	result, err := g.DB().GetAll(ctx, query, params...)
 	if err != nil {
-		return nil, fmt.Errorf("查询店铺列表失败: %v", err)
+		return nil, fmt.Errorf("查询账号列表失败: %v", err)
 	}
 
 	shops := make([]model.ShopInfo, 0, len(result))
 	for _, row := range result {
 		shops = append(shops, model.ShopInfo{
-			ShopId:    row["id"].Int(),
+			AccountId:    row["id"].Int(),
 			ShopName:  row["shop_name"].String(),
 			GroupName: row["group_name"].String(),
 		})
@@ -757,8 +757,8 @@ func (s *OrderAnalysisService) queryOrderDetailsByFilter(ctx context.Context, fi
 		sql = `
 			SELECT o.*
 			FROM order_info o
-			LEFT JOIN shop s ON o.talent_id = s.uid
-			WHERE s.operator = ?
+			LEFT JOIN account a ON o.talent_id = a.uid
+			WHERE a.operator = ?
 			  AND o.pay_finish_time >= ?
 			  AND o.pay_finish_time < ?
 			  AND o.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
@@ -799,13 +799,13 @@ func (s *OrderAnalysisService) ExportGroupDetails(ctx context.Context, groupName
 	return s.ExportOrderDetails(ctx, "group", groupName, timeType, startDate, endDate)
 }
 
-// GetShopTalentStats 获取店铺下的达人订单统计明细
+// GetShopTalentStats 获取账号下的达人订单统计明细
 func (s *OrderAnalysisService) GetShopTalentStats(ctx context.Context, shopName, startDate, endDate string) ([]model.ShopTalentStatItem, error) {
 		sql := `
 		SELECT
 			o.talent_id,
-			COALESCE(MAX(s.account_name), '未知达人') AS talent_name,
-			COALESCE(MAX(s.operator), '未分配小组') AS group_name,
+			COALESCE(MAX(a.account_name), '未知达人') AS talent_name,
+			COALESCE(MAX(a.operator), '未分配小组') AS group_name,
 			COUNT(DISTINCT o.main_order_no) AS order_count,
 			COALESCE(SUM(o.product_num), 0) AS goods_count,
 			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
@@ -829,13 +829,13 @@ func (s *OrderAnalysisService) GetShopTalentStats(ctx context.Context, shopName,
 			  AND o1.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
 			  AND o1.order_status != '已关闭'
 		) o
-		LEFT JOIN shop s ON o.talent_id = s.uid
+		LEFT JOIN account a ON o.talent_id = a.uid
 		GROUP BY o.talent_id
 		ORDER BY order_count DESC
 	`
 	result, err := g.DB().GetAll(ctx, sql, shopName, startDate, endDate)
 	if err != nil {
-		return nil, fmt.Errorf("查询店铺达人明细失败: %v", err)
+		return nil, fmt.Errorf("查询账号达人明细失败: %v", err)
 	}
 
 	stats := make([]model.ShopTalentStatItem, 0, len(result))
@@ -856,9 +856,9 @@ func (s *OrderAnalysisService) GetShopTalentStats(ctx context.Context, shopName,
 	return stats, nil
 }
 
-// ExportShopDetails 导出店铺订单明细（shopId为达人UID，直接用于匹配订单表的talent_id）
-func (s *OrderAnalysisService) ExportShopDetails(ctx context.Context, shopId int, timeType, startDate, endDate string) (string, error) {
-	return s.ExportOrderDetails(ctx, "shop", strconv.Itoa(shopId), timeType, startDate, endDate)
+// ExportShopDetails 导出账号订单明细（accountId为达人UID，直接用于匹配订单表的talent_id）
+func (s *OrderAnalysisService) ExportShopDetails(ctx context.Context, accountId int, timeType, startDate, endDate string) (string, error) {
+	return s.ExportOrderDetails(ctx, "shop", strconv.Itoa(accountId), timeType, startDate, endDate)
 }
 
 // getTimeLabel 获取时间维度标签
@@ -903,7 +903,7 @@ func normalizeTimeType(timeType string) string {
 	}
 }
 
-// ExportOrderDetails 导出订单详情（支持小组和店铺维度）
+// ExportOrderDetails 导出订单详情（支持小组和账号维度）
 func (s *OrderAnalysisService) ExportOrderDetails(ctx context.Context, exportType, key, timeType, startDate, endDate string) (string, error) {
 	// 标准化时间类型
 	normalizedTimeType := normalizeTimeType(timeType)
@@ -918,14 +918,14 @@ func (s *OrderAnalysisService) ExportOrderDetails(ctx context.Context, exportTyp
 		result, err = s.queryOrderDetailsByFilter(ctx, "group", key, startDate, endDate)
 		targetName = key
 	} else if exportType == "shop" {
-		// key 可能是 shopId（达人UID），先查出对应店铺名，再按店铺名导出所有订单
-		shopInfo, _ := g.DB().Model("shop").Fields("account_name").Where("uid = ?", key).One()
+		// key 可能是 accountId（达人UID），先查出对应账号名，再按账号名导出所有订单
+		shopInfo, _ := g.DB().Model("account").Fields("account_name").Where("uid = ?", key).One()
 		if !shopInfo.IsEmpty() {
 			shopName := shopInfo["account_name"].String()
 			result, err = s.queryOrderDetailsByFilter(ctx, "shop", shopName, startDate, endDate)
 			targetName = shopName
 		} else {
-			// 直接作为店铺名查询
+			// 直接作为账号名查询
 			result, err = s.queryOrderDetailsByFilter(ctx, "shop", key, startDate, endDate)
 			targetName = key
 		}
@@ -1042,7 +1042,7 @@ func (s *OrderAnalysisService) ExportOrderDetails(ctx context.Context, exportTyp
 	if exportType == "group" {
 		fileName = fmt.Sprintf("小组订单详情_%s_%s_%s.xlsx", safeTargetName, timeLabel, timeStr)
 	} else {
-		fileName = fmt.Sprintf("店铺订单详情_%s_%s_%s.xlsx", safeTargetName, timeLabel, timeStr)
+		fileName = fmt.Sprintf("账号订单详情_%s_%s_%s.xlsx", safeTargetName, timeLabel, timeStr)
 	}
 	
 	// 生成Excel文件
@@ -1259,12 +1259,12 @@ func (s *OrderAnalysisService) ExportGroupRank(ctx context.Context, timeType str
 	return exportRankToExcel(groupRank, "小组", timeLabel)
 }
 
-// ExportShopRank 导出店铺排名
+// ExportShopRank 导出账号排名
 func (s *OrderAnalysisService) ExportShopRank(ctx context.Context, timeType string) (string, error) {
 	startDate, endDate := s.ParseTimeRange(timeType, "", "")
 	_, shopRank, err := s.Rank(ctx, startDate, endDate)
 	if err != nil {
-		return "", fmt.Errorf("获取店铺排名失败: %v", err)
+		return "", fmt.Errorf("获取账号排名失败: %v", err)
 	}
 
 	timeLabel := getTimeLabel(timeType)

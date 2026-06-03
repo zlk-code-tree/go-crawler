@@ -142,11 +142,11 @@ func (c *OrgStructureController) GetAncestors(ctx context.Context, req *v1.OrgAn
 	return
 }
 
-// BindShop 绑定店铺到组织节点 POST /api/org/bind-shop
+// BindShop 绑定账号到组织节点 POST /api/org/bind-shop
 func (c *OrgStructureController) BindShop(ctx context.Context, req *v1.OrgBindShopReq) (res *v1.OrgBindShopRes, err error) {
 	orgService := service.NewOrgStructureService()
 
-	err = orgService.BindShop(ctx, req.ShopId, req.OrgId)
+	err = orgService.BindShop(ctx, req.AccountId, req.OrgId)
 	if err != nil {
 		return nil, gerror.New("绑定失败: " + err.Error())
 	}
@@ -155,11 +155,11 @@ func (c *OrgStructureController) BindShop(ctx context.Context, req *v1.OrgBindSh
 	return
 }
 
-// UnbindShop 解绑店铺与组织节点 POST /api/org/unbind-shop
+// UnbindShop 解绑账号与组织节点 POST /api/org/unbind-shop
 func (c *OrgStructureController) UnbindShop(ctx context.Context, req *v1.OrgUnbindShopReq) (res *v1.OrgUnbindShopRes, err error) {
 	orgService := service.NewOrgStructureService()
 
-	err = orgService.UnbindShop(ctx, req.ShopId, req.OrgId)
+	err = orgService.UnbindShop(ctx, req.AccountId, req.OrgId)
 	if err != nil {
 		return nil, gerror.New("解绑失败: " + err.Error())
 	}
@@ -168,11 +168,11 @@ func (c *OrgStructureController) UnbindShop(ctx context.Context, req *v1.OrgUnbi
 	return
 }
 
-// GetShopOrgPath 获取店铺的组织路径 GET /api/org/shop-path
+// GetShopOrgPath 获取账号的组织路径 GET /api/org/shop-path
 func (c *OrgStructureController) GetShopOrgPath(ctx context.Context, req *v1.OrgShopPathReq) (res *v1.OrgShopPathRes, err error) {
 	orgService := service.NewOrgStructureService()
 
-	path, err := orgService.GetShopOrgPath(ctx, req.ShopId)
+	path, err := orgService.GetShopOrgPath(ctx, req.AccountId)
 	if err != nil {
 		return nil, gerror.New("查询失败: " + err.Error())
 	}

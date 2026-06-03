@@ -50,4 +50,7 @@ require (
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.36.0
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	doudian.com/open/sdk_golang v0.0.0
 )
+
+replace doudian.com/open/sdk_golang => ./internal/pkg/sdk-golang

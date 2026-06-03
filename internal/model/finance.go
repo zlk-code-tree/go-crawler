@@ -13,7 +13,7 @@ type FinanceDailyStats struct {
 	CompanyId      int64     `json:"companyId"`
 	DepartmentId   int64     `json:"departmentId"`
 	TraderId       int64     `json:"traderId"`
-	ShopId         int       `json:"shopId"`
+	AccountId      int       `json:"accountId"`
 	Platform       string    `json:"platform"`
 	OrderCount     int       `json:"orderCount"`
 	ProductNum     int       `json:"productNum"`
@@ -57,9 +57,9 @@ type FinanceTraderDetailReq struct {
 	EndDate      string `json:"endDate"`
 }
 
-// FinanceShopDetailReq 店铺明细统计请求
+// FinanceShopDetailReq 账号明细统计请求
 type FinanceShopDetailReq struct {
-	ShopId       int    `json:"shopId" v:"required"`
+	AccountId    int    `json:"accountId" v:"required"`
 	TimeType     string `json:"timeType"`
 	StartDate    string `json:"startDate"`
 	EndDate      string `json:"endDate"`
@@ -125,9 +125,9 @@ type FinanceTraderDetailRes struct {
 	ShopStats    []ShopStatsItem      `json:"shopStats"`
 }
 
-// ShopStatsItem 店铺统计项
+// ShopStatsItem 账号统计项
 type ShopStatsItem struct {
-	ShopId       int     `json:"shopId"`
+	AccountId    int     `json:"accountId"`
 	ShopName     string  `json:"shopName"`
 	Uid          string  `json:"uid"`
 	Platform     string  `json:"platform"`
@@ -138,9 +138,9 @@ type ShopStatsItem struct {
 	Commission   float64 `json:"commission"`
 }
 
-// FinanceShopDetailRes 店铺明细响应
+// FinanceShopDetailRes 账号明细响应
 type FinanceShopDetailRes struct {
-	ShopId       int                  `json:"shopId"`
+	AccountId    int                  `json:"accountId"`
 	ShopName     string               `json:"shopName"`
 	Uid          string               `json:"uid"`
 	Platform     string               `json:"platform"`
