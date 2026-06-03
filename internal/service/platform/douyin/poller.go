@@ -17,13 +17,11 @@ import (
 
 // Poller 抖店订单轮询器（每天最多1000次API调用）
 type Poller struct {
-	mu           sync.Mutex
-	running      bool
-	dailyLimit   int              // 每日API调用上限
-	dailyCount   int              // 当日已调用次数
-	interval     time.Duration    // 两次调用间隔
-	storeIdx     int              // 当前轮到的店铺索引
-	lastPollTime map[int]time.Time // 每个店铺上次轮询时间 (store.id → time)
+	mu         sync.Mutex
+	running    bool
+	dailyLimit int           // 每日API调用上限
+	dailyCount int           // 当日已调用次数
+	interval   time.Duration // 两次调用间隔
 }
 
 var (
@@ -35,9 +33,8 @@ var (
 func GetPoller() *Poller {
 	pollerOnce.Do(func() {
 		pollerInstance = &Poller{
-			dailyLimit:   1000,
-			interval:     time.Duration(86400/1000) * time.Second,
-			lastPollTime: make(map[int]time.Time),
+			dailyLimit: 1000,
+			interval:   time.Duration(86400/1000) * time.Second,
 		}
 	})
 	return pollerInstance
@@ -112,7 +109,7 @@ func (p *Poller) Stats() map[string]interface{} {
 		"dailyLimit":  p.dailyLimit,
 		"dailyCount":  p.dailyCount,
 		"interval":    p.interval.String(),
-		"storesCount": len(p.lastPollTime),
+		"storesCount": 0,
 	}
 }
 
@@ -125,8 +122,6 @@ func (p *Poller) tick(ctx context.Context) {
 		p.mu.Unlock()
 		return
 	}
-	p.dailyCount++
-	callNo := p.dailyCount
 	p.mu.Unlock()
 
 	// 获取所有已授权的抖音店铺
@@ -140,99 +135,134 @@ func (p *Poller) tick(ctx context.Context) {
 		return
 	}
 
-	// 轮询选择下一个店铺
-	p.mu.Lock()
-	if p.storeIdx >= len(stores) {
-		p.storeIdx = 0
-	}
-	store := stores[p.storeIdx]
-	storeId := store["id"].Int()
-	storeName := store["store_name"].String()
-	douyinShopId := store["store_id"].Int64()
-	p.storeIdx++
-	p.mu.Unlock()
+	// 遍历所有店铺，每个店铺翻页拉取其增量订单
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	const maxPages = 5
 
-	// 获取该店铺上次轮询时间
-	p.mu.Lock()
-	lastTime, exists := p.lastPollTime[storeId]
-	if !exists {
-		lastTime = time.Now().Add(-2 * time.Hour)
-	}
-	endTime := time.Now()
-	p.mu.Unlock()
+	totalSavedAll := 0
+	totalOrdersAll := 0
 
-	// 构建请求参数JSON
-	reqParams, _ := json.Marshal(map[string]interface{}{
-		"shop_id":    douyinShopId,
-		"store_id":   storeId,
-		"start_time": lastTime.Format("2006-01-02 15:04:05"),
-		"end_time":   endTime.Format("2006-01-02 15:04:05"),
-		"page":       0,
-		"page_size":  100,
-	})
+	for _, store := range stores {
+		storeId := store["id"].Int()
+		storeName := store["store_name"].String()
 
-	taskName := fmt.Sprintf("抖店订单轮询-%s", storeName)
-
-	// 写入开始日志
-	logId, logErr := service.TaskLogStart(ctx, taskName, "douyin_poller",
-		"/order/searchList", string(reqParams))
-	if logErr != nil {
-		g.Log().Errorf(ctx, "[DouyinPoller] 写入开始日志失败: %v", logErr)
-	}
-
-	// 调用API
-	svc := NewService()
-	params := model.PlatformOrderListParams{
-		Platform:  "douyin",
-		Page:      0,
-		PageSize:  100,
-		StartTime: lastTime.Format("2006-01-02 15:04:05"),
-		EndTime:   endTime.Format("2006-01-02 15:04:05"),
-		StoreId:   storeId,
-	}
-
-	result, err := svc.GetOrderList(ctx, params)
-	durationMs := int(time.Since(startTime).Milliseconds())
-
-	if err != nil {
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "未找到授权记录") || strings.Contains(errMsg, "access_token") {
-			g.Log().Warningf(ctx, "[DouyinPoller] 店铺 %s(shopId=%d) 尚未授权，跳过", storeName, douyinShopId)
-			if logId > 0 {
-				service.TaskLogSkip(ctx, taskName, "douyin_poller", "/order/searchList", errMsg)
+		// 读取该店铺上次成功拉取时间
+		lastPollStr := store["last_poll_time"].String()
+		var startTimeToUse time.Time
+		if lastPollStr != "" {
+			lpt, parseErr := time.Parse("2006-01-02 15:04:05", lastPollStr)
+			if parseErr == nil {
+				startTimeToUse = lpt
+			} else {
+				startTimeToUse = todayStart
 			}
 		} else {
-			g.Log().Errorf(ctx, "[DouyinPoller] API调用失败: %v", err)
+			startTimeToUse = todayStart
+		}
+		endTime := now
+
+		taskName := fmt.Sprintf("抖店订单轮询-%s", storeName)
+		storeSaved := 0
+		storeOrders := 0
+		storeSuccess := true
+
+		// 翻页拉取
+		for page := 0; page < maxPages; page++ {
+			// 检查每日配额
+			p.mu.Lock()
+			if p.dailyCount >= p.dailyLimit {
+				p.mu.Unlock()
+				g.Log().Debug(ctx, "[DouyinPoller] 已达每日上限，停止翻页")
+				goto nextStore
+			}
+			p.dailyCount++
+			p.mu.Unlock()
+
+			reqParams, _ := json.Marshal(map[string]interface{}{
+				"shop_id":    store["store_id"].String(),
+				"store_id":   storeId,
+				"start_time": startTimeToUse.Format("2006-01-02 15:04:05"),
+				"end_time":   endTime.Format("2006-01-02 15:04:05"),
+				"page":       page,
+				"page_size":  100,
+			})
+
+			pageStart := time.Now()
+			logId, logErr := service.TaskLogStart(ctx, taskName, "douyin_poller",
+				"/order/searchList", string(reqParams))
+			if logErr != nil {
+				g.Log().Errorf(ctx, "[DouyinPoller] 写入开始日志失败: %v", logErr)
+			}
+
+			svc := NewService()
+			result, err := svc.GetOrderList(ctx, model.PlatformOrderListParams{
+				Platform:  "douyin",
+				Page:      page,
+				PageSize:  100,
+				StartTime: startTimeToUse.Format("2006-01-02 15:04:05"),
+				EndTime:   endTime.Format("2006-01-02 15:04:05"),
+				StoreId:   storeId,
+			})
+			dur := int(time.Since(pageStart).Milliseconds())
+
+			if err != nil {
+				storeSuccess = false
+				errMsg := err.Error()
+				if strings.Contains(errMsg, "未找到授权记录") || strings.Contains(errMsg, "access_token") {
+					g.Log().Warningf(ctx, "[DouyinPoller] %s 尚未授权，跳过", storeName)
+					if logId > 0 {
+						service.TaskLogSkip(ctx, taskName, "douyin_poller", "/order/searchList", errMsg)
+					}
+				} else {
+					g.Log().Errorf(ctx, "[DouyinPoller] %s 第%d页失败: %v", storeName, page, err)
+					if logId > 0 {
+						service.TaskLogFailed(ctx, logId, errMsg, dur)
+					}
+				}
+				break
+			}
+
+			respSummary, _ := json.Marshal(map[string]interface{}{
+				"total": result.Total, "page": result.Page,
+				"size": result.Size, "order_count": len(result.Orders),
+			})
 			if logId > 0 {
-				service.TaskLogFailed(ctx, logId, errMsg, durationMs)
+				service.TaskLogSuccess(ctx, logId, "10000", string(respSummary), dur)
+			}
+
+			saved := p.saveOrders(ctx, result.Orders)
+			storeSaved += saved
+			storeOrders += len(result.Orders)
+
+			// 还有下一页？
+			totalPages := 0
+			if result.Size > 0 {
+				totalPages = (result.Total + result.Size - 1) / result.Size
+			}
+			if page+1 >= totalPages || len(result.Orders) == 0 {
+				break
 			}
 		}
-		return
+
+		// 全部页成功 → 持久化 last_poll_time
+		if storeSuccess && storeOrders > 0 {
+			g.DB().Model("store").Ctx(ctx).Where("id", storeId).
+				Data(g.Map{"last_poll_time": endTime.Format("2006-01-02 15:04:05")}).Update()
+		}
+
+	nextStore:
+		totalSavedAll += storeSaved
+		totalOrdersAll += storeOrders
+		g.Log().Debugf(ctx, "[DouyinPoller] %s: %d条/%d条保存", storeName, storeOrders, storeSaved)
 	}
 
-	// 构建响应体摘要
-	respSummary, _ := json.Marshal(map[string]interface{}{
-		"total":       result.Total,
-		"page":        result.Page,
-		"size":        result.Size,
-		"order_count": len(result.Orders),
-	})
-
-	// 写入成功日志
-	if logId > 0 {
-		service.TaskLogSuccess(ctx, logId, "10000", string(respSummary), durationMs)
-	}
-
-	// 保存订单到 order_info
-	savedCount := p.saveOrders(ctx, result.Orders)
-
-	// 更新最后轮询时间
+	durationMs := int(time.Since(startTime).Milliseconds())
 	p.mu.Lock()
-	p.lastPollTime[storeId] = endTime
+	used := p.dailyCount
 	p.mu.Unlock()
-
-	g.Log().Infof(ctx, "[DouyinPoller] 第%d次 完成: %s, 保存%d条, %dms, 当日%d/%d",
-		callNo, storeName, savedCount, durationMs, callNo, p.dailyLimit)
+	g.Log().Infof(ctx, "[DouyinPoller] 本轮完成: %d个店铺, 共%d条/%d条保存, %dms, 当日%d/%d",
+		len(stores), totalOrdersAll, totalSavedAll, durationMs, used, p.dailyLimit)
 }
 
 // saveOrders 保存订单到 order_info

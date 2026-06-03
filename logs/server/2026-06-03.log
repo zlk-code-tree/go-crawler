@@ -7,3 +7,1797 @@
 2026-06-03T09:14:56.223+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第16次 完成: 利云文化官方旗舰店, 保存0条, 706ms, 当日16/1000
 2026-06-03T09:16:21.998+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第17次 完成: 利云文化官方旗舰店, 保存0条, 495ms, 当日17/1000
 2026-06-03T09:17:49.501+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第18次 完成: 利云文化官方旗舰店, 保存0条, 1989ms, 当日18/1000
+2026-06-03T09:19:16.059+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第19次 完成: 利云文化官方旗舰店, 保存0条, 546ms, 当日19/1000
+2026-06-03T09:20:41.970+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第20次 完成: 利云文化官方旗舰店, 保存0条, 467ms, 当日20/1000
+2026-06-03T09:21:18.848+08:00 [INFO] [DouyinPoller] 已停止
+2026-06-03T11:09:41.491+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T11:11:12.086+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1次 完成: 利云文化官方旗舰店, 保存0条, 2144ms, 当日1/1000
+2026-06-03T11:12:38.332+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2次 完成: 利云文化官方旗舰店, 保存0条, 2396ms, 当日2/1000
+2026-06-03T11:14:05.672+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3次 完成: 利云文化官方旗舰店, 保存0条, 3568ms, 当日3/1000
+2026-06-03T11:15:29.923+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4次 完成: 利云文化官方旗舰店, 保存0条, 2001ms, 当日4/1000
+2026-06-03T11:16:56.035+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第5次 完成: 利云文化官方旗舰店, 保存0条, 1873ms, 当日5/1000
+2026-06-03T11:18:22.961+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第6次 完成: 利云文化官方旗舰店, 保存0条, 2850ms, 当日6/1000
+2026-06-03T11:19:14.060+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T11:20:44.975+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2270ms
+2026-06-03T11:20:48.929+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1618ms
+2026-06-03T11:20:53.110+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1791ms
+2026-06-03T11:20:56.932+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1458ms
+2026-06-03T11:21:00.909+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取101条, 保存0条, 1608ms
+2026-06-03T11:21:00.909+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第5次 完成: 利云文化官方旗舰店, 共501条/0条保存, 20856ms, 当日5/1000
+2026-06-03T11:22:10.735+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1824ms
+2026-06-03T11:22:14.841+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1662ms
+2026-06-03T11:22:18.922+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1591ms
+2026-06-03T11:22:23.409+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2053ms
+2026-06-03T11:22:28.183+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取101条, 保存0条, 2293ms
+2026-06-03T11:22:28.183+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第10次 完成: 利云文化官方旗舰店, 共501条/0条保存, 22132ms, 当日10/1000
+2026-06-03T11:23:36.283+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1887ms
+2026-06-03T11:23:40.099+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1593ms
+2026-06-03T11:23:43.759+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1457ms
+2026-06-03T11:23:47.915+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1906ms
+2026-06-03T11:23:51.693+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1477ms
+2026-06-03T11:23:51.693+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第15次 完成: 利云文化官方旗舰店, 共500条/0条保存, 19645ms, 当日15/1000
+2026-06-03T11:25:02.396+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1769ms
+2026-06-03T11:25:06.259+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1474ms
+2026-06-03T11:25:09.959+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1316ms
+2026-06-03T11:25:14.093+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1771ms
+2026-06-03T11:25:18.203+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1704ms
+2026-06-03T11:25:18.203+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第20次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20158ms, 当日20/1000
+2026-06-03T11:26:29.405+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2455ms
+2026-06-03T11:26:34.137+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2047ms
+2026-06-03T11:26:38.098+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1312ms
+2026-06-03T11:26:42.139+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1407ms
+2026-06-03T11:26:46.310+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1460ms
+2026-06-03T11:26:46.310+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第25次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22269ms, 当日25/1000
+2026-06-03T11:27:54.521+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1567ms
+2026-06-03T11:27:58.723+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1539ms
+2026-06-03T11:28:02.816+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1435ms
+2026-06-03T11:28:07.071+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1546ms
+2026-06-03T11:28:11.147+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1369ms
+2026-06-03T11:28:11.147+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第30次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21109ms, 当日30/1000
+2026-06-03T11:29:20.561+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1603ms
+2026-06-03T11:29:25.003+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1689ms
+2026-06-03T11:29:29.274+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1562ms
+2026-06-03T11:29:33.512+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1624ms
+2026-06-03T11:29:37.500+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1292ms
+2026-06-03T11:29:37.500+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第35次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21465ms, 当日35/1000
+2026-06-03T11:30:46.448+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1731ms
+2026-06-03T11:30:50.828+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1868ms
+2026-06-03T11:30:54.846+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1499ms
+2026-06-03T11:30:58.918+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1505ms
+2026-06-03T11:31:02.896+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1496ms
+2026-06-03T11:31:02.896+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第40次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20863ms, 当日40/1000
+2026-06-03T11:32:12.280+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1390ms
+2026-06-03T11:32:16.478+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1547ms
+2026-06-03T11:32:20.823+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1626ms
+2026-06-03T11:32:24.998+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1499ms
+2026-06-03T11:32:29.349+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1588ms
+2026-06-03T11:32:29.349+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第45次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21319ms, 当日45/1000
+2026-06-03T11:33:37.971+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1362ms
+2026-06-03T11:33:41.834+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1461ms
+2026-06-03T11:33:45.753+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1532ms
+2026-06-03T11:33:49.860+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1557ms
+2026-06-03T11:33:53.450+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1200ms
+2026-06-03T11:33:53.450+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第50次 完成: 利云文化官方旗舰店, 共500条/0条保存, 19421ms, 当日50/1000
+2026-06-03T11:35:04.763+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2091ms
+2026-06-03T11:35:08.784+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1615ms
+2026-06-03T11:35:12.867+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1691ms
+2026-06-03T11:35:16.817+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1589ms
+2026-06-03T11:35:21.531+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1726ms
+2026-06-03T11:35:21.531+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第55次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21506ms, 当日55/1000
+2026-06-03T11:36:30.628+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1656ms
+2026-06-03T11:36:35.007+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1691ms
+2026-06-03T11:36:39.025+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1304ms
+2026-06-03T11:36:43.173+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1398ms
+2026-06-03T11:36:47.470+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1471ms
+2026-06-03T11:36:47.470+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第60次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21447ms, 当日60/1000
+2026-06-03T11:37:56.790+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1990ms
+2026-06-03T11:38:00.733+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1358ms
+2026-06-03T11:38:05.038+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1740ms
+2026-06-03T11:38:09.405+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1747ms
+2026-06-03T11:38:13.350+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1291ms
+2026-06-03T11:38:13.350+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第65次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21331ms, 当日65/1000
+2026-06-03T11:39:22.606+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1590ms
+2026-06-03T11:39:26.920+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1554ms
+2026-06-03T11:39:31.080+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1382ms
+2026-06-03T11:39:35.441+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1623ms
+2026-06-03T11:39:39.604+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1405ms
+2026-06-03T11:39:39.604+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第70次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21588ms, 当日70/1000
+2026-06-03T11:40:48.506+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1678ms
+2026-06-03T11:40:52.495+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1370ms
+2026-06-03T11:40:56.710+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1514ms
+2026-06-03T11:41:01.049+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1662ms
+2026-06-03T11:41:05.267+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1565ms
+2026-06-03T11:41:05.267+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第75次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21254ms, 当日75/1000
+2026-06-03T11:42:15.205+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2276ms
+2026-06-03T11:42:19.871+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1840ms
+2026-06-03T11:42:24.267+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1658ms
+2026-06-03T11:42:28.761+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1785ms
+2026-06-03T11:42:33.706+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2222ms
+2026-06-03T11:42:33.706+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第80次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23696ms, 当日80/1000
+2026-06-03T11:43:40.718+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1642ms
+2026-06-03T11:43:45.131+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1643ms
+2026-06-03T11:43:49.250+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1383ms
+2026-06-03T11:43:53.987+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1542ms
+2026-06-03T11:43:58.548+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1440ms
+2026-06-03T11:43:58.548+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第85次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22438ms, 当日85/1000
+2026-06-03T11:45:06.818+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1586ms
+2026-06-03T11:45:10.916+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1355ms
+2026-06-03T11:45:14.939+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1262ms
+2026-06-03T11:45:19.185+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1503ms
+2026-06-03T11:45:24.483+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2551ms
+2026-06-03T11:45:24.483+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第90次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22372ms, 当日90/1000
+2026-06-03T11:46:33.522+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2384ms
+2026-06-03T11:46:39.114+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2774ms
+2026-06-03T11:46:43.487+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1603ms
+2026-06-03T11:46:48.351+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2000ms
+2026-06-03T11:46:52.853+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1631ms
+2026-06-03T11:46:52.853+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第95次 完成: 利云文化官方旗舰店, 共500条/0条保存, 24744ms, 当日95/1000
+2026-06-03T11:47:58.815+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2136ms
+2026-06-03T11:48:02.791+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1667ms
+2026-06-03T11:48:06.848+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1807ms
+2026-06-03T11:48:10.720+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1482ms
+2026-06-03T11:48:14.489+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1471ms
+2026-06-03T11:48:14.489+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第100次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20381ms, 当日100/1000
+2026-06-03T11:49:24.442+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1706ms
+2026-06-03T11:49:25.618+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T11:49:32.648+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T11:51:02.784+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1426ms
+2026-06-03T11:51:06.742+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1438ms
+2026-06-03T11:51:10.962+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1772ms
+2026-06-03T11:51:15.001+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1504ms
+2026-06-03T11:51:19.385+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1912ms
+2026-06-03T11:51:19.385+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T11:51:19.385+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第5次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20741ms, 当日5/1000
+2026-06-03T11:52:30.308+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 3032ms
+2026-06-03T11:52:34.537+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1826ms
+2026-06-03T11:52:38.651+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1720ms
+2026-06-03T11:52:42.784+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1737ms
+2026-06-03T11:52:46.657+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1457ms
+2026-06-03T11:52:46.658+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T11:52:46.658+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第10次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22015ms, 当日10/1000
+2026-06-03T11:53:55.495+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1842ms
+2026-06-03T11:54:00.128+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1788ms
+2026-06-03T11:54:04.859+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1853ms
+2026-06-03T11:54:09.632+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1986ms
+2026-06-03T11:54:14.124+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1669ms
+2026-06-03T11:54:14.124+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T11:54:14.124+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第15次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23483ms, 当日15/1000
+2026-06-03T11:55:23.356+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 3080ms
+2026-06-03T11:55:27.999+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2164ms
+2026-06-03T11:55:32.218+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1765ms
+2026-06-03T11:55:36.213+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1548ms
+2026-06-03T11:55:40.718+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1971ms
+2026-06-03T11:55:40.719+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T11:55:40.719+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第20次 完成: 利云文化官方旗舰店, 共500条/0条保存, 24078ms, 当日20/1000
+2026-06-03T11:56:47.523+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1976ms
+2026-06-03T11:56:51.516+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1360ms
+2026-06-03T11:56:55.491+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1405ms
+2026-06-03T11:56:59.920+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1810ms
+2026-06-03T11:57:04.970+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2517ms
+2026-06-03T11:57:04.970+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T11:57:04.970+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第25次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22330ms, 当日25/1000
+2026-06-03T11:58:13.356+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1999ms
+2026-06-03T11:58:17.419+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1512ms
+2026-06-03T11:58:21.348+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1337ms
+2026-06-03T11:58:25.545+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1642ms
+2026-06-03T11:58:30.001+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1856ms
+2026-06-03T11:58:30.001+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T11:58:30.001+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第30次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21363ms, 当日30/1000
+2026-06-03T11:59:39.433+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1656ms
+2026-06-03T11:59:43.955+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1991ms
+2026-06-03T11:59:48.257+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1597ms
+2026-06-03T11:59:52.493+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1668ms
+2026-06-03T11:59:56.556+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1544ms
+2026-06-03T11:59:56.556+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T11:59:56.556+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第35次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21920ms, 当日35/1000
+2026-06-03T12:01:05.105+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1800ms
+2026-06-03T12:01:09.236+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1576ms
+2026-06-03T12:01:13.114+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1399ms
+2026-06-03T12:01:17.416+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1761ms
+2026-06-03T12:01:21.630+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1710ms
+2026-06-03T12:01:21.630+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:01:21.630+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第40次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20995ms, 当日40/1000
+2026-06-03T12:02:31.708+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2403ms
+2026-06-03T12:02:35.589+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1447ms
+2026-06-03T12:02:39.803+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1807ms
+2026-06-03T12:02:43.939+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1644ms
+2026-06-03T12:02:47.913+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1485ms
+2026-06-03T12:02:47.913+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:02:47.913+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第45次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21279ms, 当日45/1000
+2026-06-03T12:03:57.553+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2301ms
+2026-06-03T12:04:01.384+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1488ms
+2026-06-03T12:04:05.387+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1654ms
+2026-06-03T12:04:09.115+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1340ms
+2026-06-03T12:04:12.980+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1513ms
+2026-06-03T12:04:12.980+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:04:12.981+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第50次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20348ms, 当日50/1000
+2026-06-03T12:05:22.700+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1572ms
+2026-06-03T12:05:26.484+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1418ms
+2026-06-03T12:05:31.732+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2538ms
+2026-06-03T12:05:35.656+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1514ms
+2026-06-03T12:05:39.575+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1493ms
+2026-06-03T12:05:39.575+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:05:39.575+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第55次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20943ms, 当日55/1000
+2026-06-03T12:06:50.249+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2584ms
+2026-06-03T12:06:54.748+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1951ms
+2026-06-03T12:06:59.133+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1577ms
+2026-06-03T12:07:03.278+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1644ms
+2026-06-03T12:07:07.168+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1296ms
+2026-06-03T12:07:07.168+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:07:07.168+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第60次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22537ms, 当日60/1000
+2026-06-03T12:08:14.760+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1652ms
+2026-06-03T12:08:19.647+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2628ms
+2026-06-03T12:08:23.483+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1556ms
+2026-06-03T12:08:27.114+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1364ms
+2026-06-03T12:08:30.707+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1357ms
+2026-06-03T12:08:30.708+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:08:30.709+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第65次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20079ms, 当日65/1000
+2026-06-03T12:09:41.700+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2373ms
+2026-06-03T12:09:45.663+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1490ms
+2026-06-03T12:09:49.644+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1532ms
+2026-06-03T12:09:53.773+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1643ms
+2026-06-03T12:09:57.606+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1435ms
+2026-06-03T12:09:57.606+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:09:57.606+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第70次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20977ms, 当日70/1000
+2026-06-03T12:11:07.134+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1707ms
+2026-06-03T12:11:11.735+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1796ms
+2026-06-03T12:11:15.331+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1355ms
+2026-06-03T12:11:18.997+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1394ms
+2026-06-03T12:11:22.965+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1661ms
+2026-06-03T12:11:22.965+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:11:22.965+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第75次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20336ms, 当日75/1000
+2026-06-03T12:12:33.469+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1716ms
+2026-06-03T12:12:37.850+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1453ms
+2026-06-03T12:12:41.990+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1374ms
+2026-06-03T12:12:46.439+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1615ms
+2026-06-03T12:12:51.274+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2001ms
+2026-06-03T12:12:51.274+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:12:51.274+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第80次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22646ms, 当日80/1000
+2026-06-03T12:13:59.662+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1984ms
+2026-06-03T12:14:04.326+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1993ms
+2026-06-03T12:14:08.937+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1909ms
+2026-06-03T12:14:13.691+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1941ms
+2026-06-03T12:14:19.252+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2779ms
+2026-06-03T12:14:19.253+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:14:19.253+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第85次 完成: 利云文化官方旗舰店, 共500条/0条保存, 24627ms, 当日85/1000
+2026-06-03T12:15:25.208+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1661ms
+2026-06-03T12:15:29.544+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1623ms
+2026-06-03T12:15:33.770+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1425ms
+2026-06-03T12:15:37.994+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1502ms
+2026-06-03T12:15:42.385+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1615ms
+2026-06-03T12:15:42.385+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:15:42.385+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第90次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21741ms, 当日90/1000
+2026-06-03T12:16:50.868+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1534ms
+2026-06-03T12:16:55.143+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1737ms
+2026-06-03T12:16:59.468+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1672ms
+2026-06-03T12:17:04.416+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2283ms
+2026-06-03T12:17:08.709+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1706ms
+2026-06-03T12:17:08.710+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:17:08.711+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第95次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22066ms, 当日95/1000
+2026-06-03T12:18:18.157+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2841ms
+2026-06-03T12:18:22.288+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1667ms
+2026-06-03T12:18:26.273+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1592ms
+2026-06-03T12:18:30.210+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1535ms
+2026-06-03T12:18:34.546+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1974ms
+2026-06-03T12:18:34.547+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:18:34.547+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第100次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21904ms, 当日100/1000
+2026-06-03T12:19:43.845+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2344ms
+2026-06-03T12:19:47.942+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1362ms
+2026-06-03T12:19:52.269+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1593ms
+2026-06-03T12:19:56.495+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1557ms
+2026-06-03T12:20:01.403+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2138ms
+2026-06-03T12:20:01.404+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:20:01.404+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第105次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22762ms, 当日105/1000
+2026-06-03T12:21:09.544+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1895ms
+2026-06-03T12:21:14.003+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1709ms
+2026-06-03T12:21:18.283+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1528ms
+2026-06-03T12:21:23.076+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2012ms
+2026-06-03T12:21:27.534+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1766ms
+2026-06-03T12:21:27.534+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:21:27.534+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第110次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22892ms, 当日110/1000
+2026-06-03T12:22:35.491+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2167ms
+2026-06-03T12:22:39.776+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1741ms
+2026-06-03T12:22:44.734+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2359ms
+2026-06-03T12:22:48.908+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1568ms
+2026-06-03T12:22:53.592+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1667ms
+2026-06-03T12:22:53.592+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:22:53.592+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第115次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22951ms, 当日115/1000
+2026-06-03T12:24:01.355+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2237ms
+2026-06-03T12:24:05.438+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1693ms
+2026-06-03T12:24:09.497+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1727ms
+2026-06-03T12:24:14.339+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2337ms
+2026-06-03T12:24:18.121+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1432ms
+2026-06-03T12:24:18.121+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:24:18.121+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第120次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21481ms, 当日120/1000
+2026-06-03T12:25:27.313+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1947ms
+2026-06-03T12:25:31.658+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1844ms
+2026-06-03T12:25:35.840+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1697ms
+2026-06-03T12:25:39.915+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1627ms
+2026-06-03T12:25:44.016+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1669ms
+2026-06-03T12:25:44.016+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:25:44.016+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第125次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21376ms, 当日125/1000
+2026-06-03T12:26:53.018+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1937ms
+2026-06-03T12:26:57.623+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1582ms
+2026-06-03T12:27:01.485+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1543ms
+2026-06-03T12:27:05.544+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1781ms
+2026-06-03T12:27:09.399+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1517ms
+2026-06-03T12:27:09.399+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:27:09.399+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第130次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20760ms, 当日130/1000
+2026-06-03T12:28:19.272+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1876ms
+2026-06-03T12:28:23.228+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1302ms
+2026-06-03T12:28:27.606+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1674ms
+2026-06-03T12:28:31.920+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1698ms
+2026-06-03T12:28:35.842+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1261ms
+2026-06-03T12:28:35.845+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:28:35.845+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第135次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21207ms, 当日135/1000
+2026-06-03T12:29:45.159+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1821ms
+2026-06-03T12:29:50.119+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2456ms
+2026-06-03T12:29:54.712+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1608ms
+2026-06-03T12:29:58.637+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1399ms
+2026-06-03T12:30:02.535+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1395ms
+2026-06-03T12:30:02.535+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:30:02.535+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第140次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21898ms, 当日140/1000
+2026-06-03T12:31:11.213+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1769ms
+2026-06-03T12:31:15.305+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1533ms
+2026-06-03T12:31:19.504+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1770ms
+2026-06-03T12:31:23.574+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1661ms
+2026-06-03T12:31:27.599+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1547ms
+2026-06-03T12:31:27.599+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:31:27.599+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第145次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20962ms, 当日145/1000
+2026-06-03T12:32:37.537+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1750ms
+2026-06-03T12:32:42.022+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1431ms
+2026-06-03T12:32:47.803+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2651ms
+2026-06-03T12:32:52.386+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1424ms
+2026-06-03T12:32:57.265+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1615ms
+2026-06-03T12:32:57.265+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:32:57.265+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第150次 完成: 利云文化官方旗舰店, 共500条/0条保存, 24630ms, 当日150/1000
+2026-06-03T12:34:04.192+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1641ms
+2026-06-03T12:34:08.632+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1886ms
+2026-06-03T12:34:12.586+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1440ms
+2026-06-03T12:34:16.744+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1641ms
+2026-06-03T12:34:20.724+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1376ms
+2026-06-03T12:34:20.725+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:34:20.725+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第155次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22091ms, 当日155/1000
+2026-06-03T12:35:29.384+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1954ms
+2026-06-03T12:35:33.571+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1540ms
+2026-06-03T12:35:37.617+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1481ms
+2026-06-03T12:35:41.997+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1759ms
+2026-06-03T12:35:46.375+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1720ms
+2026-06-03T12:35:46.375+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:35:46.375+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第160次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21741ms, 当日160/1000
+2026-06-03T12:36:55.266+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1894ms
+2026-06-03T12:36:59.911+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2012ms
+2026-06-03T12:37:04.301+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1750ms
+2026-06-03T12:37:08.683+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1831ms
+2026-06-03T12:37:13.003+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1806ms
+2026-06-03T12:37:13.004+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:37:13.004+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第165次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22370ms, 当日165/1000
+2026-06-03T12:38:21.856+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2314ms
+2026-06-03T12:38:26.941+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2279ms
+2026-06-03T12:38:31.130+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1451ms
+2026-06-03T12:38:35.218+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1478ms
+2026-06-03T12:38:39.407+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1584ms
+2026-06-03T12:38:39.407+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:38:39.407+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第170次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22775ms, 当日170/1000
+2026-06-03T12:39:47.122+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1932ms
+2026-06-03T12:39:50.974+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1592ms
+2026-06-03T12:39:54.862+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1532ms
+2026-06-03T12:39:59.470+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2299ms
+2026-06-03T12:40:04.016+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2269ms
+2026-06-03T12:40:04.016+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:40:04.016+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第175次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21385ms, 当日175/1000
+2026-06-03T12:41:13.250+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1877ms
+2026-06-03T12:41:18.118+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2302ms
+2026-06-03T12:41:23.310+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2676ms
+2026-06-03T12:41:27.651+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1773ms
+2026-06-03T12:41:31.682+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1513ms
+2026-06-03T12:41:31.682+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:41:31.682+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第180次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23050ms, 当日180/1000
+2026-06-03T12:42:39.049+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1685ms
+2026-06-03T12:42:43.268+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1647ms
+2026-06-03T12:42:47.288+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1531ms
+2026-06-03T12:42:51.338+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1548ms
+2026-06-03T12:42:55.344+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1532ms
+2026-06-03T12:42:55.345+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:42:55.345+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第185次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20713ms, 当日185/1000
+2026-06-03T12:44:04.783+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1465ms
+2026-06-03T12:44:09.374+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2078ms
+2026-06-03T12:44:13.800+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1812ms
+2026-06-03T12:44:18.113+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1777ms
+2026-06-03T12:44:22.292+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1605ms
+2026-06-03T12:44:22.293+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:44:22.293+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第190次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21662ms, 当日190/1000
+2026-06-03T12:45:31.601+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1917ms
+2026-06-03T12:45:36.364+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1960ms
+2026-06-03T12:45:40.698+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1522ms
+2026-06-03T12:45:44.925+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1448ms
+2026-06-03T12:45:49.295+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1535ms
+2026-06-03T12:45:49.295+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:45:49.295+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第195次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22666ms, 当日195/1000
+2026-06-03T12:46:57.175+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1487ms
+2026-06-03T12:47:01.877+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1933ms
+2026-06-03T12:47:06.346+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1627ms
+2026-06-03T12:47:10.922+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1747ms
+2026-06-03T12:47:15.711+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2037ms
+2026-06-03T12:47:15.711+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:47:15.711+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第200次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23083ms, 当日200/1000
+2026-06-03T12:48:23.165+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1834ms
+2026-06-03T12:48:27.479+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1832ms
+2026-06-03T12:48:31.597+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1578ms
+2026-06-03T12:48:35.658+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1621ms
+2026-06-03T12:48:40.248+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2140ms
+2026-06-03T12:48:40.248+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:48:40.248+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第205次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21620ms, 当日205/1000
+2026-06-03T12:49:48.765+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1453ms
+2026-06-03T12:49:52.719+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1490ms
+2026-06-03T12:49:57.721+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2510ms
+2026-06-03T12:50:01.710+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1402ms
+2026-06-03T12:50:05.829+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1608ms
+2026-06-03T12:50:05.829+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:50:05.829+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第210次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21202ms, 当日210/1000
+2026-06-03T12:51:15.462+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1972ms
+2026-06-03T12:51:21.683+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 3361ms
+2026-06-03T12:51:30.412+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2899ms
+2026-06-03T12:51:35.868+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2392ms
+2026-06-03T12:51:41.037+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2162ms
+2026-06-03T12:51:41.037+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:51:41.037+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第215次 完成: 利云文化官方旗舰店, 共500条/0条保存, 30411ms, 当日215/1000
+2026-06-03T12:52:41.087+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1728ms
+2026-06-03T12:52:45.590+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1804ms
+2026-06-03T12:52:49.795+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1661ms
+2026-06-03T12:52:54.208+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1784ms
+2026-06-03T12:52:58.967+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1942ms
+2026-06-03T12:52:58.967+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:52:58.967+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第220次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22342ms, 当日220/1000
+2026-06-03T12:54:07.157+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1653ms
+2026-06-03T12:54:12.371+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2477ms
+2026-06-03T12:54:16.961+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1849ms
+2026-06-03T12:54:21.809+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1818ms
+2026-06-03T12:54:26.111+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1522ms
+2026-06-03T12:54:26.112+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:54:26.112+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第225次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23487ms, 当日225/1000
+2026-06-03T12:55:33.148+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1684ms
+2026-06-03T12:55:37.573+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1794ms
+2026-06-03T12:55:42.282+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2055ms
+2026-06-03T12:55:46.416+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1477ms
+2026-06-03T12:55:50.460+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1402ms
+2026-06-03T12:55:50.460+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:55:50.460+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第230次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21836ms, 当日230/1000
+2026-06-03T12:57:00.087+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2622ms
+2026-06-03T12:57:04.754+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2063ms
+2026-06-03T12:57:09.009+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1686ms
+2026-06-03T12:57:13.270+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1670ms
+2026-06-03T12:57:17.629+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1707ms
+2026-06-03T12:57:17.630+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:57:17.630+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第235次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23006ms, 当日235/1000
+2026-06-03T12:58:24.777+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1604ms
+2026-06-03T12:58:28.776+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1615ms
+2026-06-03T12:58:32.878+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1675ms
+2026-06-03T12:58:37.066+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1646ms
+2026-06-03T12:58:41.294+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1820ms
+2026-06-03T12:58:41.295+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T12:58:41.295+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第240次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20671ms, 当日240/1000
+2026-06-03T12:59:50.803+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1645ms
+2026-06-03T12:59:54.828+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1441ms
+2026-06-03T12:59:58.979+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1739ms
+2026-06-03T13:00:03.243+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1745ms
+2026-06-03T13:00:07.117+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1501ms
+2026-06-03T13:00:07.118+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:00:07.118+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第245次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20495ms, 当日245/1000
+2026-06-03T13:01:16.817+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1772ms
+2026-06-03T13:01:20.613+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1463ms
+2026-06-03T13:01:25.005+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2025ms
+2026-06-03T13:01:28.869+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1500ms
+2026-06-03T13:01:33.030+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1872ms
+2026-06-03T13:01:33.030+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:01:33.030+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第250次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20409ms, 当日250/1000
+2026-06-03T13:02:43.474+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1979ms
+2026-06-03T13:02:47.960+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1919ms
+2026-06-03T13:02:51.753+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1251ms
+2026-06-03T13:02:57.335+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1700ms
+2026-06-03T13:03:01.671+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1785ms
+2026-06-03T13:03:01.671+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:03:01.672+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第255次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23051ms, 当日255/1000
+2026-06-03T13:04:09.430+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1630ms
+2026-06-03T13:04:14.665+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1952ms
+2026-06-03T13:04:19.178+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1644ms
+2026-06-03T13:04:23.819+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1756ms
+2026-06-03T13:04:27.971+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1301ms
+2026-06-03T13:04:27.971+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:04:27.971+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第260次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23353ms, 当日260/1000
+2026-06-03T13:05:35.340+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1554ms
+2026-06-03T13:05:39.451+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1469ms
+2026-06-03T13:05:43.896+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1745ms
+2026-06-03T13:05:48.110+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1579ms
+2026-06-03T13:05:52.188+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1399ms
+2026-06-03T13:05:52.188+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:05:52.188+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第265次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21569ms, 当日265/1000
+2026-06-03T13:07:01.304+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1598ms
+2026-06-03T13:07:06.605+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2646ms
+2026-06-03T13:07:11.288+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1728ms
+2026-06-03T13:07:15.510+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1507ms
+2026-06-03T13:07:19.863+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1624ms
+2026-06-03T13:07:19.864+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:07:19.864+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第270次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23247ms, 当日270/1000
+2026-06-03T13:08:27.105+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1678ms
+2026-06-03T13:08:31.207+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1564ms
+2026-06-03T13:08:35.912+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2162ms
+2026-06-03T13:08:40.254+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1781ms
+2026-06-03T13:08:44.386+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1543ms
+2026-06-03T13:08:44.386+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:08:44.387+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第275次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21769ms, 当日275/1000
+2026-06-03T13:09:52.747+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1352ms
+2026-06-03T13:09:56.915+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1527ms
+2026-06-03T13:10:01.269+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1671ms
+2026-06-03T13:10:05.695+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1816ms
+2026-06-03T13:10:09.810+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1556ms
+2026-06-03T13:10:09.810+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:10:09.811+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第280次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21194ms, 当日280/1000
+2026-06-03T13:11:20.474+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1842ms
+2026-06-03T13:11:25.159+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2194ms
+2026-06-03T13:11:29.318+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1275ms
+2026-06-03T13:11:32.918+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1257ms
+2026-06-03T13:11:37.079+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1472ms
+2026-06-03T13:11:37.080+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:11:37.080+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第285次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22465ms, 当日285/1000
+2026-06-03T13:12:45.110+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1712ms
+2026-06-03T13:12:49.945+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2210ms
+2026-06-03T13:12:54.489+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1840ms
+2026-06-03T13:12:59.002+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1827ms
+2026-06-03T13:13:03.842+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2164ms
+2026-06-03T13:13:03.842+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:13:03.842+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第290次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23226ms, 当日290/1000
+2026-06-03T13:14:11.541+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1648ms
+2026-06-03T13:14:15.969+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1706ms
+2026-06-03T13:14:21.335+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2058ms
+2026-06-03T13:14:26.633+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2330ms
+2026-06-03T13:14:31.757+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2215ms
+2026-06-03T13:14:31.760+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:14:31.760+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第295次 完成: 利云文化官方旗舰店, 共500条/0条保存, 25145ms, 当日295/1000
+2026-06-03T13:15:37.637+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2140ms
+2026-06-03T13:15:41.956+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1607ms
+2026-06-03T13:15:46.469+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1819ms
+2026-06-03T13:15:50.746+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1499ms
+2026-06-03T13:15:55.292+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1668ms
+2026-06-03T13:15:55.293+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:15:55.293+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第300次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22680ms, 当日300/1000
+2026-06-03T13:17:03.982+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2581ms
+2026-06-03T13:17:08.389+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1912ms
+2026-06-03T13:17:12.705+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1726ms
+2026-06-03T13:17:16.833+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1519ms
+2026-06-03T13:17:21.436+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1944ms
+2026-06-03T13:17:21.437+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:17:21.437+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第305次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22824ms, 当日305/1000
+2026-06-03T13:18:29.400+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1918ms
+2026-06-03T13:18:33.775+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1635ms
+2026-06-03T13:18:38.110+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1670ms
+2026-06-03T13:18:42.564+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1794ms
+2026-06-03T13:18:46.809+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1565ms
+2026-06-03T13:18:46.809+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:18:46.810+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第310次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22198ms, 当日310/1000
+2026-06-03T13:19:56.226+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2616ms
+2026-06-03T13:20:01.599+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2595ms
+2026-06-03T13:20:06.227+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1956ms
+2026-06-03T13:20:10.223+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1368ms
+2026-06-03T13:20:14.749+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1826ms
+2026-06-03T13:20:14.750+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:20:14.750+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第315次 完成: 利云文化官方旗舰店, 共500条/0条保存, 24138ms, 当日315/1000
+2026-06-03T13:21:22.310+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2763ms
+2026-06-03T13:21:27.881+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2865ms
+2026-06-03T13:21:32.243+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1721ms
+2026-06-03T13:21:36.744+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1693ms
+2026-06-03T13:21:41.660+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2189ms
+2026-06-03T13:21:41.660+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:21:41.660+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第320次 完成: 利云文化官方旗舰店, 共500条/0条保存, 25049ms, 当日320/1000
+2026-06-03T13:22:47.296+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1672ms
+2026-06-03T13:22:52.187+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1738ms
+2026-06-03T13:22:56.845+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1525ms
+2026-06-03T13:23:01.838+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1639ms
+2026-06-03T13:23:06.379+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1846ms
+2026-06-03T13:23:06.382+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:23:06.382+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第325次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23771ms, 当日325/1000
+2026-06-03T13:24:13.289+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1697ms
+2026-06-03T13:24:17.985+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1799ms
+2026-06-03T13:24:21.836+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1349ms
+2026-06-03T13:24:26.080+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1772ms
+2026-06-03T13:24:30.020+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1433ms
+2026-06-03T13:24:30.020+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:24:30.020+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第330次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21410ms, 当日330/1000
+2026-06-03T13:25:39.002+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1556ms
+2026-06-03T13:25:43.061+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1581ms
+2026-06-03T13:25:46.955+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1417ms
+2026-06-03T13:25:50.896+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1428ms
+2026-06-03T13:25:54.712+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1382ms
+2026-06-03T13:25:54.713+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:25:54.713+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第335次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20103ms, 当日335/1000
+2026-06-03T13:27:05.866+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2055ms
+2026-06-03T13:27:10.305+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1569ms
+2026-06-03T13:27:14.876+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1487ms
+2026-06-03T13:27:19.891+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2001ms
+2026-06-03T13:27:24.069+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1372ms
+2026-06-03T13:27:24.070+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:27:24.070+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第340次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23462ms, 当日340/1000
+2026-06-03T13:28:31.215+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1722ms
+2026-06-03T13:28:35.326+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1482ms
+2026-06-03T13:28:39.683+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1504ms
+2026-06-03T13:28:43.875+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1401ms
+2026-06-03T13:28:47.830+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1392ms
+2026-06-03T13:28:47.831+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:28:47.831+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第345次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21225ms, 当日345/1000
+2026-06-03T13:29:56.870+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1590ms
+2026-06-03T13:30:00.736+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1384ms
+2026-06-03T13:30:05.210+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2114ms
+2026-06-03T13:30:09.430+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1783ms
+2026-06-03T13:30:13.698+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1816ms
+2026-06-03T13:30:13.698+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:30:13.698+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第350次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21093ms, 当日350/1000
+2026-06-03T13:31:23.541+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1963ms
+2026-06-03T13:31:28.482+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1775ms
+2026-06-03T13:31:33.356+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2157ms
+2026-06-03T13:31:37.761+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1744ms
+2026-06-03T13:31:42.639+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2078ms
+2026-06-03T13:31:42.639+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:31:42.639+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第355次 完成: 利云文化官方旗舰店, 共500条/0条保存, 24032ms, 当日355/1000
+2026-06-03T13:32:48.727+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1620ms
+2026-06-03T13:32:52.571+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1484ms
+2026-06-03T13:32:56.458+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1448ms
+2026-06-03T13:33:00.301+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1382ms
+2026-06-03T13:33:04.256+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1559ms
+2026-06-03T13:33:04.258+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:33:04.259+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第360次 完成: 利云文化官方旗舰店, 共500条/0条保存, 19565ms, 当日360/1000
+2026-06-03T13:34:15.482+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1871ms
+2026-06-03T13:34:19.553+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1347ms
+2026-06-03T13:34:23.838+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1626ms
+2026-06-03T13:34:29.280+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2800ms
+2026-06-03T13:34:33.500+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1528ms
+2026-06-03T13:34:33.500+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:34:33.500+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第365次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22806ms, 当日365/1000
+2026-06-03T13:35:41.170+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1717ms
+2026-06-03T13:35:45.263+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1610ms
+2026-06-03T13:35:49.278+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1434ms
+2026-06-03T13:35:53.673+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1806ms
+2026-06-03T13:35:57.819+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1634ms
+2026-06-03T13:35:57.820+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:35:57.820+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第370次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21125ms, 当日370/1000
+2026-06-03T13:37:07.497+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1865ms
+2026-06-03T13:37:12.102+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1773ms
+2026-06-03T13:37:16.117+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1368ms
+2026-06-03T13:37:20.297+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1520ms
+2026-06-03T13:37:25.138+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2293ms
+2026-06-03T13:37:25.139+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:37:25.139+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第375次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22443ms, 当日375/1000
+2026-06-03T13:38:33.256+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1673ms
+2026-06-03T13:38:37.839+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1846ms
+2026-06-03T13:38:41.990+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1303ms
+2026-06-03T13:38:46.296+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1547ms
+2026-06-03T13:38:50.840+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1773ms
+2026-06-03T13:38:50.840+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:38:50.840+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第380次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22144ms, 当日380/1000
+2026-06-03T13:39:58.975+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1544ms
+2026-06-03T13:40:03.136+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1554ms
+2026-06-03T13:40:09.093+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 3273ms
+2026-06-03T13:40:13.031+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1380ms
+2026-06-03T13:40:17.419+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1748ms
+2026-06-03T13:40:17.419+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:40:17.419+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第385次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22723ms, 当日385/1000
+2026-06-03T13:41:25.502+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1775ms
+2026-06-03T13:41:29.778+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1486ms
+2026-06-03T13:41:34.388+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1764ms
+2026-06-03T13:41:38.549+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1405ms
+2026-06-03T13:41:43.233+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1732ms
+2026-06-03T13:41:43.233+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:41:43.233+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第390次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22537ms, 当日390/1000
+2026-06-03T13:42:50.915+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1560ms
+2026-06-03T13:42:55.020+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1557ms
+2026-06-03T13:42:59.008+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1493ms
+2026-06-03T13:43:03.139+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1671ms
+2026-06-03T13:43:07.016+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1418ms
+2026-06-03T13:43:07.016+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:43:07.016+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第395次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20321ms, 当日395/1000
+2026-06-03T13:44:18.277+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2877ms
+2026-06-03T13:44:23.822+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2116ms
+2026-06-03T13:44:28.804+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2335ms
+2026-06-03T13:44:33.280+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1777ms
+2026-06-03T13:44:37.802+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1831ms
+2026-06-03T13:44:37.805+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:44:37.805+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第400次 完成: 利云文化官方旗舰店, 共500条/0条保存, 25110ms, 当日400/1000
+2026-06-03T13:45:43.268+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1573ms
+2026-06-03T13:45:47.418+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1389ms
+2026-06-03T13:45:51.642+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1530ms
+2026-06-03T13:45:55.917+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1525ms
+2026-06-03T13:46:01.156+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2534ms
+2026-06-03T13:46:01.159+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:46:01.159+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第405次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22461ms, 当日405/1000
+2026-06-03T13:47:09.685+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1885ms
+2026-06-03T13:47:14.155+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1718ms
+2026-06-03T13:47:18.739+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1803ms
+2026-06-03T13:47:23.258+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1863ms
+2026-06-03T13:47:27.891+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1912ms
+2026-06-03T13:47:27.891+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:47:27.891+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第410次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23193ms, 当日410/1000
+2026-06-03T13:48:35.419+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1577ms
+2026-06-03T13:48:39.699+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1632ms
+2026-06-03T13:48:43.671+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1394ms
+2026-06-03T13:48:48.151+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1376ms
+2026-06-03T13:48:53.045+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2225ms
+2026-06-03T13:48:53.045+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:48:53.045+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第415次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22344ms, 当日415/1000
+2026-06-03T13:50:00.989+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1370ms
+2026-06-03T13:50:05.142+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1580ms
+2026-06-03T13:50:09.219+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1452ms
+2026-06-03T13:50:13.425+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1461ms
+2026-06-03T13:50:17.653+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1554ms
+2026-06-03T13:50:17.653+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:50:17.653+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第420次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20931ms, 当日420/1000
+2026-06-03T13:51:28.452+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2461ms
+2026-06-03T13:51:32.984+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1561ms
+2026-06-03T13:51:37.905+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2001ms
+2026-06-03T13:51:42.469+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1668ms
+2026-06-03T13:51:48.666+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1730ms
+2026-06-03T13:51:48.667+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:51:48.667+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第425次 完成: 利云文化官方旗舰店, 共500条/0条保存, 25944ms, 当日425/1000
+2026-06-03T13:52:54.104+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1948ms
+2026-06-03T13:52:58.844+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1640ms
+2026-06-03T13:53:03.632+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1726ms
+2026-06-03T13:53:08.223+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1425ms
+2026-06-03T13:53:12.843+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1580ms
+2026-06-03T13:53:12.844+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:53:12.844+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第430次 完成: 利云文化官方旗舰店, 共500条/0条保存, 24120ms, 当日430/1000
+2026-06-03T13:54:19.993+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1962ms
+2026-06-03T13:54:24.572+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1698ms
+2026-06-03T13:54:29.097+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1774ms
+2026-06-03T13:54:33.856+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2000ms
+2026-06-03T13:54:38.784+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2107ms
+2026-06-03T13:54:38.784+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:54:38.784+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第435次 完成: 利云文化官方旗舰店, 共500条/0条保存, 24060ms, 当日435/1000
+2026-06-03T13:55:45.855+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2072ms
+2026-06-03T13:55:50.807+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2153ms
+2026-06-03T13:55:55.394+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1619ms
+2026-06-03T13:55:59.701+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1540ms
+2026-06-03T13:56:04.345+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2042ms
+2026-06-03T13:56:04.346+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:56:04.346+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第440次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23622ms, 当日440/1000
+2026-06-03T13:57:11.609+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1973ms
+2026-06-03T13:57:15.985+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1573ms
+2026-06-03T13:57:20.431+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1713ms
+2026-06-03T13:57:24.620+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1339ms
+2026-06-03T13:57:28.886+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1512ms
+2026-06-03T13:57:28.886+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:57:28.886+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第445次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22160ms, 当日445/1000
+2026-06-03T13:58:38.010+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2307ms
+2026-06-03T13:58:42.772+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1916ms
+2026-06-03T13:58:47.269+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1746ms
+2026-06-03T13:58:51.935+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1690ms
+2026-06-03T13:58:56.934+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1982ms
+2026-06-03T13:58:56.934+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T13:58:56.934+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第450次 完成: 利云文化官方旗舰店, 共500条/0条保存, 24208ms, 当日450/1000
+2026-06-03T14:00:03.479+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1777ms
+2026-06-03T14:00:08.294+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1979ms
+2026-06-03T14:00:12.679+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1488ms
+2026-06-03T14:00:17.557+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2043ms
+2026-06-03T14:00:22.765+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2402ms
+2026-06-03T14:00:22.766+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:00:22.766+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第455次 完成: 利云文化官方旗舰店, 共500条/0条保存, 24039ms, 当日455/1000
+2026-06-03T14:01:31.338+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2836ms
+2026-06-03T14:01:36.440+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2071ms
+2026-06-03T14:01:41.616+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1844ms
+2026-06-03T14:01:46.816+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2093ms
+2026-06-03T14:01:51.148+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1411ms
+2026-06-03T14:01:51.148+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:01:51.148+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第460次 完成: 利云文化官方旗舰店, 共500条/0条保存, 26421ms, 当日460/1000
+2026-06-03T14:02:56.217+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2565ms
+2026-06-03T14:03:00.469+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1487ms
+2026-06-03T14:03:04.897+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1593ms
+2026-06-03T14:03:09.872+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2165ms
+2026-06-03T14:03:14.208+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1602ms
+2026-06-03T14:03:14.208+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:03:14.209+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第465次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23480ms, 当日465/1000
+2026-06-03T14:04:21.071+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1736ms
+2026-06-03T14:04:25.267+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1917ms
+2026-06-03T14:04:29.293+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1568ms
+2026-06-03T14:04:33.684+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2050ms
+2026-06-03T14:04:37.824+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1677ms
+2026-06-03T14:04:37.824+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:04:37.825+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第470次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21096ms, 当日470/1000
+2026-06-03T14:05:47.580+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1908ms
+2026-06-03T14:05:51.799+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1566ms
+2026-06-03T14:05:56.510+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1940ms
+2026-06-03T14:06:01.214+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1846ms
+2026-06-03T14:06:05.383+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1525ms
+2026-06-03T14:06:05.383+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:06:05.383+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第475次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22654ms, 当日475/1000
+2026-06-03T14:07:14.356+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2303ms
+2026-06-03T14:07:19.017+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1763ms
+2026-06-03T14:07:23.736+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1863ms
+2026-06-03T14:07:30.035+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2341ms
+2026-06-03T14:07:34.815+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1776ms
+2026-06-03T14:07:34.815+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:07:34.815+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第480次 完成: 利云文化官方旗舰店, 共500条/0条保存, 26086ms, 当日480/1000
+2026-06-03T14:08:40.016+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2198ms
+2026-06-03T14:08:44.180+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1342ms
+2026-06-03T14:08:48.596+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1449ms
+2026-06-03T14:08:53.036+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1651ms
+2026-06-03T14:08:57.622+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1679ms
+2026-06-03T14:08:57.623+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:08:57.623+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第485次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22892ms, 当日485/1000
+2026-06-03T14:10:05.555+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1896ms
+2026-06-03T14:10:10.013+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1714ms
+2026-06-03T14:10:13.910+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1410ms
+2026-06-03T14:10:18.064+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1602ms
+2026-06-03T14:10:22.572+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2008ms
+2026-06-03T14:10:22.575+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:10:22.575+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第490次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21844ms, 当日490/1000
+2026-06-03T14:11:31.016+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1603ms
+2026-06-03T14:11:36.459+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2824ms
+2026-06-03T14:11:40.220+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1388ms
+2026-06-03T14:11:43.988+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1463ms
+2026-06-03T14:11:47.928+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1447ms
+2026-06-03T14:11:47.929+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:11:47.929+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第495次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21197ms, 当日495/1000
+2026-06-03T14:12:57.199+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1717ms
+2026-06-03T14:13:01.778+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1990ms
+2026-06-03T14:13:06.082+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1711ms
+2026-06-03T14:13:10.097+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1492ms
+2026-06-03T14:13:14.203+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1502ms
+2026-06-03T14:13:14.203+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:13:14.203+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第500次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21470ms, 当日500/1000
+2026-06-03T14:14:23.095+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1723ms
+2026-06-03T14:14:27.731+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2270ms
+2026-06-03T14:14:31.641+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1579ms
+2026-06-03T14:14:35.793+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1720ms
+2026-06-03T14:14:39.601+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1323ms
+2026-06-03T14:14:39.601+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:14:39.601+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第505次 完成: 利云文化官方旗舰店, 共500条/0条保存, 20868ms, 当日505/1000
+2026-06-03T14:15:50.251+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2759ms
+2026-06-03T14:15:54.648+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1871ms
+2026-06-03T14:15:59.293+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2033ms
+2026-06-03T14:16:04.329+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2350ms
+2026-06-03T14:16:08.608+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1624ms
+2026-06-03T14:16:08.608+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:16:08.608+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第510次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23874ms, 当日510/1000
+2026-06-03T14:17:15.994+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1970ms
+2026-06-03T14:17:20.415+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1770ms
+2026-06-03T14:17:24.526+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1553ms
+2026-06-03T14:17:28.795+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1597ms
+2026-06-03T14:17:33.347+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1771ms
+2026-06-03T14:17:33.348+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:17:33.348+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第515次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22613ms, 当日515/1000
+2026-06-03T14:18:41.874+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2389ms
+2026-06-03T14:18:45.979+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1708ms
+2026-06-03T14:18:50.096+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1682ms
+2026-06-03T14:18:54.491+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1979ms
+2026-06-03T14:18:58.489+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1563ms
+2026-06-03T14:18:58.490+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:18:58.490+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第520次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21755ms, 当日520/1000
+2026-06-03T14:20:08.039+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2238ms
+2026-06-03T14:20:13.960+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 3272ms
+2026-06-03T14:20:18.390+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1651ms
+2026-06-03T14:20:22.539+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1523ms
+2026-06-03T14:20:26.859+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1625ms
+2026-06-03T14:20:26.859+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:20:26.860+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第525次 完成: 利云文化官方旗舰店, 共500条/0条保存, 24124ms, 当日525/1000
+2026-06-03T14:21:33.658+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1812ms
+2026-06-03T14:21:38.612+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1976ms
+2026-06-03T14:21:45.681+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 4091ms
+2026-06-03T14:21:50.924+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2009ms
+2026-06-03T14:21:55.689+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2089ms
+2026-06-03T14:21:55.689+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:21:55.689+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第530次 完成: 利云文化官方旗舰店, 共500条/0条保存, 26993ms, 当日530/1000
+2026-06-03T14:22:59.611+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1780ms
+2026-06-03T14:23:04.552+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1321ms
+2026-06-03T14:23:09.339+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1707ms
+2026-06-03T14:23:13.607+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1323ms
+2026-06-03T14:23:18.162+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1591ms
+2026-06-03T14:23:18.163+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:23:18.163+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第535次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23467ms, 当日535/1000
+2026-06-03T14:24:25.661+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1944ms
+2026-06-03T14:24:29.696+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1498ms
+2026-06-03T14:24:34.108+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1642ms
+2026-06-03T14:24:38.393+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1532ms
+2026-06-03T14:24:42.625+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1397ms
+2026-06-03T14:24:42.625+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:24:42.625+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第540次 完成: 利云文化官方旗舰店, 共500条/0条保存, 21929ms, 当日540/1000
+2026-06-03T14:25:52.440+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2870ms
+2026-06-03T14:25:57.611+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2494ms
+2026-06-03T14:26:03.727+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2803ms
+2026-06-03T14:26:09.315+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2403ms
+2026-06-03T14:26:14.165+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1914ms
+2026-06-03T14:26:14.165+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:26:14.165+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第545次 完成: 利云文化官方旗舰店, 共500条/0条保存, 27469ms, 当日545/1000
+2026-06-03T14:27:20.547+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 3488ms
+2026-06-03T14:27:25.223+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1612ms
+2026-06-03T14:27:30.270+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2088ms
+2026-06-03T14:27:34.714+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1629ms
+2026-06-03T14:27:39.089+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1522ms
+2026-06-03T14:27:39.089+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:27:39.089+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第550次 完成: 利云文化官方旗舰店, 共500条/0条保存, 26393ms, 当日550/1000
+2026-06-03T14:28:43.916+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1908ms
+2026-06-03T14:28:49.340+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1929ms
+2026-06-03T14:28:54.177+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1625ms
+2026-06-03T14:28:59.250+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1987ms
+2026-06-03T14:29:04.292+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1744ms
+2026-06-03T14:29:04.292+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:29:04.292+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第555次 完成: 利云文化官方旗舰店, 共500条/0条保存, 25597ms, 当日555/1000
+2026-06-03T14:30:10.719+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 3261ms
+2026-06-03T14:30:15.585+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2032ms
+2026-06-03T14:30:19.950+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1809ms
+2026-06-03T14:30:24.992+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1864ms
+2026-06-03T14:30:29.991+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1926ms
+2026-06-03T14:30:29.991+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:30:29.992+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第560次 完成: 利云文化官方旗舰店, 共500条/0条保存, 25295ms, 当日560/1000
+2026-06-03T14:31:36.482+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2044ms
+2026-06-03T14:31:40.719+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1434ms
+2026-06-03T14:31:45.262+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1850ms
+2026-06-03T14:31:49.982+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2023ms
+2026-06-03T14:31:54.670+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1860ms
+2026-06-03T14:31:54.671+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:31:54.672+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第565次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23975ms, 当日565/1000
+2026-06-03T14:33:02.476+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2644ms
+2026-06-03T14:33:06.408+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1503ms
+2026-06-03T14:33:10.960+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2116ms
+2026-06-03T14:33:15.864+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2369ms
+2026-06-03T14:33:20.994+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2558ms
+2026-06-03T14:33:20.994+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:33:20.994+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第570次 完成: 利云文化官方旗舰店, 共500条/0条保存, 24297ms, 当日570/1000
+2026-06-03T14:34:27.605+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1959ms
+2026-06-03T14:34:31.767+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1597ms
+2026-06-03T14:34:36.321+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1963ms
+2026-06-03T14:34:40.957+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2138ms
+2026-06-03T14:34:45.230+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1776ms
+2026-06-03T14:34:45.231+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:34:45.231+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第575次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22533ms, 当日575/1000
+2026-06-03T14:35:54.337+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2012ms
+2026-06-03T14:35:59.420+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2022ms
+2026-06-03T14:36:04.371+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1790ms
+2026-06-03T14:36:11.670+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2115ms
+2026-06-03T14:36:17.784+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2940ms
+2026-06-03T14:36:17.784+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:36:17.784+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第580次 完成: 利云文化官方旗舰店, 共500条/0条保存, 29086ms, 当日580/1000
+2026-06-03T14:37:20.291+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1805ms
+2026-06-03T14:37:25.887+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1990ms
+2026-06-03T14:37:32.299+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2094ms
+2026-06-03T14:37:37.687+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2008ms
+2026-06-03T14:37:43.241+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 2101ms
+2026-06-03T14:37:43.241+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:37:43.242+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第585次 完成: 利云文化官方旗舰店, 共500条/0条保存, 28625ms, 当日585/1000
+2026-06-03T14:38:45.961+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1987ms
+2026-06-03T14:38:51.766+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2265ms
+2026-06-03T14:38:57.261+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1865ms
+2026-06-03T14:39:02.941+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1720ms
+2026-06-03T14:39:08.808+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1978ms
+2026-06-03T14:39:08.809+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:39:08.809+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第590次 完成: 利云文化官方旗舰店, 共500条/0条保存, 28194ms, 当日590/1000
+2026-06-03T14:40:11.030+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1487ms
+2026-06-03T14:40:15.276+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1315ms
+2026-06-03T14:40:20.398+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2120ms
+2026-06-03T14:40:24.853+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1645ms
+2026-06-03T14:40:29.408+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1506ms
+2026-06-03T14:40:29.408+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:40:29.408+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第595次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22793ms, 当日595/1000
+2026-06-03T14:41:37.075+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1620ms
+2026-06-03T14:41:41.342+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1594ms
+2026-06-03T14:41:46.227+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2273ms
+2026-06-03T14:41:50.558+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1575ms
+2026-06-03T14:41:54.847+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1540ms
+2026-06-03T14:41:54.848+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:41:54.848+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第600次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22235ms, 当日600/1000
+2026-06-03T14:43:04.296+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 2350ms
+2026-06-03T14:43:09.542+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1916ms
+2026-06-03T14:43:14.902+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 2287ms
+2026-06-03T14:43:19.390+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1561ms
+2026-06-03T14:43:23.843+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1457ms
+2026-06-03T14:43:23.843+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:43:23.843+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第605次 完成: 利云文化官方旗舰店, 共500条/0条保存, 25232ms, 当日605/1000
+2026-06-03T14:44:29.837+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1778ms
+2026-06-03T14:44:34.552+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 2056ms
+2026-06-03T14:44:39.135+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1602ms
+2026-06-03T14:44:44.154+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 2216ms
+2026-06-03T14:44:48.378+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1526ms
+2026-06-03T14:44:48.378+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:44:48.378+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第610次 完成: 利云文化官方旗舰店, 共500条/0条保存, 23768ms, 当日610/1000
+2026-06-03T14:45:55.192+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1640ms
+2026-06-03T14:45:59.671+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1619ms
+2026-06-03T14:46:04.261+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第2页: 获取100条, 保存0条, 1838ms
+2026-06-03T14:46:08.423+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第3页: 获取100条, 保存0条, 1419ms
+2026-06-03T14:46:12.795+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第4页: 获取100条, 保存0条, 1524ms
+2026-06-03T14:46:12.795+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 更新last_poll_time失败: input data match no fields in table `store` 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.(*Poller).tick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:273
+2.  go-crawler/internal/service/platform/douyin.(*Poller).Start.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/poller.go:58
+
+2026-06-03T14:46:12.795+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第615次 完成: 利云文化官方旗舰店, 共500条/0条保存, 22186ms, 当日615/1000
+2026-06-03T14:47:21.540+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第0页: 获取100条, 保存0条, 1449ms
+2026-06-03T14:47:24.072+08:00 [WARN] {28773d00587fb518a79fbd126c889666} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:47:24.455+08:00 [WARN] {28773d00587fb518a79fbd126c889666} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:47:24.674+08:00 [INFO] {d80c9431587fb518bd9fbd12a70a3d70} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-03~2026-06-03
+2026-06-03T14:47:24.674+08:00 [WARN] {d80c9431587fb518bd9fbd12a70a3d70} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-03T14:47:24.787+08:00 [INFO] {d80c9431587fb518bd9fbd12a70a3d70} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-01~2026-06-03
+2026-06-03T14:47:24.787+08:00 [WARN] {d80c9431587fb518bd9fbd12a70a3d70} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-03T14:47:25.042+08:00 [WARN] {d80c9431587fb518bd9fbd12a70a3d70} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:47:25.326+08:00 [WARN] {d80c9431587fb518bd9fbd12a70a3d70} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:47:26.348+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 第1页: 获取100条, 保存0条, 1586ms
+2026-06-03T14:47:28.812+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T14:49:18.507+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T14:49:18.510+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 23702ms, 当日5/1000
+2026-06-03T14:50:45.788+08:00 [WARN] {80bc17fa867fb51845ce0e2e851dfcf3} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:46.084+08:00 [WARN] {80bc17fa867fb51845ce0e2e851dfcf3} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=7, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:46.330+08:00 [INFO] {c8f3f523877fb5185bce0e2e954a482b} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-03~2026-06-03
+2026-06-03T14:50:46.330+08:00 [WARN] {c8f3f523877fb5185bce0e2e954a482b} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-03T14:50:46.428+08:00 [INFO] {c8f3f523877fb5185bce0e2e954a482b} [Finance] 实时统计: nodeType=company, nodeId=6, accountIds=[], date=2026-06-01~2026-06-03
+2026-06-03T14:50:46.429+08:00 [WARN] {c8f3f523877fb5185bce0e2e954a482b} [Finance] 节点下无账号: nodeType=company, nodeId=6
+2026-06-03T14:50:46.667+08:00 [WARN] {c8f3f523877fb5185bce0e2e954a482b} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:46.893+08:00 [WARN] {c8f3f523877fb5185bce0e2e954a482b} [Finance] getAccountIdsByNode 失败: nodeType=company, nodeId=1, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4,5,6,7,8,9): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:47.958+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T14:50:47.958+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 27152ms, 当日10/1000
+2026-06-03T14:50:49.337+08:00 [WARN] {78df61da877fb51873ce0e2e71164b2b} [Finance] getAccountIdsByNode 失败: nodeType=trader, nodeId=2000001, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE `tsr`.`trader_id`=1: Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:49.500+08:00 [WARN] {78df61da877fb51873ce0e2e71164b2b} [Finance] getAccountIdsByNode 失败: nodeType=trader, nodeId=2000001, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE `tsr`.`trader_id`=1: Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:55.761+08:00 [WARN] {881b0e54897fb51883ce0e2ecab597a8} [Finance] getAccountIdsByNode 失败: nodeType=department, nodeId=1000013, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:56.006+08:00 [WARN] {881b0e54897fb51883ce0e2ecab597a8} [Finance] getAccountIdsByNode 失败: nodeType=department, nodeId=1000013, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE tsr.trader_id IN(1,2,3,4): Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:56.355+08:00 [WARN] {b84f4473897fb51893ce0e2e8578e180} [Finance] getAccountIdsByNode 失败: nodeType=trader, nodeId=2000001, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE `tsr`.`trader_id`=1: Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:56.501+08:00 [WARN] {b84f4473897fb51893ce0e2e8578e180} [Finance] getAccountIdsByNode 失败: nodeType=trader, nodeId=2000001, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE `tsr`.`trader_id`=1: Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:56.681+08:00 [WARN] {b84f4473897fb51893ce0e2e8578e180} [Finance] getAccountIdsByNode 失败: nodeType=trader, nodeId=2000002, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE `tsr`.`trader_id`=2: Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:56.803+08:00 [WARN] {b84f4473897fb51893ce0e2e8578e180} [Finance] getAccountIdsByNode 失败: nodeType=trader, nodeId=2000002, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE `tsr`.`trader_id`=2: Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:56.955+08:00 [WARN] {b84f4473897fb51893ce0e2e8578e180} [Finance] getAccountIdsByNode 失败: nodeType=trader, nodeId=2000003, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE `tsr`.`trader_id`=3: Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:57.087+08:00 [WARN] {b84f4473897fb51893ce0e2e8578e180} [Finance] getAccountIdsByNode 失败: nodeType=trader, nodeId=2000003, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE `tsr`.`trader_id`=3: Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:57.240+08:00 [WARN] {b84f4473897fb51893ce0e2e8578e180} [Finance] getAccountIdsByNode 失败: nodeType=trader, nodeId=2000004, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE `tsr`.`trader_id`=4: Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:50:57.371+08:00 [WARN] {b84f4473897fb51893ce0e2e8578e180} [Finance] getAccountIdsByNode 失败: nodeType=trader, nodeId=2000004, err=SELECT tsr.account_id FROM `trader_account_relation` tsr LEFT JOIN `account` a ON (tsr.account_id = a.id) WHERE `tsr`.`trader_id`=4: Error 1146 (42S02): Table 'ly_crawler.trader_account_relation' doesn't exist
+2026-06-03T14:52:11.561+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T14:52:11.561+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 24756ms, 当日15/1000
+2026-06-03T14:53:40.932+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T14:53:40.932+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 28094ms, 当日20/1000
+2026-06-03T14:54:59.147+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T14:54:59.147+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 20309ms, 当日25/1000
+2026-06-03T14:56:27.592+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T14:56:27.593+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 22756ms, 当日30/1000
+2026-06-03T14:57:50.869+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T14:57:50.870+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 20033ms, 当日35/1000
+2026-06-03T14:59:17.979+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T14:59:17.979+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21143ms, 当日40/1000
+2026-06-03T15:00:43.794+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:00:43.794+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 20959ms, 当日45/1000
+2026-06-03T15:02:11.243+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:02:11.243+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 22409ms, 当日50/1000
+2026-06-03T15:03:38.441+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:03:38.441+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 23608ms, 当日55/1000
+2026-06-03T15:05:00.968+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:05:00.969+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 20136ms, 当日60/1000
+2026-06-03T15:06:27.795+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:06:27.795+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 20962ms, 当日65/1000
+2026-06-03T15:07:54.708+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:07:54.708+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21876ms, 当日70/1000
+2026-06-03T15:09:21.023+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:09:21.024+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 22277ms, 当日75/1000
