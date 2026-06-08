@@ -1801,3 +1801,567 @@ Stack:
 2026-06-03T15:07:54.708+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21876ms, 当日70/1000
 2026-06-03T15:09:21.023+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
 2026-06-03T15:09:21.024+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 22277ms, 当日75/1000
+2026-06-03T15:10:45.887+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:10:45.887+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21143ms, 当日80/1000
+2026-06-03T15:12:12.576+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:12:12.576+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21834ms, 当日85/1000
+2026-06-03T15:13:37.599+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:13:37.600+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 20860ms, 当日90/1000
+2026-06-03T15:15:04.242+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:15:04.245+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21506ms, 当日95/1000
+2026-06-03T15:16:29.324+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:16:29.324+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 20588ms, 当日100/1000
+2026-06-03T15:17:54.980+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:17:54.981+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 20246ms, 当日105/1000
+2026-06-03T15:19:21.275+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:19:21.278+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 20545ms, 当日110/1000
+2026-06-03T15:20:48.795+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:20:48.798+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 22067ms, 当日115/1000
+2026-06-03T15:22:15.282+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:22:15.282+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 22554ms, 当日120/1000
+2026-06-03T15:23:38.460+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:23:38.463+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 19736ms, 当日125/1000
+2026-06-03T15:25:06.847+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:25:06.850+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 22125ms, 当日130/1000
+2026-06-03T15:26:32.627+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:26:32.629+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21907ms, 当日135/1000
+2026-06-03T15:27:59.870+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:27:59.870+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 23149ms, 当日140/1000
+2026-06-03T15:29:24.449+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:29:24.449+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21730ms, 当日145/1000
+2026-06-03T15:30:53.472+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:30:53.472+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 24755ms, 当日150/1000
+2026-06-03T15:32:18.973+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:32:18.974+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 24259ms, 当日155/1000
+2026-06-03T15:33:41.997+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:33:41.999+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21286ms, 当日160/1000
+2026-06-03T15:35:10.038+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:35:10.040+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 23329ms, 当日165/1000
+2026-06-03T15:36:36.642+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:36:36.642+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 23933ms, 当日170/1000
+2026-06-03T15:38:00.536+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:38:00.537+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21830ms, 当日175/1000
+2026-06-03T15:39:30.334+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:39:30.337+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 25633ms, 当日180/1000
+2026-06-03T15:40:53.209+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:40:53.212+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 22508ms, 当日185/1000
+2026-06-03T15:42:18.530+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T15:42:18.531+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21830ms, 当日190/1000
+2026-06-03T15:43:46.504+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T15:43:46.507+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 23808ms, 当日195/1000
+2026-06-03T15:45:07.621+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T15:45:19.543+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T15:46:26.525+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T15:46:36.201+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T15:47:06.419+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T15:48:55.584+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T15:48:55.589+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 23178ms, 当日5/1000
+2026-06-03T15:50:19.812+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T15:50:19.814+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 21405ms, 当日10/1000
+2026-06-03T15:51:46.592+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T15:51:46.592+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 22184ms, 当日15/1000
+2026-06-03T15:53:12.288+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T15:53:12.289+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 21884ms, 当日20/1000
+2026-06-03T15:54:41.823+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T15:54:41.826+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 25423ms, 当日25/1000
+2026-06-03T15:56:02.159+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T15:56:02.159+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 19758ms, 当日30/1000
+2026-06-03T15:57:29.021+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T15:57:29.021+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 20622ms, 当日35/1000
+2026-06-03T15:58:58.204+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T15:58:58.205+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 23807ms, 当日40/1000
+2026-06-03T16:00:27.376+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:00:27.379+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 26984ms, 当日45/1000
+2026-06-03T16:01:46.038+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:01:46.038+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 19645ms, 当日50/1000
+2026-06-03T16:02:03.022+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:02:16.243+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:02:16.243+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 启动精选联盟订单轮询，间隔86s
+2026-06-03T16:03:42.841+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 利云文化官方旗舰店 第0页失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.allianceTick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:114
+2.  go-crawler/internal/service/platform/douyin.StartAlliancePoller.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:24
+
+2026-06-03T16:03:42.890+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T16:03:42.890+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 本轮完成: 1个店铺, 共0条/0条保存, 654ms
+2026-06-03T16:04:03.037+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:04:03.038+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 20802ms, 当日5/1000
+2026-06-03T16:05:08.848+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 利云文化官方旗舰店 第0页失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.allianceTick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:114
+2.  go-crawler/internal/service/platform/douyin.StartAlliancePoller.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:24
+
+2026-06-03T16:05:08.902+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T16:05:08.902+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 本轮完成: 1个店铺, 共0条/0条保存, 669ms
+2026-06-03T16:05:32.260+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:05:32.263+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 24030ms, 当日10/1000
+2026-06-03T16:06:34.792+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 利云文化官方旗舰店 第0页失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.allianceTick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:114
+2.  go-crawler/internal/service/platform/douyin.StartAlliancePoller.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:24
+
+2026-06-03T16:06:34.847+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T16:06:34.847+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 本轮完成: 1个店铺, 共0条/0条保存, 616ms
+2026-06-03T16:06:56.501+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:06:56.501+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 22270ms, 当日15/1000
+2026-06-03T16:08:00.773+08:00 [ERRO] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 利云文化官方旗舰店 第0页失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.allianceTick
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:114
+2.  go-crawler/internal/service/platform/douyin.StartAlliancePoller.func1
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:24
+
+2026-06-03T16:08:00.826+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T16:08:00.826+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [AlliancePoller] 本轮完成: 1个店铺, 共0条/0条保存, 594ms
+2026-06-03T16:08:24.375+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:08:24.378+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 24148ms, 当日20/1000
+2026-06-03T16:08:51.024+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:09:16.861+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:09:51.125+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:11:53.319+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:11:53.322+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 36205ms, 当日5/1000
+2026-06-03T16:13:17.077+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:13:17.078+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 33917ms, 当日10/1000
+2026-06-03T16:14:32.646+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:14:32.647+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 23486ms, 当日15/1000
+2026-06-03T16:15:58.718+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:15:58.718+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 23558ms, 当日20/1000
+2026-06-03T16:17:24.195+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:17:24.196+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 23038ms, 当日25/1000
+2026-06-03T16:18:53.101+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:18:53.104+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 25948ms, 当日30/1000
+2026-06-03T16:20:13.867+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:20:13.867+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 20712ms, 当日35/1000
+2026-06-03T16:21:40.774+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:21:40.777+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 21622ms, 当日40/1000
+2026-06-03T16:22:49.923+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:22:56.088+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:23:06.628+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:24:13.096+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:24:22.568+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:24:28.599+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:26:19.878+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:26:19.884+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 25288ms, 当日5/1000
+2026-06-03T16:27:42.497+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:27:42.502+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 21908ms, 当日10/1000
+2026-06-03T16:28:58.394+08:00 [INFO] {f8b2edefe284b5185843e970f3df6219} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T16:28:58.397+08:00 [INFO] {f8b2edefe284b5185843e970f3df6219} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 479ms
+2026-06-03T16:29:08.065+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:29:08.068+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 21393ms, 当日15/1000
+2026-06-03T16:30:33.522+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:30:33.525+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 20851ms, 当日20/1000
+2026-06-03T16:32:00.802+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 501条/0条保存
+2026-06-03T16:32:00.803+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共501条/0条保存, 22129ms, 当日25/1000
+2026-06-03T16:33:25.384+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:33:25.387+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 20713ms, 当日30/1000
+2026-06-03T16:34:51.080+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:34:51.081+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 20408ms, 当日35/1000
+2026-06-03T16:36:11.700+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:36:20.935+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T16:38:08.610+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:38:08.611+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21679ms, 当日5/1000
+2026-06-03T16:39:34.637+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:39:34.637+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21705ms, 当日10/1000
+2026-06-03T16:41:01.014+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:41:01.014+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 22083ms, 当日15/1000
+2026-06-03T16:42:28.303+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:42:28.304+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 23372ms, 当日20/1000
+2026-06-03T16:43:57.809+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:43:57.809+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 26878ms, 当日25/1000
+2026-06-03T16:45:21.719+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:45:21.720+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 24789ms, 当日30/1000
+2026-06-03T16:46:45.481+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:46:45.482+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 22552ms, 当日35/1000
+2026-06-03T16:48:12.009+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:48:12.010+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 23079ms, 当日40/1000
+2026-06-03T16:49:42.467+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:49:42.467+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 27537ms, 当日45/1000
+2026-06-03T16:51:17.687+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:51:17.687+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 36758ms, 当日50/1000
+2026-06-03T16:52:31.406+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:52:31.406+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 24476ms, 当日55/1000
+2026-06-03T16:53:57.251+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:53:57.252+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 24322ms, 当日60/1000
+2026-06-03T16:55:25.859+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:55:25.859+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 26931ms, 当日65/1000
+2026-06-03T16:56:30.329+08:00 [ERRO] {b80f23856386b5182fb6a97c8deefc89} [AlliancePoller] 利云文化官方旗舰店 第0页失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:114
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:63
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T16:56:30.425+08:00 [INFO] {b80f23856386b5182fb6a97c8deefc89} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T16:56:30.425+08:00 [INFO] {b80f23856386b5182fb6a97c8deefc89} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 736ms
+2026-06-03T16:56:33.177+08:00 [ERRO] {680243446486b51832b6a97cf0a86eca} [AlliancePoller] 利云文化官方旗舰店 第0页失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:114
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:63
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T16:56:33.227+08:00 [INFO] {680243446486b51832b6a97cf0a86eca} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T16:56:33.227+08:00 [INFO] {680243446486b51832b6a97cf0a86eca} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 332ms
+2026-06-03T16:56:35.237+08:00 [ERRO] {38741ab76486b51834b6a97cbd15e101} [AlliancePoller] 利云文化官方旗舰店 第0页失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:114
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:63
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T16:56:35.294+08:00 [INFO] {38741ab76486b51834b6a97cbd15e101} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T16:56:35.294+08:00 [INFO] {38741ab76486b51834b6a97cbd15e101} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 472ms
+2026-06-03T16:56:48.922+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:56:48.925+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 23996ms, 当日70/1000
+2026-06-03T16:58:14.681+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:58:14.683+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 23754ms, 当日75/1000
+2026-06-03T16:59:39.425+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T16:59:39.428+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 22500ms, 当日80/1000
+2026-06-03T17:01:00.873+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T17:01:06.447+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T17:02:54.019+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T17:02:54.021+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 21576ms, 当日5/1000
+2026-06-03T17:03:27.391+08:00 [INFO] [DouyinPoller] 已停止
+2026-06-03T17:05:15.039+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T17:05:19.145+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T17:06:24.873+08:00 [ERRO] {18bfa4f0ed86b5188f074a260040e806} [AlliancePoller] 利云文化官方旗舰店 第0页失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:114
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:63
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T17:06:24.917+08:00 [INFO] {18bfa4f0ed86b5188f074a260040e806} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T17:06:24.918+08:00 [INFO] {18bfa4f0ed86b5188f074a260040e806} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 719ms
+2026-06-03T17:06:55.679+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T17:08:42.007+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/0条保存
+2026-06-03T17:08:42.008+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/0条保存, 20333ms, 当日5/1000
+2026-06-03T17:09:25.311+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T17:09:43.053+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T17:09:47.575+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T17:12:13.317+08:00 [DEBU] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 利云文化官方旗舰店: 500条/500条保存
+2026-06-03T17:12:13.320+08:00 [INFO] {70045345de3cb51823bddd57b548f33a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/500条保存, 59747ms, 当日5/1000
+2026-06-03T18:29:03.430+08:00 [INFO] {20328fe16f8bb5181cd7cb3ba52428e7} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:29:09.445+08:00 [ERRO] {004d9eda718bb518dae73537e7538823} [AlliancePoller] 利云文化官方旗舰店 第0页失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:114
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:63
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T18:29:09.508+08:00 [INFO] {004d9eda718bb518dae73537e7538823} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T18:29:09.508+08:00 [INFO] {004d9eda718bb518dae73537e7538823} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 697ms
+2026-06-03T18:30:01.706+08:00 [INFO] {20328fe16f8bb5181cd7cb3ba52428e7} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:30:23.249+08:00 [INFO] {20328fe16f8bb5181cd7cb3ba52428e7} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:30:58.289+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:31:07.974+08:00 [DEBU] {d00de5788d8bb51851673f1f24d41707} [AllianceAPI] 请求参数: start_time=0x14000988650, end_time=0x14000988658, order_ids=0x14000758660, page=0, size=100
+2026-06-03T18:31:08.118+08:00 [DEBU] {d00de5788d8bb51851673f1f24d41707} [AllianceAPI] total=0, page=0, size=0, orders=0
+2026-06-03T18:31:08.169+08:00 [INFO] {d00de5788d8bb51851673f1f24d41707} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T18:31:08.169+08:00 [INFO] {d00de5788d8bb51851673f1f24d41707} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 739ms
+2026-06-03T18:33:16.754+08:00 [INFO] [DouyinPoller] 已停止
+2026-06-03T18:33:32.975+08:00 [DEBU] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 利云文化官方旗舰店: 500条/500条保存
+2026-06-03T18:33:32.978+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/500条保存, 68694ms, 当日5/1000
+2026-06-03T18:34:08.139+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:34:39.658+08:00 [DEBU] {105ff5bebe8bb51824280d3f050b634e} [AllianceAPI] 请求参数: start_time=0x14000716be0, end_time=0x14000716be8, order_ids=0x14000a66470, page=0, size=100
+2026-06-03T18:34:39.742+08:00 [DEBU] {105ff5bebe8bb51824280d3f050b634e} [AllianceAPI] total=0, page=0, size=0, orders=0
+2026-06-03T18:34:39.805+08:00 [INFO] {105ff5bebe8bb51824280d3f050b634e} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T18:34:39.805+08:00 [INFO] {105ff5bebe8bb51824280d3f050b634e} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 746ms
+2026-06-03T18:36:44.586+08:00 [DEBU] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 利云文化官方旗舰店: 500条/500条保存
+2026-06-03T18:36:44.589+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/500条保存, 70455ms, 当日5/1000
+2026-06-03T18:37:27.248+08:00 [INFO] [DouyinPoller] 已停止
+2026-06-03T18:37:50.568+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:38:53.612+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:39:00.275+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:39:39.180+08:00 [DEBU] {b0dcc07b048cb51896b63f61c168c95c} [AllianceAPI] 请求参数: start_time=0x1400035af90, end_time=0x1400035af98, order_ids=0x14000752050, page=0, size=100
+2026-06-03T18:39:39.286+08:00 [DEBU] {b0dcc07b048cb51896b63f61c168c95c} [AllianceAPI] total=0, page=0, size=0, orders=0
+2026-06-03T18:39:39.336+08:00 [INFO] {b0dcc07b048cb51896b63f61c168c95c} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T18:39:39.336+08:00 [INFO] {b0dcc07b048cb51896b63f61c168c95c} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 757ms
+2026-06-03T18:41:13.463+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:41:37.197+08:00 [DEBU] {205ba5fb1f8cb51820ff0a7a1f12a106} [AllianceAPI] 请求参数: start_time=0x140005e9bb0, end_time=0x140005e9bb8, order_ids=0x14000923310, page=0, size=100
+2026-06-03T18:41:37.286+08:00 [DEBU] {205ba5fb1f8cb51820ff0a7a1f12a106} [AllianceAPI] code=100000, code_msg=success, datas=0, total=0
+2026-06-03T18:41:37.331+08:00 [INFO] {205ba5fb1f8cb51820ff0a7a1f12a106} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T18:41:37.332+08:00 [INFO] {205ba5fb1f8cb51820ff0a7a1f12a106} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 642ms
+2026-06-03T18:43:45.152+08:00 [DEBU] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 利云文化官方旗舰店: 500条/500条保存
+2026-06-03T18:43:45.156+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/500条保存, 65696ms, 当日5/1000
+2026-06-03T18:44:15.983+08:00 [INFO] [DouyinPoller] 已停止
+2026-06-03T18:45:08.904+08:00 [DEBU] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 利云文化官方旗舰店: 500条/500条保存
+2026-06-03T18:45:08.908+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/500条保存, 63448ms, 当日10/1000
+2026-06-03T18:48:57.184+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:49:10.692+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:49:24.828+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:51:10.260+08:00 [INFO] [DouyinPoller] 已停止
+2026-06-03T18:52:12.206+08:00 [DEBU] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 利云文化官方旗舰店: 500条/500条保存
+2026-06-03T18:52:12.206+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 本轮完成: 1个店铺, 共500条/500条保存, 81382ms, 当日5/1000
+2026-06-03T18:52:46.362+08:00 [INFO] {f8280dca8a8bb51898a2ed3459d6306a} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:54:34.409+08:00 [INFO] {e81b856fd48cb5183b94d6534f04942f} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:54:54.040+08:00 [DEBU] {e816c881d98cb5182f0ab9653067b5a7} [AllianceAPI] 请求参数: start_time=0x14000828640, end_time=0x14000828648, order_ids=0x14000792080, page=0, size=100
+2026-06-03T18:54:54.136+08:00 [DEBU] {e816c881d98cb5182f0ab9653067b5a7} [AllianceAPI] code=100000, code_msg=success, datas=0, total=0
+2026-06-03T18:54:54.180+08:00 [INFO] {e816c881d98cb5182f0ab9653067b5a7} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T18:54:54.181+08:00 [INFO] {e816c881d98cb5182f0ab9653067b5a7} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 672ms
+2026-06-03T18:56:24.457+08:00 [INFO] [DouyinPoller] 已停止
+2026-06-03T18:57:07.552+08:00 [DEBU] {e81b856fd48cb5183b94d6534f04942f} [DouyinPoller] 利云文化官方旗舰店: 500条/500条保存
+2026-06-03T18:57:07.555+08:00 [INFO] {e81b856fd48cb5183b94d6534f04942f} [DouyinPoller] 本轮完成: 1个店铺, 共500条/500条保存, 67150ms, 当日5/1000
+2026-06-03T18:57:31.242+08:00 [DEBU] {60ff8624fe8cb518350ab9655ce5d156} [AllianceAPI] 请求参数: start_time=0x140005266f0, end_time=0x140005266f8, order_ids=0x14000b045c0, page=0, size=100
+2026-06-03T18:57:31.304+08:00 [DEBU] {60ff8624fe8cb518350ab9655ce5d156} [AllianceAPI] code=100000, code_msg=success, datas=0, total=0
+2026-06-03T18:57:31.351+08:00 [INFO] {60ff8624fe8cb518350ab9655ce5d156} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T18:57:31.351+08:00 [INFO] {60ff8624fe8cb518350ab9655ce5d156} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 494ms
+2026-06-03T18:58:15.649+08:00 [INFO] {e81b856fd48cb5183b94d6534f04942f} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T18:59:53.556+08:00 [INFO] [DouyinPoller] 已停止
+2026-06-03T19:00:14.049+08:00 [INFO] {e81b856fd48cb5183b94d6534f04942f} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T19:00:36.800+08:00 [INFO] {e81b856fd48cb5183b94d6534f04942f} [DouyinPoller] 启动抖店订单轮询，每日上限1000次，间隔1m26s
+2026-06-03T19:00:49.950+08:00 [DEBU] {70e7bf602c8db518911ad03a98e03e62} [AllianceAPI] start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= page=100 size=0
+2026-06-03T19:00:50.012+08:00 [DEBU] {70e7bf602c8db518911ad03a98e03e62} [AllianceAPI] code=100000, code_msg=success, datas=0, total=0
+2026-06-03T19:00:50.067+08:00 [INFO] {70e7bf602c8db518911ad03a98e03e62} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:00:50.067+08:00 [INFO] {70e7bf602c8db518911ad03a98e03e62} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 631ms
+2026-06-03T19:00:51.916+08:00 [DEBU] {c866b5e32c8db518941ad03a12de4b41} [AllianceAPI] start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= page=100 size=0
+2026-06-03T19:00:51.979+08:00 [DEBU] {c866b5e32c8db518941ad03a12de4b41} [AllianceAPI] code=100000, code_msg=success, datas=0, total=0
+2026-06-03T19:00:52.035+08:00 [INFO] {c866b5e32c8db518941ad03a12de4b41} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:00:52.036+08:00 [INFO] {c866b5e32c8db518941ad03a12de4b41} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 402ms
+2026-06-03T19:01:27.699+08:00 [DEBU] {3890a033358db518961ad03abcdd0f60} [AllianceAPI] start=2026-06-02 00:00:00 end=2026-06-03 23:59:59 orderIds= page=100 size=0
+2026-06-03T19:01:27.869+08:00 [DEBU] {3890a033358db518961ad03abcdd0f60} [AllianceAPI] code=100000, code_msg=success, datas=0, total=0
+2026-06-03T19:01:27.919+08:00 [INFO] {3890a033358db518961ad03abcdd0f60} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:01:27.919+08:00 [INFO] {3890a033358db518961ad03abcdd0f60} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 585ms
+2026-06-03T19:01:43.808+08:00 [DEBU] {78334bfc388db518981ad03a81259b69} [AllianceAPI] start=2026-06-01 00:00:00 end=2026-06-03 23:59:59 orderIds= page=100 size=0
+2026-06-03T19:01:43.866+08:00 [DEBU] {78334bfc388db518981ad03a81259b69} [AllianceAPI] code=100000, code_msg=success, datas=0, total=0
+2026-06-03T19:01:43.911+08:00 [INFO] {78334bfc388db518981ad03a81259b69} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:01:43.911+08:00 [INFO] {78334bfc388db518981ad03a81259b69} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 326ms
+2026-06-03T19:03:07.748+08:00 [DEBU] {e81b856fd48cb5183b94d6534f04942f} [DouyinPoller] 利云文化官方旗舰店: 500条/500条保存
+2026-06-03T19:03:07.750+08:00 [INFO] {e81b856fd48cb5183b94d6534f04942f} [DouyinPoller] 本轮完成: 1个店铺, 共500条/500条保存, 64954ms, 当日5/1000
+2026-06-03T19:03:43.892+08:00 [DEBU] {c0196ae8548db5189a1ad03a1a76501a} [AllianceAPI] start=2026-06-01 00:00:00 end=2026-06-03 23:59:59 orderIds= page=100 size=0
+2026-06-03T19:03:43.977+08:00 [DEBU] {c0196ae8548db5189a1ad03a1a76501a} [AllianceAPI] code=100000, code_msg=success, datas=0, total=0
+2026-06-03T19:03:44.029+08:00 [INFO] {c0196ae8548db5189a1ad03a1a76501a} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:03:44.029+08:00 [INFO] {c0196ae8548db5189a1ad03a1a76501a} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 518ms
+2026-06-03T19:04:32.202+08:00 [DEBU] {e81b856fd48cb5183b94d6534f04942f} [DouyinPoller] 利云文化官方旗舰店: 500条/500条保存
+2026-06-03T19:04:32.202+08:00 [INFO] {e81b856fd48cb5183b94d6534f04942f} [DouyinPoller] 本轮完成: 1个店铺, 共500条/500条保存, 63406ms, 当日10/1000
+2026-06-03T19:06:06.583+08:00 [DEBU] {60af361a768db518e47ab431fba74a4f} [AllianceAPI] start=2026-06-01 00:00:00 end=2026-06-03 23:59:59 orderIds= page=100 size=0
+2026-06-03T19:06:06.630+08:00 [DEBU] {60af361a768db518e47ab431fba74a4f} [AllianceAPI] code=100000, code_msg=success, datas=0, total=0
+2026-06-03T19:06:06.690+08:00 [INFO] {60af361a768db518e47ab431fba74a4f} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:06:06.690+08:00 [INFO] {60af361a768db518e47ab431fba74a4f} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 609ms
+2026-06-03T19:17:51.555+08:00 [DEBU] {d0b033391a8eb51840334b075c9f6a23} [AllianceAPI] cursor=0 start=2026-06-01 00:00:00 end=2026-06-03 23:59:59 orderIds= size=20
+2026-06-03T19:17:51.658+08:00 [ERRO] {d0b033391a8eb51840334b075c9f6a23} [AlliancePoller] 利云文化官方旗舰店 cursor=0 失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:114
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:63
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T19:17:51.724+08:00 [INFO] {d0b033391a8eb51840334b075c9f6a23} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:17:51.724+08:00 [INFO] {d0b033391a8eb51840334b075c9f6a23} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 748ms
+2026-06-03T19:20:11.381+08:00 [DEBU] {501e3dc73a8eb51843f6a102138fc379} [AllianceAPI] cursor=0 start=2026-06-01 00:00:00 end=2026-06-03 23:59:59 orderIds= size=20
+2026-06-03T19:20:11.466+08:00 [DEBU] {501e3dc73a8eb51843f6a102138fc379} [AllianceAPI] code=100000, code_msg=success, datas=0, cursor=
+2026-06-03T19:20:11.535+08:00 [INFO] {501e3dc73a8eb51843f6a102138fc379} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:20:11.535+08:00 [INFO] {501e3dc73a8eb51843f6a102138fc379} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 738ms
+2026-06-03T19:25:07.159+08:00 [DEBU] {6830b6a77f8eb5180dbe16779bb44070} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= size=10
+2026-06-03T19:25:07.229+08:00 [DEBU] {6830b6a77f8eb5180dbe16779bb44070} [AllianceAPI] code=100000, code_msg=success, datas=0, cursor=
+2026-06-03T19:25:07.555+08:00 [INFO] {6830b6a77f8eb5180dbe16779bb44070} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:25:07.555+08:00 [INFO] {6830b6a77f8eb5180dbe16779bb44070} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 934ms
+2026-06-03T19:28:19.837+08:00 [DEBU] {48000847ac8eb518afd43b3f42ba8833} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= size=10
+2026-06-03T19:28:19.932+08:00 [DEBU] {48000847ac8eb518afd43b3f42ba8833} [AllianceAPI] code=100000, code_msg=success, datas=0, cursor=
+2026-06-03T19:28:19.990+08:00 [INFO] {48000847ac8eb518afd43b3f42ba8833} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:28:19.990+08:00 [INFO] {48000847ac8eb518afd43b3f42ba8833} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 1718ms
+2026-06-03T19:30:34.000+08:00 [DEBU] {c0bcb9becb8eb51846da180883b9e1e0} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= size=10
+2026-06-03T19:30:34.080+08:00 [ERRO] {c0bcb9becb8eb51846da180883b9e1e0} [AlliancePoller] 利云文化官方旗舰店 cursor=0 失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:120
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:66
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T19:30:34.136+08:00 [INFO] {c0bcb9becb8eb51846da180883b9e1e0} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:30:34.136+08:00 [INFO] {c0bcb9becb8eb51846da180883b9e1e0} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 709ms
+2026-06-03T19:30:52.655+08:00 [DEBU] {c808c721d08eb51859a2547e3b2e6f23} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= size=10
+2026-06-03T19:30:52.700+08:00 [ERRO] {c808c721d08eb51859a2547e3b2e6f23} [AlliancePoller] 利云文化官方旗舰店 cursor=0 失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:120
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:66
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T19:30:52.758+08:00 [INFO] {c808c721d08eb51859a2547e3b2e6f23} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:30:52.758+08:00 [INFO] {c808c721d08eb51859a2547e3b2e6f23} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 492ms
+2026-06-03T19:34:57.540+08:00 [DEBU] {105d8321098fb5185ca2547e03e64b42} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= size=10
+2026-06-03T19:34:57.618+08:00 [ERRO] {105d8321098fb5185ca2547e03e64b42} [AlliancePoller] 利云文化官方旗舰店 cursor=0 失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:120
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:66
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T19:34:57.668+08:00 [INFO] {105d8321098fb5185ca2547e03e64b42} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:34:57.669+08:00 [INFO] {105d8321098fb5185ca2547e03e64b42} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 594ms
+2026-06-03T19:35:55.124+08:00 [DEBU] {90601c89168fb5185ea2547e94c3ff44} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= size=10
+2026-06-03T19:35:55.193+08:00 [ERRO] {90601c89168fb5185ea2547e94c3ff44} [AlliancePoller] 利云文化官方旗舰店 cursor=0 失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:120
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:66
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T19:35:55.249+08:00 [INFO] {90601c89168fb5185ea2547e94c3ff44} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:35:55.249+08:00 [INFO] {90601c89168fb5185ea2547e94c3ff44} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 601ms
+2026-06-03T19:36:46.306+08:00 [DEBU] {e8336176228fb51860a2547efbc56b73} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= size=10
+2026-06-03T19:36:46.383+08:00 [ERRO] {e8336176228fb51860a2547efbc56b73} [AlliancePoller] 利云文化官方旗舰店 cursor=0 失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:120
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:66
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T19:36:46.437+08:00 [INFO] {e8336176228fb51860a2547efbc56b73} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:36:46.437+08:00 [INFO] {e8336176228fb51860a2547efbc56b73} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 563ms
+2026-06-03T19:36:56.912+08:00 [DEBU] {d89958ef248fb51862a2547e0a3e6392} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= size=10
+2026-06-03T19:36:56.949+08:00 [ERRO] {d89958ef248fb51862a2547e0a3e6392} [AlliancePoller] 利云文化官方旗舰店 cursor=0 失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:120
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:66
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T19:36:57.004+08:00 [INFO] {d89958ef248fb51862a2547e0a3e6392} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:36:57.004+08:00 [INFO] {d89958ef248fb51862a2547e0a3e6392} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 512ms
+2026-06-03T19:37:00.204+08:00 [DEBU] {b05e76bb258fb51864a2547e9727c6a6} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= size=10
+2026-06-03T19:37:00.257+08:00 [ERRO] {b05e76bb258fb51864a2547e9727c6a6} [AlliancePoller] 利云文化官方旗舰店 cursor=0 失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:120
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:66
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T19:37:00.306+08:00 [INFO] {b05e76bb258fb51864a2547e9727c6a6} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:37:00.306+08:00 [INFO] {b05e76bb258fb51864a2547e9727c6a6} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 389ms
+2026-06-03T19:37:08.952+08:00 [DEBU] {f0e4b4c8278fb51866a2547e98545fbb} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= size=10
+2026-06-03T19:37:09.006+08:00 [ERRO] {f0e4b4c8278fb51866a2547e98545fbb} [AlliancePoller] 利云文化官方旗舰店 cursor=0 失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:120
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:66
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T19:37:09.056+08:00 [INFO] {f0e4b4c8278fb51866a2547e98545fbb} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:37:09.056+08:00 [INFO] {f0e4b4c8278fb51866a2547e98545fbb} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 327ms
+2026-06-03T19:44:12.772+08:00 [DEBU] {f8f5d4638a8fb5185c025c4f8235dcbc} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds=6926852799657443256 size=10
+2026-06-03T19:44:12.822+08:00 [DEBU] {f8f5d4638a8fb5185c025c4f8235dcbc} [AllianceAPI] code=100000, code_msg=success, datas=1, cursor=
+2026-06-03T19:44:13.045+08:00 [INFO] {f8f5d4638a8fb5185c025c4f8235dcbc} [AlliancePoller] 利云文化官方旗舰店: 1条/1条保存
+2026-06-03T19:44:13.045+08:00 [INFO] {f8f5d4638a8fb5185c025c4f8235dcbc} [AlliancePoller] 手动触发完成: 1个店铺, 共1条/1条保存, 807ms
+2026-06-03T19:46:05.235+08:00 [DEBU] {f03e5597a48fb5185f025c4f06a2b696} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= size=10
+2026-06-03T19:46:05.295+08:00 [ERRO] {f03e5597a48fb5185f025c4f06a2b696} [AlliancePoller] 利云文化官方旗舰店 cursor=0 失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:120
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:66
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T19:46:05.345+08:00 [INFO] {f03e5597a48fb5185f025c4f06a2b696} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:46:05.346+08:00 [INFO] {f03e5597a48fb5185f025c4f06a2b696} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 574ms
+2026-06-03T19:59:42.001+08:00 [DEBU] {3857e7c26290b51861025c4f263f7075} [AllianceAPI] cursor=0 start=2026-06-02 00:00:00 end=2026-06-02 23:59:59 orderIds= size=10
+2026-06-03T19:59:42.092+08:00 [ERRO] {3857e7c26290b51861025c4f263f7075} [AlliancePoller] 利云文化官方旗舰店 cursor=0 失败: 精选联盟返回错误: code=40003, msg=非法的参数, sub_msg=参数order_ids是必填并且未传，请检查 
+Stack:
+1.  go-crawler/internal/service/platform/douyin.RunAlliancePollOnce
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/service/platform/douyin/alliance_poller.go:120
+2.  go-crawler/internal/controller/system.(*DouyinPollerController).TriggerAlliance
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/system/douyin_poller.go:66
+3.  go-crawler/internal/middleware.OperationLog
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/operation_log.go:42
+4.  go-crawler/internal/middleware.JwtAuth
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:46
+5.  go-crawler/internal/middleware.CORS
+    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/middleware/middleware.go:17
+
+2026-06-03T19:59:42.140+08:00 [INFO] {3857e7c26290b51861025c4f263f7075} [AlliancePoller] 利云文化官方旗舰店: 0条/0条保存
+2026-06-03T19:59:42.140+08:00 [INFO] {3857e7c26290b51861025c4f263f7075} [AlliancePoller] 手动触发完成: 1个店铺, 共0条/0条保存, 593ms

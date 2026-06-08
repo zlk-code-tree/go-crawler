@@ -35,3 +35,20 @@ type PlatformOrderDetailReq struct {
 
 // PlatformOrderDetailRes 平台订单详情响应
 type PlatformOrderDetailRes = model.PlatformOrderItem
+
+// ==================== 精选联盟订单 ====================
+
+// PlatformAllianceOrderListReq 获取精选联盟订单列表
+type PlatformAllianceOrderListReq struct {
+	g.Meta    `path:"/platform/alliance-order-list" method:"get" tags:"Platform" summary:"获取精选联盟订单列表"`
+	Platform  string `json:"platform" in:"query" v:"required|in:douyin" dc:"平台标识"`
+	Cursor    string `json:"cursor" in:"query" d:"0" dc:"游标，首页传0"`
+	Size      int    `json:"size" in:"query" d:"20" dc:"每页数量，最大20"`
+	StartTime string `json:"startTime" in:"query" dc:"支付时间开始 yyyy-MM-dd HH:mm:ss"`
+	EndTime   string `json:"endTime" in:"query" dc:"支付时间结束"`
+	StoreId   int    `json:"storeId" in:"query" dc:"店铺ID"`
+	OrderIds  string `json:"orderIds" in:"query" dc:"订单号筛选"`
+}
+
+// PlatformAllianceOrderListRes 精选联盟订单列表响应
+type PlatformAllianceOrderListRes = model.PlatformAllianceOrderListResult

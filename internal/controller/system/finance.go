@@ -2,9 +2,11 @@ package system
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	v1 "go-crawler/api/hello/v1"
 	"go-crawler/internal/model"
@@ -161,18 +163,38 @@ func (c *FinanceController) TraderPlatformStats(ctx context.Context, req *v1.Fin
 
 // Backfill 历史数据回填 POST /api/finance/backfill
 func (c *FinanceController) Backfill(ctx context.Context, req *v1.FinanceBackfillReq) (res *v1.FinanceBackfillRes, err error) {
-	aggregateService := service.NewFinanceAggregateService()
-
-	if err := aggregateService.AggregateRange(ctx, req.StartDate, req.EndDate); err != nil {
-		return &v1.FinanceBackfillRes{
-			Success: false,
-			Message: "回填失败: " + err.Error(),
-		}, nil
+	// 获取当前用户ID
+	var userId int64
+	if r := g.RequestFromCtx(ctx); r != nil {
+		userId = r.GetCtxVar("userId").Int64()
 	}
 
+	reqParams, _ := json.Marshal(g.Map{"startDate": req.StartDate, "endDate": req.EndDate})
+	logId, _ := service.TaskLogStart(ctx, "达人佣金历史回填", "finance_commission_backfill", "/api/finance/backfill", string(reqParams))
+
+	// 使用独立 context，避免 HTTP 请求超时导致 context canceled
+	go func() {
+		bgCtx := context.Background()
+		overallStart := time.Now()
+		err := service.NewFinanceAggregateService().AggregateRange(bgCtx, req.StartDate, req.EndDate)
+		durationMs := int(time.Since(overallStart).Milliseconds())
+
+		if err != nil {
+			service.TaskLogFailed(bgCtx, logId, err.Error(), durationMs)
+			service.CreateNotification(bgCtx, "达人佣金回填失败", fmt.Sprintf(`{"error":"%s","startDate":"%s","endDate":"%s"}`, err.Error(), req.StartDate, req.EndDate), "task_result", "finance_commission_backfill", logId, service.NotifyLevelImportant, userId)
+			return
+		}
+		respBody, _ := json.Marshal(g.Map{
+			"startDate":  req.StartDate,
+			"endDate":    req.EndDate,
+			"durationMs": durationMs,
+		})
+		service.TaskLogSuccess(bgCtx, logId, "", string(respBody), durationMs)
+		service.CreateNotification(bgCtx, "达人佣金回填完成", string(respBody), "task_result", "finance_commission_backfill", logId, service.NotifyLevelNormal, userId)
+	}()
 	return &v1.FinanceBackfillRes{
 		Success: true,
-		Message: "回填成功",
+		Message: "任务已启动，后台回填中",
 	}, nil
 }
 
@@ -190,6 +212,48 @@ func (c *FinanceController) TraderExport(r *ghttp.Request) {
 
 	financeService := service.NewFinanceCommissionService()
 	filename, err := financeService.ExportTraderOrders(r.Context(), traderId, timeType, startDate, endDate)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
+		return
+	}
+
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+	defer os.Remove(filename)
+}
+
+// AccountOrders 获取账号订单列表 GET /api/finance/account-orders
+func (c *FinanceController) AccountOrders(ctx context.Context, req *v1.FinanceAccountOrdersReq) (res *v1.FinanceAccountOrdersRes, err error) {
+	financeService := service.NewFinanceCommissionService()
+	result, err := financeService.GetAccountOrderList(ctx, &model.FinanceAccountOrdersReq{
+		AccountId: req.AccountId,
+		TimeType:  req.TimeType,
+		StartDate: req.StartDate,
+		EndDate:   req.EndDate,
+		Page:      req.Page,
+		PageSize:  req.PageSize,
+	})
+	if err != nil {
+		return nil, gerror.New("查询失败: " + err.Error())
+	}
+	return result, nil
+}
+
+// AccountExport 导出账号订单明细 GET /api/finance/account-export
+func (c *FinanceController) AccountExport(r *ghttp.Request) {
+	accountId := r.Get("accountId").Int()
+	timeType := r.Get("timeType").String()
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+
+	if accountId == 0 {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "账号ID不能为空"})
+		return
+	}
+
+	financeService := service.NewFinanceCommissionService()
+	filename, err := financeService.ExportAccountOrders(r.Context(), accountId, timeType, startDate, endDate)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return

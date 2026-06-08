@@ -15,6 +15,9 @@ type PlatformAPI interface {
 
 	// GetOrderDetail 获取订单详情
 	GetOrderDetail(ctx context.Context, params model.PlatformOrderDetailParams) (*model.PlatformOrderItem, error)
+
+	// GetAllianceOrderList 获取精选联盟订单列表
+	GetAllianceOrderList(ctx context.Context, params model.PlatformAllianceOrderListParams) (*model.PlatformAllianceOrderListResult, error)
 }
 
 // ============================================

@@ -15,6 +15,23 @@ import (
 	"github.com/gogf/gf/v2/os/gcron"
 )
 
+// PollParams 手动触发参数
+type PollParams struct {
+	StartTime   string // 开始时间，为空则用 last_poll_time
+	EndTime     string // 结束时间，为空则用当前时间
+	StartPage   int    // 起始页码，默认0
+	Concurrency int    // 并发数，默认1（串行），最大45
+	RecordLog   bool   // 是否记录任务执行日志（仅定时任务为true）
+}
+
+// PollResult 拉取结果
+type PollResult struct {
+	StoreCount  int `json:"storeCount"`
+	TotalOrders int `json:"totalOrders"`
+	TotalSaved  int `json:"totalSaved"`
+	DurationMs  int `json:"durationMs"`
+}
+
 // Poller 抖店订单轮询器（每天最多1000次API调用）
 type Poller struct {
 	mu         sync.Mutex
@@ -34,7 +51,7 @@ func GetPoller() *Poller {
 	pollerOnce.Do(func() {
 		pollerInstance = &Poller{
 			dailyLimit: 1000,
-			interval:   time.Duration(86400/1000) * time.Second,
+			interval:   1 * time.Hour, // 每小时调度一次
 		}
 	})
 	return pollerInstance
@@ -85,8 +102,9 @@ func (p *Poller) Start(ctx context.Context) error {
 // Stop 停止轮询
 func (p *Poller) Stop() {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.running = false
+	p.mu.Unlock()
+
 	gcron.Remove("douyin_order_poller")
 	gcron.Remove("douyin_poller_reset")
 	gcron.Remove("task_log_cleaner")
@@ -115,6 +133,13 @@ func (p *Poller) Stats() map[string]interface{} {
 
 // tick 每次触发时执行一次API调用
 func (p *Poller) tick(ctx context.Context) {
+	p.mu.Lock()
+	if !p.running {
+		p.mu.Unlock()
+		return
+	}
+	p.mu.Unlock()
+
 	startTime := time.Now()
 
 	p.mu.Lock()
@@ -136,8 +161,9 @@ func (p *Poller) tick(ctx context.Context) {
 	}
 
 	// 遍历所有店铺，每个店铺翻页拉取其增量订单
-	now := time.Now()
-	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	cst := time.FixedZone("CST", 8*3600)
+	now := time.Now().In(cst)
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, cst)
 	const maxPages = 5
 
 	totalSavedAll := 0
@@ -151,7 +177,7 @@ func (p *Poller) tick(ctx context.Context) {
 		lastPollStr := store["last_poll_time"].String()
 		var startTimeToUse time.Time
 		if lastPollStr != "" {
-			lpt, parseErr := time.Parse("2006-01-02 15:04:05", lastPollStr)
+			lpt, parseErr := time.ParseInLocation("2006-01-02 15:04:05", lastPollStr, cst)
 			if parseErr == nil {
 				startTimeToUse = lpt
 			} else {
@@ -265,27 +291,37 @@ func (p *Poller) tick(ctx context.Context) {
 		len(stores), totalOrdersAll, totalSavedAll, durationMs, used, p.dailyLimit)
 }
 
-// saveOrders 保存订单到 order_info
+// saveOrders 保存订单到 order_info，按 sub_order_no 去重
 func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderItem) int {
 	if len(orders) == 0 {
 		return 0
 	}
+
+	// 批量查询 seller_code → base_price 映射
+	priceMap := make(map[string]float64)
+	rows, _ := g.DB().Model("goods").Ctx(ctx).Fields("goods_code, base_price").All()
+	for _, r := range rows {
+		priceMap[r["goods_code"].String()] = r["base_price"].Float64()
+	}
+
 	saved := 0
 	for _, order := range orders {
-		count, err := g.DB().Model("order_info").Ctx(ctx).
-			Where("main_order_no", order.OrderNo).
-			Where("order_no", order.SubOrderNo).
-			Where("platform", "douyin").Count()
-		if err != nil {
-			continue
+		data := p.orderToMap(order)
+		// 商品成本 = base_price × product_num
+		if bp, ok := priceMap[order.Code]; ok && bp > 0 {
+			data["product_cost"] = bp * float64(order.ProductNum)
 		}
+		// 小店服务费 = 应付金额 × 2%
+		data["shop_service_fee"] = order.PayAmount * 0.02
+
+		count, _ := g.DB().Model("order_info").Ctx(ctx).
+			Where("sub_order_no", order.SubOrderNo).Count()
 		if count > 0 {
 			g.DB().Model("order_info").Ctx(ctx).
-				Where("main_order_no", order.OrderNo).
-				Where("order_no", order.SubOrderNo).
-				Data(p.orderToMap(order)).Update()
+				Where("sub_order_no", order.SubOrderNo).
+				Data(data).Update()
 		} else {
-			g.DB().Model("order_info").Ctx(ctx).Data(p.orderToMap(order)).Insert()
+			g.DB().Model("order_info").Ctx(ctx).Data(data).Insert()
 		}
 		saved++
 	}
@@ -293,28 +329,201 @@ func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderIte
 }
 
 func (p *Poller) orderToMap(order model.PlatformOrderItem) map[string]interface{} {
-	return map[string]interface{}{
-		"platform":          order.Platform,
+	m := map[string]interface{}{
+		"sub_order_no":      order.SubOrderNo,
 		"main_order_no":     order.OrderNo,
-		"order_no":          order.SubOrderNo,
 		"shop_name":         order.ShopName,
 		"product_name":      order.ProductName,
 		"product_num":       order.ProductNum,
 		"product_price":     order.ProductPrice,
 		"order_pay_amount":  order.PayAmount,
 		"order_status":      order.OrderStatusDesc,
-		"pay_finish_time":   order.PayTime,
-		"talent_id":         fmt.Sprintf("%d", order.AuthorId),
 		"talent_name":       order.AuthorName,
-		"seller_code":       order.Code,
-		"order_create_time": order.CreateTime,
-		"order_finish_time": order.FinishTime,
-		"post_amount":       order.PostAmount,
-		"post_receiver":     order.PostReceiver,
-		"post_tel":          order.PostTel,
-		"post_addr":         order.PostAddr,
-		"promotion_amount":  order.PromotionAmount,
-		"buyer_words":       order.BuyerWords,
-		"seller_words":      order.SellerWords,
+		"total_discount":    order.PromotionAmount,
+		"platform_discount": order.PromotionPlatformAmount,
+		"talent_discount":   order.PromotionTalentAmount,
+		"seller_change_price": order.ModifyAmount,
+		"pay_discount":      order.PromotionPayAmount,
+		"shipping_fee":      order.PostAmount,
 	}
+	setIf := func(key, val string) {
+		if val != "" { m[key] = val }
+	}
+	setIf("product_id", fmt.Sprintf("%d", order.ProductId))
+	setIf("seller_code", order.Code)
+	setIf("pay_finish_time", order.PayTime)
+	setIf("talent_id", fmt.Sprintf("%d", order.AuthorId))
+	setIf("order_submit_time", order.CreateTime)
+	setIf("order_finish_time", order.FinishTime)
+	setIf("receiver_name", order.PostReceiver)
+	setIf("receiver_phone", order.PostTel)
+	setIf("province", order.PostProvince)
+	setIf("city", order.PostCity)
+	setIf("district", order.PostTown)
+	setIf("address_detail", order.PostDetail)
+	setIf("buyer_note", order.BuyerWords)
+	setIf("seller_note", order.SellerWords)
+	setIf("pay_type", fmt.Sprintf("%d", order.PayType))
+	setIf("flow_source", order.BTypeDesc)
+	setIf("after_sale_status", fmt.Sprintf("%d", order.AfterSaleStatus))
+	setIf("cancel_reason", order.CancelReason)
+	return m
+}
+
+// ManualTrigger 手动触发一次订单拉取（不改变定时调度）
+func (p *Poller) ManualTrigger(ctx context.Context, opt PollParams) (*PollResult, error) {
+	g.Log().Info(ctx, "[DouyinPoller] 手动触发订单拉取 start=%s end=%s", opt.StartTime, opt.EndTime)
+	totalOrders, totalSaved, err := p.tickWithParams(ctx, opt)
+	if err != nil {
+		return nil, err
+	}
+	return &PollResult{
+		StoreCount:  1,
+		TotalOrders: totalOrders,
+		TotalSaved:  totalSaved,
+	}, nil
+}
+
+// tickWithParams 使用指定时间参数拉取订单
+func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (totalOrders, totalSaved int, err error) {
+	startTime := time.Now()
+
+	stores, dbErr := g.DB().Model("store").Ctx(ctx).
+		Where("platform", "douyin").Where("status", 1).Where("author", 1).All()
+	if dbErr != nil {
+		return 0, 0, dbErr
+	}
+	if len(stores) == 0 {
+		return 0, 0, nil
+	}
+
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	for _, store := range stores {
+		storeId := store["id"].Int()
+		storeName := store["store_name"].String()
+
+		cst := time.FixedZone("CST", 8*3600)
+		var startTimeToUse, endTimeToUse time.Time
+		if opt.StartTime != "" {
+			startTimeToUse, _ = time.ParseInLocation("2006-01-02 15:04:05", opt.StartTime, cst)
+		}
+		if opt.EndTime != "" {
+			endTimeToUse, _ = time.ParseInLocation("2006-01-02 15:04:05", opt.EndTime, cst)
+		}
+		if startTimeToUse.IsZero() {
+			lastPollStr := store["last_poll_time"].String()
+			if lastPollStr != "" {
+				if lpt, pe := time.ParseInLocation("2006-01-02 15:04:05", lastPollStr, cst); pe == nil {
+					startTimeToUse = lpt
+				}
+			}
+			if startTimeToUse.IsZero() {
+				startTimeToUse = todayStart
+			}
+		}
+		if endTimeToUse.IsZero() {
+			endTimeToUse = now
+		}
+
+		timeRange := startTimeToUse.Format("2006-01-02 15:04:05") + " ~ " + endTimeToUse.Format("2006-01-02 15:04:05")
+		g.Log().Infof(ctx, "[DouyinPoller] %s 手动触发: opt.Start=%s opt.End=%s 实际拉取: %s",
+			storeName, opt.StartTime, opt.EndTime, timeRange)
+
+		st := startTimeToUse.Format("2006-01-02 15:04:05")
+		et := endTimeToUse.Format("2006-01-02 15:04:05")
+
+		// 第一步：调第0页（或指定起始页）获取 total
+		svc := NewService()
+		firstPage := opt.StartPage
+		firstResult, apiErr := svc.GetOrderList(ctx, model.PlatformOrderListParams{
+			Platform: "douyin", Page: firstPage, PageSize: 100,
+			StartTime: st, EndTime: et, StoreId: storeId,
+		})
+		if apiErr != nil {
+			g.Log().Errorf(ctx, "[DouyinPoller] %s 第%d页失败: %v", storeName, firstPage, apiErr)
+			continue
+		}
+		saved := p.saveOrders(ctx, firstResult.Orders)
+		g.Log().Infof(ctx, "[DouyinPoller] %s 第%d页: %d条保存, total=%d", storeName, firstPage, len(firstResult.Orders), firstResult.Total)
+
+		totalPages := 0
+		if firstResult.Size > 0 {
+			totalPages = (firstResult.Total + firstResult.Size - 1) / firstResult.Size
+		}
+		storeOrders := len(firstResult.Orders)
+		storeSaved := saved
+
+		// 如果没有更多页，直接返回
+		if firstPage+1 >= totalPages || len(firstResult.Orders) == 0 {
+			g.Log().Infof(ctx, "[DouyinPoller] %s: %d条/%d条保存 (单页完成)", storeName, storeOrders, storeSaved)
+			totalOrders += storeOrders
+			totalSaved += storeSaved
+			continue
+		}
+
+		// 第二步：并发拉取剩余页
+		concurrency := opt.Concurrency
+		if concurrency <= 0 {
+			concurrency = 5 // 默认5并发
+		}
+		if concurrency > 45 {
+			concurrency = 45
+		}
+
+		// 速率限制器：45次/秒
+		rateLimiter := make(chan struct{}, concurrency)
+		go func() {
+			ticker := time.NewTicker(time.Second / 45)
+			defer ticker.Stop()
+			for range ticker.C {
+				select {
+				case rateLimiter <- struct{}{}:
+				default:
+				}
+			}
+		}()
+
+		var mu sync.Mutex
+		var wg sync.WaitGroup
+		pageCh := make(chan int, totalPages-firstPage-1)
+		for page := firstPage + 1; page < totalPages; page++ {
+			pageCh <- page
+		}
+		close(pageCh)
+
+		for i := 0; i < concurrency; i++ {
+			wg.Add(1)
+			go func(workerId int) {
+				defer wg.Done()
+				svc := NewService()
+				for page := range pageCh {
+					<-rateLimiter
+					result, apiErr := svc.GetOrderList(ctx, model.PlatformOrderListParams{
+						Platform: "douyin", Page: page, PageSize: 100,
+						StartTime: st, EndTime: et, StoreId: storeId,
+					})
+					if apiErr != nil {
+						g.Log().Errorf(ctx, "[DouyinPoller] %s worker%d 第%d页失败: %v", storeName, workerId, page, apiErr)
+						continue
+					}
+					saved := p.saveOrders(ctx, result.Orders)
+					mu.Lock()
+					storeOrders += len(result.Orders)
+					storeSaved += saved
+					mu.Unlock()
+				}
+			}(i)
+		}
+		wg.Wait()
+
+		g.Log().Infof(ctx, "[DouyinPoller] %s: %d条/%d条保存 (并发%d, 共%d页)",
+			storeName, storeOrders, storeSaved, concurrency, totalPages)
+		totalOrders += storeOrders
+		totalSaved += storeSaved
+	}
+
+	_ = time.Since(startTime)
+	return totalOrders, totalSaved, nil
 }

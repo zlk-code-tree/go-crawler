@@ -89,6 +89,11 @@ platform:
     appKey: ""
     appSecret: ""
     baseUrl: ""
+  qianchuan:
+    appId: 1867057521692762                     # 巨量千川应用ID（在巨量千川开放平台创建应用后获取）
+    appSecret: "2de7efc76d5527514c6b3d37b7ce9c9d698a79c8"                 # 巨量千川应用密钥
+    pullDays: 30                  # 拉取最近多少天的报表数据
+    redirectUri: "http://你的服务器地址/api/douyin/callback"  # OAuth授权回调地址
 
 # 飞书配置
 feishu:
@@ -99,3 +104,4 @@ feishu:
 # 任务调度监控配置
 task:
   feishuWebhook: ""  # 飞书机器人webhook地址，用于任务失败告警通知
+  concurrency: 5     # 全局并发数，控制同时调用第三方API的工作线程数

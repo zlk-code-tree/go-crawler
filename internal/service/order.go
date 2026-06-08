@@ -22,16 +22,229 @@ func NewOrderService() *OrderService {
 	return &OrderService{}
 }
 
+// OrderStats 订单统计数据
+type OrderStats struct {
+	TotalOrderCount      int64   `json:"totalOrderCount"`      // 总订单 = 有效 + 无效 + 未命中
+	ValidOrderCount      int64   `json:"validOrderCount"`      // 有效订单
+	InvalidOrderCount    int64   `json:"invalidOrderCount"`    // 无效订单
+	UnmatchedOrderCount  int64   `json:"unmatchedOrderCount"`  // 未命中有效/无效规则的订单
+	ValidPayAmount       float64 `json:"validPayAmount"`       // 有效定价总额 = product_price × num
+	ProductCostAmount    float64 `json:"productCostAmount"`    // 货款 = base_price × num
+	ReserveAmount        float64 `json:"reserveAmount"`        // 留底 = product_price × num × 3%
+	RefundCostAmount     float64 `json:"refundCostAmount"`     // 发货后退款成本
+	ShopServiceFee       float64 `json:"shopServiceFee"`       // 小店服务费 = 总商品金额 × 2%
+	AdCostAmount         float64 `json:"adCostAmount"`         // 广告费消耗（千川）
+	OnlineCommission     float64 `json:"onlineCommission"`     // 线上佣金支出
+	RealtimeProfit       float64 `json:"realtimeProfit"`       // 实时利润
+	ValidOrderCostMatch  int64   `json:"validOrderCostMatch"`  // 有效订单已匹配数量
+	RefundOrderCount     int64   `json:"refundOrderCount"`     // 退款订单数量
+	CommissionOrderCount int64   `json:"commissionOrderCount"` // 有佣金的订单数量
+	SyncDate             string  `json:"syncDate"`             // 最近同步日期
+}
+
+// Stats 查询订单统计
+func (s *OrderService) Stats(ctx context.Context, shopName string, startTime, endTime string) (*OrderStats, error) {
+	stats := &OrderStats{
+		SyncDate: time.Now().Format("2006-01-02"),
+	}
+
+	// 纯历史数据 → 优先从预聚合表读取
+	today := time.Now().Format("2006-01-02")
+	if endTime != "" && endTime < today {
+		if result := s.getOrderStatsFromTable(ctx, shopName, startTime, endTime); result != nil {
+			return result, nil
+		}
+	}
+
+	// 构建日期筛选条件
+	dateWhere := "DATE(pay_finish_time) = CURDATE()"
+	dateParams := []interface{}{}
+	if startTime != "" {
+		dateWhere = "pay_finish_time >= ?"
+		dateParams = append(dateParams, startTime)
+	}
+	if endTime != "" {
+		if startTime != "" {
+			dateWhere += " AND pay_finish_time <= ?"
+		} else {
+			dateWhere = "pay_finish_time <= ?"
+		}
+		dateParams = append(dateParams, endTime)
+	}
+
+	// 联盟订单的日期筛选（按 pay_time）
+	allianceDateWhere := "DATE(pay_time) = CURDATE()"
+	allianceDateParams := []interface{}{}
+	if startTime != "" {
+		allianceDateWhere = "pay_time >= ?"
+		allianceDateParams = append(allianceDateParams, startTime)
+	}
+	if endTime != "" {
+		if startTime != "" {
+			allianceDateWhere += " AND pay_time <= ?"
+		} else {
+			allianceDateWhere = "pay_time <= ?"
+		}
+		allianceDateParams = append(allianceDateParams, endTime)
+	}
+
+	// 店铺筛选
+	shopWhere := ""
+	shopParams := []interface{}{}
+	if shopName != "" {
+		shopWhere = " AND shop_name = ?"
+		shopParams = append(shopParams, shopName)
+	}
+
+	// 有效订单状态
+	validStatuses := "('已发货', '待发货', '已完成')"
+	// 无效订单：after_sale_status 售后申请(6)、售后退货中(7)、售后成功(12)
+	invalidAfterSaleStatuses := "('6', '7', '12')"
+	// 有效订单条件：
+	//   1. order_status在(已发货,待发货,已完成) 且 after_sale已关闭或未发生售后
+	//   2. order_status=已关闭 且 after_sale为关闭状态(拒绝27/失败28/取消51)
+	validWhereClause := "((order_status IN " + validStatuses + " AND (after_sale_status NOT IN " + invalidAfterSaleStatuses + " OR after_sale_status IS NULL OR after_sale_status = '')) OR (order_status = '已关闭' AND after_sale_status IN ('27', '28', '51')))"
+	validJoinClause := "((o.order_status IN " + validStatuses + " AND (o.after_sale_status NOT IN " + invalidAfterSaleStatuses + " OR o.after_sale_status IS NULL OR o.after_sale_status = '')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27', '28', '51')))"
+
+	// 0. 全部订单总数（不限状态）
+	totalQuery := "SELECT COUNT(*) as total FROM order_info WHERE " + dateWhere + shopWhere
+	row, err := g.DB().GetOne(ctx, totalQuery, append(dateParams, shopParams...)...)
+	if err != nil {
+		return nil, err
+	}
+	stats.TotalOrderCount = row["total"].Int64()
+
+	// 1. 无效订单（无效优先，先统计）
+	invalidQuery := "SELECT COUNT(*) as total FROM order_info WHERE " + dateWhere + shopWhere + " AND after_sale_status IN " + invalidAfterSaleStatuses
+	row, err = g.DB().GetOne(ctx, invalidQuery, append(dateParams, shopParams...)...)
+	if err != nil {
+		return nil, err
+	}
+	stats.InvalidOrderCount = row["total"].Int64()
+
+	// 2. 有效订单 + 有效定价总额（product_price × product_num），排除已计入无效的
+	validQuery := "SELECT COUNT(*) as total, COALESCE(SUM(product_price * product_num), 0) as amount FROM order_info WHERE " + dateWhere + shopWhere + " AND " + validWhereClause
+	row, err = g.DB().GetOne(ctx, validQuery, append(dateParams, shopParams...)...)
+	if err != nil {
+		return nil, err
+	}
+	stats.ValidOrderCount = row["total"].Int64()
+	stats.ValidPayAmount = row["amount"].Float64()
+
+	// 3. 未命中 = 总数 - 有效 - 无效
+	stats.UnmatchedOrderCount = stats.TotalOrderCount - stats.ValidOrderCount - stats.InvalidOrderCount
+
+	// 4. 货款（商品成本支出）= base_price × product_num（有效订单，排除无效售后）
+	costQuery := "SELECT COALESCE(SUM(g.base_price * o.product_num), 0) as cost FROM order_info o LEFT JOIN goods g ON o.seller_code = g.goods_code WHERE " + dateWhere + shopWhere + " AND " + validJoinClause
+	row, err = g.DB().GetOne(ctx, costQuery, append(dateParams, shopParams...)...)
+	if err != nil {
+		return nil, err
+	}
+	stats.ProductCostAmount = row["cost"].Float64()
+
+	// 5. 总商品金额 = SUM(product_price × product_num)（有效订单，排除无效售后）
+	amountQuery := "SELECT COALESCE(SUM(product_price * product_num), 0) as total FROM order_info WHERE " + dateWhere + shopWhere + " AND " + validWhereClause
+	row, err = g.DB().GetOne(ctx, amountQuery, append(dateParams, shopParams...)...)
+	if err != nil {
+		return nil, err
+	}
+	totalProductAmount := row["total"].Float64()
+
+	// 6. 留底 = product_price × product_num × 3%（有效订单，排除无效售后）
+	reserveQuery := "SELECT COALESCE(SUM(product_price * product_num * 0.03), 0) as reserve FROM order_info WHERE " + dateWhere + shopWhere + " AND " + validWhereClause
+	row, err = g.DB().GetOne(ctx, reserveQuery, append(dateParams, shopParams...)...)
+	if err != nil {
+		return nil, err
+	}
+	stats.ReserveAmount = row["reserve"].Float64()
+
+	// 7. 线上佣金 = 总商品金额 - 留底 - 货款
+	stats.OnlineCommission = totalProductAmount - stats.ReserveAmount - stats.ProductCostAmount
+	if stats.OnlineCommission < 0 {
+		stats.OnlineCommission = 0
+	}
+
+	// 8. 小店服务费 = 总商品金额 × 2%
+	stats.ShopServiceFee = totalProductAmount * 0.02
+
+	// 9. 发货后退款成本 = 无效订单的 base_price × product_num
+	refundCostQuery := "SELECT COALESCE(SUM(g.base_price * o.product_num), 0) as cost, COUNT(*) as cnt FROM order_info o LEFT JOIN goods g ON o.seller_code = g.goods_code WHERE " + dateWhere + shopWhere + " AND o.after_sale_status IN " + invalidAfterSaleStatuses
+	row, err = g.DB().GetOne(ctx, refundCostQuery, append(dateParams, shopParams...)...)
+	if err != nil {
+		return nil, err
+	}
+	stats.RefundCostAmount = row["cost"].Float64()
+	stats.RefundOrderCount = row["cnt"].Int64()
+
+	// 10. 广告费：从千川报表获取
+	stats.AdCostAmount = s.getAdCost(ctx, startTime, endTime)
+
+	// 11. 有效订单成本已匹配数
+	matchQuery := "SELECT COUNT(*) as total FROM order_info o INNER JOIN goods g ON o.seller_code = g.goods_code WHERE " + dateWhere + shopWhere + " AND " + validJoinClause + " AND g.base_price > 0"
+	row, err = g.DB().GetOne(ctx, matchQuery, append(dateParams, shopParams...)...)
+	if err == nil {
+		stats.ValidOrderCostMatch = row["total"].Int64()
+	}
+
+	// 12. 有佣金的订单数（从 alliance_orders 表）
+	commissionQuery := "SELECT COUNT(*) as total FROM alliance_orders WHERE " + allianceDateWhere
+	if shopName != "" {
+		commissionQuery += " AND shop_name = ?"
+		row, err = g.DB().GetOne(ctx, commissionQuery, append(allianceDateParams, shopName)...)
+	} else {
+		row, err = g.DB().GetOne(ctx, commissionQuery, allianceDateParams...)
+	}
+	if err == nil {
+		stats.CommissionOrderCount = row["total"].Int64()
+	}
+
+	// 13. 实时利润 = 总商品金额 - 货款 - 留底 - 退款成本 - 小店服务费 - 线上佣金 - 广告费
+	stats.RealtimeProfit = totalProductAmount - stats.ProductCostAmount - stats.ReserveAmount - stats.RefundCostAmount - stats.ShopServiceFee - stats.OnlineCommission - stats.AdCostAmount
+
+	return stats, nil
+}
+
+// getAdCost 从千川广告报表获取指定时间段内的广告费消耗
+func (s *OrderService) getAdCost(ctx context.Context, startTime, endTime string) float64 {
+	// 提取日期部分（stat_datetime 存的是日期字符串 2026-06-01）
+	qStart := ""
+	qEnd := ""
+	if startTime != "" && len(startTime) >= 10 {
+		qStart = startTime[:10]
+	}
+	if endTime != "" && len(endTime) >= 10 {
+		qEnd = endTime[:10]
+	}
+
+	query := "SELECT COALESCE(SUM(stat_cost), 0) as cost FROM qianchuan_ad_report WHERE 1=1"
+	params := []interface{}{}
+	if qStart != "" {
+		query += " AND stat_datetime >= ?"
+		params = append(params, qStart)
+	}
+	if qEnd != "" {
+		query += " AND stat_datetime <= ?"
+		params = append(params, qEnd)
+	}
+
+	row, err := g.DB().GetOne(ctx, query, params...)
+	if err != nil {
+		g.Log().Warningf(ctx, "查询千川广告费失败: %v", err)
+		return 0
+	}
+	return row["cost"].Float64()
+}
+
 // List 查询订单列表
-func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, shopName, orderStatus string, startTime, endTime string) ([]g.Map, int64, error) {
-	query := "SELECT * FROM order_info WHERE 1=1"
+func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, shopName, orderStatus, talentId string, startTime, endTime string) ([]g.Map, int64, error) {
+	query := "SELECT o.*, COALESCE(g.base_price, 0) as base_price FROM order_info o LEFT JOIN goods g ON o.seller_code = g.goods_code WHERE 1=1"
 	params := []interface{}{}
 
-	// 关键词搜索（订单号、商品名称）
+	// 关键词搜索（订单号、商品名称、达人名称）
 	if keyword != "" {
-		query += " AND (sub_order_no LIKE ? OR main_order_no LIKE ? OR product_name LIKE ?)"
+		query += " AND (sub_order_no LIKE ? OR main_order_no LIKE ? OR product_name LIKE ? OR talent_name LIKE ?)"
 		searchKey := "%" + keyword + "%"
-		params = append(params, searchKey, searchKey, searchKey)
+		params = append(params, searchKey, searchKey, searchKey, searchKey)
 	}
 
 	// 账号筛选
@@ -46,6 +259,12 @@ func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, sh
 		params = append(params, orderStatus)
 	}
 
+	// 达人UID筛选
+	if talentId != "" {
+		query += " AND talent_id = ?"
+		params = append(params, talentId)
+	}
+
 	// 时间范围筛选（支付完成时间）
 	if startTime != "" {
 		query += " AND pay_finish_time >= ?"
@@ -57,7 +276,7 @@ func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, sh
 	}
 
 	// 获取总数
-	totalQuery := strings.Replace(query, "SELECT *", "SELECT COUNT(*) as total", 1)
+	totalQuery := strings.Replace(query, "SELECT o.*, COALESCE(g.base_price, 0) as base_price", "SELECT COUNT(*) as total", 1)
 	resultTotal, err := g.DB().GetOne(ctx, totalQuery, params...)
 	if err != nil {
 		return nil, 0, err
@@ -101,6 +320,14 @@ func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, sh
 			"talentName":           row["talent_name"],
 			"flowSource":           row["flow_source"],
 			"afterSaleStatus":      row["after_sale_status"],
+			"talentId":             row["talent_id"],
+			"productCost":          row["product_cost"],
+			"shopServiceFee":       row["shop_service_fee"],
+			"commissionRate":       row["commission_rate"],
+			"douyinAccount":        row["douyin_account"],
+			"uid":                  row["uid"],
+			"teamOwner":            row["team_owner"],
+			"isShopSelfSale":       row["is_shop_self_sale"],
 		}
 	}
 
@@ -725,4 +952,64 @@ func parseDateTime(s string) interface{} {
 	}
 
 	return nil
+}
+
+// getOrderStatsFromTable 从预聚合表读取订单统计
+func (s *OrderService) getOrderStatsFromTable(ctx context.Context, shopName, startTime, endTime string) *OrderStats {
+	query := g.DB().Model("daily_order_stats").
+		Where("stat_date >= ?", startTime[:10]).
+		Where("stat_date <= ?", endTime[:10])
+	if shopName != "" {
+		query = query.Where("shop_name = ?", shopName)
+	}
+
+	result, err := query.Fields(`
+		COALESCE(SUM(total_order_count),0) as total_order_count,
+		COALESCE(SUM(valid_order_count),0) as valid_order_count,
+		COALESCE(SUM(invalid_order_count),0) as invalid_order_count,
+		COALESCE(SUM(valid_pay_amount),0) as valid_pay_amount,
+		COALESCE(SUM(product_cost_amount),0) as product_cost_amount,
+		COALESCE(SUM(reserve_amount),0) as reserve_amount,
+		COALESCE(SUM(refund_cost_amount),0) as refund_cost_amount,
+		COALESCE(SUM(refund_order_count),0) as refund_order_count,
+		COALESCE(SUM(shop_service_fee),0) as shop_service_fee,
+		COALESCE(SUM(commission),0) as commission,
+		COALESCE(SUM(valid_order_cost_match),0) as valid_order_cost_match
+	`).One()
+
+	if err != nil || result == nil {
+		return nil
+	}
+
+	totalOrderCount := result["total_order_count"].Int64()
+	validOrderCount := result["valid_order_count"].Int64()
+	invalidOrderCount := result["invalid_order_count"].Int64()
+	if totalOrderCount == 0 && validOrderCount == 0 {
+		return nil
+	}
+
+	validPayAmount := result["valid_pay_amount"].Float64()
+	productCostAmount := result["product_cost_amount"].Float64()
+	reserveAmount := result["reserve_amount"].Float64()
+	shopServiceFee := result["shop_service_fee"].Float64()
+	commission := result["commission"].Float64()
+
+	return &OrderStats{
+		TotalOrderCount:      totalOrderCount,
+		ValidOrderCount:      validOrderCount,
+		InvalidOrderCount:    invalidOrderCount,
+		UnmatchedOrderCount:  totalOrderCount - validOrderCount - invalidOrderCount,
+		ValidPayAmount:       validPayAmount,
+		ProductCostAmount:    productCostAmount,
+		ReserveAmount:        reserveAmount,
+		RefundCostAmount:     result["refund_cost_amount"].Float64(),
+		RefundOrderCount:     result["refund_order_count"].Int64(),
+		ShopServiceFee:       shopServiceFee,
+		AdCostAmount:         0,
+		OnlineCommission:     commission,
+		RealtimeProfit:       validPayAmount - productCostAmount - reserveAmount - result["refund_cost_amount"].Float64() - shopServiceFee - commission,
+		ValidOrderCostMatch:  result["valid_order_cost_match"].Int64(),
+		CommissionOrderCount: validOrderCount,
+		SyncDate:             time.Now().Format("2006-01-02"),
+	}
 }

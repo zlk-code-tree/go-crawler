@@ -60,3 +60,26 @@ func (c *PlatformController) OrderDetail(ctx context.Context, req *v1.PlatformOr
 
 	return result, nil
 }
+
+// AllianceOrderList 获取精选联盟订单列表 GET /api/platform/alliance-order-list
+func (c *PlatformController) AllianceOrderList(ctx context.Context, req *v1.PlatformAllianceOrderListReq) (res *v1.PlatformAllianceOrderListRes, err error) {
+	api, ok := platformSvc.GetPlatform(req.Platform)
+	if !ok {
+		return nil, gerror.New("不支持的平台: " + req.Platform)
+	}
+
+	result, err := api.GetAllianceOrderList(ctx, model.PlatformAllianceOrderListParams{
+		Platform:  req.Platform,
+		Cursor:    req.Cursor,
+		Size:      req.Size,
+		StartTime: req.StartTime,
+		EndTime:   req.EndTime,
+		StoreId:   req.StoreId,
+		OrderIds:  req.OrderIds,
+	})
+	if err != nil {
+		return nil, gerror.New("获取精选联盟订单失败: " + err.Error())
+	}
+
+	return result, nil
+}

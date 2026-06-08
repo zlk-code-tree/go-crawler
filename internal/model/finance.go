@@ -8,21 +8,30 @@ import "time"
 
 // FinanceDailyStats 日佣金统计数据
 type FinanceDailyStats struct {
-	Id             int64     `json:"id"`
-	StatDate       string    `json:"statDate"`
-	CompanyId      int64     `json:"companyId"`
-	DepartmentId   int64     `json:"departmentId"`
-	TraderId       int64     `json:"traderId"`
-	AccountId      int       `json:"accountId"`
-	Platform       string    `json:"platform"`
-	OrderCount     int       `json:"orderCount"`
-	ProductNum     int       `json:"productNum"`
-	PayAmount      float64   `json:"payAmount"`
-	CostAmount     float64   `json:"costAmount"`
-	ReserveAmount  float64   `json:"reserveAmount"`
-	Commission     float64   `json:"commission"`
-	CreatedAt      time.Time `json:"createdAt"`
-	UpdatedAt      time.Time `json:"updatedAt"`
+	Id                   int64     `json:"id"`
+	StatDate             string    `json:"statDate"`
+	CompanyId            int64     `json:"companyId"`
+	DepartmentId         int64     `json:"departmentId"`
+	TraderId             int64     `json:"traderId"`
+	AccountId            int       `json:"accountId"`
+	Platform             string    `json:"platform"`
+	TotalOrderCount      int       `json:"totalOrderCount"`
+	OrderCount           int       `json:"orderCount"`
+	InvalidOrderCount    int       `json:"invalidOrderCount"`
+	ProductNum           int       `json:"productNum"`
+	PayAmount            float64   `json:"payAmount"`
+	CostAmount           float64   `json:"costAmount"`
+	ReserveAmount        float64   `json:"reserveAmount"`
+	Commission           float64   `json:"commission"`
+	RefundCostAmount     float64   `json:"refundCostAmount"`
+	RefundOrderCount     int       `json:"refundOrderCount"`
+	ShopServiceFee       float64   `json:"shopServiceFee"`
+	AdCostAmount         float64   `json:"adCostAmount"`
+	ValidOrderCostMatch  int       `json:"validOrderCostMatch"`
+	CommissionOrderCount int       `json:"commissionOrderCount"`
+	RealtimeProfit       float64   `json:"realtimeProfit"`
+	CreatedAt            time.Time `json:"createdAt"`
+	UpdatedAt            time.Time `json:"updatedAt"`
 }
 
 // ============================================
@@ -79,12 +88,21 @@ type FinanceStatsRes struct {
 
 // FinanceStatsSummary 财务统计汇总
 type FinanceStatsSummary struct {
-	OrderCount    int     `json:"orderCount"`
-	ProductNum    int     `json:"productNum"`
-	PayAmount     float64 `json:"payAmount"`
-	CostAmount    float64 `json:"costAmount"`
-	ReserveAmount float64 `json:"reserveAmount"`
-	Commission    float64 `json:"commission"`
+	TotalOrderCount      int     `json:"totalOrderCount"`
+	OrderCount           int     `json:"orderCount"`
+	InvalidOrderCount    int     `json:"invalidOrderCount"`
+	ProductNum           int     `json:"productNum"`
+	PayAmount            float64 `json:"payAmount"`
+	CostAmount           float64 `json:"costAmount"`
+	ReserveAmount        float64 `json:"reserveAmount"`
+	Commission           float64 `json:"commission"`
+	RefundCostAmount     float64 `json:"refundCostAmount"`
+	RefundOrderCount     int     `json:"refundOrderCount"`
+	ShopServiceFee       float64 `json:"shopServiceFee"`
+	AdCostAmount         float64 `json:"adCostAmount"`
+	ValidOrderCostMatch  int     `json:"validOrderCostMatch"`
+	CommissionOrderCount int     `json:"commissionOrderCount"`
+	RealtimeProfit       float64 `json:"realtimeProfit"`
 }
 
 // FinanceChildrenRes 下级节点响应
@@ -102,14 +120,22 @@ type NodeInfo struct {
 
 // NodeStatsItem 节点统计项
 type NodeStatsItem struct {
-	Id           int64   `json:"id"`
-	Name         string  `json:"name"`
-	Type         string  `json:"type"`
-	OrderCount   int     `json:"orderCount"`
-	ProductNum   int     `json:"productNum"`
-	PayAmount    float64 `json:"payAmount"`
-	CostAmount   float64 `json:"costAmount"`
-	Commission   float64 `json:"commission"`
+	Id               int64   `json:"id"`
+	Name             string  `json:"name"`
+	Type             string  `json:"type"`
+	DouyinNickname   string  `json:"douyinNickname"`
+	Uid              string  `json:"uid"`
+	TotalOrderCount  int     `json:"totalOrderCount"`
+	OrderCount       int     `json:"orderCount"`
+	InvalidOrderCount int    `json:"invalidOrderCount"`
+	ProductNum       int     `json:"productNum"`
+	PayAmount        float64 `json:"payAmount"`
+	CostAmount       float64 `json:"costAmount"`
+	Commission       float64 `json:"commission"`
+	RefundCostAmount float64 `json:"refundCostAmount"`
+	RefundOrderCount int     `json:"refundOrderCount"`
+	ShopServiceFee   float64 `json:"shopServiceFee"`
+	RealtimeProfit   float64 `json:"realtimeProfit"`
 }
 
 // FinanceTraderDetailRes 投手详情响应
@@ -127,15 +153,21 @@ type FinanceTraderDetailRes struct {
 
 // ShopStatsItem 账号统计项
 type ShopStatsItem struct {
-	AccountId    int     `json:"accountId"`
-	ShopName     string  `json:"shopName"`
-	Uid          string  `json:"uid"`
-	Platform     string  `json:"platform"`
-	OrderCount   int     `json:"orderCount"`
-	ProductNum   int     `json:"productNum"`
-	PayAmount    float64 `json:"payAmount"`
-	CostAmount   float64 `json:"costAmount"`
-	Commission   float64 `json:"commission"`
+	AccountId        int     `json:"accountId"`
+	ShopName         string  `json:"shopName"`
+	Uid              string  `json:"uid"`
+	Platform         string  `json:"platform"`
+	TotalOrderCount  int     `json:"totalOrderCount"`
+	OrderCount       int     `json:"orderCount"`
+	InvalidOrderCount int    `json:"invalidOrderCount"`
+	ProductNum       int     `json:"productNum"`
+	PayAmount        float64 `json:"payAmount"`
+	CostAmount       float64 `json:"costAmount"`
+	Commission       float64 `json:"commission"`
+	RefundCostAmount float64 `json:"refundCostAmount"`
+	RefundOrderCount int     `json:"refundOrderCount"`
+	ShopServiceFee   float64 `json:"shopServiceFee"`
+	RealtimeProfit   float64 `json:"realtimeProfit"`
 }
 
 // FinanceShopDetailRes 账号明细响应
@@ -171,14 +203,20 @@ type FinanceTraderPlatformStatsRes struct {
 
 // PlatformStats 单平台统计
 type PlatformStats struct {
-	Platform      string  `json:"platform"`
-	PlatformName  string  `json:"platformName"`
-	OrderCount    int     `json:"orderCount"`
-	ProductNum    int     `json:"productNum"`
-	PayAmount     float64 `json:"payAmount"`
-	CostAmount    float64 `json:"costAmount"`
-	ReserveAmount float64 `json:"reserveAmount"`
-	Commission    float64 `json:"commission"`
+	Platform          string  `json:"platform"`
+	PlatformName      string  `json:"platformName"`
+	TotalOrderCount   int     `json:"totalOrderCount"`
+	OrderCount        int     `json:"orderCount"`
+	InvalidOrderCount int     `json:"invalidOrderCount"`
+	ProductNum        int     `json:"productNum"`
+	PayAmount         float64 `json:"payAmount"`
+	CostAmount        float64 `json:"costAmount"`
+	ReserveAmount     float64 `json:"reserveAmount"`
+	Commission        float64 `json:"commission"`
+	RefundCostAmount  float64 `json:"refundCostAmount"`
+	RefundOrderCount  int     `json:"refundOrderCount"`
+	ShopServiceFee    float64 `json:"shopServiceFee"`
+	RealtimeProfit    float64 `json:"realtimeProfit"`
 }
 
 // ============================================
@@ -224,4 +262,32 @@ type FinanceOrderItem struct {
 	OrderStatus    string  `json:"orderStatus"`
 	AfterSaleStatus string `json:"afterSaleStatus"`
 	PayFinishTime  string  `json:"payFinishTime"`
+}
+
+// ============================================
+// 账号订单列表
+// ============================================
+
+// FinanceAccountOrdersReq 账号订单列表请求
+type FinanceAccountOrdersReq struct {
+	AccountId int    `json:"accountId" v:"required"`
+	TimeType  string `json:"timeType"`
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+	Page      int    `json:"page" d:"1"`
+	PageSize  int    `json:"pageSize" d:"20"`
+}
+
+// FinanceAccountOrdersRes 账号订单列表响应
+type FinanceAccountOrdersRes struct {
+	AccountId   int                `json:"accountId"`
+	AccountName string             `json:"accountName"`
+	TimeType    string             `json:"timeType"`
+	StartDate   string             `json:"startDate"`
+	EndDate     string             `json:"endDate"`
+	Summary     FinanceStatsSummary `json:"summary"`
+	Total       int                `json:"total"`
+	Page        int                `json:"page"`
+	PageSize    int                `json:"pageSize"`
+	Orders      []FinanceOrderItem `json:"orders"`
 }

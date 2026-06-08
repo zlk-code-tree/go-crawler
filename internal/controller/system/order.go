@@ -1,6 +1,8 @@
 package system
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"go-crawler/internal/service"
 	"io"
@@ -18,6 +20,27 @@ func NewOrderController() *OrderController {
 	return &OrderController{}
 }
 
+// OrderStats 订单统计接口 GET /api/order-stats
+func (c *OrderController) OrderStats(r *ghttp.Request) {
+	shopName := r.Get("shopName").String()
+	startTime := r.Get("startTime").String()
+	endTime := r.Get("endTime").String()
+
+	orderService := service.NewOrderService()
+	stats, err := orderService.Stats(r.Context(), shopName, startTime, endTime)
+	if err != nil {
+		g.Log().Error(r.Context(), "订单统计查询失败:", err)
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "统计查询失败: " + err.Error()})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"data": stats,
+		"msg":  "ok",
+	})
+}
+
 // OrderList 订单列表接口 GET /system/order/list
 func (c *OrderController) OrderList(r *ghttp.Request) {
 	page := r.Get("page", 1).Int()
@@ -25,11 +48,12 @@ func (c *OrderController) OrderList(r *ghttp.Request) {
 	keyword := r.Get("keyword").String()
 	shopName := r.Get("shopName").String()
 	orderStatus := r.Get("orderStatus").String()
+	talentId := r.Get("talentId").String()
 	startTime := r.Get("startTime").String()
 	endTime := r.Get("endTime").String()
 
 	orderService := service.NewOrderService()
-	orders, total, err := orderService.List(r.Context(), page, pageSize, keyword, shopName, orderStatus, startTime, endTime)
+	orders, total, err := orderService.List(r.Context(), page, pageSize, keyword, shopName, orderStatus, talentId, startTime, endTime)
 	if err != nil {
 		g.Log().Error(r.Context(), "订单查询失败:", err)
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})
@@ -150,4 +174,74 @@ func (c *OrderController) OrderImport(r *ghttp.Request) {
 	})
 }
 
+// OrderStatsBackfill 订单统计历史数据回填 POST /api/order-stats/backfill
+func (c *OrderController) OrderStatsBackfill(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
 
+	if startDate == "" || endDate == "" {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "startDate和endDate不能为空"})
+		return
+	}
+
+	start, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "开始日期格式错误"})
+		return
+	}
+	end, err := time.Parse("2006-01-02", endDate)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "结束日期格式错误"})
+		return
+	}
+
+	// 记录任务开始
+	reqParams, _ := json.Marshal(g.Map{"startDate": startDate, "endDate": endDate})
+	logId, _ := service.TaskLogStart(r.Context(), "抖音订单统计回填", "order_stats_backfill", "/api/order-stats/backfill", string(reqParams))
+	userId := r.GetCtxVar("userId").Int64()
+
+	g.Log().Infof(r.Context(), "[OrderBackfill] 收到回填请求: %s~%s, logId=%d, userId=%d", startDate, endDate, logId, userId)
+
+	go func() {
+		bgCtx := context.Background()
+		overallStart := time.Now()
+		aggSvc := service.NewFinanceAggregateService()
+		var failDates []string
+		successCount := 0
+		totalDays := 0
+
+		for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+			totalDays++
+			date := d.Format("2006-01-02")
+			if err := aggSvc.OrderDailyAggregateJob(bgCtx, date); err != nil {
+				g.Log().Errorf(bgCtx, "[OrderBackfill] 日期 %s 失败: %v", date, err)
+				failDates = append(failDates, date)
+			} else {
+				successCount++
+			}
+		}
+
+		durationMs := int(time.Since(overallStart).Milliseconds())
+		respBody, _ := json.Marshal(g.Map{
+			"startDate":    startDate,
+			"endDate":      endDate,
+			"totalDays":    totalDays,
+			"successCount": successCount,
+			"failCount":    len(failDates),
+			"failDates":    failDates,
+			"durationMs":   durationMs,
+		})
+
+		if len(failDates) > 0 {
+			service.TaskLogSuccess(bgCtx, logId, "", string(respBody), durationMs)
+			service.CreateNotification(bgCtx, "订单统计回填完成（部分失败）", string(respBody), "task_result", "order_stats_backfill", logId, service.NotifyLevelImportant, userId)
+		} else {
+			service.TaskLogSuccess(bgCtx, logId, "", string(respBody), durationMs)
+			service.CreateNotification(bgCtx, "订单统计回填完成", string(respBody), "task_result", "order_stats_backfill", logId, service.NotifyLevelNormal, userId)
+		}
+
+		g.Log().Infof(bgCtx, "[OrderBackfill] 完成: %d/%d天成功, %d失败, %dms",
+			successCount, totalDays, len(failDates), durationMs)
+	}()
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"logId": logId}, "msg": "任务已启动，后台回填中"})
+}

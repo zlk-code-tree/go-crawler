@@ -118,3 +118,41 @@ type PlatformOrderListResult struct {
 	Size   int                 `json:"size"`
 	Orders []PlatformOrderItem `json:"orders"`
 }
+
+// ==================== 精选联盟订单 ====================
+
+// PlatformAllianceOrderListParams 精选联盟订单列表参数
+type PlatformAllianceOrderListParams struct {
+	Platform  string `json:"platform"`
+	Size      int    `json:"size" d:"20"`        // 每页数量，最大20
+	Cursor    string `json:"cursor"`             // 游标，首页传"0"
+	StartTime string `json:"startTime"`           // 支付时间开始 yyyy-MM-dd HH:mm:ss
+	EndTime   string `json:"endTime"`             // 支付时间结束
+	StoreId   int    `json:"storeId"`
+	OrderIds  string `json:"orderIds"`            // 订单号筛选
+	TimeType  string `json:"timeType"`            // pay:支付时间 update:联盟更新时间
+}
+
+// PlatformAllianceOrderListResult 精选联盟订单列表结果
+type PlatformAllianceOrderListResult struct {
+	Cursor string                      `json:"cursor"` // 下一页游标，空表示没有更多
+	Orders []PlatformAllianceOrderItem `json:"orders"`
+}
+
+// PlatformAllianceOrderItem 精选联盟订单
+type PlatformAllianceOrderItem struct {
+	Platform           string  `json:"platform"`
+	OrderId            string  `json:"orderId"`
+	ProductId          string  `json:"productId"`
+	AuthorAccount      string  `json:"authorAccount"`
+	CommissionRate     int64   `json:"commissionRate"`     // 500=5%
+	EstimatedComission int64   `json:"estimatedComission"` // 预估佣金(分)
+	RealComission      int64   `json:"realComission"`      // 实际佣金(分)
+	TotalPayAmount     int64   `json:"totalPayAmount"`     // 支付金额(分)
+	OrderStatus        string  `json:"orderStatus"`
+	ShopId             string  `json:"shopId"`
+	AllianceBizType    string  `json:"allianceBizType"`
+	PhaseId            int64   `json:"phaseId"`
+	ShortId            string  `json:"shortId"`
+}
+

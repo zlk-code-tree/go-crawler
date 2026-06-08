@@ -7,9 +7,13 @@ require (
 	github.com/gogf/gf/v2 v2.10.0
 )
 
-require github.com/go-sql-driver/mysql v1.7.1 // indirect
+require (
+	github.com/go-sql-driver/mysql v1.7.1 // indirect
+	github.com/oceanengine/ad_open_sdk_go v1.1.88 // indirect
+)
 
 require (
+	doudian.com/open/sdk_golang v0.0.0
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
 	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
@@ -50,7 +54,9 @@ require (
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.36.0
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	doudian.com/open/sdk_golang v0.0.0
 )
 
-replace doudian.com/open/sdk_golang => ./internal/pkg/sdk-golang
+replace (
+	doudian.com/open/sdk_golang => ./internal/pkg/sdk-golang
+	github.com/oceanengine/ad_open_sdk_go => ./internal/pkg/ad_open_sdk_go
+)

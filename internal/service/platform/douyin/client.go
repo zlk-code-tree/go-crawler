@@ -2,16 +2,20 @@ package douyin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"go-crawler/internal/model"
 	"go-crawler/internal/service/platform"
 
+	allianceReq "doudian.com/open/sdk_golang/api/alliance_getOrderList/request"
 	orderDetailReq "doudian.com/open/sdk_golang/api/order_orderDetail/request"
 	orderSearchReq "doudian.com/open/sdk_golang/api/order_searchList/request"
 	orderSearchResp "doudian.com/open/sdk_golang/api/order_searchList/response"
+	buyinReq "doudian.com/open/sdk_golang/api/buyin_queryShopAllianceOrder/request"
 	doudian "doudian.com/open/sdk_golang/core"
 
 	"github.com/gogf/gf/v2/frame/g"
@@ -132,8 +136,9 @@ func (s *Service) GetOrderList(ctx context.Context, params model.PlatformOrderLi
 	req.GetParams().Size = int64(params.PageSize)
 	req.GetParams().Page = int64(params.Page)
 
+	cst := time.FixedZone("CST", 8*3600)
 	if params.StartTime != "" {
-		t, err := time.Parse("2006-01-02 15:04:05", params.StartTime)
+		t, err := time.ParseInLocation("2006-01-02 15:04:05", params.StartTime, cst)
 		if err != nil {
 			return nil, fmt.Errorf("开始时间格式错误: %w", err)
 		}
@@ -141,7 +146,7 @@ func (s *Service) GetOrderList(ctx context.Context, params model.PlatformOrderLi
 		req.GetParams().CreateTimeStart = &ts
 	}
 	if params.EndTime != "" {
-		t, err := time.Parse("2006-01-02 15:04:05", params.EndTime)
+		t, err := time.ParseInLocation("2006-01-02 15:04:05", params.EndTime, cst)
 		if err != nil {
 			return nil, fmt.Errorf("结束时间格式错误: %w", err)
 		}
@@ -405,6 +410,88 @@ func (s *Service) GetOrderDetail(ctx context.Context, params model.PlatformOrder
 	return result, nil
 }
 
+// GetAllianceOrderList 获取精选联盟订单列表
+func (s *Service) GetAllianceOrderList(ctx context.Context, params model.PlatformAllianceOrderListParams) (*model.PlatformAllianceOrderListResult, error) {
+	s.initConfig()
+
+	var token *doudian.AccessToken
+	if params.StoreId > 0 {
+		var err error
+		token, _, err = s.GetTokenForStore(ctx, params.StoreId)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		cfg := g.Cfg()
+		shopId := cfg.MustGet(ctx, "platform.douyin.shopId").Int64()
+		if shopId <= 0 {
+			return nil, fmt.Errorf("请提供 storeId 或在配置文件中设置 platform.douyin.shopId")
+		}
+		var err error
+		token, err = s.getTokenForShop(shopId)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	req := allianceReq.New()
+	req.SetConfig(s.config)
+	req.GetParams().Size = int64(params.Size)
+	req.GetParams().Cursor = params.Cursor
+	if params.OrderIds != "" {
+		req.GetParams().OrderIds = strings.Split(params.OrderIds, ",")
+	}
+	if params.StartTime != "" {
+		req.GetParams().StartTime = &params.StartTime
+	}
+	if params.EndTime != "" {
+		req.GetParams().EndTime = &params.EndTime
+	}
+	if params.TimeType != "" {
+		req.GetParams().TimeType = &params.TimeType
+	}
+
+	g.Log().Debugf(ctx, "[AllianceAPI] cursor=%s start=%s end=%s orderIds=%s size=%d",
+		req.GetParams().Cursor, params.StartTime, params.EndTime, params.OrderIds, params.Size)
+
+	resp, err := req.Execute(token)
+	if err != nil {
+		return nil, fmt.Errorf("精选联盟订单查询失败: %w", err)
+	}
+	if resp.Code != 10000 {
+		return nil, fmt.Errorf("精选联盟返回错误: code=%d, msg=%s, sub_msg=%s",
+			resp.Code, resp.Msg, resp.SubMsg)
+	}
+
+	data := resp.Data
+	g.Log().Debugf(ctx, "[AllianceAPI] code=%s, code_msg=%s, datas=%d, cursor=%s",
+		data.Code, data.CodeMsg, len(data.Orders), data.Cursor)
+
+	result := &model.PlatformAllianceOrderListResult{
+		Cursor: data.Cursor,
+	}
+
+	for _, o := range data.Orders {
+		result.Orders = append(result.Orders, model.PlatformAllianceOrderItem{
+			Platform:           "douyin",
+			OrderId:            o.OrderId,
+			ProductId:          o.ProductId,
+			AuthorAccount:      o.AuthorAccount,
+			CommissionRate:     o.CommissionRate,
+			EstimatedComission: o.EstimatedComission,
+			RealComission:      o.RealComission,
+			TotalPayAmount:     o.TotalPayAmount,
+			OrderStatus:        o.OrderStatus,
+			ShopId:             o.ShopId,
+			AllianceBizType:    o.AllianceBizType,
+			PhaseId:            o.PhaseId,
+			ShortId:            o.ShortId,
+		})
+	}
+
+	return result, nil
+}
+
 // ==================== 辅助函数 ====================
 
 func unixToTime(ts int64) string {
@@ -423,4 +510,163 @@ func joinStrings(elems []string) string {
 		s += e
 	}
 	return s
+}
+
+// AllianceOrderQuery 精选联盟订单查询参数（透传）
+type AllianceOrderQuery struct {
+	Size      int64
+	Cursor    string
+	StartTime string
+	EndTime   string
+	OrderIds  string
+	TimeType  string
+}
+
+// QueryShopAllianceOrder 调用 /buyin/queryShopAllianceOrder，返回原始JSON字符串
+func (s *Service) QueryShopAllianceOrder(ctx context.Context, token *doudian.AccessToken, q AllianceOrderQuery) (string, error) {
+	s.initConfig()
+	req := buyinReq.New()
+	req.SetConfig(s.config)
+
+	if q.Size > 0 {
+		req.GetParams().Size = &q.Size
+	}
+	if q.Cursor != "" {
+		cursor := q.Cursor
+		req.GetParams().Cursor = &cursor
+	}
+	if q.StartTime != "" {
+		st := q.StartTime
+		req.GetParams().StartTime = &st
+	}
+	if q.EndTime != "" {
+		et := q.EndTime
+		req.GetParams().EndTime = &et
+	}
+	if q.OrderIds != "" {
+		oi := q.OrderIds
+		req.GetParams().OrderIds = &oi
+	}
+	if q.TimeType != "" {
+		tt := q.TimeType
+		req.GetParams().TimeType = &tt
+	}
+
+	rawJSON, err := req.GetClient().Request(req, token)
+	if err != nil {
+		return "", err
+	}
+	return rawJSON, nil
+}
+
+// DailyPullAllianceOrders 每天凌晨拉取昨天精选联盟订单
+func (s *Service) DailyPullAllianceOrders(ctx context.Context) error {
+	token, _, err := s.GetTokenForStore(ctx, 1)
+	if err != nil {
+		return fmt.Errorf("获取token失败: %w", err)
+	}
+
+	yesterday := time.Now().AddDate(0, 0, -1)
+	startTime := yesterday.Format("2006-01-02") + " 00:00:00"
+	endTime := yesterday.Format("2006-01-02") + " 23:59:59"
+
+	cursor := "0"
+	totalSaved := 0
+
+	for {
+		rawJSON, err := s.QueryShopAllianceOrder(ctx, token, AllianceOrderQuery{
+			Size:      20,
+			Cursor:    cursor,
+			StartTime: startTime,
+			EndTime:   endTime,
+		})
+		if err != nil {
+			return fmt.Errorf("API调用失败: %w", err)
+		}
+
+		// 解析为通用结构（SDK struct 字段名和 API 实际返回不一致）
+		var rawResp struct {
+			Data struct {
+				Cursor string                   `json:"cursor"`
+				Orders []map[string]interface{} `json:"orders"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(rawJSON), &rawResp); err != nil {
+			return fmt.Errorf("解析响应失败: %w", err)
+		}
+		if len(rawResp.Data.Orders) == 0 {
+			break
+		}
+
+		for _, o := range rawResp.Data.Orders {
+			orderId := getStrVal(o, "order_id")
+			if orderId == "" {
+				continue
+			}
+			data := g.Map{
+				"platform":            "douyin",
+				"order_id":            orderId,
+				"product_id":          getStrVal(o, "product_id"),
+				"product_name":        getStrVal(o, "product_name"),
+				"product_img":         getStrVal(o, "product_img"),
+				"product_num":         getIntVal(o, "item_num"),
+				"product_price":       float64(getIntVal(o, "pay_goods_amount")) / 100,
+				"pay_amount":          float64(getIntVal(o, "total_pay_amount")) / 100,
+				"commission_rate":     fmt.Sprintf("%d", getIntVal(o, "commission_rate")),
+				"commission":          float64(getIntVal(o, "real_commission")) / 100,
+				"order_status":        getStrVal(o, "flow_point"),
+				"author_id":           getStrVal(o, "author_buyin_id"),
+				"author_buyin_id":     getStrVal(o, "author_buyin_id"),
+				"author_name":         getStrVal(o, "author_account"),
+				"author_account":      getStrVal(o, "author_account"),
+				"shop_name":           getStrVal(o, "shop_name"),
+				"shop_id":             getStrVal(o, "shop_id"),
+				"pay_time":            getStrVal(o, "pay_success_time"),
+				"create_time":         getStrVal(o, "pay_success_time"),
+				"finish_time":         getStrVal(o, "confirm_time"),
+				"estimated_comission": getIntVal(o, "estimated_total_commission"),
+				"real_comission":      getIntVal(o, "real_commission"),
+				"total_pay_amount":    getIntVal(o, "total_pay_amount"),
+				"alliance_biz_type":   getStrVal(o, "media_type"),
+				"short_id":            getStrVal(o, "author_short_id"),
+			}
+			// upsert by order_id
+			count, _ := g.DB().Model("alliance_orders").Ctx(ctx).Where("platform", "douyin").Where("order_id", orderId).Count()
+			if count > 0 {
+				g.DB().Model("alliance_orders").Ctx(ctx).Where("platform", "douyin").Where("order_id", orderId).Data(data).Update()
+			} else {
+				g.DB().Model("alliance_orders").Ctx(ctx).Data(data).Insert()
+			}
+			totalSaved++
+		}
+
+		cursor = rawResp.Data.Cursor
+		if cursor == "" {
+			break
+		}
+	}
+
+	g.Log().Infof(ctx, "[AlliancePuller] 拉取完成: %s, 保存 %d 条", startTime, totalSaved)
+	return nil
+}
+
+func getStrVal(m map[string]interface{}, key string) string {
+	v, ok := m[key]
+	if !ok || v == nil { return "" }
+	switch s := v.(type) {
+	case string: return s
+	case float64: return fmt.Sprintf("%.0f", s)
+	default: return fmt.Sprint(s)
+	}
+}
+
+func getIntVal(m map[string]interface{}, key string) int {
+	v, ok := m[key]
+	if !ok || v == nil { return 0 }
+	switch n := v.(type) {
+	case float64: return int(n)
+	case int: return n
+	case string: return 0
+	default: return 0
+	}
 }

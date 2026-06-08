@@ -135,3 +135,19 @@ type FinanceTraderExportReq struct {
 	StartDate string `json:"startDate" in:"query" dc:"开始日期"`
 	EndDate   string `json:"endDate" in:"query" dc:"结束日期"`
 }
+
+// ==================== 账号订单列表 ====================
+
+// FinanceAccountOrdersReq 账号订单列表请求
+type FinanceAccountOrdersReq struct {
+	g.Meta    `path:"/finance/account-orders" method:"get" tags:"Finance" summary:"获取账号订单列表"`
+	AccountId int    `json:"accountId" in:"query" v:"required#账号ID不能为空" dc:"账号ID"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
+	StartDate string `json:"startDate" in:"query" dc:"开始日期"`
+	EndDate   string `json:"endDate" in:"query" dc:"结束日期"`
+	Page      int    `json:"page" in:"query" d:"1" dc:"页码"`
+	PageSize  int    `json:"pageSize" in:"query" d:"20" dc:"每页数量"`
+}
+
+// FinanceAccountOrdersRes 账号订单列表响应
+type FinanceAccountOrdersRes = model.FinanceAccountOrdersRes
