@@ -1,7 +1,0 @@
-2026-04-15T17:54:55.877+08:00 [INFO] [CrawlerStatus] 服务上线 taskId=hOS94OKZQArpD3xz loginType=qrcode
-2026-04-15T18:00:20.444+08:00 [ERRO] [CrawlerService] task hOS94OKZQArpD3xz failed: 未抓取到商品数据 
-Stack:
-1.  go-crawler/internal/controller/crawler_service.(*Controller).CrawlerServiceLogin.func1
-    /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/internal/controller/crawler_service/crawler_service.go:100
-
-2026-04-15T18:00:20.946+08:00 [INFO] [CrawlerStatus] 服务下线 taskId=hOS94OKZQArpD3xz

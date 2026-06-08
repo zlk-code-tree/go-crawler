@@ -1,0 +1,38 @@
+# 编译产物
+main
+myapp-*
+*.exe
+*.exe~
+*.test
+*.out
+*.prof
+
+# 日志文件
+logs/
+*.log
+
+# 临时导出目录
+exports/
+uploads/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 环境配置（敏感信息）
+.env
+.env.local
+.env.*.local
+
+# Go
+vendor/
+
+# 依赖
+node_modules/
