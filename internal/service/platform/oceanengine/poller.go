@@ -76,6 +76,12 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 	if row.IsEmpty() {
 		return "", nil, fmt.Errorf("未找到有效的access_token，请先完成巨量千川OAuth授权")
 	}
+	// 检查是否过期
+	if expiresAt := row["expires_at"].String(); expiresAt != "" {
+		if t, err := time.Parse("2006-01-02 15:04:05", expiresAt); err == nil && time.Now().After(t) {
+			return "", nil, fmt.Errorf("access_token已于%s过期，请重新授权", expiresAt[:10])
+		}
+	}
 	accessToken := row["access_token"].String()
 	var advertiserIDs []int64
 	if idsJSON := row["advertiser_ids"].String(); idsJSON != "" {

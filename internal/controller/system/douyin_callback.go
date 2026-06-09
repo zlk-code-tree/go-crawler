@@ -3,6 +3,7 @@ package system
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
@@ -154,10 +155,15 @@ func saveTokenRecord(ctx context.Context, accessToken string, resp interface{}) 
 	// 保存 token 到 qianchuan_token 表，供定时拉取使用
 	if tokenResp, ok := resp.(*models.Oauth2AccessTokenResponse); ok {
 		idsJSON, _ := json.Marshal(tokenResp.Data.AdvertiserIds)
+		expiresAt := ""
+		if tokenResp.Data.ExpiresIn != nil && *tokenResp.Data.ExpiresIn > 0 {
+			expiresAt = time.Now().Add(time.Duration(*tokenResp.Data.ExpiresIn) * time.Second).Format("2006-01-02 15:04:05")
+		}
 		g.DB().Model("qianchuan_token").Ctx(ctx).Data(g.Map{
 			"access_token":   accessToken,
 			"advertiser_ids": string(idsJSON),
 			"expires_in":     tokenResp.Data.ExpiresIn,
+			"expires_at":     expiresAt,
 		}).Insert()
 	}
 }

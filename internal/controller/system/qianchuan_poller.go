@@ -23,8 +23,18 @@ func NewQianchuanPollerController() *QianchuanPollerController {
 
 // TokenStatus 检查千川授权状态 GET /api/qianchuan/token-status
 func (c *QianchuanPollerController) TokenStatus(r *ghttp.Request) {
-	row, err := g.DB().Model("qianchuan_token").Ctx(r.Context()).OrderDesc("id").Limit(1).One()
-	hasToken := err == nil && !row.IsEmpty()
+	row, _ := g.DB().Model("qianchuan_token").Ctx(r.Context()).OrderDesc("id").Limit(1).One()
+	hasToken := !row.IsEmpty()
+	expired := false
+	expiresAt := ""
+	if hasToken {
+		expiresAt = row["expires_at"].String()
+		if expiresAt != "" {
+			if t, err := time.Parse("2006-01-02 15:04:05", expiresAt); err == nil && time.Now().After(t) {
+				expired = true
+			}
+		}
+	}
 
 	appId := g.Cfg().MustGet(r.Context(), "platform.qianchuan.appId").String()
 	redirectUri := g.Cfg().MustGet(r.Context(), "platform.qianchuan.redirectUri").String()
@@ -33,7 +43,9 @@ func (c *QianchuanPollerController) TokenStatus(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
 		"data": g.Map{
-			"authorized": hasToken,
+			"authorized": hasToken && !expired,
+			"expired":    expired,
+			"expiresAt":  expiresAt,
 			"authUrl":    authUrl,
 		},
 		"msg": "ok",
