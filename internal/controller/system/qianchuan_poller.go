@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"time"
 
 	"go-crawler/internal/service"
@@ -20,11 +21,30 @@ func NewQianchuanPollerController() *QianchuanPollerController {
 	return &QianchuanPollerController{}
 }
 
+// TokenStatus 检查千川授权状态 GET /api/qianchuan/token-status
+func (c *QianchuanPollerController) TokenStatus(r *ghttp.Request) {
+	row, err := g.DB().Model("qianchuan_token").Ctx(r.Context()).OrderDesc("id").Limit(1).One()
+	hasToken := err == nil && !row.IsEmpty()
+
+	appId := g.Cfg().MustGet(r.Context(), "platform.qianchuan.appId").String()
+	redirectUri := g.Cfg().MustGet(r.Context(), "platform.qianchuan.redirectUri").String()
+	authUrl := fmt.Sprintf("https://ad.oceanengine.com/openapi/audit/oauth.html?app_id=%s&redirect_uri=%s", appId, url.QueryEscape(redirectUri))
+
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"data": g.Map{
+			"authorized": hasToken,
+			"authUrl":    authUrl,
+		},
+		"msg": "ok",
+	})
+}
+
 // AuthUrl 获取巨量千川OAuth授权链接 GET /api/qianchuan/auth-url
 func (c *QianchuanPollerController) AuthUrl(r *ghttp.Request) {
 	appId := g.Cfg().MustGet(r.Context(), "platform.qianchuan.appId").String()
 	redirectUri := g.Cfg().MustGet(r.Context(), "platform.qianchuan.redirectUri").String()
-	authUrl := fmt.Sprintf("https://ad.oceanengine.com/openapi/audit/oauth.html?app_id=%s&redirect_uri=%s", appId, redirectUri)
+	authUrl := fmt.Sprintf("https://ad.oceanengine.com/openapi/audit/oauth.html?app_id=%s&redirect_uri=%s", appId, url.QueryEscape(redirectUri))
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
 		"data": g.Map{

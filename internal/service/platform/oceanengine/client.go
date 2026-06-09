@@ -2,6 +2,7 @@ package oceanengine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -32,22 +33,34 @@ func ExchangeToken(ctx context.Context, authCode string) (*models.Oauth2AccessTo
 	appId := cfg.MustGet(ctx, "platform.qianchuan.appId").Int64()
 	secret := cfg.MustGet(ctx, "platform.qianchuan.appSecret").String()
 
-	client := ad_open_sdk_go.Init(config.NewConfiguration())
+	g.Log().Infof(ctx, "[Qianchuan] ExchangeToken: appId=%d, secret=%s, authCode=%s", appId, secret[:8]+"...", authCode[:8]+"...")
 
-	resp, _, err := client.Oauth2AccessTokenApi().Post(ctx).
-		Oauth2AccessTokenRequest(models.Oauth2AccessTokenRequest{
-			AppId:    &appId,
-			Secret:   secret,
-			AuthCode: authCode,
-		}).
-		Execute()
+	// 使用原始 HTTP 请求，避免 SDK 的 omitempty 等问题
+	var respData models.Oauth2AccessTokenResponse
+	client := g.Client()
+	client.SetHeader("Content-Type", "application/json")
+	resp, err := client.Post(ctx, "https://ad.oceanengine.com/open_api/oauth2/access_token/", g.Map{
+		"app_id":    appId,
+		"secret":    secret,
+		"auth_code": authCode,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("换取access_token失败: %w", err)
 	}
-	if resp.Code != nil && *resp.Code != 0 {
-		return nil, fmt.Errorf("换取access_token失败: code=%d, msg=%s", *resp.Code, *resp.Message)
+	defer resp.Close()
+
+	body := resp.ReadAllString()
+	g.Log().Debugf(ctx, "[Qianchuan] ExchangeToken原始响应: %s", body)
+	if err := json.Unmarshal([]byte(body), &respData); err != nil {
+		return nil, fmt.Errorf("解析access_token响应失败: %w, body=%s", err, body)
 	}
-	return resp, nil
+
+	g.Log().Infof(ctx, "[Qianchuan] ExchangeToken响应: code=%v", respData.Code)
+
+	if respData.Code != nil && *respData.Code != 0 {
+		return nil, fmt.Errorf("换取access_token失败: code=%d, msg=%s", *respData.Code, *respData.Message)
+	}
+	return &respData, nil
 }
 
 // ==================== Step1: 获取广告主信息（账户名称） ====================

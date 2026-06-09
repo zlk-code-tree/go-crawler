@@ -61,6 +61,7 @@ var (
 				douyinCallbackCtrl := system.NewDouyinCallbackController()
 				group.GET("/douyin/callback", douyinCallbackCtrl.Callback)
 				group.GET("/qianchuan/auth-url", system.NewQianchuanPollerController().AuthUrl)
+				group.GET("/qianchuan/token-status", system.NewQianchuanPollerController().TokenStatus)
 			})
 
 			// 需要认证的 API 路由

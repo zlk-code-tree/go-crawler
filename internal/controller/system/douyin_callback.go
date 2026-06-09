@@ -3,7 +3,6 @@ package system
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
@@ -27,10 +26,7 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 	authCode := r.GetQuery("auth_code").String()
 
 	if authCode == "" {
-		r.Response.WriteJsonExit(g.Map{
-			"code": 400,
-			"msg":  "缺少 auth_code 参数",
-		})
+		r.Response.Write(`<html><body><h2>授权失败</h2><p>缺少 auth_code 参数</p></body></html>`)
 		return
 	}
 
@@ -40,10 +36,7 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 	tokenResp, err := oceanengine.ExchangeToken(ctx, authCode)
 	if err != nil {
 		g.Log().Errorf(ctx, "[QianchuanCallback] 换取token失败: %v", err)
-		r.Response.WriteJsonExit(g.Map{
-			"code": 500,
-			"msg":  "换取access_token失败: " + err.Error(),
-		})
+		r.Response.Writef(`<html><body><h2>授权失败</h2><p>换取access_token失败: %s</p></body></html>`, err.Error())
 		return
 	}
 
@@ -60,12 +53,12 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 	pullDays := g.Cfg().MustGet(ctx, "platform.qianchuan.pullDays", 30).Int()
 
 	type accountResult struct {
-		AdvertiserID   int64                         `json:"advertiser_id"`
-		AdvertiserName string                        `json:"advertiser_name"`
-		TotalCombined  int                           `json:"total_combined"`
-		Saved          int                           `json:"saved"`
-		Combined       []oceanengine.CombinedReport  `json:"combined,omitempty"`
-		Error          string                        `json:"error,omitempty"`
+		AdvertiserID   int64                        `json:"advertiser_id"`
+		AdvertiserName string                       `json:"advertiser_name"`
+		TotalCombined  int                          `json:"total_combined"`
+		Saved          int                          `json:"saved"`
+		Combined       []oceanengine.CombinedReport `json:"combined,omitempty"`
+		Error          string                       `json:"error,omitempty"`
 	}
 
 	var results []accountResult
@@ -105,7 +98,6 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 				"ctr":             item.Ctr,
 				"convert_cnt":     item.ConvertCnt,
 				"convert_cost":    item.ConvertCost,
-				"updated_at":      time.Now(),
 			}
 
 			count, _ := g.DB().Model("qianchuan_ad_report").Ctx(ctx).
@@ -139,20 +131,10 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 	// 记录回调日志
 	logCallbackReq(ctx, authCode, advertiserIDs, results)
 
-	msg := "授权成功"
-	if totalSaved > 0 {
-		msg = "授权成功，已拉取数据"
-	}
+	g.Log().Infof(ctx, "[QianchuanCallback] 授权完成: 账户数=%d, 入库=%d条", len(results), totalSaved)
 
-	r.Response.WriteJsonExit(g.Map{
-		"code": 0,
-		"msg":  msg,
-		"data": g.Map{
-			"advertiser_count": len(results),
-			"total_saved":      totalSaved,
-			"results":          results,
-		},
-	})
+	// 重定向到系统首页
+	r.Response.RedirectTo("/order/douyin")
 }
 
 // ==================== 辅助函数 ====================
