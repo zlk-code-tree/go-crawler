@@ -180,7 +180,7 @@ func (s *FinanceAggregateService) queryPlatformOrders(ctx context.Context, table
 			COALESCE(SUM(CASE WHEN %s THEN o.product_num ELSE 0 END), 0) AS product_num,
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price, 0) * o.product_num ELSE 0 END), 0) AS pay_amount,
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS cost_amount,
-			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price, 0) * o.product_num ELSE 0 END), 0) AS refund_cost_amount,
+			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS refund_cost_amount,
 			COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_order_count,
 			COUNT(DISTINCT CASE WHEN %s AND g.base_price > 0 THEN o.%s END) AS valid_order_cost_match
 		FROM %s o
@@ -220,8 +220,9 @@ func newOrderStatItem(row gdb.Record, talentId, platform string) OrderStatItem {
 		shopServiceFee = payAmount * 0.02
 	}
 	// 佣金 = 定价总额 - 留底 - 货款 - 小店服务费
-	commission := payAmount - costAmount - reserveAmount - shopServiceFee
-	realtimeProfit := payAmount - costAmount - reserveAmount - refundCostAmount - shopServiceFee - commission
+	commission := payAmount - costAmount - reserveAmount
+	commissionDeduction := (payAmount - reserveAmount - costAmount) * 0.005
+		realtimeProfit := payAmount - costAmount - reserveAmount - refundCostAmount - shopServiceFee - commissionDeduction
 
 	return OrderStatItem{
 		TalentId:             talentId,
@@ -320,7 +321,12 @@ func (s *FinanceAggregateService) saveStat(ctx context.Context, date string, com
 		"realtime_profit":        stat.RealtimeProfit,
 	}
 
-	_, err := g.DB().Model("finance_daily_stats").Data(data).InsertIgnore()
+	_, err := g.DB().Model("finance_daily_stats").Ctx(ctx).Data(data).OnDuplicate(
+			"total_order_count", "order_count", "invalid_order_count", "product_num",
+			"pay_amount", "cost_amount", "reserve_amount", "commission",
+			"refund_cost_amount", "refund_order_count", "shop_service_fee",
+			"ad_cost_amount", "valid_order_cost_match", "commission_order_count", "realtime_profit",
+		).Insert()
 	if err != nil {
 		g.Log().Warningf(ctx, "[FinanceAggregate] 保存统计失败: %v, data: %+v", err, data)
 	}
@@ -389,7 +395,7 @@ func (s *FinanceAggregateService) OrderDailyAggregateJob(ctx context.Context, da
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price,0)*o.product_num ELSE 0 END),0) AS valid_pay_amount,
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price,0)*o.product_num ELSE 0 END),0) AS product_cost_amount,
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price,0)*o.product_num*0.03 ELSE 0 END),0) AS reserve_amount,
-			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price,0)*o.product_num ELSE 0 END),0) AS refund_cost_amount,
+			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price,o.product_price)*o.product_num ELSE 0 END),0) AS refund_cost_amount,
 			COUNT(DISTINCT CASE WHEN %s THEN o.main_order_no END) AS refund_order_count,
 			COUNT(DISTINCT CASE WHEN %s AND g.base_price>0 THEN o.main_order_no END) AS valid_order_cost_match
 		FROM order_info o

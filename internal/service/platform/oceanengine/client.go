@@ -39,7 +39,7 @@ func ExchangeToken(ctx context.Context, authCode string) (*models.Oauth2AccessTo
 	var respData models.Oauth2AccessTokenResponse
 	client := g.Client()
 	client.SetHeader("Content-Type", "application/json")
-	resp, err := client.Post(ctx, "https://ad.oceanengine.com/open_api/oauth2/access_token/", g.Map{
+	resp, err := client.Post(ctx, "https://api.oceanengine.com/open_api/oauth2/access_token/", g.Map{
 		"app_id":    appId,
 		"secret":    secret,
 		"auth_code": authCode,
@@ -50,17 +50,68 @@ func ExchangeToken(ctx context.Context, authCode string) (*models.Oauth2AccessTo
 	defer resp.Close()
 
 	body := resp.ReadAllString()
-	g.Log().Debugf(ctx, "[Qianchuan] ExchangeToken原始响应: %s", body)
+	g.Log().Infof(ctx, "[Qianchuan] ExchangeToken原始响应: %s", body)
 	if err := json.Unmarshal([]byte(body), &respData); err != nil {
 		return nil, fmt.Errorf("解析access_token响应失败: %w, body=%s", err, body)
 	}
 
-	g.Log().Infof(ctx, "[Qianchuan] ExchangeToken响应: code=%v", respData.Code)
-
 	if respData.Code != nil && *respData.Code != 0 {
 		return nil, fmt.Errorf("换取access_token失败: code=%d, msg=%s", *respData.Code, *respData.Message)
 	}
+
+	// 如果 advertiser_ids 为空，调用 advertiser/get 接口获取
+	if respData.Data != nil && len(respData.Data.AdvertiserIds) == 0 {
+		g.Log().Info(ctx, "[Qianchuan] token响应无advertiser_ids，调用advertiser/get获取")
+		advIds, err := getAdvertiserIDs(ctx, *respData.Data.AccessToken)
+		if err != nil {
+			g.Log().Warningf(ctx, "[Qianchuan] 获取广告主列表失败: %v", err)
+		} else {
+			respData.Data.AdvertiserIds = advIds
+			g.Log().Infof(ctx, "[Qianchuan] 从advertiser/get获取到 %d 个广告主", len(advIds))
+		}
+	}
+
 	return &respData, nil
+}
+
+// getAdvertiserIDs 调用 /oauth2/advertiser/get/ 获取已授权广告主列表
+func getAdvertiserIDs(ctx context.Context, accessToken string) ([]int64, error) {
+	client := g.Client()
+	resp, err := client.Get(ctx, "https://api.oceanengine.com/open_api/oauth2/advertiser/get/", g.Map{
+		"access_token": accessToken,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("请求advertiser/get失败: %w", err)
+	}
+	defer resp.Close()
+
+	body := resp.ReadAllString()
+	g.Log().Infof(ctx, "[Qianchuan] advertiser/get原始响应: %s", body)
+
+	var advResp struct {
+		Code    *int64 `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
+			List []struct {
+				AdvertiserId   *int64  `json:"advertiser_id"`
+				AdvertiserName *string `json:"advertiser_name"`
+			} `json:"list"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(body), &advResp); err != nil {
+		return nil, fmt.Errorf("解析advertiser/get响应失败: %w", err)
+	}
+	if advResp.Code != nil && *advResp.Code != 0 {
+		return nil, fmt.Errorf("advertiser/get返回错误: code=%d, msg=%s", *advResp.Code, advResp.Message)
+	}
+
+	var ids []int64
+	for _, item := range advResp.Data.List {
+		if item.AdvertiserId != nil {
+			ids = append(ids, *item.AdvertiserId)
+		}
+	}
+	return ids, nil
 }
 
 // ==================== Step1: 获取广告主信息（账户名称） ====================
@@ -108,120 +159,70 @@ func (c *Client) GetAdvertiserInfo(ctx context.Context, advertiserID int64) (*Ad
 
 // ==================== Step2: 获取广告计划列表（商品信息+抖音账号） ====================
 
-// AdPlan 广告计划（含商品和抖音账号信息）
+// AdPlan 广告计划
 type AdPlan struct {
-	AdID          int64  // 计划ID
-	AdName        string // 计划名称
-	AdvertiserID  int64  // 账户ID
-	CampaignID    int64  // 广告组ID
-	ProductID     int64  // 商品ID
-	ProductName   string // 商品名称
-	ProductImg    string // 商品图片
-	AwemeID       int64  // 抖音账号ID
-	AwemeName     string // 抖音账号名称
-	AwemeAvatar   string // 抖音账号头像
-	AwemeShowID   string // 抖音号
-	AdCreateTime  string // 计划创建时间
-	AdModifyTime  string // 计划修改时间
-	Status        string // 计划状态
+	AdID         int64  // 计划ID
+	AdName       string // 计划名称
+	AdvertiserID int64  // 账户ID
+	AdCreateTime string // 计划创建时间
+	AdModifyTime string // 计划修改时间
+	Status       string // 计划状态
 }
 
-// GetAllAdPlans 获取广告主下所有广告计划（含商品和抖音账号信息）
+// GetAllAdPlans 获取广告主下所有广告计划（巨量引擎 v2/ad/get/）
 func (c *Client) GetAllAdPlans(ctx context.Context, advertiserID int64) ([]AdPlan, error) {
 	var allPlans []AdPlan
-	page := int32(1)
-	pageSize := int32(100)
+	page := 1
+	pageSize := 100
 
 	for {
-		client := ad_open_sdk_go.Init(c.cfg)
-
-		// requestAwemeInfo=1 返回抖音账号信息
-		reqAwemeInfo := int64(1)
-
-		// 查询所有状态的计划
-		status := models.ALL_QianchuanAdGetV10FilteringStatus
-		filtering := models.QianchuanAdGetV10Filtering{
-			Status: &status,
-		}
-
-		resp, _, err := client.QianchuanAdGetV10Api().Get(ctx).
-			AdvertiserId(advertiserID).
-			Filtering(filtering).
-			RequestAwemeInfo(reqAwemeInfo).
-			Page(page).
-			PageSize(pageSize).
-			AccessToken(c.accessToken).
-			Execute()
+		httpClient := g.Client(); httpClient.SetTimeout(30*time.Second)
+		// token via query param below
+			g.Log().Infof(ctx, "[Qianchuan] 调用广告列表API advID=%d page=%d", advertiserID, page)
+		httpClient.SetHeader("Access-Token", c.accessToken)
+			resp, err := httpClient.Get(ctx, "https://api.oceanengine.com/open_api/2/ad/get/", g.Map{
+				"advertiser_id": advertiserID,
+			"fields":        `["ad_id","ad_name","advertiser_id","ad_create_time","ad_modify_time","status"]`,
+			"page":          page,
+			"page_size":     pageSize,
+		})
 		if err != nil {
-			return nil, fmt.Errorf("获取广告计划列表失败(advertiserID=%d, page=%d): %w", advertiserID, page, err)
+			return nil, fmt.Errorf("获取广告计划列表失败(advertiserID=%d): %w", advertiserID, err)
 		}
-		if resp.Code != nil && *resp.Code != 0 {
-			return nil, fmt.Errorf("广告计划列表返回错误: code=%d, msg=%s", *resp.Code, *resp.Message)
+		body := resp.ReadAllString()
+		resp.Close()
+		g.Log().Infof(ctx, "[Qianchuan] 广告列表原始响应(advID=%d): %s", advertiserID, body)
+
+		var result struct {
+			Code    int64  `json:"code"`
+			Message string `json:"message"`
+			Data    struct {
+				List []struct {
+					AdId         *int64  `json:"ad_id"`
+					AdName       *string `json:"ad_name"`
+					AdCreateTime *string `json:"ad_create_time"`
+				} `json:"list"`
+				PageInfo struct {
+					TotalPage *int64 `json:"total_page"`
+				} `json:"page_info"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(body), &result); err != nil {
+			return nil, fmt.Errorf("解析广告列表响应失败: %w", err)
+		}
+		if result.Code != 0 {
+			return nil, fmt.Errorf("广告列表返回错误: code=%d, msg=%s", result.Code, result.Message)
 		}
 
-		for _, item := range resp.Data.List {
+		for _, item := range result.Data.List {
 			plan := AdPlan{AdvertiserID: advertiserID}
-
-			if item.AdId != nil {
-				plan.AdID = *item.AdId
-			}
-			if item.Name != nil {
-				plan.AdName = *item.Name
-			}
-			if item.CampaignId != nil {
-				plan.CampaignID = *item.CampaignId
-			}
-			if item.AdCreateTime != nil {
-				plan.AdCreateTime = *item.AdCreateTime
-			}
-			if item.AdModifyTime != nil {
-				plan.AdModifyTime = *item.AdModifyTime
-			}
-			if item.Status != nil {
-				plan.Status = string(*item.Status)
-			}
-
-			// 取第一个商品信息
-			if len(item.ProductInfo) > 0 {
-				p := item.ProductInfo[0]
-				if p.Id != nil {
-					plan.ProductID = *p.Id
-				}
-				if p.Name != nil {
-					plan.ProductName = *p.Name
-				}
-				if p.Img != nil {
-					plan.ProductImg = *p.Img
-				}
-			}
-
-			// 取第一个抖音账号信息
-			if len(item.AwemeInfo) > 0 {
-				a := item.AwemeInfo[0]
-				if a.AwemeId != nil {
-					plan.AwemeID = *a.AwemeId
-				}
-				if a.AwemeName != nil {
-					plan.AwemeName = *a.AwemeName
-				}
-				if a.AwemeAvatar != nil {
-					plan.AwemeAvatar = *a.AwemeAvatar
-				}
-				if a.AwemeShowId != nil {
-					plan.AwemeShowID = *a.AwemeShowId
-				}
-			}
-
+			if item.AdId != nil { plan.AdID = *item.AdId }
+			if item.AdName != nil { plan.AdName = *item.AdName }
+			if item.AdCreateTime != nil { plan.AdCreateTime = *item.AdCreateTime }
 			allPlans = append(allPlans, plan)
 		}
 
-		// 分页判断
-		if resp.Data.PageInfo == nil ||
-			resp.Data.PageInfo.TotalNumber == nil ||
-			resp.Data.PageInfo.TotalPage == nil {
-			break
-		}
-		if page >= *resp.Data.PageInfo.TotalPage {
+		if result.Data.PageInfo.TotalPage == nil || page >= int(*result.Data.PageInfo.TotalPage) {
 			break
 		}
 		page++
@@ -238,102 +239,66 @@ type AdReport struct {
 	AdvertiserID int64   // 账户ID
 	StatCost     float64 // 消耗（元）
 	StatDatetime string  // 统计日期
-	ShowCnt      float64 // 展示数
-	ClickCnt     float64 // 点击数
-	Ctr          float64 // 点击率
-	CpmPlatform  float64 // CPM
-	CpcPlatform  float64 // CPC
-	ConvertCnt   float64 // 转化数
-	ConvertCost  float64 // 转化成本
-	ConvertRate  float64 // 转化率
 }
 
-// GetAdReport 获取广告计划报表
-// startDate/endDate 格式: 2006-01-02
+// GetAdReport 获取广告报表（巨量引擎 v2/report/ad/get/）
 func (c *Client) GetAdReport(ctx context.Context, advertiserID int64, startDate, endDate string) ([]AdReport, error) {
-	client := ad_open_sdk_go.Init(c.cfg)
-
-	fields := []string{
-		"ad_id", "advertiser_id", "stat_cost", "stat_datetime",
-		"show_cnt", "click_cnt", "ctr", "cpm_platform", "cpc_platform",
-		"convert_cnt", "convert_cost", "convert_rate",
-	}
-
-	timeGranularity := models.TIME_GRANULARITY_DAILY_QianchuanReportAdGetV10TimeGranularity
-
-	filtering := models.QianchuanReportAdGetV10Filtering{
-		MarketingGoal: models.ALL_QianchuanReportAdGetV10FilteringMarketingGoal,
-	}
-
-	page := int32(1)
-	pageSize := int32(200)
+	page := 1
+	pageSize := 200
 	var allReports []AdReport
 
 	for {
-		resp, _, err := client.QianchuanReportAdGetV10Api().Get(ctx).
-			AdvertiserId(advertiserID).
-			StartDate(startDate).
-			EndDate(endDate).
-			Fields(fields).
-			Filtering(filtering).
-			TimeGranularity(timeGranularity).
-			Page(page).
-			PageSize(pageSize).
-			AccessToken(c.accessToken).
-			Execute()
+		httpClient := g.Client(); httpClient.SetTimeout(30*time.Second)
+		// token via query param below
+			g.Log().Infof(ctx, "[Qianchuan] 调用广告列表API advID=%d page=%d", advertiserID, page)
+		httpClient.SetHeader("Access-Token", c.accessToken)
+			resp, err := httpClient.Get(ctx, "https://api.oceanengine.com/open_api/2/report/ad/get/", g.Map{
+				"advertiser_id": advertiserID,
+				"start_date":    startDate,
+			"end_date":         endDate,
+			"fields":           `["ad_id","advertiser_id","stat_cost","stat_datetime"]`,
+			"time_granularity": "STAT_TIME_GRANULARITY_DAILY",
+			"page":             page,
+			"page_size":        pageSize,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("获取广告报表失败(advertiserID=%d): %w", advertiserID, err)
 		}
-		if resp.Code != nil && *resp.Code != 0 {
-			return nil, fmt.Errorf("广告报表返回错误: code=%d, msg=%s", *resp.Code, *resp.Message)
+		body := resp.ReadAllString()
+		resp.Close()
+
+		var result struct {
+			Code    int64  `json:"code"`
+			Message string `json:"message"`
+			Data    struct {
+				List []struct {
+					AdId         *int64   `json:"ad_id"`
+					AdvertiserId *int64   `json:"advertiser_id"`
+					StatCost     *float64 `json:"stat_cost"`
+					StatDatetime *string  `json:"stat_datetime"`
+				} `json:"list"`
+				PageInfo struct {
+					TotalPage *int64 `json:"total_page"`
+				} `json:"page_info"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(body), &result); err != nil {
+			return nil, fmt.Errorf("解析报表响应失败: %w", err)
+		}
+		if result.Code != 0 {
+			return nil, fmt.Errorf("报表返回错误: code=%d, msg=%s", result.Code, result.Message)
 		}
 
-		for _, item := range resp.Data.List {
+		for _, item := range result.Data.List {
 			r := AdReport{}
-			if item.AdId != nil {
-				r.AdID = *item.AdId
-			}
-			if item.AdvertiserId != nil {
-				r.AdvertiserID = *item.AdvertiserId
-			}
-			if item.StatCost != nil {
-				r.StatCost = *item.StatCost
-			}
-			if item.StatDatetime != nil {
-				r.StatDatetime = *item.StatDatetime
-			}
-			if item.ShowCnt != nil {
-				r.ShowCnt = *item.ShowCnt
-			}
-			if item.ClickCnt != nil {
-				r.ClickCnt = *item.ClickCnt
-			}
-			if item.Ctr != nil {
-				r.Ctr = *item.Ctr
-			}
-			if item.CpmPlatform != nil {
-				r.CpmPlatform = *item.CpmPlatform
-			}
-			if item.CpcPlatform != nil {
-				r.CpcPlatform = *item.CpcPlatform
-			}
-			if item.ConvertCnt != nil {
-				r.ConvertCnt = *item.ConvertCnt
-			}
-			if item.ConvertCost != nil {
-				r.ConvertCost = *item.ConvertCost
-			}
-			if item.ConvertRate != nil {
-				r.ConvertRate = *item.ConvertRate
-			}
+			if item.AdId != nil { r.AdID = *item.AdId }
+			if item.AdvertiserId != nil { r.AdvertiserID = *item.AdvertiserId }
+			if item.StatCost != nil { r.StatCost = *item.StatCost }
+			if item.StatDatetime != nil { r.StatDatetime = *item.StatDatetime }
 			allReports = append(allReports, r)
 		}
 
-		if resp.Data.PageInfo == nil ||
-			resp.Data.PageInfo.TotalPage == nil {
-			break
-		}
-		if int64(page) >= *resp.Data.PageInfo.TotalPage {
+		if result.Data.PageInfo.TotalPage == nil || page >= int(*result.Data.PageInfo.TotalPage) {
 			break
 		}
 		page++
@@ -363,27 +328,23 @@ type CombinedReport struct {
 	AdvertiserName string  `json:"advertiser_name"`
 	AdID           int64   `json:"ad_id"`
 	AdName         string  `json:"ad_name"`
-	ProductID      int64   `json:"product_id"`
-	ProductName    string  `json:"product_name"`
-	AwemeID        int64   `json:"aweme_id"`
-	AwemeName      string  `json:"aweme_name"`
-	AwemeShowID    string  `json:"aweme_show_id"`
 	StatCost       float64 `json:"stat_cost"`
 	StatDatetime   string  `json:"stat_datetime"`
-	ShowCnt        float64 `json:"show_cnt"`
-	ClickCnt       float64 `json:"click_cnt"`
-	Ctr            float64 `json:"ctr"`
-	ConvertCnt     float64 `json:"convert_cnt"`
-	ConvertCost    float64 `json:"convert_cost"`
 }
 
 // PullAll 拉取指定广告主的全量数据（计划列表 + 报表）
 // days: 拉取最近多少天的报表数据
 func (c *Client) PullAll(ctx context.Context, advertiserID int64, days int) (*PullResult, error) {
 	now := time.Now()
-	return c.PullAllByDate(ctx, advertiserID,
-		now.AddDate(0, 0, -days).Format("2006-01-02"),
-		now.Format("2006-01-02"))
+	startDate := now.AddDate(0, 0, -days).Format("2006-01-02")
+	endDate := now.Format("2006-01-02")
+	g.Log().Infof(ctx, "[Qianchuan] PullAll: advertiserID=%d, dateRange=%s~%s, token前8位=%s", advertiserID, startDate, endDate, c.accessToken[:min(8, len(c.accessToken))])
+	return c.PullAllByDate(ctx, advertiserID, startDate, endDate)
+}
+
+func min(a, b int) int {
+	if a < b { return a }
+	return b
 }
 
 // PullAllByDate 拉取指定广告主在指定日期范围内的全量数据
@@ -431,24 +392,15 @@ func (c *Client) PullAllByDate(ctx context.Context, advertiserID int64, startDat
 			AdID:           r.AdID,
 			StatCost:       r.StatCost,
 			StatDatetime:   r.StatDatetime,
-			ShowCnt:        r.ShowCnt,
-			ClickCnt:       r.ClickCnt,
-			Ctr:            r.Ctr,
-			ConvertCnt:     r.ConvertCnt,
-			ConvertCost:    r.ConvertCost,
 		}
 		if plan, ok := planMap[r.AdID]; ok {
 			combined.AdName = plan.AdName
-			combined.ProductID = plan.ProductID
-			combined.ProductName = plan.ProductName
-			combined.AwemeID = plan.AwemeID
-			combined.AwemeName = plan.AwemeName
-			combined.AwemeShowID = plan.AwemeShowID
 		}
 		result.Combined = append(result.Combined, combined)
 	}
 	result.TotalCombined = len(result.Combined)
 
+	g.Log().Infof(ctx, "[Qianchuan] PullAll结果: plans=%d, reports=%d, combined=%d", result.TotalPlans, result.TotalReports, result.TotalCombined)
 	return result, nil
 }
 

@@ -952,7 +952,8 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 			// 佣金 = 定价总额 - 留底 - 货款 - 小店服务费
 			stats.Commission = roundFloatFinance(stats.Commission-stats.ShopServiceFee, 2)
 			// 实时利润 = 定价总额 - 货款 - 留底 - 退款成本 - 小店服务费 - 佣金 - 广告费
-			stats.RealtimeProfit = roundFloatFinance(stats.PayAmount-stats.CostAmount-stats.ReserveAmount-stats.RefundCostAmount-stats.ShopServiceFee-stats.Commission-stats.AdCostAmount, 2)
+			commissionDeduction := roundFloatFinance((stats.PayAmount-stats.ReserveAmount-stats.CostAmount)*0.005, 2)
+				stats.RealtimeProfit = roundFloatFinance(stats.PayAmount-stats.CostAmount-stats.ReserveAmount-stats.RefundCostAmount-stats.ShopServiceFee-commissionDeduction-stats.AdCostAmount, 2)
 
 			totalStats.TotalOrderCount += stats.TotalOrderCount
 			totalStats.OrderCount += stats.OrderCount
@@ -1024,7 +1025,7 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price, 0) * o.product_num ELSE 0 END), 0) AS pay_amount,
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS cost_amount,
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price, 0) * o.product_num * 0.03 ELSE 0 END), 0) AS reserve_amount,
-			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price, 0) * o.product_num ELSE 0 END), 0) AS refund_cost_amount,
+			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS refund_cost_amount,
 			COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_order_count,
 			COUNT(DISTINCT CASE WHEN %s AND g.base_price > 0 THEN o.%s END) AS valid_order_cost_match
 		FROM %s o
@@ -1364,8 +1365,8 @@ func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, r
 			}
 			// 佣金 = 定价总额 - 留底 - 货款 - 小店服务费
 			stats.Commission = roundFloatFinance(stats.Commission-stats.ShopServiceFee, 2)
-			// 实时利润
-			stats.RealtimeProfit = roundFloatFinance(stats.PayAmount-stats.CostAmount-stats.ReserveAmount-stats.RefundCostAmount-stats.ShopServiceFee-stats.Commission-stats.AdCostAmount, 2)
+			// 实时利润 = 佣金 - 退款成本 - 广告费
+			stats.RealtimeProfit = roundFloatFinance(stats.Commission-stats.RefundCostAmount-stats.AdCostAmount, 2)
 
 			totalStats.TotalOrderCount += stats.TotalOrderCount
 			totalStats.OrderCount += stats.OrderCount

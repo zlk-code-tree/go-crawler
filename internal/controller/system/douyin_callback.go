@@ -87,18 +87,8 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 				"advertiser_name": item.AdvertiserName,
 				"ad_id":           item.AdID,
 				"ad_name":         item.AdName,
-				"product_id":      item.ProductID,
-				"product_name":    item.ProductName,
-				"aweme_id":        item.AwemeID,
-				"aweme_name":      item.AwemeName,
-				"aweme_show_id":   item.AwemeShowID,
 				"stat_cost":       item.StatCost,
 				"stat_datetime":   item.StatDatetime,
-				"show_cnt":        item.ShowCnt,
-				"click_cnt":       item.ClickCnt,
-				"ctr":             item.Ctr,
-				"convert_cnt":     item.ConvertCnt,
-				"convert_cost":    item.ConvertCost,
 			}
 
 			count, _ := g.DB().Model("qianchuan_ad_report").Ctx(ctx).
@@ -135,7 +125,9 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 	g.Log().Infof(ctx, "[QianchuanCallback] 授权完成: 账户数=%d, 入库=%d条", len(results), totalSaved)
 
 	// 重定向到系统首页
-	r.Response.RedirectTo("/order/douyin")
+	// HTTP 302 不支持 # 片段，用 JS 跳转
+r.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
+r.Response.Write(`<!DOCTYPE html><html><head><meta charset="utf-8"><script>location.replace("/#/order/douyin");</script></head><body><p>授权成功，正在跳转...</p></body></html>`)
 }
 
 // ==================== 辅助函数 ====================

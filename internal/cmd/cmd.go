@@ -47,6 +47,69 @@ var (
 			s := g.Server()
 			s.SetClientMaxBodySize(0) // 0表示无限制，解决大文件上传问题
 
+			// 自动建表：千川token存储
+			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS qianchuan_token (
+				id BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+				access_token VARCHAR(512) NOT NULL DEFAULT '' COMMENT 'access_token',
+				advertiser_ids TEXT COMMENT '授权的广告主ID列表',
+				expires_in INT(11) NOT NULL DEFAULT 0 COMMENT '过期时间（秒）',
+				expires_at DATETIME DEFAULT NULL COMMENT 'token过期时间',
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+				PRIMARY KEY (id)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`)
+
+			// 自动建表：系统消息通知
+			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS system_notification (
+				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+				title VARCHAR(200) NOT NULL DEFAULT '' COMMENT '消息标题',
+				content TEXT COMMENT '消息内容JSON',
+				type VARCHAR(30) NOT NULL DEFAULT 'system' COMMENT '消息类型',
+				source_type VARCHAR(50) NOT NULL DEFAULT '' COMMENT '来源类型',
+				source_id BIGINT NOT NULL DEFAULT 0 COMMENT '来源记录ID',
+				level TINYINT NOT NULL DEFAULT 0 COMMENT '消息级别: 0普通 1重要 2紧急',
+				is_read TINYINT NOT NULL DEFAULT 0 COMMENT '是否已读',
+				read_at DATETIME DEFAULT NULL COMMENT '阅读时间',
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+				PRIMARY KEY (id)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`)
+
+			// 千川token：调用advertiser/get API获取正确的广告主列表
+			go func() {
+				bgCtx := context.Background()
+				time.Sleep(3 * time.Second)
+				row, _ := g.DB().Model("qianchuan_token").Ctx(bgCtx).OrderDesc("id").Limit(1).One()
+				if row.IsEmpty() { return }
+				token := row["access_token"].String()
+				g.Log().Infof(bgCtx, "[Qianchuan] 启动获取advertiser列表, token前8位=%s", token[:8])
+				client := g.Client()
+				resp, err := client.Get(bgCtx, "https://api.oceanengine.com/open_api/oauth2/advertiser/get/", g.Map{"access_token": token})
+				if err != nil { g.Log().Errorf(bgCtx, "[Qianchuan] 获取失败: %v", err); return }
+				defer resp.Close()
+				body := resp.ReadAllString()
+				g.Log().Infof(bgCtx, "[Qianchuan] advertiser响应: %s", body)
+				var advResp struct {
+					Code int64 `json:"code"`
+					Data struct {
+						List []struct {
+							AdvertiserId   int64  `json:"advertiser_id"`
+							AdvertiserName string `json:"advertiser_name"`
+						} `json:"list"`
+					} `json:"data"`
+				}
+				json.Unmarshal([]byte(body), &advResp)
+				if advResp.Code != 0 { return }
+				var ids []int64
+				for _, item := range advResp.Data.List {
+					ids = append(ids, item.AdvertiserId)
+					g.Log().Infof(bgCtx, "[Qianchuan] 广告主: id=%d name=%s", item.AdvertiserId, item.AdvertiserName)
+				}
+				if len(ids) > 0 {
+					idsJSON, _ := json.Marshal(ids)
+					g.DB().Model("qianchuan_token").Ctx(bgCtx).Where("id", row["id"]).Data(g.Map{"advertiser_ids": string(idsJSON)}).Update()
+					g.Log().Infof(bgCtx, "[Qianchuan] 已更新advertiser_ids: %s", string(idsJSON))
+				}
+			}()
+
 			// 全局 CORS 中间件
 			s.Use(middleware.CORS)
 
@@ -58,11 +121,11 @@ var (
 					auth.NewFeishuAuthController(),
 				)
 				// 抖店/巨量千川 OAuth 回调（无需认证）
-				douyinCallbackCtrl := system.NewDouyinCallbackController()
-				group.GET("/douyin/callback", douyinCallbackCtrl.Callback)
+				// OAuth回调：独立路由，不使用 MiddlewareHandlerResponse（需要302跳转）
+			s.BindHandler("GET:/api/douyin/callback", system.NewDouyinCallbackController().Callback)
 				group.GET("/qianchuan/auth-url", system.NewQianchuanPollerController().AuthUrl)
 				group.GET("/qianchuan/token-status", system.NewQianchuanPollerController().TokenStatus)
-			})
+				})
 
 			// 需要认证的 API 路由
 			s.Group("/api", func(group *ghttp.RouterGroup) {

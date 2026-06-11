@@ -354,6 +354,11 @@ func (c *DouyinPollerController) runAlliancePull(ctx context.Context, sTime, eTi
 			if failBatches > 0 {
 				level = service.NotifyLevelImportant
 			}
+			// 回填达人信息到 order_info
+			backfilled, _ := service.NewAllianceService().BackfillTalentInfo(ctx)
+			if backfilled > 0 {
+				g.Log().Infof(ctx, "[AlliancePoller] 回填达人信息: %d条", backfilled)
+			}
 			service.CreateNotification(ctx, "精选联盟拉取完成", string(respBody), "task_result", "alliance_manual_pull", logId, level, userId)
 	}
 }
