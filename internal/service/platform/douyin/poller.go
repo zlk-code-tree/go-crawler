@@ -50,7 +50,7 @@ var (
 func GetPoller() *Poller {
 	pollerOnce.Do(func() {
 		pollerInstance = &Poller{
-			dailyLimit: 1000,
+			dailyLimit: 100000,
 			interval:   1 * time.Hour, // 每小时调度一次
 		}
 	})
@@ -164,8 +164,6 @@ func (p *Poller) tick(ctx context.Context) {
 	cst := time.FixedZone("CST", 8*3600)
 	now := time.Now().In(cst)
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, cst)
-	const maxPages = 5
-
 	totalSavedAll := 0
 	totalOrdersAll := 0
 
@@ -193,8 +191,8 @@ func (p *Poller) tick(ctx context.Context) {
 		storeOrders := 0
 		storeSuccess := true
 
-		// 翻页拉取
-		for page := 0; page < maxPages; page++ {
+		// 翻页拉取，直到拉完为止
+		for page := 0; ; page++ {
 			// 检查每日配额
 			p.mu.Lock()
 			if p.dailyCount >= p.dailyLimit {
@@ -317,11 +315,20 @@ func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderIte
 		count, _ := g.DB().Model("order_info").Ctx(ctx).
 			Where("sub_order_no", order.SubOrderNo).Count()
 		if count > 0 {
-			g.DB().Model("order_info").Ctx(ctx).
+			_, err := g.DB().Model("order_info").Ctx(ctx).
 				Where("sub_order_no", order.SubOrderNo).
 				Data(data).Update()
+			if err != nil {
+				g.Log().Errorf(ctx, "[DouyinPoller] 更新订单失败 sub_order_no=%s: %v", order.SubOrderNo, err)
+				continue
+			}
 		} else {
-			g.DB().Model("order_info").Ctx(ctx).Data(data).Insert()
+			_, err := g.DB().Model("order_info").Ctx(ctx).Data(data).Insert()
+			if err != nil {
+				g.Log().Errorf(ctx, "[DouyinPoller] 插入订单失败 sub_order_no=%s product_name=%s: %v",
+					order.SubOrderNo, truncateStr(order.ProductName, 100), err)
+				continue
+			}
 		}
 		saved++
 	}
@@ -330,24 +337,26 @@ func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderIte
 
 func (p *Poller) orderToMap(order model.PlatformOrderItem) map[string]interface{} {
 	m := map[string]interface{}{
-		"sub_order_no":      order.SubOrderNo,
-		"main_order_no":     order.OrderNo,
-		"shop_name":         order.ShopName,
-		"product_name":      order.ProductName,
-		"product_num":       order.ProductNum,
-		"product_price":     order.ProductPrice,
-		"order_pay_amount":  order.PayAmount,
-		"order_status":      order.OrderStatusDesc,
-		"talent_name":       order.AuthorName,
-		"total_discount":    order.PromotionAmount,
-		"platform_discount": order.PromotionPlatformAmount,
-		"talent_discount":   order.PromotionTalentAmount,
+		"sub_order_no":        order.SubOrderNo,
+		"main_order_no":       order.OrderNo,
+		"shop_name":           order.ShopName,
+		"product_name":        order.ProductName,
+		"product_num":         order.ProductNum,
+		"product_price":       order.ProductPrice,
+		"order_pay_amount":    order.PayAmount,
+		"order_status":        order.OrderStatusDesc,
+		"talent_name":         order.AuthorName,
+		"total_discount":      order.PromotionAmount,
+		"platform_discount":   order.PromotionPlatformAmount,
+		"talent_discount":     order.PromotionTalentAmount,
 		"seller_change_price": order.ModifyAmount,
-		"pay_discount":      order.PromotionPayAmount,
-		"shipping_fee":      order.PostAmount,
+		"pay_discount":        order.PromotionPayAmount,
+		"shipping_fee":        order.PostAmount,
 	}
 	setIf := func(key, val string) {
-		if val != "" { m[key] = val }
+		if val != "" {
+			m[key] = val
+		}
 	}
 	setIf("product_id", fmt.Sprintf("%d", order.ProductId))
 	setIf("seller_code", order.Code)
@@ -487,6 +496,7 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (totalOrder
 
 		var mu sync.Mutex
 		var wg sync.WaitGroup
+		var failPages []int
 		pageCh := make(chan int, totalPages-firstPage-1)
 		for page := firstPage + 1; page < totalPages; page++ {
 			pageCh <- page
@@ -500,12 +510,26 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (totalOrder
 				svc := NewService()
 				for page := range pageCh {
 					<-rateLimiter
-					result, apiErr := svc.GetOrderList(ctx, model.PlatformOrderListParams{
-						Platform: "douyin", Page: page, PageSize: 100,
-						StartTime: st, EndTime: et, StoreId: storeId,
-					})
+					var result *model.PlatformOrderListResult
+					var apiErr error
+					// 失败重试3次
+					for retry := 0; retry < 3; retry++ {
+						result, apiErr = svc.GetOrderList(ctx, model.PlatformOrderListParams{
+							Platform: "douyin", Page: page, PageSize: 100,
+							StartTime: st, EndTime: et, StoreId: storeId,
+						})
+						if apiErr == nil {
+							break
+						}
+						if retry < 2 {
+							time.Sleep(time.Duration(retry+1) * time.Second)
+						}
+					}
 					if apiErr != nil {
-						g.Log().Errorf(ctx, "[DouyinPoller] %s worker%d 第%d页失败: %v", storeName, workerId, page, apiErr)
+						g.Log().Errorf(ctx, "[DouyinPoller] %s worker%d 第%d页失败(重试3次): %v", storeName, workerId, page, apiErr)
+						mu.Lock()
+						failPages = append(failPages, page)
+						mu.Unlock()
 						continue
 					}
 					saved := p.saveOrders(ctx, result.Orders)
@@ -518,12 +542,20 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (totalOrder
 		}
 		wg.Wait()
 
-		g.Log().Infof(ctx, "[DouyinPoller] %s: %d条/%d条保存 (并发%d, 共%d页)",
-			storeName, storeOrders, storeSaved, concurrency, totalPages)
+		g.Log().Infof(ctx, "[DouyinPoller] %s: %d条/%d条保存 (并发%d, 共%d页, 失败%d页)",
+			storeName, storeOrders, storeSaved, concurrency, totalPages, len(failPages))
 		totalOrders += storeOrders
 		totalSaved += storeSaved
 	}
 
 	_ = time.Since(startTime)
 	return totalOrders, totalSaved, nil
+}
+
+// truncateStr 截断字符串到指定长度
+func truncateStr(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
 }

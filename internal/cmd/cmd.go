@@ -3,13 +3,11 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gcmd"
-	"github.com/gogf/gf/v2/os/gcron"
 	"github.com/gogf/gf/v2/os/glog"
 
 	"go-crawler/internal/controller/auth"
@@ -72,6 +70,24 @@ var (
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
 				PRIMARY KEY (id)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`)
+			// 自动建表：定时任务管理
+			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS cron_task (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			name VARCHAR(100) NOT NULL DEFAULT '',
+			cron_expr VARCHAR(50) NOT NULL DEFAULT '',
+			api_url VARCHAR(300) NOT NULL DEFAULT '',
+			api_method VARCHAR(10) NOT NULL DEFAULT 'GET',
+			api_params TEXT,
+			status TINYINT NOT NULL DEFAULT 1,
+			retry_times INT NOT NULL DEFAULT 0,
+			retry_interval INT NOT NULL DEFAULT 0,
+			next_task VARCHAR(100) NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			UNIQUE KEY uk_name (name)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`)
+
 
 			// 千川token：调用advertiser/get API获取正确的广告主列表
 			go func() {
@@ -251,71 +267,39 @@ var (
 				)
 			})
 
-			// 每天凌晨1点拉取昨天抖店订单
-			_, _ = gcron.AddSingleton(ctx, "0 1 * * *", func(ctx context.Context) {
-				bgCtx := context.Background()
+			// 注册所有内置定时任务（统一由 CronManager 管理）
+			cronMgr := service.GetCronManager()
+
+			cronMgr.RegisterBuiltin("douyin_order_daily_pull", "0 1 * * *", func(ctx context.Context) {
 				yesterday := time.Now().AddDate(0, 0, -1)
 				startTime := yesterday.Format("2006-01-02") + " 00:00:00"
 				endTime := time.Now().Format("2006-01-02") + " 00:00:00"
-				g.Log().Infof(bgCtx, "[DouyinPoller] cron触发拉取抖店订单，范围: %s ~ %s", startTime, endTime)
-
-				taskName := fmt.Sprintf("抖店订单拉取-%s", yesterday.Format("2006-01-02"))
-				reqParams := fmt.Sprintf(`{"startTime":"%s","endTime":"%s"}`, startTime, endTime)
-				logId, _ := service.TaskLogStart(bgCtx, taskName, "douyin_order_pull", "/order/searchList", reqParams)
-				t0 := time.Now()
-				result, err := douyinSvc.GetPoller().ManualTrigger(bgCtx, douyinSvc.PollParams{
-					StartTime: startTime, EndTime: endTime, Concurrency: 5,
+				douyinSvc.GetPoller().ManualTrigger(ctx, douyinSvc.PollParams{
+					StartTime: startTime, EndTime: endTime, Concurrency: 10,
 				})
-				dur := int(time.Since(t0).Milliseconds())
-				if err != nil {
-					service.TaskLogFailed(bgCtx, logId, err.Error(), dur)
-					service.CreateNotification(bgCtx, taskName+"失败", fmt.Sprintf(`{"error":"%s"}`, err.Error()), "task_result", "douyin_order_pull", logId, service.NotifyLevelImportant, 0)
-				} else {
-					respBody, _ := json.Marshal(g.Map{"totalOrders": result.TotalOrders, "totalSaved": result.TotalSaved, "durationMs": dur})
-					service.TaskLogSuccess(bgCtx, logId, "10000", string(respBody), dur)
-					service.CreateNotification(bgCtx, taskName+"完成", string(respBody), "task_result", "douyin_order_pull", logId, service.NotifyLevelNormal, 0)
-				}
-			}, "douyin_order_daily_pull")
+			})
 
-			// 每天凌晨1:30拉取昨天精选联盟订单
-			_, _ = gcron.AddSingleton(ctx, "30 1 * * *", func(ctx context.Context) {
-				bgCtx := context.Background()
-				taskName := fmt.Sprintf("精选联盟拉取-%s", time.Now().AddDate(0,0,-1).Format("2006-01-02"))
-				logId, _ := service.TaskLogStart(bgCtx, taskName, "alliance_order_pull", "/buyin/queryShopAllianceOrder", "")
-				t0 := time.Now()
-				err := douyinSvc.NewService().DailyPullAllianceOrders(bgCtx)
-				dur := int(time.Since(t0).Milliseconds())
-				if err != nil {
-					service.TaskLogFailed(bgCtx, logId, err.Error(), dur)
-					service.CreateNotification(bgCtx, taskName+"失败", fmt.Sprintf(`{"error":"%s"}`, err.Error()), "task_result", "alliance_order_pull", logId, service.NotifyLevelImportant, 0)
-				} else {
-					respBody, _ := json.Marshal(g.Map{"durationMs": dur})
-					service.TaskLogSuccess(bgCtx, logId, "10000", string(respBody), dur)
-					service.CreateNotification(bgCtx, taskName+"完成", string(respBody), "task_result", "alliance_order_pull", logId, service.NotifyLevelNormal, 0)
-				}
-			}, "alliance_order_daily_pull")
+			cronMgr.RegisterBuiltin("alliance_order_daily_pull", "30 1 * * *", func(ctx context.Context) {
+				douyinSvc.NewService().DailyPullAllianceOrders(ctx)
+			})
 
-			// 抖店订单轮询器已关闭，需手动启动：POST /api/douyin-poller/start
-			// douyinPoller.GetPoller().Start(ctx)
-
-			// 千川数据每日定时拉取（每天凌晨4:37自动执行）
-			oceanenginePoller := oceanengine.GetPoller()
-			oceanenginePoller.Start(ctx)
-
-			// 每天凌晨2点自动执行达人佣金日聚合
-			_, _ = gcron.AddSingleton(ctx, "0 2 * * *", func(ctx context.Context) {
+			cronMgr.RegisterBuiltin("finance_daily_aggregate", "0 2 * * *", func(ctx context.Context) {
 				yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
-				g.Log().Infof(ctx, "[FinanceAggregate] cron触发，聚合日期: %s", yesterday)
-				svc := service.NewFinanceAggregateService()
-				svc.DailyAggregateJob(ctx, yesterday)
-			}, "finance_daily_aggregate")
+				service.NewFinanceAggregateService().DailyAggregateJob(ctx, yesterday)
+			})
 
-			// 每天凌晨3点自动执行抖音订单日聚合
-			_, _ = gcron.AddSingleton(ctx, "0 3 * * *", func(ctx context.Context) {
+			cronMgr.RegisterBuiltin("order_daily_aggregate", "0 3 * * *", func(ctx context.Context) {
 				yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
-				g.Log().Infof(ctx, "[OrderAggregate] cron触发，聚合日期: %s", yesterday)
 				service.NewFinanceAggregateService().OrderDailyAggregateJob(ctx, yesterday)
-			}, "order_daily_aggregate")
+			})
+
+			// 千川定时拉取
+			cronMgr.RegisterBuiltin("qianchuan_daily_pull", "37 4 * * *", func(ctx context.Context) {
+				oceanengine.GetPoller().ManualPull(ctx, 1)
+			})
+
+			// 启动所有定时任务
+			cronMgr.StartAll(ctx)
 
 			s.Run()
 			return nil

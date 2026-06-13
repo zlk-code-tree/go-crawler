@@ -91,26 +91,8 @@ func (s *FinanceCommissionService) GetStats(ctx context.Context, req *model.Fina
 		return s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
 	}
 
-	// 情况2：查询历史数据（先查预聚合表，为空则实时计算）
-	if endDate < today {
-		result, _ := s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
-		if result != nil && result.Summary.OrderCount > 0 {
-			return result, nil
-		}
-		// 预聚合表无数据，实时计算
-		return s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
-	}
-
-	// 情况3：跨今天（历史 + 今日）
-	historyStats, _ := s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, today, req.TimeType, platform)
-	todayStats, _ := s.getStatsRealtime(ctx, req.NodeId, req.NodeType, today, endDate, req.TimeType, platform)
-
-	// 如果历史表无数据，用实时计算补充历史部分
-	if historyStats == nil || historyStats.Summary.OrderCount == 0 {
-		historyStats, _ = s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, today, req.TimeType, platform)
-	}
-
-	return s.mergeStats(historyStats, todayStats, req.TimeType, startDate, endDate), nil
+	// 全部使用实时计算
+	return s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
 }
 
 // getStatsFromTable 从预聚合表查询
@@ -998,12 +980,10 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 //   退款成本 = product_price * product_num（无效+已发货）
 //   佣金     = 定价总额 - 留底 - 货款 - 小店服务费
 func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableName string, uids []string, startDate, endDate string) (*model.FinanceStatsSummary, error) {
-	orderNoCol := "main_order_no"
-	collateClause := ""
+	orderNoCol := "main_order_no"; 
 	talentCollate := ""
 	if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
 		orderNoCol = "order_no"
-		collateClause = "COLLATE utf8mb4_unicode_ci"
 		talentCollate = "COLLATE utf8mb4_unicode_ci"
 	}
 
@@ -1016,26 +996,26 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 	// 退款成本条件：无效 且 已发货
 	refundCond := "o.after_sale_status IN ('6','7','12') AND o.order_status = '已发货'"
 
+	// 用 o.product_cost 替代 LEFT JOIN goods，避免全表 JOIN（product_cost 在拉取时已写入）
 	sql := fmt.Sprintf(`
 		SELECT
 			COUNT(DISTINCT o.%s) AS total_order_count,
 			COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS order_count,
 			COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS invalid_order_count,
 			COALESCE(SUM(CASE WHEN %s THEN o.product_num ELSE 0 END), 0) AS product_num,
-			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price, 0) * o.product_num ELSE 0 END), 0) AS pay_amount,
-			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS cost_amount,
-			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price, 0) * o.product_num * 0.03 ELSE 0 END), 0) AS reserve_amount,
-			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS refund_cost_amount,
+			COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num ELSE 0 END), 0) AS pay_amount,
+			COALESCE(SUM(CASE WHEN %s THEN o.product_cost ELSE 0 END), 0) AS cost_amount,
+			COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num * 0.03 ELSE 0 END), 0) AS reserve_amount,
+			COALESCE(SUM(CASE WHEN %s THEN o.product_cost ELSE 0 END), 0) AS refund_cost_amount,
 			COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_order_count,
-			COUNT(DISTINCT CASE WHEN %s AND g.base_price > 0 THEN o.%s END) AS valid_order_cost_match
+			COUNT(DISTINCT CASE WHEN %s AND o.product_cost > 0 THEN o.%s END) AS valid_order_cost_match
 		FROM %s o
-		LEFT JOIN goods g ON o.seller_code %s = g.goods_code
 		WHERE o.talent_id %s IN(?)
 		  AND o.pay_finish_time >= ?
 		  AND o.pay_finish_time < ?
 		  AND o.%s IS NOT NULL
 		  AND o.%s != ''
-	`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, validCond, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol)
+	`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, validCond, orderNoCol, tableName, talentCollate, orderNoCol, orderNoCol)
 
 	endDateNext := CalcEndDateNext(endDate)
 
@@ -1165,12 +1145,10 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			continue
 		}
 
-		orderNoCol := "main_order_no"
-		collateClause := ""
+		orderNoCol := "main_order_no"; collateClause := ""
 		talentCollate := ""
 		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
 			orderNoCol = "order_no"
-			collateClause = "COLLATE utf8mb4_unicode_ci"
 			talentCollate = "COLLATE utf8mb4_unicode_ci"
 		}
 
@@ -1493,12 +1471,10 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 			continue
 		}
 
-		orderNoCol := "main_order_no"
-		collateClause := ""
+		orderNoCol := "main_order_no"; collateClause := ""
 		talentCollate := ""
 		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
 			orderNoCol = "order_no"
-			collateClause = "COLLATE utf8mb4_unicode_ci"
 			talentCollate = "COLLATE utf8mb4_unicode_ci"
 		}
 
@@ -1642,12 +1618,10 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 	})
 
 	for platform, tableName := range platformTableMap {
-		orderNoCol := "main_order_no"
-		collateClause := ""
+		orderNoCol := "main_order_no"; collateClause := ""
 		talentCollate := ""
 		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
 			orderNoCol = "order_no"
-			collateClause = "COLLATE utf8mb4_unicode_ci"
 			talentCollate = "COLLATE utf8mb4_unicode_ci"
 		}
 
@@ -1776,12 +1750,10 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 	// 查各平台订单表（按 uid 筛选）
 	uids := []string{uid}
 	for platform, tableName := range platformTableMap {
-		orderNoCol := "main_order_no"
-		collateClause := ""
+		orderNoCol := "main_order_no"; collateClause := ""
 		talentCollate := ""
 		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
 			orderNoCol = "order_no"
-			collateClause = "COLLATE utf8mb4_unicode_ci"
 			talentCollate = "COLLATE utf8mb4_unicode_ci"
 		}
 
