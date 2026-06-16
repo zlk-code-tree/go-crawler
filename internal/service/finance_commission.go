@@ -1303,6 +1303,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 
 	shopFee := roundFloatFinance(totalPay*0.02, 2)
 	commission := roundFloatFinance(totalPay-totalCost-totalReserve-shopFee, 2)
+	commissionDeduction := roundFloatFinance((totalPay-totalCost-totalReserve)*0.005, 2)
 	res.Summary = model.FinanceStatsSummary{
 		TotalOrderCount:   totalCount + invalidCount,
 		OrderCount:        totalCount,
@@ -1314,7 +1315,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		Commission:        commission,
 		RefundCostAmount:  roundFloatFinance(totalRefundCost, 2),
 		RefundOrderCount:  totalRefundCount,
-		RealtimeProfit:    roundFloatFinance(commission-totalRefundCost, 2),
+		RealtimeProfit:    roundFloatFinance(commission-totalRefundCost-commissionDeduction, 2),
 	}
 	res.Total = totalCount
 	res.Orders = allOrders
@@ -1378,8 +1379,9 @@ func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, r
 			}
 			// 佣金 = 定价总额 - 留底 - 货款 - 小店服务费
 			stats.Commission = roundFloatFinance(stats.Commission-stats.ShopServiceFee, 2)
-			// 实时利润 = 佣金 - 退款成本 - 广告费
-			stats.RealtimeProfit = roundFloatFinance(stats.Commission-stats.RefundCostAmount-stats.AdCostAmount, 2)
+			// 实时利润 = 佣金 - 退款成本 - 广告费 - 0.5%扣减（与达人统计一致）
+			commissionDeduction := roundFloatFinance((stats.PayAmount-stats.CostAmount-stats.ReserveAmount)*0.005, 2)
+			stats.RealtimeProfit = roundFloatFinance(stats.Commission-stats.RefundCostAmount-stats.AdCostAmount-commissionDeduction, 2)
 
 			totalStats.TotalOrderCount += stats.TotalOrderCount
 			totalStats.OrderCount += stats.OrderCount
@@ -1863,6 +1865,7 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 
 	shopFee := roundFloatFinance(totalPay*0.02, 2)
 	comm := totalPay - totalCost - totalReserve - shopFee
+	commissionDeduction := roundFloatFinance((totalPay-totalCost-totalReserve)*0.005, 2)
 	return &model.FinanceAccountOrdersRes{
 		AccountId:   req.AccountId,
 		AccountName: accountName,
@@ -1877,7 +1880,7 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 			Commission: roundFloatFinance(comm,2),
 			RefundCostAmount: roundFloatFinance(totalRefundCost,2),
 			RefundOrderCount: totalRefundCount,
-			RealtimeProfit: roundFloatFinance(comm-totalRefundCost,2),
+			RealtimeProfit: roundFloatFinance(comm-totalRefundCost-commissionDeduction,2),
 			CommissionOrderCount: totalCount,
 		},
 		Total: totalCount, Page: page, PageSize: pageSize,

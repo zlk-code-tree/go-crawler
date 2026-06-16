@@ -231,7 +231,7 @@ func (s *AllianceService) FillBuyinId(ctx context.Context) (int, error) {
 
 // BackfillTalentInfo 回填达人信息到 order_info
 // 从 alliance_orders.author_account 关联 account 表获取 uid/talent_name
-// 只更新 talent_id 为空的订单
+// 只更新 talent_id 为空或为'0'的订单
 func (s *AllianceService) BackfillTalentInfo(ctx context.Context) (int, error) {
 	result, err := g.DB().Exec(ctx, `
 		UPDATE order_info o
@@ -239,7 +239,7 @@ func (s *AllianceService) BackfillTalentInfo(ctx context.Context) (int, error) {
 		JOIN account a ON ao.author_account COLLATE utf8mb4_unicode_ci = a.account_name COLLATE utf8mb4_unicode_ci
 		SET o.talent_id = a.uid,
 		    o.talent_name = a.account_name
-		WHERE (o.talent_id IS NULL OR o.talent_id = '')
+		WHERE (o.talent_id IS NULL OR o.talent_id = '' OR o.talent_id = '0')
 		  AND ao.author_account IS NOT NULL
 		  AND ao.author_account != ''
 		  AND a.uid IS NOT NULL
