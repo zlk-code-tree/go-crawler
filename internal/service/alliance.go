@@ -44,28 +44,31 @@ type AllianceOrder struct {
 }
 
 // List 精选联盟订单列表
-func (s *AllianceService) List(ctx context.Context, page, pageSize int, keyword, shopName, authorName, orderStatus, startTime, endTime string) ([]AllianceOrder, int, error) {
+func (s *AllianceService) List(ctx context.Context, page, pageSize int, keyword, shopName, authorName, authorId, orderStatus, startTime, endTime string) ([]AllianceOrder, int, error) {
 	query := g.DB().Model("alliance_orders ao").Ctx(ctx).
 		LeftJoin("account a", "ao.author_account COLLATE utf8mb4_unicode_ci = a.account_name COLLATE utf8mb4_unicode_ci")
 	params := []interface{}{}
 
 	if keyword != "" {
-		query = query.Where("(order_id LIKE ? OR product_name LIKE ? OR author_name LIKE ?)", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
+		query = query.Where("(ao.order_id LIKE ? OR ao.product_name LIKE ? OR ao.author_account LIKE ?)", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 	}
 	if shopName != "" {
-		query = query.Where("shop_name LIKE ?", "%"+shopName+"%")
+		query = query.Where("ao.shop_name LIKE ?", "%"+shopName+"%")
 	}
 	if authorName != "" {
-		query = query.Where("author_name LIKE ?", "%"+authorName+"%")
+		query = query.Where("ao.author_account LIKE ?", "%"+authorName+"%")
+	}
+	if authorId != "" {
+		query = query.Where("ao.author_id LIKE ? OR a.uid LIKE ?", "%"+authorId+"%", "%"+authorId+"%")
 	}
 	if orderStatus != "" {
-		query = query.Where("order_status LIKE ?", "%"+orderStatus+"%")
+		query = query.Where("ao.order_status = ?", orderStatus)
 	}
 	if startTime != "" {
-		query = query.Where("pay_time >= ?", startTime)
+		query = query.Where("ao.pay_time >= ?", startTime)
 	}
 	if endTime != "" {
-		query = query.Where("pay_time <= ?", endTime)
+		query = query.Where("ao.pay_time <= ?", endTime)
 	}
 
 	total, err := query.Count()
@@ -128,7 +131,7 @@ func (s *AllianceService) Export(ctx context.Context, keyword, shopName, authorN
 		query = query.Where("author_name LIKE ?", "%"+authorName+"%")
 	}
 	if orderStatus != "" {
-		query = query.Where("order_status LIKE ?", "%"+orderStatus+"%")
+		query = query.Where("order_status = ?", orderStatus)
 	}
 	if startTime != "" {
 		query = query.Where("pay_time >= ?", startTime)

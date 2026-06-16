@@ -26,11 +26,12 @@ func (c *AllianceController) AllianceList(r *ghttp.Request) {
 	keyword := r.Get("keyword").String()
 	shopName := r.Get("shopName").String()
 	authorName := r.Get("authorName").String()
+	authorId := r.Get("authorId").String()
 	orderStatus := r.Get("orderStatus").String()
 	startTime := r.Get("startTime").String()
 	endTime := r.Get("endTime").String()
 
-	list, total, err := service.NewAllianceService().List(r.Context(), page, pageSize, keyword, shopName, authorName, orderStatus, startTime, endTime)
+	list, total, err := service.NewAllianceService().List(r.Context(), page, pageSize, keyword, shopName, authorName, authorId, orderStatus, startTime, endTime)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})
 		return

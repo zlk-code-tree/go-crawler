@@ -980,10 +980,12 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 //   退款成本 = product_price * product_num（无效+已发货）
 //   佣金     = 定价总额 - 留底 - 货款 - 小店服务费
 func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableName string, uids []string, startDate, endDate string) (*model.FinanceStatsSummary, error) {
-	orderNoCol := "main_order_no"; 
+	orderNoCol := "main_order_no"
+	collateClause := ""
 	talentCollate := ""
 	if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
 		orderNoCol = "order_no"
+		collateClause = "COLLATE utf8mb4_unicode_ci"
 		talentCollate = "COLLATE utf8mb4_unicode_ci"
 	}
 
@@ -996,7 +998,7 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 	// 退款成本条件：无效 且 已发货
 	refundCond := "o.after_sale_status IN ('6','7','12') AND o.order_status = '已发货'"
 
-	// 用 o.product_cost 替代 LEFT JOIN goods，避免全表 JOIN（product_cost 在拉取时已写入）
+	// 货款通过 LEFT JOIN goods 用 base_price 计算
 	sql := fmt.Sprintf(`
 		SELECT
 			COUNT(DISTINCT o.%s) AS total_order_count,
@@ -1004,18 +1006,19 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 			COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS invalid_order_count,
 			COALESCE(SUM(CASE WHEN %s THEN o.product_num ELSE 0 END), 0) AS product_num,
 			COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num ELSE 0 END), 0) AS pay_amount,
-			COALESCE(SUM(CASE WHEN %s THEN o.product_cost ELSE 0 END), 0) AS cost_amount,
+			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS cost_amount,
 			COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num * 0.03 ELSE 0 END), 0) AS reserve_amount,
-			COALESCE(SUM(CASE WHEN %s THEN o.product_cost ELSE 0 END), 0) AS refund_cost_amount,
+			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS refund_cost_amount,
 			COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_order_count,
-			COUNT(DISTINCT CASE WHEN %s AND o.product_cost > 0 THEN o.%s END) AS valid_order_cost_match
+			COUNT(DISTINCT CASE WHEN %s AND g.base_price > 0 THEN o.%s END) AS valid_order_cost_match
 		FROM %s o
+		LEFT JOIN goods g ON o.seller_code %s = g.goods_code
 		WHERE o.talent_id %s IN(?)
 		  AND o.pay_finish_time >= ?
 		  AND o.pay_finish_time < ?
 		  AND o.%s IS NOT NULL
 		  AND o.%s != ''
-	`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, validCond, orderNoCol, tableName, talentCollate, orderNoCol, orderNoCol)
+	`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, validCond, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol)
 
 	endDateNext := CalcEndDateNext(endDate)
 
@@ -1132,7 +1135,8 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 	// 日期范围
 	endDateNext := CalcEndDateNext(endDate)
 
-	validFilter := "AND after_sale_status NOT IN ('退款成功', '已全额退款', '待退货') AND order_status != '已关闭'"
+	// 有效订单条件：与 statsOrderTable 保持一致
+	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
 
 	// 根据店铺 platform 只查对应订单表
 	var totalCount int
@@ -1145,16 +1149,18 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			continue
 		}
 
-		orderNoCol := "main_order_no"; collateClause := ""
+		orderNoCol := "main_order_no"
+		collateClause := ""
 		talentCollate := ""
 		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
 			orderNoCol = "order_no"
+			collateClause = "COLLATE utf8mb4_unicode_ci"
 			talentCollate = "COLLATE utf8mb4_unicode_ci"
 		}
 
-		// 查询该平台的订单数
+		// 查询该平台的订单数（主订单去重）
 		countSQL := fmt.Sprintf(`
-			SELECT COUNT(*) AS cnt
+			SELECT COUNT(DISTINCT o.%s) AS cnt
 			FROM %s o
 			WHERE o.talent_id %s IN(?)
 			  AND o.pay_finish_time >= ?
@@ -1162,7 +1168,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			  AND o.%s IS NOT NULL
 			  AND o.%s != ''
 			  %s
-		`, tableName, talentCollate, orderNoCol, orderNoCol, validFilter)
+		`, orderNoCol, tableName, talentCollate, orderNoCol, orderNoCol, validFilter)
 
 		countResult, err := g.DB().GetOne(ctx, countSQL, uids, startDate, endDateNext)
 		if err != nil {
@@ -1175,12 +1181,12 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			continue
 		}
 
-		// 查询该平台的汇总
+		// 查询该平台的汇总（货款通过 LEFT JOIN goods 用 base_price 计算）
 		sumSQL := fmt.Sprintf(`
 			SELECT
-				COALESCE(SUM(o.order_pay_amount + COALESCE(o.platform_discount, 0) + COALESCE(o.talent_discount, 0)), 0) AS pay_amount,
+				COALESCE(SUM(o.product_price * o.product_num), 0) AS pay_amount,
 				COALESCE(SUM(COALESCE(g.base_price, 0) * o.product_num), 0) AS cost_amount,
-				COALESCE(SUM(COALESCE(o.product_price, 0) * o.product_num * 0.05), 0) AS reserve_amount
+				COALESCE(SUM(o.product_price * o.product_num * 0.03), 0) AS reserve_amount
 			FROM %s o
 			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
 			WHERE o.talent_id %s IN(?)
@@ -1198,7 +1204,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			totalReserve += sumResult["reserve_amount"].Float64()
 		}
 
-		// 查询该平台的订单明细（带分页）
+		// 查询该平台的订单明细（带分页，LEFT JOIN goods 获取 base_price）
 		sql := fmt.Sprintf(`
 			SELECT
 				o.%s AS main_order_no,
@@ -1206,9 +1212,6 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 				o.product_num,
 				o.product_price,
 				COALESCE(g.base_price, 0) AS base_price,
-				o.order_pay_amount,
-				COALESCE(o.platform_discount, 0) AS platform_discount,
-				COALESCE(o.talent_discount, 0) AS talent_discount,
 				o.order_status,
 				o.after_sale_status,
 				IFNULL(o.pay_finish_time, '') AS pay_finish_time,
@@ -1235,10 +1238,10 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			shop := uidShopMap[talentId]
 			productNum := row["product_num"].Int()
 			productPrice := row["product_price"].Float64()
-			payAmount := row["order_pay_amount"].Float64() + row["platform_discount"].Float64() + row["talent_discount"].Float64()
 			basePrice := row["base_price"].Float64()
+			payAmount := roundFloatFinance(productPrice*float64(productNum), 2)
 			costAmount := basePrice * float64(productNum)
-			reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.05, 2)
+			reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.03, 2)
 			commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
 
 			payTime := row["pay_finish_time"].String()
@@ -1249,8 +1252,8 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			allOrders = append(allOrders, model.FinanceOrderItem{
 				MainOrderNo:     row["main_order_no"].String(),
 				ProductName:     row["product_name"].String(),
-				ProductNum:      row["product_num"].Int(),
-				ProductPrice:    basePrice,
+				ProductNum:      productNum,
+				ProductPrice:    productPrice,
 				OrderPayAmount:  payAmount,
 				CostAmount:      roundFloatFinance(costAmount, 2),
 				ReserveAmount:   reserveAmount,
@@ -1448,7 +1451,7 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 	// 日期范围
 	endDateNext := CalcEndDateNext(endDate)
 
-	validFilter := "AND o.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货') AND o.order_status != '已关闭'"
+	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
 
 	// 创建 Excel
 	f := excelize.NewFile()
@@ -1471,10 +1474,12 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 			continue
 		}
 
-		orderNoCol := "main_order_no"; collateClause := ""
+		orderNoCol := "main_order_no"
+		collateClause := ""
 		talentCollate := ""
 		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
 			orderNoCol = "order_no"
+			collateClause = "COLLATE utf8mb4_unicode_ci"
 			talentCollate = "COLLATE utf8mb4_unicode_ci"
 		}
 
@@ -1485,9 +1490,6 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 				o.product_num,
 				o.product_price,
 				COALESCE(g.base_price, 0) AS base_price,
-				o.order_pay_amount,
-				COALESCE(o.platform_discount, 0) AS platform_discount,
-				COALESCE(o.talent_discount, 0) AS talent_discount,
 				o.order_status,
 				o.after_sale_status,
 				IFNULL(o.pay_finish_time, '') AS pay_finish_time,
@@ -1539,10 +1541,10 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 			talentId := row["talent_id"].String()
 			productNum := row["product_num"].Int()
 			productPrice := row["product_price"].Float64()
-			payAmount := row["order_pay_amount"].Float64() + row["platform_discount"].Float64() + row["talent_discount"].Float64()
 			basePrice := row["base_price"].Float64()
+			payAmount := roundFloatFinance(productPrice*float64(productNum), 2)
 			costAmount := basePrice * float64(productNum)
-			reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.05, 2)
+			reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.03, 2)
 			commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
 
 			payTime := row["pay_finish_time"].String()
@@ -1554,7 +1556,7 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 				row["main_order_no"].String(),
 				row["product_name"].String(),
 				productNum,
-				basePrice,
+				productPrice,
 				payAmount,
 				roundFloatFinance(costAmount, 2),
 				reserveAmount,
@@ -1602,7 +1604,7 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 	}
 
 	endDateNext := CalcEndDateNext(endDate)
-	validFilter := "AND o.after_sale_status NOT IN ('6','7','12') AND o.order_status != '已关闭'"
+	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
 
 	f := excelize.NewFile()
 	defer f.Close()
@@ -1618,10 +1620,12 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 	})
 
 	for platform, tableName := range platformTableMap {
-		orderNoCol := "main_order_no"; collateClause := ""
+		orderNoCol := "main_order_no"
+		collateClause := ""
 		talentCollate := ""
 		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
 			orderNoCol = "order_no"
+			collateClause = "COLLATE utf8mb4_unicode_ci"
 			talentCollate = "COLLATE utf8mb4_unicode_ci"
 		}
 
@@ -1632,7 +1636,6 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 				o.product_num,
 				o.product_price,
 				COALESCE(g.base_price, 0) AS base_price,
-				o.order_pay_amount,
 				o.order_status,
 				o.after_sale_status,
 				IFNULL(o.pay_finish_time, '') AS pay_finish_time
@@ -1676,8 +1679,8 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 		for rowIdx, row := range result {
 			productNum := row["product_num"].Int()
 			productPrice := row["product_price"].Float64()
-			payAmount := row["order_pay_amount"].Float64()
 			basePrice := row["base_price"].Float64()
+			payAmount := roundFloatFinance(productPrice*float64(productNum), 2)
 			costAmount := basePrice * float64(productNum)
 			reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.03, 2)
 			commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
@@ -1691,7 +1694,7 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 				row["main_order_no"].String(),
 				row["product_name"].String(),
 				productNum,
-				basePrice,
+				productPrice,
 				payAmount,
 				roundFloatFinance(costAmount, 2),
 				reserveAmount,
@@ -1741,7 +1744,7 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 	if pageSize < 1 || pageSize > 100 { pageSize = 20 }
 
 	endDateNext := CalcEndDateNext(endDate)
-	validFilter := "AND after_sale_status NOT IN ('6','7','12') AND order_status != '已关闭'"
+	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
 
 	var totalCount int
 	var allOrders []model.FinanceOrderItem
@@ -1750,20 +1753,22 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 	// 查各平台订单表（按 uid 筛选）
 	uids := []string{uid}
 	for platform, tableName := range platformTableMap {
-		orderNoCol := "main_order_no"; collateClause := ""
+		orderNoCol := "main_order_no"
+		collateClause := ""
 		talentCollate := ""
 		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
 			orderNoCol = "order_no"
+			collateClause = "COLLATE utf8mb4_unicode_ci"
 			talentCollate = "COLLATE utf8mb4_unicode_ci"
 		}
 
-		// count
-		countSQL := fmt.Sprintf(`SELECT COUNT(*) AS cnt FROM %s o WHERE o.talent_id %s IN(?) AND o.pay_finish_time >= ? AND o.pay_finish_time < ? AND o.%s IS NOT NULL AND o.%s != '' %s`, tableName, talentCollate, orderNoCol, orderNoCol, validFilter)
+		// count（主订单去重）
+		countSQL := fmt.Sprintf(`SELECT COUNT(DISTINCT o.%s) AS cnt FROM %s o WHERE o.talent_id %s IN(?) AND o.pay_finish_time >= ? AND o.pay_finish_time < ? AND o.%s IS NOT NULL AND o.%s != '' %s`, orderNoCol, tableName, talentCollate, orderNoCol, orderNoCol, validFilter)
 		cntR, _ := g.DB().GetOne(ctx, countSQL, uids, startDate, endDateNext)
 		if cntR != nil { totalCount += cntR["cnt"].Int() }
 
-		// sum
-		sumSQL := fmt.Sprintf(`SELECT COALESCE(SUM(o.order_pay_amount+COALESCE(o.platform_discount,0)+COALESCE(o.talent_discount,0)),0) AS pay, COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COALESCE(SUM(COALESCE(o.product_price,0)*o.product_num*0.03),0) AS reserve FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.pay_finish_time >= ? AND o.pay_finish_time < ? AND o.%s IS NOT NULL AND o.%s != '' %s`, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
+		// sum（货款通过 LEFT JOIN goods 用 base_price 计算）
+		sumSQL := fmt.Sprintf(`SELECT COALESCE(SUM(o.product_price*o.product_num),0) AS pay, COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COALESCE(SUM(o.product_price*o.product_num*0.03),0) AS reserve FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.pay_finish_time >= ? AND o.pay_finish_time < ? AND o.%s IS NOT NULL AND o.%s != '' %s`, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
 		sumR, _ := g.DB().GetOne(ctx, sumSQL, uids, startDate, endDateNext)
 		if sumR != nil {
 			totalPay += sumR["pay"].Float64()
@@ -1771,14 +1776,14 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 			totalReserve += sumR["reserve"].Float64()
 		}
 
-		// orders
-		orderSQL := fmt.Sprintf(`SELECT o.%s AS main_order_no, o.product_name, o.product_num, o.product_price, COALESCE(g.base_price,0) AS base_price, o.order_pay_amount, COALESCE(o.platform_discount,0) AS platform_discount, COALESCE(o.talent_discount,0) AS talent_discount, o.order_status, o.after_sale_status, IFNULL(o.pay_finish_time,'') AS pay_finish_time, o.talent_id FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.pay_finish_time >= ? AND o.pay_finish_time < ? AND o.%s IS NOT NULL AND o.%s != '' %s ORDER BY o.pay_finish_time DESC LIMIT ?,?`, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
+		// orders（LEFT JOIN goods 获取 base_price）
+		orderSQL := fmt.Sprintf(`SELECT o.%s AS main_order_no, o.product_name, o.product_num, o.product_price, COALESCE(g.base_price,0) AS base_price, o.order_status, o.after_sale_status, IFNULL(o.pay_finish_time,'') AS pay_finish_time, o.talent_id FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.pay_finish_time >= ? AND o.pay_finish_time < ? AND o.%s IS NOT NULL AND o.%s != '' %s ORDER BY o.pay_finish_time DESC LIMIT ?,?`, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
 		result, _ := g.DB().GetAll(ctx, orderSQL, uids, startDate, endDateNext, (page-1)*pageSize, pageSize)
 		for _, row := range result {
 			pNum := row["product_num"].Int()
 			pPrice := row["product_price"].Float64()
-			payAmt := row["order_pay_amount"].Float64() + row["platform_discount"].Float64() + row["talent_discount"].Float64()
 			bPrice := row["base_price"].Float64()
+			payAmt := roundFloatFinance(pPrice*float64(pNum), 2)
 			costAmt := bPrice * float64(pNum)
 			reserveAmt := roundFloatFinance(pPrice*float64(pNum)*0.03, 2)
 			comm := roundFloatFinance(payAmt-costAmt-reserveAmt, 2)
@@ -1788,7 +1793,7 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 				MainOrderNo:    row["main_order_no"].String(),
 				ProductName:    row["product_name"].String(),
 				ProductNum:     pNum,
-				ProductPrice:   bPrice,
+				ProductPrice:   pPrice,
 				OrderPayAmount: payAmt,
 				CostAmount:     roundFloatFinance(costAmt, 2),
 				ReserveAmount:  reserveAmt,

@@ -94,7 +94,7 @@ var (
 				bgCtx := context.Background()
 				time.Sleep(3 * time.Second)
 				row, _ := g.DB().Model("qianchuan_token").Ctx(bgCtx).OrderDesc("id").Limit(1).One()
-				if row.IsEmpty() { return }
+				if row.IsEmpty() || (row["advertiser_ids"].String() != "" && row["advertiser_ids"].String() != "[]") { return }
 				token := row["access_token"].String()
 				g.Log().Infof(bgCtx, "[Qianchuan] 启动获取advertiser列表, token前8位=%s", token[:8])
 				client := g.Client()
