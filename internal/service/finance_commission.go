@@ -1030,6 +1030,7 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 	payAmount := result["pay_amount"].Float64()
 	costAmount := result["cost_amount"].Float64()
 	reserveAmount := result["reserve_amount"].Float64()
+	g.Log().Debugf(ctx, "[StatsOrderTable] %s: pay=%.2f cost=%.2f reserve=%.2f orderCount=%d", tableName, payAmount, costAmount, reserveAmount, result["order_count"].Int())
 	// 佣金 = 定价总额 - 留底 - 货款（小店服务费在 statsOrdersByAccountIds 中扣除）
 	commission := payAmount - costAmount - reserveAmount
 	orderCount := result["order_count"].Int()
@@ -1137,11 +1138,15 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 
 	// 有效订单条件：与 statsOrderTable 保持一致
 	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
+	// 无效订单条件
+	invalidFilter := "AND o.after_sale_status IN ('6','7','12')"
 
 	// 根据店铺 platform 只查对应订单表
-	var totalCount int
+	var totalCount, invalidCount int
 	var allOrders []model.FinanceOrderItem
 	var totalPay, totalCost, totalReserve float64
+	var totalRefundCost float64
+	var totalRefundCount int
 
 	for platform, uids := range platformUids {
 		tableName, ok := platformTableMap[platform]
@@ -1199,9 +1204,28 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 
 		sumResult, err := g.DB().GetOne(ctx, sumSQL, uids, startDate, endDateNext)
 		if err == nil {
-			totalPay += sumResult["pay_amount"].Float64()
-			totalCost += sumResult["cost_amount"].Float64()
-			totalReserve += sumResult["reserve_amount"].Float64()
+			pay := sumResult["pay_amount"].Float64()
+			cost := sumResult["cost_amount"].Float64()
+			reserve := sumResult["reserve_amount"].Float64()
+			g.Log().Debugf(ctx, "[TraderOrderList] sumSQL结果: platform=%s pay=%.2f cost=%.2f reserve=%.2f", platform, pay, cost, reserve)
+			totalPay += pay
+			totalCost += cost
+			totalReserve += reserve
+		}
+
+		// 查询无效订单数
+		invalidSQL := fmt.Sprintf(`SELECT COUNT(DISTINCT o.%s) AS cnt FROM %s o WHERE o.talent_id %s IN(?) AND o.pay_finish_time >= ? AND o.pay_finish_time < ? AND o.%s IS NOT NULL AND o.%s != '' %s`,
+			orderNoCol, tableName, talentCollate, orderNoCol, orderNoCol, invalidFilter)
+		if invR, _ := g.DB().GetOne(ctx, invalidSQL, uids, startDate, endDateNext); invR != nil {
+			invalidCount += invR["cnt"].Int()
+		}
+
+		// 查询退款成本（无效+已发货 的货款）
+		refundSQL := fmt.Sprintf(`SELECT COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COUNT(DISTINCT o.%s) AS cnt FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.pay_finish_time >= ? AND o.pay_finish_time < ? AND o.%s IS NOT NULL AND o.%s != '' AND o.after_sale_status IN ('6','7','12') AND o.order_status = '已发货'`,
+			orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol)
+		if refR, _ := g.DB().GetOne(ctx, refundSQL, uids, startDate, endDateNext); refR != nil {
+			totalRefundCost += refR["cost"].Float64()
+			totalRefundCount += refR["cnt"].Int()
 		}
 
 		// 查询该平台的订单明细（带分页，LEFT JOIN goods 获取 base_price）
@@ -1277,12 +1301,20 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		allOrders = allOrders[:pageSize]
 	}
 
+	shopFee := roundFloatFinance(totalPay*0.02, 2)
+	commission := roundFloatFinance(totalPay-totalCost-totalReserve-shopFee, 2)
 	res.Summary = model.FinanceStatsSummary{
-		OrderCount:    totalCount,
-		PayAmount:     roundFloatFinance(totalPay, 2),
-		CostAmount:    roundFloatFinance(totalCost, 2),
-		ReserveAmount: roundFloatFinance(totalReserve, 2),
-		Commission:    roundFloatFinance(totalPay-totalCost-totalReserve, 2),
+		TotalOrderCount:   totalCount + invalidCount,
+		OrderCount:        totalCount,
+		InvalidOrderCount: invalidCount,
+		PayAmount:         roundFloatFinance(totalPay, 2),
+		CostAmount:        roundFloatFinance(totalCost, 2),
+		ReserveAmount:     roundFloatFinance(totalReserve, 2),
+		ShopServiceFee:    shopFee,
+		Commission:        commission,
+		RefundCostAmount:  roundFloatFinance(totalRefundCost, 2),
+		RefundOrderCount:  totalRefundCount,
+		RealtimeProfit:    roundFloatFinance(commission-totalRefundCost, 2),
 	}
 	res.Total = totalCount
 	res.Orders = allOrders
@@ -1745,10 +1777,13 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 
 	endDateNext := CalcEndDateNext(endDate)
 	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
+	invalidFilter := "AND o.after_sale_status IN ('6','7','12')"
 
-	var totalCount int
+	var totalCount, invalidCount int
 	var allOrders []model.FinanceOrderItem
 	var totalPay, totalCost, totalReserve float64
+	var totalRefundCost float64
+	var totalRefundCount int
 
 	// 查各平台订单表（按 uid 筛选）
 	uids := []string{uid}
@@ -1774,6 +1809,21 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 			totalPay += sumR["pay"].Float64()
 			totalCost += sumR["cost"].Float64()
 			totalReserve += sumR["reserve"].Float64()
+		}
+
+		// 查询无效订单数
+		invalidSQL := fmt.Sprintf(`SELECT COUNT(DISTINCT o.%s) AS cnt FROM %s o WHERE o.talent_id %s IN(?) AND o.pay_finish_time >= ? AND o.pay_finish_time < ? AND o.%s IS NOT NULL AND o.%s != '' %s`,
+			orderNoCol, tableName, talentCollate, orderNoCol, orderNoCol, invalidFilter)
+		if invR, _ := g.DB().GetOne(ctx, invalidSQL, uids, startDate, endDateNext); invR != nil {
+			invalidCount += invR["cnt"].Int()
+		}
+
+		// 查询退款成本
+		refundSQL := fmt.Sprintf(`SELECT COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COUNT(DISTINCT o.%s) AS cnt FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.pay_finish_time >= ? AND o.pay_finish_time < ? AND o.%s IS NOT NULL AND o.%s != '' AND o.after_sale_status IN ('6','7','12') AND o.order_status = '已发货'`,
+			orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol)
+		if refR, _ := g.DB().GetOne(ctx, refundSQL, uids, startDate, endDateNext); refR != nil {
+			totalRefundCost += refR["cost"].Float64()
+			totalRefundCount += refR["cnt"].Int()
 		}
 
 		// orders（LEFT JOIN goods 获取 base_price）
@@ -1811,7 +1861,8 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 	sort.Slice(allOrders, func(i, j int) bool { return allOrders[i].PayFinishTime > allOrders[j].PayFinishTime })
 	if len(allOrders) > pageSize { allOrders = allOrders[:pageSize] }
 
-	comm := totalPay - totalCost - totalReserve
+	shopFee := roundFloatFinance(totalPay*0.02, 2)
+	comm := totalPay - totalCost - totalReserve - shopFee
 	return &model.FinanceAccountOrdersRes{
 		AccountId:   req.AccountId,
 		AccountName: accountName,
@@ -1819,9 +1870,14 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 		StartDate:   startDate,
 		EndDate:     endDate,
 		Summary: model.FinanceStatsSummary{
-			TotalOrderCount: totalCount, OrderCount: totalCount,
+			TotalOrderCount: totalCount + invalidCount, OrderCount: totalCount,
+			InvalidOrderCount: invalidCount,
 			PayAmount: roundFloatFinance(totalPay,2), CostAmount: roundFloatFinance(totalCost,2),
-			ReserveAmount: roundFloatFinance(totalReserve,2), Commission: roundFloatFinance(comm,2),
+			ReserveAmount: roundFloatFinance(totalReserve,2), ShopServiceFee: shopFee,
+			Commission: roundFloatFinance(comm,2),
+			RefundCostAmount: roundFloatFinance(totalRefundCost,2),
+			RefundOrderCount: totalRefundCount,
+			RealtimeProfit: roundFloatFinance(comm-totalRefundCost,2),
 			CommissionOrderCount: totalCount,
 		},
 		Total: totalCount, Page: page, PageSize: pageSize,
