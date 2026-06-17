@@ -752,7 +752,14 @@ func FormatGroupName(name string) string {
 func (s *OrderAnalysisService) queryOrderDetailsByFilter(ctx context.Context, filterType, filterValue, startDate, endDate string) (gdb.Result, error) {
 	var sql string
 	var params []interface{}
-	
+
+	// 处理 endDate：如果是纯日期，转换为当天的最后一刻
+	endTime := endDate
+	if len(endDate) == 10 {
+		// 纯日期格式 (YYYY-MM-DD)，追加时间到当天最后一刻
+		endTime = endDate + " 23:59:59"
+	}
+
 	if filterType == "group" {
 		sql = `
 			SELECT o.*
@@ -760,37 +767,37 @@ func (s *OrderAnalysisService) queryOrderDetailsByFilter(ctx context.Context, fi
 			LEFT JOIN account a ON o.talent_id = a.uid
 			WHERE a.operator = ?
 			  AND o.pay_finish_time >= ?
-			  AND o.pay_finish_time < ?
+			  AND o.pay_finish_time <= ?
 			  AND o.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
 			  AND o.order_status != '已关闭'
 			  AND o.main_order_no IS NOT NULL
 			  AND o.main_order_no != ''
 			ORDER BY o.pay_finish_time DESC
 		`
-		params = []interface{}{filterValue, startDate, endDate}
+		params = []interface{}{filterValue, startDate, endTime}
 	} else if filterType == "shop" {
 		sql = `
 			SELECT o.*
 			FROM order_info o
 			WHERE o.shop_name = ?
 			  AND o.pay_finish_time >= ?
-			  AND o.pay_finish_time < ?
+			  AND o.pay_finish_time <= ?
 			  AND o.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
 			  AND o.order_status != '已关闭'
 			  AND o.main_order_no IS NOT NULL
 			  AND o.main_order_no != ''
 			ORDER BY o.pay_finish_time DESC
 		`
-		params = []interface{}{filterValue, startDate, endDate}
+		params = []interface{}{filterValue, startDate, endTime}
 	} else {
 		return nil, gerror.New("不支持的过滤类型")
 	}
-	
+
 	result, err := g.DB().GetAll(ctx, sql, params...)
 	if err != nil {
 		return nil, fmt.Errorf("查询订单明细失败: %v", err)
 	}
-	
+
 	return result, nil
 }
 

@@ -1610,7 +1610,8 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 	// 保存文件
 	exportDir := "./exports"
 	os.MkdirAll(exportDir, 0755)
-	fileName := fmt.Sprintf("投手订单_%s_%s_%s.xlsx", trader["name"].String(), startDate, endDate)
+	safeTraderName := sanitizeFileName(trader["name"].String())
+	fileName := fmt.Sprintf("投手订单_%s_%s_%s.xlsx", safeTraderName, startDate, endDate)
 	filePath := filepath.Join(exportDir, fileName)
 	if err := f.SaveAs(filePath); err != nil {
 		return "", fmt.Errorf("保存Excel失败: %v", err)
@@ -1746,7 +1747,8 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 
 	exportDir := "./exports"
 	os.MkdirAll(exportDir, 0755)
-	fileName := fmt.Sprintf("账号订单_%s_%s_%s.xlsx", accountName, startDate, endDate)
+	safeAccountName := sanitizeFileName(accountName)
+	fileName := fmt.Sprintf("账号订单_%s_%s_%s.xlsx", safeAccountName, startDate, endDate)
 	filePath := filepath.Join(exportDir, fileName)
 	if err := f.SaveAs(filePath); err != nil {
 		return "", fmt.Errorf("保存Excel失败: %v", err)

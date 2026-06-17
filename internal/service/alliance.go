@@ -229,19 +229,19 @@ func (s *AllianceService) FillBuyinId(ctx context.Context) (int, error) {
 	return updated, nil
 }
 
-// BackfillTalentInfo 回填达人信息到 order_info
-// 从 alliance_orders.author_account 关联 account 表获取 uid/talent_name
+// BackfillTalentInfo 回填达人信息到 order_info（优化版：使用 short_id 匹配 platform_nickname）
 // 只更新 talent_id 为空或为'0'的订单
 func (s *AllianceService) BackfillTalentInfo(ctx context.Context) (int, error) {
+	// 使用 short_id 匹配 account.platform_nickname
 	result, err := g.DB().Exec(ctx, `
 		UPDATE order_info o
 		JOIN alliance_orders ao ON o.sub_order_no = ao.order_id AND ao.platform = 'douyin'
-		JOIN account a ON ao.author_account COLLATE utf8mb4_unicode_ci = a.account_name COLLATE utf8mb4_unicode_ci
+		JOIN account a ON ao.short_id = a.platform_nickname AND a.platform = 'douyin'
 		SET o.talent_id = a.uid,
 		    o.talent_name = a.account_name
 		WHERE (o.talent_id IS NULL OR o.talent_id = '' OR o.talent_id = '0')
-		  AND ao.author_account IS NOT NULL
-		  AND ao.author_account != ''
+		  AND ao.short_id IS NOT NULL
+		  AND ao.short_id != ''
 		  AND a.uid IS NOT NULL
 		  AND a.uid != ''
 	`)
@@ -250,6 +250,196 @@ func (s *AllianceService) BackfillTalentInfo(ctx context.Context) (int, error) {
 	}
 	n, _ := result.RowsAffected()
 	return int(n), nil
+}
+
+// BackfillTalentInfoIncremental 增量回填达人信息（只处理指定时间范围的数据）
+// 优化：分两步执行，避免大表 JOIN
+func (s *AllianceService) BackfillTalentInfoIncremental(ctx context.Context, startTime, endTime string) (int, error) {
+	start := time.Now()
+
+	// Step1: 从 alliance_orders + account 构建 short_id → (uid, account_name) 映射
+	// 这个映射是相对稳定的，可以快速查询
+	mappingRows, err := g.DB().GetAll(ctx, `
+		SELECT DISTINCT ao.short_id, a.uid, a.account_name
+		FROM alliance_orders ao
+		INNER JOIN account a ON ao.short_id = a.platform_nickname AND a.platform = 'douyin'
+		WHERE ao.short_id IS NOT NULL AND ao.short_id != ''
+		  AND a.uid IS NOT NULL AND a.uid != ''
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("查询映射关系失败: %v", err)
+	}
+
+	// 构建映射表
+	shortIdMap := make(map[string]struct{ uid, name string })
+	for _, row := range mappingRows {
+		shortId := row["short_id"].String()
+		shortIdMap[shortId] = struct{ uid, name string }{
+			uid:  row["uid"].String(),
+			name: row["account_name"].String(),
+		}
+	}
+
+	g.Log().Infof(ctx, "[Backfill] 构建映射表: %d 条, 耗时 %dms", len(shortIdMap), time.Since(start).Milliseconds())
+
+	if len(shortIdMap) == 0 {
+		return 0, nil
+	}
+
+	// Step2: 查询需要回填的订单（只查 order_info，不 JOIN）
+	needBackfill, err := g.DB().GetAll(ctx, `
+		SELECT id, sub_order_no
+		FROM order_info
+		WHERE (talent_id IS NULL OR talent_id = '' OR talent_id = '0')
+		  AND pay_finish_time >= ?
+		  AND pay_finish_time < ?
+	`, startTime, endTime)
+	if err != nil {
+		return 0, fmt.Errorf("查询待回填订单失败: %v", err)
+	}
+
+	g.Log().Infof(ctx, "[Backfill] 待回填订单: %d 条, 耗时 %dms", len(needBackfill), time.Since(start).Milliseconds())
+
+	// Step3: 查询这些订单在 alliance_orders 中的 short_id
+	orderNos := make([]string, 0, len(needBackfill))
+	orderIdMap := make(map[string]int64) // sub_order_no -> order_info.id
+	for _, row := range needBackfill {
+		subNo := row["sub_order_no"].String()
+		orderNos = append(orderNos, subNo)
+		orderIdMap[subNo] = row["id"].Int64()
+	}
+
+	// 分批查询 alliance_orders
+	batchSize := 1000
+	totalUpdated := 0
+
+	for i := 0; i < len(orderNos); i += batchSize {
+		end := i + batchSize
+		if end > len(orderNos) {
+			end = len(orderNos)
+		}
+		batch := orderNos[i:end]
+
+		// 构建 IN 条件
+		placeholders := ""
+		args := make([]interface{}, 0, len(batch))
+		for j, no := range batch {
+			if j > 0 {
+				placeholders += ","
+			}
+			placeholders += "?"
+			args = append(args, no)
+		}
+
+		// 查询 alliance_orders 获取 short_id
+		allianceSQL := fmt.Sprintf(`
+			SELECT order_id, short_id
+			FROM alliance_orders
+			WHERE order_id IN (%s) AND platform = 'douyin'
+		`, placeholders)
+		allianceRows, err := g.DB().GetAll(ctx, allianceSQL, args...)
+		if err != nil {
+			g.Log().Warningf(ctx, "[Backfill] 查询 alliance_orders 失败: %v", err)
+			continue
+		}
+
+		// 按 uid 分组需要更新的订单
+		uidUpdates := make(map[string][]int64) // uid -> []order_info.id
+		uidNames := make(map[string]string)
+
+		for _, row := range allianceRows {
+			orderId := row["order_id"].String()
+			shortId := row["short_id"].String()
+
+			if mapping, ok := shortIdMap[shortId]; ok {
+				if infoId, exists := orderIdMap[orderId]; exists {
+					uidUpdates[mapping.uid] = append(uidUpdates[mapping.uid], infoId)
+					uidNames[mapping.uid] = mapping.name
+				}
+			}
+		}
+
+		// 批量更新 order_info
+		for uid, ids := range uidUpdates {
+			accountName := uidNames[uid]
+			updateBatchSize := 500
+			for k := 0; k < len(ids); k += updateBatchSize {
+				updateEnd := k + updateBatchSize
+				if updateEnd > len(ids) {
+					updateEnd = len(ids)
+				}
+				updateBatch := ids[k:updateEnd]
+
+				updatePlaceholders := ""
+				updateArgs := []interface{}{uid, accountName}
+				for j, id := range updateBatch {
+					if j > 0 {
+						updatePlaceholders += ","
+					}
+					updatePlaceholders += "?"
+					updateArgs = append(updateArgs, id)
+				}
+
+				updateSQL := fmt.Sprintf(`
+					UPDATE order_info
+					SET talent_id = ?, talent_name = ?
+					WHERE id IN (%s)
+				`, updatePlaceholders)
+
+				result, err := g.DB().Exec(ctx, updateSQL, updateArgs...)
+				if err != nil {
+					g.Log().Warningf(ctx, "[Backfill] 批量更新失败 uid=%s: %v", uid, err)
+					continue
+				}
+				n, _ := result.RowsAffected()
+				totalUpdated += int(n)
+			}
+		}
+	}
+
+	g.Log().Infof(ctx, "[Backfill] 回填完成: %d 条, 总耗时 %dms", totalUpdated, time.Since(start).Milliseconds())
+	return totalUpdated, nil
+}
+
+// BackfillTalentInfoBatch 批量回填（分批处理，避免长时间锁表）
+func (s *AllianceService) BackfillTalentInfoBatch(ctx context.Context, batchSize int) (int, error) {
+	if batchSize <= 0 {
+		batchSize = 5000
+	}
+
+	totalBackfilled := 0
+
+	for {
+		result, err := g.DB().Exec(ctx, `
+			UPDATE order_info o
+			JOIN alliance_orders ao ON o.sub_order_no = ao.order_id AND ao.platform = 'douyin'
+			JOIN account a ON ao.short_id = a.platform_nickname AND a.platform = 'douyin'
+			SET o.talent_id = a.uid,
+			    o.talent_name = a.account_name
+			WHERE (o.talent_id IS NULL OR o.talent_id = '' OR o.talent_id = '0')
+			  AND ao.short_id IS NOT NULL
+			  AND ao.short_id != ''
+			  AND a.uid IS NOT NULL
+			  AND a.uid != ''
+			LIMIT ?
+		`, batchSize)
+		if err != nil {
+			return totalBackfilled, err
+		}
+
+		n, _ := result.RowsAffected()
+		totalBackfilled += int(n)
+
+		// 如果没有更多数据需要处理，退出循环
+		if n == 0 {
+			break
+		}
+
+		// 短暂休息，避免数据库压力过大
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	return totalBackfilled, nil
 }
 
 func formatAllianceTime(val interface{}) string {
