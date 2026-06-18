@@ -321,17 +321,18 @@ func (c *DouyinPollerController) runAlliancePull(ctx context.Context, sTime, eTi
 
 	orderInfoMap := make(map[string]*OrderInfo)
 
+	// 使用下单时间查询 order_info
 	query := g.DB().Model("order_info").
 		Fields("sub_order_no, product_name, product_num, product_price, shop_name, pay_finish_time, order_submit_time, order_finish_time").
-		Where("pay_finish_time >= ?", sTime).
-		Where("pay_finish_time <= ?", eTime).
+		Where("order_submit_time >= ?", sTime).
+		Where("order_submit_time <= ?", eTime).
 		Where("sub_order_no IS NOT NULL AND sub_order_no != ''")
 
 	if douyinStoreId != "" {
 		hasStoreId, _ := g.DB().Model("order_info").
 			Where("store_id", douyinStoreId).
-			Where("pay_finish_time >= ?", sTime).
-			Where("pay_finish_time <= ?", eTime).
+			Where("order_submit_time >= ?", sTime).
+			Where("order_submit_time <= ?", eTime).
 			Count()
 		if hasStoreId > 0 {
 			query = query.Where("store_id", douyinStoreId)

@@ -56,18 +56,18 @@ func (s *OrderService) Stats(ctx context.Context, shopName string, startTime, en
 		}
 	}
 
-	// 构建日期筛选条件
-	dateWhere := "DATE(pay_finish_time) = CURDATE()"
+	// 构建日期筛选条件（使用下单时间）
+	dateWhere := "DATE(order_submit_time) = CURDATE()"
 	dateParams := []interface{}{}
 	if startTime != "" {
-		dateWhere = "pay_finish_time >= ?"
+		dateWhere = "order_submit_time >= ?"
 		dateParams = append(dateParams, startTime)
 	}
 	if endTime != "" {
 		if startTime != "" {
-			dateWhere += " AND pay_finish_time <= ?"
+			dateWhere += " AND order_submit_time <= ?"
 		} else {
-			dateWhere = "pay_finish_time <= ?"
+			dateWhere = "order_submit_time <= ?"
 		}
 		dateParams = append(dateParams, endTime)
 	}
@@ -268,11 +268,11 @@ func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, sh
 
 	// 时间范围筛选（支付完成时间）
 	if startTime != "" {
-		query += " AND pay_finish_time >= ?"
+		query += " AND order_submit_time >= ?"
 		params = append(params, startTime)
 	}
 	if endTime != "" {
-		query += " AND pay_finish_time <= ?"
+		query += " AND order_submit_time <= ?"
 		params = append(params, endTime)
 	}
 
@@ -358,11 +358,11 @@ func (s *OrderService) ExportToExcel(ctx context.Context, keyword, shopName, ord
 	}
 
 	if startTime != "" {
-		query += " AND pay_finish_time >= ?"
+		query += " AND order_submit_time >= ?"
 		params = append(params, startTime)
 	}
 	if endTime != "" {
-		query += " AND pay_finish_time <= ?"
+		query += " AND order_submit_time <= ?"
 		params = append(params, endTime)
 	}
 
