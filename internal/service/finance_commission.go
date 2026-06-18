@@ -64,9 +64,11 @@ func IsDateTime(s string) bool {
 // CalcEndDateNext 计算结束时间的下一个时间点（用于 < 查询）
 func CalcEndDateNext(endDate string) string {
 	if IsDateTime(endDate) {
-		// 带时间：加1小时
+		// 带时间：取整到天，然后加1天
 		if t, err := time.Parse("2006-01-02 15:04:05", endDate); err == nil {
-			return t.Add(time.Hour).Format("2006-01-02 15:04:05")
+			// 取整到当天 00:00:00，然后加1天
+			dayStart := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+			return dayStart.Add(24 * time.Hour).Format("2006-01-02")
 		}
 	}
 	// 纯日期：加1天
