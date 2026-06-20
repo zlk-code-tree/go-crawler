@@ -20,6 +20,20 @@ import (
 // OrderAnalysisService 订单分析服务
 type OrderAnalysisService struct{}
 
+// getAttributionSQL 获取归属规则的 SQL 片段
+// 优先使用 shop_account_attribution 特殊规则，兜底使用 account.operator
+func (s *OrderAnalysisService) getAttributionSQL(alias string) string {
+	return fmt.Sprintf(`COALESCE(
+		(SELECT saa.target_value
+		 FROM shop_account_attribution saa
+		 WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = %s.shop_name COLLATE utf8mb4_unicode_ci
+		   AND saa.source_account_uid = %s.talent_id
+		   AND saa.status = 1
+		 LIMIT 1),
+		a.operator
+	)`, alias, alias)
+}
+
 func NewOrderAnalysisService() *OrderAnalysisService {
 	return &OrderAnalysisService{}
 }
@@ -68,9 +82,20 @@ func (s *OrderAnalysisService) GetValidOrderFilter() string {
 // GroupStats 小组维度统计
 func (s *OrderAnalysisService) GroupStats(ctx context.Context, startDate, endDate string) ([]model.GroupStatItem, error) {
 	// 构建统计SQL - 先按 main_order_no 聚合，避免 JOIN 导致重复计算
+	// 使用特殊归属规则：优先 shop_account_attribution，兜底 account.operator
+	attributionSQL := `COALESCE(
+		(SELECT saa.target_value
+		 FROM shop_account_attribution saa
+		 WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
+		   AND saa.source_account_uid = o.talent_id
+		   AND saa.status = 1
+		 LIMIT 1),
+		a.operator
+	)`
+
 	sql := `
 		SELECT
-			COALESCE(a.operator, '未分配小组') AS group_name,
+			COALESCE(` + attributionSQL + `, '未分配小组') AS group_name,
 			COUNT(DISTINCT o.main_order_no) AS order_count,
 			COALESCE(SUM(o.product_num), 0) AS product_num,
 			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
@@ -87,16 +112,16 @@ func (s *OrderAnalysisService) GroupStats(ctx context.Context, startDate, endDat
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
-			WHERE o1.pay_finish_time >= ?
-			  AND o1.pay_finish_time < ?
+			WHERE o1.order_submit_time >= ?
+			  AND o1.order_submit_time < ?
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 			  ` + s.GetValidOrderFilter() + `
 			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
 		) o
 		LEFT JOIN account a ON o.talent_id = a.uid
-		GROUP BY a.operator
-		ORDER BY a.operator
+		GROUP BY ` + attributionSQL + `
+		ORDER BY group_name
 	`
 
 	result, err := g.DB().GetAll(ctx, sql, startDate, endDate)
@@ -135,12 +160,23 @@ func (s *OrderAnalysisService) ShopStats(ctx context.Context, startDate, endDate
 		params = append(params, groupId)
 	}
 
+	// 使用特殊归属规则
+	attributionSQL := `COALESCE(
+		(SELECT saa.target_value
+		 FROM shop_account_attribution saa
+		 WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
+		   AND saa.source_account_uid = o.talent_id
+		   AND saa.status = 1
+		 LIMIT 1),
+		a.operator
+	)`
+
 	// 构建统计SQL
 	sql := `
 		SELECT
 			a.id AS account_id,
 			o.shop_name AS shop_name,
-			COALESCE(a.operator, '未分配小组') AS group_name,
+			COALESCE(` + attributionSQL + `, '未分配小组') AS group_name,
 			COUNT(DISTINCT o.main_order_no) AS order_count,
 			COALESCE(SUM(o.product_num), 0) AS product_num,
 			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
@@ -157,8 +193,8 @@ func (s *OrderAnalysisService) ShopStats(ctx context.Context, startDate, endDate
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
-			WHERE o1.pay_finish_time >= ?
-			  AND o1.pay_finish_time < ?
+			WHERE o1.order_submit_time >= ?
+			  AND o1.order_submit_time < ?
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 			  ` + s.GetValidOrderFilter() + `
@@ -166,7 +202,7 @@ func (s *OrderAnalysisService) ShopStats(ctx context.Context, startDate, endDate
 		) o
 		LEFT JOIN account a ON o.talent_id = a.uid
 		WHERE 1=1 ` + shopFilter + `
-		GROUP BY a.id, o.shop_name, a.operator
+		GROUP BY a.id, o.shop_name, ` + attributionSQL + `
 		ORDER BY o.shop_name
 	`
 
@@ -508,10 +544,21 @@ func (s *OrderAnalysisService) queryDailyStats(ctx context.Context, startDate, e
 
 // Rank 排名榜单：小组排名 + 账号排名
 func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate string) (groupRank, shopRank []model.RankItem, err error) {
+	// 使用特殊归属规则
+	attributionSQL := `COALESCE(
+		(SELECT saa.target_value
+		 FROM shop_account_attribution saa
+		 WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
+		   AND saa.source_account_uid = o.talent_id
+		   AND saa.status = 1
+		 LIMIT 1),
+		a.operator
+	)`
+
 	// 小组排名
 	groupSQL := `
 		SELECT
-			COALESCE(a.operator, '未分配小组') AS group_name,
+			COALESCE(` + attributionSQL + `, '未分配小组') AS group_name,
 			COUNT(DISTINCT o.main_order_no) AS order_count,
 			COALESCE(SUM(o.product_num), 0) AS goods_count,
 			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
@@ -528,16 +575,16 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
-			WHERE o1.pay_finish_time >= ?
-			  AND o1.pay_finish_time < ?
+			WHERE o1.order_submit_time >= ?
+			  AND o1.order_submit_time < ?
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 			  ` + s.GetValidOrderFilter() + `
 			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
 		) o
 		LEFT JOIN account a ON o.talent_id = a.uid
-		WHERE a.operator IS NOT NULL AND a.operator != ''
-		GROUP BY a.operator
+		WHERE ` + attributionSQL + ` IS NOT NULL AND ` + attributionSQL + ` != ''
+		GROUP BY ` + attributionSQL + `
 		ORDER BY order_count DESC
 	`
 
@@ -569,7 +616,7 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 			o.shop_name,
 			o.talent_id,
 			COALESCE(MAX(a.account_name), '未知达人') AS talent_name,
-			COALESCE(GROUP_CONCAT(DISTINCT a.operator ORDER BY a.operator SEPARATOR ', '), '未分配小组') AS group_name,
+			COALESCE(GROUP_CONCAT(DISTINCT ` + attributionSQL + ` ORDER BY ` + attributionSQL + ` SEPARATOR ', '), '未分配小组') AS group_name,
 			COALESCE(MAX(a.uid), 0) AS account_id,
 			COUNT(DISTINCT o.main_order_no) AS talent_order_count,
 			COALESCE(SUM(o.product_num), 0) AS talent_goods_count,
@@ -587,15 +634,15 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
-			WHERE o1.pay_finish_time >= ?
-			  AND o1.pay_finish_time < ?
+			WHERE o1.order_submit_time >= ?
+			  AND o1.order_submit_time < ?
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 			  ` + s.GetValidOrderFilter() + `
 			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
 		) o
 		LEFT JOIN account a ON o.talent_id = a.uid
-		WHERE a.operator IS NOT NULL AND a.operator != ''
+		WHERE ` + attributionSQL + ` IS NOT NULL AND ` + attributionSQL + ` != ''
 		GROUP BY o.shop_name, o.talent_id
 		ORDER BY o.shop_name, talent_order_count DESC
 	`
@@ -760,19 +807,30 @@ func (s *OrderAnalysisService) queryOrderDetailsByFilter(ctx context.Context, fi
 		endTime = endDate + " 23:59:59"
 	}
 
+	// 使用特殊归属规则
+	attributionSQL := `COALESCE(
+		(SELECT saa.target_value
+		 FROM shop_account_attribution saa
+		 WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
+		   AND saa.source_account_uid = o.talent_id
+		   AND saa.status = 1
+		 LIMIT 1),
+		a.operator
+	)`
+
 	if filterType == "group" {
 		sql = `
 			SELECT o.*
 			FROM order_info o
 			LEFT JOIN account a ON o.talent_id = a.uid
-			WHERE a.operator = ?
-			  AND o.pay_finish_time >= ?
-			  AND o.pay_finish_time <= ?
+			WHERE ` + attributionSQL + ` = ?
+			  AND o.order_submit_time >= ?
+			  AND o.order_submit_time <= ?
 			  AND o.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
 			  AND o.order_status != '已关闭'
 			  AND o.main_order_no IS NOT NULL
 			  AND o.main_order_no != ''
-			ORDER BY o.pay_finish_time DESC
+			ORDER BY o.order_submit_time DESC
 		`
 		params = []interface{}{filterValue, startDate, endTime}
 	} else if filterType == "shop" {
