@@ -113,8 +113,9 @@ var (
 				bgCtx := context.Background()
 				time.Sleep(3 * time.Second)
 				row, _ := g.DB().Model("qianchuan_token").Ctx(bgCtx).OrderDesc("id").Limit(1).One()
-				if row.IsEmpty() || (row["advertiser_ids"].String() != "" && row["advertiser_ids"].String() != "[]") { return }
+				if row.IsEmpty() { return }
 				token := row["access_token"].String()
+				if len(token) < 8 { return }
 				g.Log().Infof(bgCtx, "[Qianchuan] 启动获取advertiser列表, token前8位=%s", token[:8])
 				client := g.Client()
 				resp, err := client.Get(bgCtx, "https://api.oceanengine.com/open_api/oauth2/advertiser/get/", g.Map{"access_token": token})
@@ -123,8 +124,9 @@ var (
 				body := resp.ReadAllString()
 				g.Log().Infof(bgCtx, "[Qianchuan] advertiser响应: %s", body)
 				var advResp struct {
-					Code int64 `json:"code"`
-					Data struct {
+					Code    int64  `json:"code"`
+					Message string `json:"message"`
+					Data    struct {
 						List []struct {
 							AdvertiserId   int64  `json:"advertiser_id"`
 							AdvertiserName string `json:"advertiser_name"`
@@ -132,7 +134,10 @@ var (
 					} `json:"data"`
 				}
 				json.Unmarshal([]byte(body), &advResp)
-				if advResp.Code != 0 { return }
+				if advResp.Code != 0 {
+					g.Log().Warningf(bgCtx, "[Qianchuan] advertiser/get返回错误: code=%d, msg=%s", advResp.Code, advResp.Message)
+					return
+				}
 				var ids []int64
 				for _, item := range advResp.Data.List {
 					ids = append(ids, item.AdvertiserId)

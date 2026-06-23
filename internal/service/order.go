@@ -98,8 +98,8 @@ func (s *OrderService) Stats(ctx context.Context, shopName string, startTime, en
 
 	// 有效订单状态
 	validStatuses := "('已发货', '待发货', '已完成')"
-	// 无效订单：after_sale_status 售后申请(6)、售后退货中(7)、售后成功(12)
-	invalidAfterSaleStatuses := "('6', '7', '12')"
+	// 无效订单：after_sale_status 售后申请(6)、售后退货中(7)、售后已发货(11)、售后成功(12)、售后退货拒绝(29)
+	invalidAfterSaleStatuses := "('6', '7', '11', '12', '29')"
 	// 有效订单条件：
 	//   1. order_status在(已发货,待发货,已完成) 且 after_sale已关闭或未发生售后
 	//   2. order_status=已关闭 且 after_sale为关闭状态(拒绝27/失败28/取消51)

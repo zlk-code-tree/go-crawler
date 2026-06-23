@@ -146,11 +146,11 @@ func (s *FinanceAggregateService) getAllValidOrders(ctx context.Context, date st
 	endTime := date + " 23:59:59"
 
 	// 有效订单条件
-	validCond := "(o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51'))"
+	validCond := "(o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51'))"
 	// 无效订单条件
-	invalidCond := "o.after_sale_status IN ('6','7','12')"
+	invalidCond := "o.after_sale_status IN ('6','7','11','12','29')"
 	// 退款成本条件：无效 且 已发货
-	refundCond := "o.after_sale_status IN ('6','7','12') AND o.order_status = '已发货'"
+	refundCond := "o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'"
 
 	// 抖音订单
 	allOrders = append(allOrders, s.queryPlatformOrders(ctx, "order_info", "douyin", "main_order_no", "", validCond, invalidCond, refundCond, startTime, endTime)...)
@@ -382,9 +382,9 @@ func (s *FinanceAggregateService) OrderDailyAggregateJob(ctx context.Context, da
 	startTime := date + " 00:00:00"
 	endTime := date + " 23:59:59"
 
-	validCond := "(o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51'))"
-	invalidCond := "o.after_sale_status IN ('6','7','12')"
-	refundCond := "o.after_sale_status IN ('6','7','12') AND o.order_status = '已发货'"
+	validCond := "(o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51'))"
+	invalidCond := "o.after_sale_status IN ('6','7','11','12','29')"
+	refundCond := "o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'"
 
 	sql := fmt.Sprintf(`
 		SELECT

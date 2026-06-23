@@ -203,7 +203,8 @@ func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId 
 	}
 
 	// 2. 统计这些账号的订单数据（跨三张订单表）
-	stats, err := s.statsOrdersByAccountIds(ctx, accountIds, startDate, endDate)
+	// 注意：getStatsRealtime 不传 traderName，归属规则在投手级别单独处理
+	stats, err := s.statsOrdersByAccountIds(ctx, accountIds, startDate, endDate, "")
 	if err != nil {
 		g.Log().Warningf(ctx, "[Finance] statsOrdersByAccountIds 失败: accountIds=%v, err=%v", accountIds, err)
 		return nil, err
@@ -277,7 +278,7 @@ func (s *FinanceCommissionService) GetChildren(ctx context.Context, req *model.F
 	return nil, fmt.Errorf("不支持的节点类型: %s", req.NodeType)
 }
 
-// getCompanyChildren 获取公司下级节点
+// getCompanyChildren 获取公司下级节点（批量查询优化）
 func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, companyId int64, startDate, endDate, timeType, platform string) (*model.FinanceChildrenRes, error) {
 	// 子节点只查历史数据，避免每个子节点都实时查询今天数据
 	childEndDate := endDate
@@ -300,78 +301,221 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 		Type: "company",
 	}
 
-	var children []model.NodeStatsItem
-
 	// 1. 获取子公司
-	subCompanies, err := g.DB().Model("sys_company").
+	subCompanies, _ := g.DB().Model("sys_company").
 		Where("parent_id", companyId).
 		Where("status", 1).
 		Order("sort ASC, id ASC").
 		All()
-	if err == nil {
-		for _, sc := range subCompanies {
-			stats, _ := s.GetStats(ctx, &model.FinanceStatsReq{
-				NodeId:    sc["id"].Int64(),
-				NodeType:  "company",
-				StartDate: startDate,
-				EndDate:   childEndDate,
-				TimeType:  "custom",
-				Platform:  platform,
-			})
-			children = append(children, model.NodeStatsItem{
-				Id:               sc["id"].Int64(),
-				Name:             sc["name"].String(),
-				Type:             "company",
-				TotalOrderCount:  stats.Summary.TotalOrderCount,
-				OrderCount:       stats.Summary.OrderCount,
-				InvalidOrderCount: stats.Summary.InvalidOrderCount,
-				ProductNum:       stats.Summary.ProductNum,
-				PayAmount:        stats.Summary.PayAmount,
-				CostAmount:       stats.Summary.CostAmount,
-				Commission:       stats.Summary.Commission,
-				RefundCostAmount: stats.Summary.RefundCostAmount,
-				RefundOrderCount: stats.Summary.RefundOrderCount,
-				ShopServiceFee:   stats.Summary.ShopServiceFee,
-				RealtimeProfit:   stats.Summary.RealtimeProfit,
-				})
-		}
-	}
 
-	// 2. 获取该公司下的部门
-	departments, err := g.DB().Model("sys_department").
+	// 2. 获取该公司下的顶级部门
+	departments, _ := g.DB().Model("sys_department").
 		Where("company_id", companyId).
-		Where("parent_id", 0). // 顶级部门
+		Where("parent_id", 0).
 		Where("status", 1).
 		Order("sort ASC, id ASC").
 		All()
-	if err == nil {
-		for _, dept := range departments {
-			deptId := dept["id"].Int64()
-			stats, _ := s.GetStats(ctx, &model.FinanceStatsReq{
-				NodeId:    model.EncodeDeptID(deptId),
-				NodeType:  "department",
-				StartDate: startDate,
-				EndDate:   childEndDate,
-				TimeType:  "custom",
-				Platform:  platform,
-			})
-			children = append(children, model.NodeStatsItem{
-				Id:               model.EncodeDeptID(deptId),
-				Name:             dept["name"].String(),
-				Type:             "department",
-				TotalOrderCount:  stats.Summary.TotalOrderCount,
-				OrderCount:       stats.Summary.OrderCount,
-				InvalidOrderCount: stats.Summary.InvalidOrderCount,
-				ProductNum:       stats.Summary.ProductNum,
-				PayAmount:        stats.Summary.PayAmount,
-				CostAmount:       stats.Summary.CostAmount,
-				Commission:       stats.Summary.Commission,
-				RefundCostAmount: stats.Summary.RefundCostAmount,
-				RefundOrderCount: stats.Summary.RefundOrderCount,
-				ShopServiceFee:   stats.Summary.ShopServiceFee,
-				RealtimeProfit:   stats.Summary.RealtimeProfit,
-			})
+
+	// 3. 批量获取每个子节点的账号ID
+	type childNode struct {
+		id         int64
+		name       string
+		nodeType   string
+		accountIds []int
+	}
+	var childNodes []childNode
+
+	for _, sc := range subCompanies {
+		cid := sc["id"].Int64()
+		accIds, _ := s.getAccountIdsByNode(ctx, cid, "company", platform)
+		childNodes = append(childNodes, childNode{id: cid, name: sc["name"].String(), nodeType: "company", accountIds: accIds})
+	}
+	for _, dept := range departments {
+		did := dept["id"].Int64()
+		accIds, _ := s.getAccountIdsByNode(ctx, model.EncodeDeptID(did), "department", platform)
+		childNodes = append(childNodes, childNode{id: model.EncodeDeptID(did), name: dept["name"].String(), nodeType: "department", accountIds: accIds})
+	}
+
+	// 4. 批量查询：按平台聚合所有账号，一次查询每张订单表
+	//    同时记录每个 accountId 属于哪些子节点，用于分配结果
+	type nodeIdx struct{ idx int }
+	accountToNodes := make(map[int][]nodeIdx) // accountId → 所属子节点索引
+	// 收集所有不重复的 accountId 及其 platform 信息
+	allAccountIdsSet := make(map[int]bool)
+	for i, cn := range childNodes {
+		for _, aid := range cn.accountIds {
+			if !allAccountIdsSet[aid] {
+				allAccountIdsSet[aid] = true
+			}
+			accountToNodes[aid] = append(accountToNodes[aid], nodeIdx{idx: i})
 		}
+	}
+
+	// 初始化每个子节点的统计结果
+	nodeStats := make([]model.FinanceStatsSummary, len(childNodes))
+
+	if len(allAccountIdsSet) > 0 {
+		// 收集所有 accountId
+		var allAccountIds []int
+		for aid := range allAccountIdsSet {
+			allAccountIds = append(allAccountIds, aid)
+		}
+
+		// 获取账号的 uid、platform 信息
+		shops, err := g.DB().Model("account").
+			Where("id IN(?)", allAccountIds).
+			Fields("id, uid, platform, account_name").
+			All()
+		if err != nil {
+			return nil, err
+		}
+
+		// 构建 platform → uids
+		platformUids := make(map[string][]string)
+		for _, shop := range shops {
+			uid := shop["uid"].String()
+			p := shop["platform"].String()
+			if p != "" && uid != "" {
+				platformUids[p] = append(platformUids[p], uid)
+			}
+		}
+
+		// 按平台分别查询订单表，获取每个 uid 的统计数据
+		for platformKey, uids := range platformUids {
+			tableName, ok := platformTableMap[platformKey]
+			if !ok {
+				continue
+			}
+			orderNoCol := "main_order_no"
+			collate := ""
+			talentCollate := ""
+			if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
+				orderNoCol = "order_no"
+				collate = "COLLATE utf8mb4_unicode_ci"
+				talentCollate = "COLLATE utf8mb4_unicode_ci"
+			}
+
+			validCond := "(o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51'))"
+			invalidCond := "o.after_sale_status IN ('6','7','11','12','29')"
+			refundCond := "o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'"
+
+			// 按 talent_id 分组统计（一次查询获取所有 uid 的统计）
+			sql := fmt.Sprintf(`
+				SELECT
+					o.talent_id AS uid,
+					COUNT(DISTINCT o.%s) AS total_order_count,
+					COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS order_count,
+					COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS invalid_order_count,
+					COALESCE(SUM(CASE WHEN %s THEN o.product_num ELSE 0 END), 0) AS product_num,
+					COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num ELSE 0 END), 0) AS pay_amount,
+					COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS cost_amount,
+					COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num * 0.03 ELSE 0 END), 0) AS reserve_amount,
+					COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS refund_cost_amount,
+					COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_order_count
+				FROM %s o
+				LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+				WHERE o.order_submit_time >= ?
+				  AND o.order_submit_time < ?
+				  AND o.%s IS NOT NULL
+				  AND o.%s != ''
+				  AND o.talent_id %s IN(?)
+				GROUP BY o.talent_id
+			`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, tableName, collate, orderNoCol, orderNoCol, talentCollate)
+
+			endDateNext := CalcEndDateNext(childEndDate)
+			rows, err := g.DB().GetAll(ctx, sql, startDate, endDateNext, uids)
+			if err != nil {
+				continue
+			}
+
+			// 构建 uid → accountId 列表的映射
+			uidToAccountIds := make(map[string][]int)
+			for _, shop := range shops {
+				uid := shop["uid"].String()
+				if uid != "" {
+					uidToAccountIds[uid] = append(uidToAccountIds[uid], shop["id"].Int())
+				}
+			}
+
+			for _, row := range rows {
+				uid := row["uid"].String()
+				payAmount := row["pay_amount"].Float64()
+				costAmount := row["cost_amount"].Float64()
+				reserveAmount := row["reserve_amount"].Float64()
+				commission := payAmount - costAmount - reserveAmount
+
+				// 小店服务费 = 定价总额 × 2%（仅抖音）
+				shopServiceFee := 0.0
+				if platformKey == "douyin" {
+					shopServiceFee = roundFloatFinance(payAmount*0.02, 2)
+				}
+				commission = roundFloatFinance(commission-shopServiceFee, 2)
+				commissionDeduction := roundFloatFinance((payAmount-reserveAmount-costAmount)*0.005, 2)
+				realtimeProfit := roundFloatFinance(payAmount-costAmount-reserveAmount-row["refund_cost_amount"].Float64()-shopServiceFee-commissionDeduction, 2)
+
+				stats := model.FinanceStatsSummary{
+					TotalOrderCount:     row["total_order_count"].Int(),
+					OrderCount:          row["order_count"].Int(),
+					InvalidOrderCount:   row["invalid_order_count"].Int(),
+					ProductNum:          row["product_num"].Int(),
+					PayAmount:           roundFloatFinance(payAmount, 2),
+					CostAmount:          roundFloatFinance(costAmount, 2),
+					ReserveAmount:       roundFloatFinance(reserveAmount, 2),
+					Commission:          commission,
+					RefundCostAmount:    roundFloatFinance(row["refund_cost_amount"].Float64(), 2),
+					RefundOrderCount:    row["refund_order_count"].Int(),
+					ShopServiceFee:      shopServiceFee,
+					RealtimeProfit:      realtimeProfit,
+				}
+
+				// 将该 uid 的统计数据分配给所有关联的子节点
+				for _, aid := range uidToAccountIds[uid] {
+					for _, ni := range accountToNodes[aid] {
+						nodeStats[ni.idx].TotalOrderCount += stats.TotalOrderCount
+						nodeStats[ni.idx].OrderCount += stats.OrderCount
+						nodeStats[ni.idx].InvalidOrderCount += stats.InvalidOrderCount
+						nodeStats[ni.idx].ProductNum += stats.ProductNum
+						nodeStats[ni.idx].PayAmount += stats.PayAmount
+						nodeStats[ni.idx].CostAmount += stats.CostAmount
+						nodeStats[ni.idx].ReserveAmount += stats.ReserveAmount
+						nodeStats[ni.idx].Commission += stats.Commission
+						nodeStats[ni.idx].RefundCostAmount += stats.RefundCostAmount
+						nodeStats[ni.idx].RefundOrderCount += stats.RefundOrderCount
+						nodeStats[ni.idx].ShopServiceFee += stats.ShopServiceFee
+						nodeStats[ni.idx].RealtimeProfit += stats.RealtimeProfit
+					}
+				}
+			}
+		}
+	}
+
+	// 5. 构建结果
+	var children []model.NodeStatsItem
+	for i, cn := range childNodes {
+		st := nodeStats[i]
+		st.PayAmount = roundFloatFinance(st.PayAmount, 2)
+		st.CostAmount = roundFloatFinance(st.CostAmount, 2)
+		st.ReserveAmount = roundFloatFinance(st.ReserveAmount, 2)
+		st.Commission = roundFloatFinance(st.Commission, 2)
+		st.RefundCostAmount = roundFloatFinance(st.RefundCostAmount, 2)
+		st.ShopServiceFee = roundFloatFinance(st.ShopServiceFee, 2)
+		st.RealtimeProfit = roundFloatFinance(st.RealtimeProfit, 2)
+		children = append(children, model.NodeStatsItem{
+			Id:               cn.id,
+			Name:             cn.name,
+			Type:             cn.nodeType,
+			TotalOrderCount:  st.TotalOrderCount,
+			OrderCount:       st.OrderCount,
+			InvalidOrderCount: st.InvalidOrderCount,
+			ProductNum:       st.ProductNum,
+			PayAmount:        st.PayAmount,
+			CostAmount:       st.CostAmount,
+			Commission:       st.Commission,
+			RefundCostAmount: st.RefundCostAmount,
+			RefundOrderCount: st.RefundOrderCount,
+			ShopServiceFee:   st.ShopServiceFee,
+			RealtimeProfit:   st.RealtimeProfit,
+		})
 	}
 
 	return &model.FinanceChildrenRes{
@@ -380,7 +524,7 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 	}, nil
 }
 
-// getDepartmentChildren 获取部门下级节点
+// getDepartmentChildren 获取部门下级节点（批量查询优化）
 func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, deptId int64, startDate, endDate, timeType, platform string) (*model.FinanceChildrenRes, error) {
 	// 子节点只查历史数据，避免每个子节点都实时查询今天数据
 	childEndDate := endDate
@@ -406,78 +550,208 @@ func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, de
 		Type: "department",
 	}
 
-	var children []model.NodeStatsItem
-
 	// 1. 获取子部门
-	subDepts, err := g.DB().Model("sys_department").
+	subDepts, _ := g.DB().Model("sys_department").
 		Where("parent_id", realDeptId).
 		Where("status", 1).
 		Order("sort ASC, id ASC").
 		All()
-	if err == nil {
-		for _, sd := range subDepts {
-			sdId := sd["id"].Int64()
-			stats, _ := s.GetStats(ctx, &model.FinanceStatsReq{
-				NodeId:    model.EncodeDeptID(sdId),
-				NodeType:  "department",
-				StartDate: startDate,
-				EndDate:   childEndDate,
-				TimeType:  "custom",
-				Platform:  platform,
-			})
-			children = append(children, model.NodeStatsItem{
-				Id:               model.EncodeDeptID(sdId),
-				Name:             sd["name"].String(),
-				Type:             "department",
-				TotalOrderCount:  stats.Summary.TotalOrderCount,
-				OrderCount:       stats.Summary.OrderCount,
-				InvalidOrderCount: stats.Summary.InvalidOrderCount,
-				ProductNum:       stats.Summary.ProductNum,
-				PayAmount:        stats.Summary.PayAmount,
-				CostAmount:       stats.Summary.CostAmount,
-				Commission:       stats.Summary.Commission,
-				RefundCostAmount: stats.Summary.RefundCostAmount,
-				RefundOrderCount: stats.Summary.RefundOrderCount,
-				ShopServiceFee:   stats.Summary.ShopServiceFee,
-				RealtimeProfit:   stats.Summary.RealtimeProfit,
-			})
-	}
-		}
 
 	// 2. 获取该部门下的投手
-	traders, err := g.DB().Model("trader").
+	traders, _ := g.DB().Model("trader").
 		Where("group_id", realDeptId).
 		Where("status", 1).
 		Order("id ASC").
 		All()
-	if err == nil {
-		for _, trader := range traders {
-			traderId := trader["id"].Int64()
-			stats, _ := s.GetStats(ctx, &model.FinanceStatsReq{
-				NodeId:    model.EncodeTraderID(traderId),
-				NodeType:  "trader",
-				StartDate: startDate,
-				EndDate:   childEndDate,
-				TimeType:  "custom",
-				Platform:  platform,
-			})
-			children = append(children, model.NodeStatsItem{
-				Id:               model.EncodeTraderID(traderId),
-				Name:             trader["name"].String(),
-				Type:             "trader",
-				TotalOrderCount:  stats.Summary.TotalOrderCount,
-				OrderCount:       stats.Summary.OrderCount,
-				InvalidOrderCount: stats.Summary.InvalidOrderCount,
-				ProductNum:       stats.Summary.ProductNum,
-				PayAmount:        stats.Summary.PayAmount,
-				CostAmount:       stats.Summary.CostAmount,
-				Commission:       stats.Summary.Commission,
-				RefundCostAmount: stats.Summary.RefundCostAmount,
-				RefundOrderCount: stats.Summary.RefundOrderCount,
-				ShopServiceFee:   stats.Summary.ShopServiceFee,
-				RealtimeProfit:   stats.Summary.RealtimeProfit,
-				})
+
+	// 3. 批量获取每个子节点的账号ID
+	type childNode struct {
+		id         int64
+		name       string
+		nodeType   string
+		accountIds []int
+	}
+	var childNodes []childNode
+
+	for _, sd := range subDepts {
+		sdId := sd["id"].Int64()
+		accIds, _ := s.getAccountIdsByNode(ctx, model.EncodeDeptID(sdId), "department", platform)
+		childNodes = append(childNodes, childNode{id: model.EncodeDeptID(sdId), name: sd["name"].String(), nodeType: "department", accountIds: accIds})
+	}
+	for _, trader := range traders {
+		tid := trader["id"].Int64()
+		accIds, _ := s.getAccountIdsByNode(ctx, model.EncodeTraderID(tid), "trader", platform)
+		childNodes = append(childNodes, childNode{id: model.EncodeTraderID(tid), name: trader["name"].String(), nodeType: "trader", accountIds: accIds})
+	}
+
+	// 4. 批量查询：按平台聚合所有账号，一次查询每张订单表
+	type nodeIdx struct{ idx int }
+	accountToNodes := make(map[int][]nodeIdx)
+	allAccountIdsSet := make(map[int]bool)
+	for i, cn := range childNodes {
+		for _, aid := range cn.accountIds {
+			allAccountIdsSet[aid] = true
+			accountToNodes[aid] = append(accountToNodes[aid], nodeIdx{idx: i})
 		}
+	}
+
+	nodeStats := make([]model.FinanceStatsSummary, len(childNodes))
+
+	if len(allAccountIdsSet) > 0 {
+		var allAccountIds []int
+		for aid := range allAccountIdsSet {
+			allAccountIds = append(allAccountIds, aid)
+		}
+
+		shops, err := g.DB().Model("account").
+			Where("id IN(?)", allAccountIds).
+			Fields("id, uid, platform, account_name").
+			All()
+		if err != nil {
+			return nil, err
+		}
+
+		platformUids := make(map[string][]string)
+		for _, shop := range shops {
+			uid := shop["uid"].String()
+			p := shop["platform"].String()
+			if p != "" && uid != "" {
+				platformUids[p] = append(platformUids[p], uid)
+			}
+		}
+
+		// 按平台分别查询订单表，获取每个 uid 的统计数据
+		for platformKey, uids := range platformUids {
+			tableName, ok := platformTableMap[platformKey]
+			if !ok {
+				continue
+			}
+			orderNoCol := "main_order_no"
+			collate := ""
+			talentCollate := ""
+			if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
+				orderNoCol = "order_no"
+				collate = "COLLATE utf8mb4_unicode_ci"
+				talentCollate = "COLLATE utf8mb4_unicode_ci"
+			}
+
+			validCond := "(o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51'))"
+			invalidCond := "o.after_sale_status IN ('6','7','11','12','29')"
+			refundCond := "o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'"
+
+			sql := fmt.Sprintf(`
+				SELECT
+					o.talent_id AS uid,
+					COUNT(DISTINCT o.%s) AS total_order_count,
+					COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS order_count,
+					COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS invalid_order_count,
+					COALESCE(SUM(CASE WHEN %s THEN o.product_num ELSE 0 END), 0) AS product_num,
+					COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num ELSE 0 END), 0) AS pay_amount,
+					COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS cost_amount,
+					COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num * 0.03 ELSE 0 END), 0) AS reserve_amount,
+					COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS refund_cost_amount,
+					COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_order_count
+				FROM %s o
+				LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+				WHERE o.order_submit_time >= ?
+				  AND o.order_submit_time < ?
+				  AND o.%s IS NOT NULL
+				  AND o.%s != ''
+				  AND o.talent_id %s IN(?)
+				GROUP BY o.talent_id
+			`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, tableName, collate, orderNoCol, orderNoCol, talentCollate)
+
+			endDateNext := CalcEndDateNext(childEndDate)
+			rows, err := g.DB().GetAll(ctx, sql, startDate, endDateNext, uids)
+			if err != nil {
+				continue
+			}
+
+			uidToAccountIds := make(map[string][]int)
+			for _, shop := range shops {
+				uid := shop["uid"].String()
+				if uid != "" {
+					uidToAccountIds[uid] = append(uidToAccountIds[uid], shop["id"].Int())
+				}
+			}
+
+			for _, row := range rows {
+				uid := row["uid"].String()
+				payAmount := row["pay_amount"].Float64()
+				costAmount := row["cost_amount"].Float64()
+				reserveAmount := row["reserve_amount"].Float64()
+				commission := payAmount - costAmount - reserveAmount
+
+				shopServiceFee := 0.0
+				if platformKey == "douyin" {
+					shopServiceFee = roundFloatFinance(payAmount*0.02, 2)
+				}
+				commission = roundFloatFinance(commission-shopServiceFee, 2)
+				commissionDeduction := roundFloatFinance((payAmount-reserveAmount-costAmount)*0.005, 2)
+				realtimeProfit := roundFloatFinance(payAmount-costAmount-reserveAmount-row["refund_cost_amount"].Float64()-shopServiceFee-commissionDeduction, 2)
+
+				stats := model.FinanceStatsSummary{
+					TotalOrderCount:   row["total_order_count"].Int(),
+					OrderCount:        row["order_count"].Int(),
+					InvalidOrderCount: row["invalid_order_count"].Int(),
+					ProductNum:        row["product_num"].Int(),
+					PayAmount:         roundFloatFinance(payAmount, 2),
+					CostAmount:        roundFloatFinance(costAmount, 2),
+					ReserveAmount:     roundFloatFinance(reserveAmount, 2),
+					Commission:        commission,
+					RefundCostAmount:  roundFloatFinance(row["refund_cost_amount"].Float64(), 2),
+					RefundOrderCount:  row["refund_order_count"].Int(),
+					ShopServiceFee:    shopServiceFee,
+					RealtimeProfit:    realtimeProfit,
+				}
+
+				for _, aid := range uidToAccountIds[uid] {
+					for _, ni := range accountToNodes[aid] {
+						nodeStats[ni.idx].TotalOrderCount += stats.TotalOrderCount
+						nodeStats[ni.idx].OrderCount += stats.OrderCount
+						nodeStats[ni.idx].InvalidOrderCount += stats.InvalidOrderCount
+						nodeStats[ni.idx].ProductNum += stats.ProductNum
+						nodeStats[ni.idx].PayAmount += stats.PayAmount
+						nodeStats[ni.idx].CostAmount += stats.CostAmount
+						nodeStats[ni.idx].ReserveAmount += stats.ReserveAmount
+						nodeStats[ni.idx].Commission += stats.Commission
+						nodeStats[ni.idx].RefundCostAmount += stats.RefundCostAmount
+						nodeStats[ni.idx].RefundOrderCount += stats.RefundOrderCount
+						nodeStats[ni.idx].ShopServiceFee += stats.ShopServiceFee
+						nodeStats[ni.idx].RealtimeProfit += stats.RealtimeProfit
+					}
+				}
+			}
+		}
+	}
+
+	// 5. 构建结果
+	var children []model.NodeStatsItem
+	for i, cn := range childNodes {
+		st := nodeStats[i]
+		st.PayAmount = roundFloatFinance(st.PayAmount, 2)
+		st.CostAmount = roundFloatFinance(st.CostAmount, 2)
+		st.ReserveAmount = roundFloatFinance(st.ReserveAmount, 2)
+		st.Commission = roundFloatFinance(st.Commission, 2)
+		st.RefundCostAmount = roundFloatFinance(st.RefundCostAmount, 2)
+		st.ShopServiceFee = roundFloatFinance(st.ShopServiceFee, 2)
+		st.RealtimeProfit = roundFloatFinance(st.RealtimeProfit, 2)
+		children = append(children, model.NodeStatsItem{
+			Id:               cn.id,
+			Name:             cn.name,
+			Type:             cn.nodeType,
+			TotalOrderCount:  st.TotalOrderCount,
+			OrderCount:       st.OrderCount,
+			InvalidOrderCount: st.InvalidOrderCount,
+			ProductNum:       st.ProductNum,
+			PayAmount:        st.PayAmount,
+			CostAmount:       st.CostAmount,
+			Commission:       st.Commission,
+			RefundCostAmount: st.RefundCostAmount,
+			RefundOrderCount: st.RefundOrderCount,
+			ShopServiceFee:   st.ShopServiceFee,
+			RealtimeProfit:   st.RealtimeProfit,
+		})
 	}
 
 	return &model.FinanceChildrenRes{
@@ -516,7 +790,7 @@ func (s *FinanceCommissionService) getTraderChildren(ctx context.Context, trader
 	var children []model.NodeStatsItem
 	if err == nil {
 		for _, shop := range shops {
-			stats, _ := s.statsOrdersByAccountIds(ctx, []int{shop["id"].Int()}, startDate, endDate)
+			stats, _ := s.statsOrdersByAccountIds(ctx, []int{shop["id"].Int()}, startDate, endDate, trader["name"].String())
 			if stats == nil {
 				stats = &model.FinanceStatsSummary{}
 			}
@@ -603,6 +877,9 @@ func (s *FinanceCommissionService) GetTraderDetail(ctx context.Context, req *mod
 
 // getTraderShopStats 获取投手关联账号的统计
 func (s *FinanceCommissionService) getTraderShopStats(ctx context.Context, traderId int64, startDate, endDate string) ([]model.ShopStatsItem, error) {
+	// 获取投手名称（用于归属规则）
+	traderName, _ := s.getTraderName(ctx, traderId)
+
 	// 获取投手关联的店铺
 	shops, err := g.DB().Model("account a").
 		LeftJoin("trader_account_relation tsr", "a.id = tsr.account_id").
@@ -616,7 +893,7 @@ func (s *FinanceCommissionService) getTraderShopStats(ctx context.Context, trade
 	var result []model.ShopStatsItem
 	for _, shop := range shops {
 		accountId := shop["id"].Int()
-		stats, _ := s.statsOrdersByAccountIds(ctx, []int{accountId}, startDate, endDate)
+		stats, _ := s.statsOrdersByAccountIds(ctx, []int{accountId}, startDate, endDate, traderName)
 		if stats == nil {
 			stats = &model.FinanceStatsSummary{}
 		}
@@ -663,7 +940,7 @@ func (s *FinanceCommissionService) GetShopDetail(ctx context.Context, req *model
 	}
 
 	// 统计数据
-	stats, _ := s.statsOrdersByAccountIds(ctx, []int{req.AccountId}, startDate, endDate)
+	stats, _ := s.statsOrdersByAccountIds(ctx, []int{req.AccountId}, startDate, endDate, "")
 	if stats == nil {
 		stats = &model.FinanceStatsSummary{}
 	}
@@ -833,6 +1110,83 @@ var platformTableMap = map[string]string{
 	"shipinhao":  "shipinhao_orders",
 }
 
+// ============================================
+// 归属规则（shop_account_attribution）
+// ============================================
+
+// attributionRule 归属规则缓存项
+type attributionRule struct {
+	ShopName  string
+	TalentId  string
+	TraderId  int64
+	TraderName string
+}
+
+// loadAttributionRules 加载所有有效的特殊归属规则
+func (s *FinanceCommissionService) loadAttributionRules(ctx context.Context) ([]attributionRule, error) {
+	rows, err := g.DB().Model("shop_account_attribution saa").
+		LeftJoin("trader t", "saa.target_value = t.name").
+		Where("saa.status", 1).
+		Where("saa.target_type", "operator").
+		Fields("saa.shop_name, saa.source_account_uid, t.id AS trader_id, saa.target_value AS trader_name").
+		All()
+	if err != nil {
+		return nil, err
+	}
+
+	var rules []attributionRule
+	for _, row := range rows {
+		if row["trader_id"].Int64() > 0 {
+			rules = append(rules, attributionRule{
+				ShopName:   row["shop_name"].String(),
+				TalentId:   row["source_account_uid"].String(),
+				TraderId:   row["trader_id"].Int64(),
+				TraderName: row["trader_name"].String(),
+			})
+		}
+	}
+	return rules, nil
+}
+
+// attributionExcludeSQL 生成排除被重定向到其他投手的订单的 SQL 条件
+// 返回 NOT EXISTS 子查询片段，用于 WHERE 子句
+// 当订单的 (shop_name, talent_id) 命中归属规则 且 目标不是当前投手时，排除该订单
+func (s *FinanceCommissionService) attributionExcludeSQL(currentTraderName string) string {
+	return fmt.Sprintf(`
+		NOT EXISTS (
+			SELECT 1 FROM shop_account_attribution saa
+			WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
+			  AND saa.source_account_uid = o.talent_id
+			  AND saa.status = 1
+			  AND saa.target_value != '%s'
+		)`, currentTraderName)
+}
+
+// attributionRedirectedSQL 生成查找从其他投手重定向到当前投手的订单的 SQL 条件
+// 返回 EXISTS 子查询片段，用于 WHERE 子句
+func (s *FinanceCommissionService) attributionRedirectedSQL(currentTraderName string) string {
+	return fmt.Sprintf(`
+		EXISTS (
+			SELECT 1 FROM shop_account_attribution saa
+			WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
+			  AND saa.source_account_uid = o.talent_id
+			  AND saa.status = 1
+			  AND saa.target_value = '%s'
+		)`, currentTraderName)
+}
+
+// getTraderName 获取投手名称
+func (s *FinanceCommissionService) getTraderName(ctx context.Context, traderId int64) (string, error) {
+	row, err := g.DB().Model("trader").Where("id", traderId).Fields("name").One()
+	if err != nil {
+		return "", err
+	}
+	if row.IsEmpty() {
+		return "", fmt.Errorf("投手不存在: %d", traderId)
+	}
+	return row["name"].String(), nil
+}
+
 // buildPlatformUids 构建 platform→uids 映射，uid 为空时通过 account_name 匹配订单表 talent_name 获取 talent_id
 func (s *FinanceCommissionService) buildPlatformUids(ctx context.Context, shops gdb.Result) map[string][]string {
 	platformUids := make(map[string][]string)
@@ -896,28 +1250,36 @@ func (s *FinanceCommissionService) buildPlatformUids(ctx context.Context, shops 
 }
 
 // statsOrdersByAccountIds 统计账号订单数据（根据店铺 platform 只查对应订单表）
-func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, accountIds []int, startDate, endDate string) (*model.FinanceStatsSummary, error) {
-	if len(accountIds) == 0 {
+// traderName 非空时启用归属规则：排除被重定向的订单 + 纳入从其他投手重定向过来的订单
+func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, accountIds []int, startDate, endDate string, traderName string) (*model.FinanceStatsSummary, error) {
+	if len(accountIds) == 0 && traderName == "" {
 		return &model.FinanceStatsSummary{}, nil
 	}
 
 	// 获取账号的 uid、platform、account_name
-	shops, err := g.DB().Model("account").
-		Where("id IN(?)", accountIds).
-		Fields("uid, platform, account_name, platform_nickname").
-		All()
-	if err != nil {
-		return nil, err
+	var shops gdb.Result
+	var platformUids map[string][]string
+	if len(accountIds) > 0 {
+		var err error
+		shops, err = g.DB().Model("account").
+			Where("id IN(?)", accountIds).
+			Fields("uid, platform, account_name, platform_nickname").
+			All()
+		if err != nil {
+			return nil, err
+		}
+		// 构建 platform→uids（uid 为空时自动通过 account_name 匹配订单表）
+		platformUids = s.buildPlatformUids(ctx, shops)
+	} else {
+		platformUids = make(map[string][]string)
 	}
 
-	// 构建 platform→uids（uid 为空时自动通过 account_name 匹配订单表）
-	platformUids := s.buildPlatformUids(ctx, shops)
+	g.Log().Infof(ctx, "[Finance] statsOrdersByAccountIds: accountIds=%v, traderName=%s, platformUids=%v", accountIds, traderName, platformUids)
 
-	g.Log().Infof(ctx, "[Finance] statsOrdersByAccountIds: accountIds=%v, platformUids=%v", accountIds, platformUids)
-
-	if len(platformUids) == 0 {
-		g.Log().Warningf(ctx, "[Finance] 账号uid为空: accountIds=%v, shops=%v", accountIds, shops)
-		return &model.FinanceStatsSummary{}, nil
+	// 生成归属规则排除条件
+	attributionExclude := ""
+	if traderName != "" {
+		attributionExclude = s.attributionExcludeSQL(traderName)
 	}
 
 	// 按平台分别统计对应订单表
@@ -927,7 +1289,7 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 		if !ok {
 			continue
 		}
-		stats, _ := s.statsOrderTable(ctx, tableName, uids, startDate, endDate)
+		stats, _ := s.statsOrderTable(ctx, tableName, uids, startDate, endDate, attributionExclude)
 		if stats != nil {
 			// 小店服务费 = 定价总额(payAmount) × 2%（仅抖音、仅有效订单）
 			if platform == "douyin" {
@@ -957,6 +1319,27 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 		}
 	}
 
+	// 纳入从其他投手重定向到当前投手的订单
+	if traderName != "" {
+		redirectedStats := s.statsRedirectedOrders(ctx, traderName, startDate, endDate)
+		if redirectedStats != nil {
+			totalStats.TotalOrderCount += redirectedStats.TotalOrderCount
+			totalStats.OrderCount += redirectedStats.OrderCount
+			totalStats.InvalidOrderCount += redirectedStats.InvalidOrderCount
+			totalStats.ProductNum += redirectedStats.ProductNum
+			totalStats.PayAmount += redirectedStats.PayAmount
+			totalStats.CostAmount += redirectedStats.CostAmount
+			totalStats.ReserveAmount += redirectedStats.ReserveAmount
+			totalStats.Commission += redirectedStats.Commission
+			totalStats.RefundCostAmount += redirectedStats.RefundCostAmount
+			totalStats.RefundOrderCount += redirectedStats.RefundOrderCount
+			totalStats.ShopServiceFee += redirectedStats.ShopServiceFee
+			totalStats.AdCostAmount += redirectedStats.AdCostAmount
+			totalStats.ValidOrderCostMatch += redirectedStats.ValidOrderCostMatch
+			totalStats.CommissionOrderCount += redirectedStats.CommissionOrderCount
+			totalStats.RealtimeProfit += redirectedStats.RealtimeProfit
+		}
+	}
 
 	totalStats.PayAmount = roundFloatFinance(totalStats.PayAmount, 2)
 	totalStats.CostAmount = roundFloatFinance(totalStats.CostAmount, 2)
@@ -969,11 +1352,48 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 	return totalStats, nil
 }
 
+// statsRedirectedOrders 统计从其他投手通过归属规则重定向到当前投手的订单
+func (s *FinanceCommissionService) statsRedirectedOrders(ctx context.Context, traderName string, startDate, endDate string) *model.FinanceStatsSummary {
+	redirectedCond := s.attributionRedirectedSQL(traderName)
+	totalStats := &model.FinanceStatsSummary{}
+
+	for _, tableName := range platformTableMap {
+		stats, _ := s.statsOrderTable(ctx, tableName, nil, startDate, endDate, redirectedCond)
+		if stats != nil {
+			totalStats.TotalOrderCount += stats.TotalOrderCount
+			totalStats.OrderCount += stats.OrderCount
+			totalStats.InvalidOrderCount += stats.InvalidOrderCount
+			totalStats.ProductNum += stats.ProductNum
+			totalStats.PayAmount += stats.PayAmount
+			totalStats.CostAmount += stats.CostAmount
+			totalStats.ReserveAmount += stats.ReserveAmount
+			totalStats.Commission += stats.Commission
+			totalStats.RefundCostAmount += stats.RefundCostAmount
+			totalStats.RefundOrderCount += stats.RefundOrderCount
+			totalStats.ShopServiceFee += stats.ShopServiceFee
+			totalStats.AdCostAmount += stats.AdCostAmount
+			totalStats.ValidOrderCostMatch += stats.ValidOrderCostMatch
+			totalStats.CommissionOrderCount += stats.CommissionOrderCount
+			totalStats.RealtimeProfit += stats.RealtimeProfit
+		}
+	}
+
+	// 计算小店服务费和佣金
+	if totalStats.PayAmount > 0 {
+		totalStats.ShopServiceFee = roundFloatFinance(totalStats.PayAmount*0.02, 2)
+		totalStats.Commission = roundFloatFinance(totalStats.Commission-totalStats.ShopServiceFee, 2)
+		commissionDeduction := roundFloatFinance((totalStats.PayAmount-totalStats.ReserveAmount-totalStats.CostAmount)*0.005, 2)
+		totalStats.RealtimeProfit = roundFloatFinance(totalStats.PayAmount-totalStats.CostAmount-totalStats.ReserveAmount-totalStats.RefundCostAmount-totalStats.ShopServiceFee-commissionDeduction-totalStats.AdCostAmount, 2)
+	}
+
+	return totalStats
+}
+
 
 
 // statsOrderTable 统计单张订单表（一次查询计算全部指标）
 // 统计规则：
-//   有效订单 = (order_status IN ('已发货','待发货','已完成') AND after_sale_status NOT IN ('6','7','12'))
+//   有效订单 = (order_status IN ('已发货','待发货','已完成') AND after_sale_status NOT IN ('6','7','11','12','29'))
 //            OR (order_status = '已关闭' AND after_sale_status IN ('27','28','51'))
 //   无效订单 = after_sale_status IN ('6','7','12')
 //   定价总额 = product_price * product_num（仅有效订单）
@@ -981,7 +1401,7 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 //   留底     = product_price * product_num * 0.03
 //   退款成本 = product_price * product_num（无效+已发货）
 //   佣金     = 定价总额 - 留底 - 货款 - 小店服务费
-func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableName string, uids []string, startDate, endDate string) (*model.FinanceStatsSummary, error) {
+func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableName string, uids []string, startDate, endDate string, attributionWhere string) (*model.FinanceStatsSummary, error) {
 	orderNoCol := "main_order_no"
 	collateClause := ""
 	talentCollate := ""
@@ -992,15 +1412,25 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 	}
 
 	// 有效订单条件（两部分用 OR 连接）
+	// 无效售后状态：6-售后申请, 7-售后退货中, 11-售后已发货, 12-售后成功, 29-售后退货拒绝
 	validCond := fmt.Sprintf(
-		"(o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51'))",
+		"(o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51'))",
 	)
 	// 无效订单条件
-	invalidCond := "o.after_sale_status IN ('6','7','12')"
+	invalidCond := "o.after_sale_status IN ('6','7','11','12','29')"
 	// 退款成本条件：无效 且 已发货
-	refundCond := "o.after_sale_status IN ('6','7','12') AND o.order_status = '已发货'"
+	refundCond := "o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'"
 
 	// 货款通过 LEFT JOIN goods 用 base_price 计算
+	attributionClause := ""
+	if attributionWhere != "" {
+		attributionClause = " AND " + attributionWhere
+	}
+	// 当 uids 为空时（重定向订单查询），不按 talent_id 过滤，仅用 attribution 条件
+	uidFilter := ""
+	if len(uids) > 0 {
+		uidFilter = fmt.Sprintf("AND o.talent_id %s IN(?)", talentCollate)
+	}
 	sql := fmt.Sprintf(`
 		SELECT
 			COUNT(DISTINCT o.%s) AS total_order_count,
@@ -1015,16 +1445,24 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 			COUNT(DISTINCT CASE WHEN %s AND g.base_price > 0 THEN o.%s END) AS valid_order_cost_match
 		FROM %s o
 		LEFT JOIN goods g ON o.seller_code %s = g.goods_code
-		WHERE o.talent_id %s IN(?)
-		  AND o.order_submit_time >= ?
+		WHERE o.order_submit_time >= ?
 		  AND o.order_submit_time < ?
 		  AND o.%s IS NOT NULL
 		  AND o.%s != ''
-	`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, validCond, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol)
+		  %s
+		  %s
+	`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, validCond, orderNoCol, tableName, collateClause, orderNoCol, orderNoCol, uidFilter, attributionClause)
 
 	endDateNext := CalcEndDateNext(endDate)
 
-	result, err := g.DB().GetOne(ctx, sql, uids, startDate, endDateNext)
+	// 根据是否有 uids 决定查询参数（参数顺序需与 SQL 占位符一致）
+	var result gdb.Record
+	var err error
+	if len(uids) > 0 {
+		result, err = g.DB().GetOne(ctx, sql, startDate, endDateNext, uids)
+	} else {
+		result, err = g.DB().GetOne(ctx, sql, startDate, endDateNext)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1139,9 +1577,13 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 	endDateNext := CalcEndDateNext(endDate)
 
 	// 有效订单条件：与 statsOrderTable 保持一致
-	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
+	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
+	// 归属规则排除：排除被重定向到其他投手的订单
+	traderName := trader["name"].String()
+	attributionExclude := s.attributionExcludeSQL(traderName)
+	validFilter += " AND " + attributionExclude
 	// 无效订单条件
-	invalidFilter := "AND o.after_sale_status IN ('6','7','12')"
+	invalidFilter := "AND o.after_sale_status IN ('6','7','11','12','29')"
 
 	// 根据店铺 platform 只查对应订单表
 	var totalCount, invalidCount int
@@ -1223,7 +1665,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		}
 
 		// 查询退款成本（无效+已发货 的货款）
-		refundSQL := fmt.Sprintf(`SELECT COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COUNT(DISTINCT o.%s) AS cnt FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.order_submit_time >= ? AND o.order_submit_time < ? AND o.%s IS NOT NULL AND o.%s != '' AND o.after_sale_status IN ('6','7','12') AND o.order_status = '已发货'`,
+		refundSQL := fmt.Sprintf(`SELECT COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COUNT(DISTINCT o.%s) AS cnt FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.order_submit_time >= ? AND o.order_submit_time < ? AND o.%s IS NOT NULL AND o.%s != '' AND o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'`,
 			orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol)
 		if refR, _ := g.DB().GetOne(ctx, refundSQL, uids, startDate, endDateNext); refR != nil {
 			totalRefundCost += refR["cost"].Float64()
@@ -1290,6 +1732,101 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 				AfterSaleStatus: row["after_sale_status"].String(),
 				PayFinishTime:   payTime,
 			})
+		}
+	}
+
+	// 纳入从其他投手通过归属规则重定向到当前投手的订单
+	redirectedCond := s.attributionRedirectedSQL(traderName)
+	redirectedValidFilter := validFilter[:len(validFilter)-len(" AND "+attributionExclude)] + " AND " + redirectedCond
+	for platformItem, tableName := range platformTableMap {
+		orderNoCol := "main_order_no"
+		collateClause := ""
+		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
+			orderNoCol = "order_no"
+			collateClause = "COLLATE utf8mb4_unicode_ci"
+		}
+
+		// 查询重定向订单的汇总
+		redirectedSumSQL := fmt.Sprintf(`
+			SELECT
+				COUNT(DISTINCT o.%s) AS cnt,
+				COALESCE(SUM(o.product_price * o.product_num), 0) AS pay,
+				COALESCE(SUM(COALESCE(g.base_price, 0) * o.product_num), 0) AS cost,
+				COALESCE(SUM(o.product_price * o.product_num * 0.03), 0) AS reserve
+			FROM %s o
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			WHERE o.order_submit_time >= ?
+			  AND o.order_submit_time < ?
+			  AND o.%s IS NOT NULL
+			  AND o.%s != ''
+			  %s
+		`, orderNoCol, tableName, collateClause, orderNoCol, orderNoCol, redirectedValidFilter)
+		if sumR, _ := g.DB().GetOne(ctx, redirectedSumSQL, startDate, endDateNext); sumR != nil {
+			totalCount += sumR["cnt"].Int()
+			totalPay += sumR["pay"].Float64()
+			totalCost += sumR["cost"].Float64()
+			totalReserve += sumR["reserve"].Float64()
+		}
+
+		// 查询重定向订单的明细
+		redirectedDetailSQL := fmt.Sprintf(`
+			SELECT
+				o.%s AS main_order_no,
+				o.product_name,
+				o.product_num,
+				o.product_price,
+				COALESCE(g.base_price, 0) AS base_price,
+				o.order_status,
+				o.after_sale_status,
+				IFNULL(o.order_submit_time, '') AS order_submit_time,
+				o.talent_id
+			FROM %s o
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			WHERE o.order_submit_time >= ?
+			  AND o.order_submit_time < ?
+			  AND o.%s IS NOT NULL
+			  AND o.%s != ''
+			  %s
+			ORDER BY o.order_submit_time DESC
+		`, orderNoCol, tableName, collateClause, orderNoCol, orderNoCol, redirectedValidFilter)
+		if result, err := g.DB().GetAll(ctx, redirectedDetailSQL, startDate, endDateNext); err == nil {
+			for _, row := range result {
+				talentId := row["talent_id"].String()
+				productNum := row["product_num"].Int()
+				productPrice := row["product_price"].Float64()
+				basePrice := row["base_price"].Float64()
+				payAmount := roundFloatFinance(productPrice*float64(productNum), 2)
+				costAmount := basePrice * float64(productNum)
+				reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.03, 2)
+				commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
+
+				payTime := row["order_submit_time"].String()
+				if len(payTime) >= 10 {
+					payTime = payTime[:10]
+				}
+
+				// 重定向订单的店铺名从订单表获取
+				shopName := talentId
+				if info, ok := uidShopMap[talentId]; ok {
+					shopName = info.name
+				}
+
+				allOrders = append(allOrders, model.FinanceOrderItem{
+					MainOrderNo:     row["main_order_no"].String(),
+					ProductName:     row["product_name"].String(),
+					ProductNum:      productNum,
+					ProductPrice:    productPrice,
+					OrderPayAmount:  payAmount,
+					CostAmount:      roundFloatFinance(costAmount, 2),
+					ReserveAmount:   reserveAmount,
+					Commission:      commission,
+					Platform:        platformItem,
+					ShopName:        shopName,
+					OrderStatus:     row["order_status"].String(),
+					AfterSaleStatus: row["after_sale_status"].String(),
+					PayFinishTime:   payTime,
+				})
+			}
 		}
 	}
 
@@ -1365,6 +1902,10 @@ func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, r
 	// 按 platform 分组 uid（uid 为空时自动匹配）
 	platformUids := s.buildPlatformUids(ctx, shops)
 
+	// 归属规则
+	traderName := trader["name"].String()
+	attributionExclude := s.attributionExcludeSQL(traderName)
+
 	// 按平台统计
 	totalStats := &model.FinanceStatsSummary{}
 	var platformStats []model.PlatformStats
@@ -1373,7 +1914,7 @@ func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, r
 		if !ok {
 			continue
 		}
-		stats, _ := s.statsOrderTable(ctx, tableName, uids, startDate, endDate)
+		stats, _ := s.statsOrderTable(ctx, tableName, uids, startDate, endDate, attributionExclude)
 		if stats != nil {
 			// 小店服务费 = 定价总额 × 2%（仅抖音）
 			if platform == "douyin" {
@@ -1487,7 +2028,14 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 	// 日期范围
 	endDateNext := CalcEndDateNext(endDate)
 
-	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
+	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
+	// 归属规则排除：排除被重定向到其他投手的订单
+	traderName := trader["name"].String()
+	attributionExclude := s.attributionExcludeSQL(traderName)
+	validFilterWithExclude := validFilter + " AND " + attributionExclude
+	// 归属规则纳入：查找从其他投手重定向到当前投手的订单
+	redirectedCond := s.attributionRedirectedSQL(traderName)
+	validFilterWithRedirect := validFilter + " AND " + redirectedCond
 
 	// 创建 Excel
 	f := excelize.NewFile()
@@ -1539,10 +2087,40 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 			  AND o.%s != ''
 			  %s
 			ORDER BY o.order_submit_time DESC
-		`, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
+		`, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilterWithExclude)
 
 		result, err := g.DB().GetAll(ctx, sql, uids, startDate, endDateNext)
 		if err != nil || len(result) == 0 {
+			// 即使直接订单为空，仍需检查重定向订单
+			result = nil
+		}
+
+		// 查询从其他投手重定向到当前投手的订单
+		redirectedSQL := fmt.Sprintf(`
+			SELECT
+				o.%s AS main_order_no,
+				o.product_name,
+				o.product_num,
+				o.product_price,
+				COALESCE(g.base_price, 0) AS base_price,
+				o.order_status,
+				o.after_sale_status,
+				IFNULL(o.order_submit_time, '') AS order_submit_time,
+				o.talent_id
+			FROM %s o
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			WHERE o.order_submit_time >= ?
+			  AND o.order_submit_time < ?
+			  AND o.%s IS NOT NULL
+			  AND o.%s != ''
+			  %s
+			ORDER BY o.order_submit_time DESC
+		`, orderNoCol, tableName, collateClause, orderNoCol, orderNoCol, validFilterWithRedirect)
+		if redirectedResult, err := g.DB().GetAll(ctx, redirectedSQL, startDate, endDateNext); err == nil && len(redirectedResult) > 0 {
+			result = append(result, redirectedResult...)
+		}
+
+		if len(result) == 0 {
 			continue
 		}
 
@@ -1641,7 +2219,7 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 	}
 
 	endDateNext := CalcEndDateNext(endDate)
-	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
+	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
 
 	f := excelize.NewFile()
 	defer f.Close()
@@ -1782,8 +2360,8 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 	if pageSize < 1 || pageSize > 100 { pageSize = 20 }
 
 	endDateNext := CalcEndDateNext(endDate)
-	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','12')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
-	invalidFilter := "AND o.after_sale_status IN ('6','7','12')"
+	validFilter := "AND ((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
+	invalidFilter := "AND o.after_sale_status IN ('6','7','11','12','29')"
 
 	var totalCount, invalidCount int
 	var allOrders []model.FinanceOrderItem
@@ -1825,7 +2403,7 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 		}
 
 		// 查询退款成本
-		refundSQL := fmt.Sprintf(`SELECT COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COUNT(DISTINCT o.%s) AS cnt FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.order_submit_time >= ? AND o.order_submit_time < ? AND o.%s IS NOT NULL AND o.%s != '' AND o.after_sale_status IN ('6','7','12') AND o.order_status = '已发货'`,
+		refundSQL := fmt.Sprintf(`SELECT COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COUNT(DISTINCT o.%s) AS cnt FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.order_submit_time >= ? AND o.order_submit_time < ? AND o.%s IS NOT NULL AND o.%s != '' AND o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'`,
 			orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol)
 		if refR, _ := g.DB().GetOne(ctx, refundSQL, uids, startDate, endDateNext); refR != nil {
 			totalRefundCost += refR["cost"].Float64()

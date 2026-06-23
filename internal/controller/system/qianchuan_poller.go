@@ -38,7 +38,7 @@ func (c *QianchuanPollerController) TokenStatus(r *ghttp.Request) {
 
 	appId := g.Cfg().MustGet(r.Context(), "platform.qianchuan.appId").String()
 	redirectUri := g.Cfg().MustGet(r.Context(), "platform.qianchuan.redirectUri").String()
-	scope := "[22000000,26501000,26502000]"
+	scope := "22000000,26501000,26502000"
 	authUrl := fmt.Sprintf("https://ad.oceanengine.com/openapi/audit/oauth.html?app_id=%s&redirect_uri=%s&scope=%s", appId, url.QueryEscape(redirectUri), url.QueryEscape(scope))
 
 	r.Response.WriteJsonExit(g.Map{
@@ -57,7 +57,7 @@ func (c *QianchuanPollerController) TokenStatus(r *ghttp.Request) {
 func (c *QianchuanPollerController) AuthUrl(r *ghttp.Request) {
 	appId := g.Cfg().MustGet(r.Context(), "platform.qianchuan.appId").String()
 	redirectUri := g.Cfg().MustGet(r.Context(), "platform.qianchuan.redirectUri").String()
-	scope := "[22000000,26501000,26502000]"
+	scope := "22000000,26501000,26502000"
 	authUrl := fmt.Sprintf("https://ad.oceanengine.com/openapi/audit/oauth.html?app_id=%s&redirect_uri=%s&scope=%s", appId, url.QueryEscape(redirectUri), url.QueryEscape(scope))
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,

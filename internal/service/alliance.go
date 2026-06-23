@@ -236,7 +236,7 @@ func (s *AllianceService) BackfillTalentInfo(ctx context.Context) (int, error) {
 	result, err := g.DB().Exec(ctx, `
 		UPDATE order_info o
 		JOIN alliance_orders ao ON o.sub_order_no = ao.order_id AND ao.platform = 'douyin'
-		JOIN account a ON ao.short_id = a.platform_nickname AND a.platform = 'douyin'
+		JOIN account a ON ao.short_id COLLATE utf8mb4_unicode_ci = a.platform_nickname COLLATE utf8mb4_unicode_ci AND a.platform = 'douyin'
 		SET o.talent_id = a.uid,
 		    o.talent_name = a.account_name
 		WHERE (o.talent_id IS NULL OR o.talent_id = '' OR o.talent_id = '0')
@@ -262,7 +262,7 @@ func (s *AllianceService) BackfillTalentInfoIncremental(ctx context.Context, sta
 	mappingRows, err := g.DB().GetAll(ctx, `
 		SELECT DISTINCT ao.short_id, a.uid, a.account_name
 		FROM alliance_orders ao
-		INNER JOIN account a ON ao.short_id = a.platform_nickname AND a.platform = 'douyin'
+		INNER JOIN account a ON ao.short_id COLLATE utf8mb4_unicode_ci = a.platform_nickname COLLATE utf8mb4_unicode_ci AND a.platform = 'douyin'
 		WHERE ao.short_id IS NOT NULL AND ao.short_id != ''
 		  AND a.uid IS NOT NULL AND a.uid != ''
 	`)
@@ -413,7 +413,7 @@ func (s *AllianceService) BackfillTalentInfoBatch(ctx context.Context, batchSize
 		result, err := g.DB().Exec(ctx, `
 			UPDATE order_info o
 			JOIN alliance_orders ao ON o.sub_order_no = ao.order_id AND ao.platform = 'douyin'
-			JOIN account a ON ao.short_id = a.platform_nickname AND a.platform = 'douyin'
+			JOIN account a ON ao.short_id COLLATE utf8mb4_unicode_ci = a.platform_nickname COLLATE utf8mb4_unicode_ci AND a.platform = 'douyin'
 			SET o.talent_id = a.uid,
 			    o.talent_name = a.account_name
 			WHERE (o.talent_id IS NULL OR o.talent_id = '' OR o.talent_id = '0')

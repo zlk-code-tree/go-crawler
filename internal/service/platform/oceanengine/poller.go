@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -76,17 +77,26 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 	if row.IsEmpty() {
 		return "", nil, fmt.Errorf("未找到有效的access_token，请先完成巨量千川OAuth授权")
 	}
+
+	accessToken := row["access_token"].String()
+	expiresAt := row["expires_at"].String()
+	tokenId := row["id"].Int64()
+
 	// 检查是否过期
-	if expiresAt := row["expires_at"].String(); expiresAt != "" {
+	if expiresAt != "" {
 		if t, err := time.Parse("2006-01-02 15:04:05", expiresAt); err == nil && time.Now().After(t) {
-			return "", nil, fmt.Errorf("access_token已于%s过期，请重新授权", expiresAt[:10])
+			g.Log().Infof(ctx, "[QianchuanPoller] 最新token id=%d 已过期(expires_at=%s)，请重新授权", tokenId, expiresAt)
+			return "", nil, fmt.Errorf("access_token已于%s过期，请重新完成巨量千川OAuth授权", expiresAt[:10])
 		}
 	}
-	accessToken := row["access_token"].String()
+
 	var advertiserIDs []int64
 	if idsJSON := row["advertiser_ids"].String(); idsJSON != "" {
 		json.Unmarshal([]byte(idsJSON), &advertiserIDs)
 	}
+
+	g.Log().Infof(ctx, "[QianchuanPoller] 使用token id=%d, advertiser_ids=%v, expires_at=%s",
+		tokenId, advertiserIDs, expiresAt)
 	return accessToken, advertiserIDs, nil
 }
 
@@ -161,6 +171,10 @@ func (p *Poller) pullByDate(ctx context.Context, startDate, endDate string) (*Po
 			errMsg := fmt.Sprintf("广告主%d拉取失败: %v", advID, err)
 			result.Errors = append(result.Errors, errMsg)
 			g.Log().Error(ctx, "[QianchuanPoller] "+errMsg)
+			// 如果是权限错误，记录但继续处理其他广告主
+			if strings.Contains(err.Error(), "40002") || strings.Contains(err.Error(), "permission") {
+				g.Log().Warningf(ctx, "[QianchuanPoller] 广告主%d无权限，跳过", advID)
+			}
 			continue
 		}
 		result.TotalPlans += pullResult.TotalPlans
