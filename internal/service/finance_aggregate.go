@@ -221,7 +221,7 @@ func newOrderStatItem(row gdb.Record, talentId, platform string) OrderStatItem {
 	}
 	// 佣金 = 定价总额 - 留底 - 货款 - 小店服务费
 	commission := payAmount - costAmount - reserveAmount
-	commissionDeduction := (payAmount - reserveAmount - costAmount) * 0.005
+	commissionDeduction := payAmount * 0.005
 		realtimeProfit := payAmount - costAmount - reserveAmount - refundCostAmount - shopServiceFee - commissionDeduction
 
 	return OrderStatItem{

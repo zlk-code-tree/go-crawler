@@ -450,7 +450,7 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 					shopServiceFee = roundFloatFinance(payAmount*0.02, 2)
 				}
 				commission = roundFloatFinance(commission-shopServiceFee, 2)
-				commissionDeduction := roundFloatFinance((payAmount-reserveAmount-costAmount)*0.005, 2)
+				commissionDeduction := roundFloatFinance(payAmount*0.005, 2)
 				realtimeProfit := roundFloatFinance(payAmount-costAmount-reserveAmount-row["refund_cost_amount"].Float64()-shopServiceFee-commissionDeduction, 2)
 
 				stats := model.FinanceStatsSummary{
@@ -687,7 +687,7 @@ func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, de
 					shopServiceFee = roundFloatFinance(payAmount*0.02, 2)
 				}
 				commission = roundFloatFinance(commission-shopServiceFee, 2)
-				commissionDeduction := roundFloatFinance((payAmount-reserveAmount-costAmount)*0.005, 2)
+				commissionDeduction := roundFloatFinance(payAmount*0.005, 2)
 				realtimeProfit := roundFloatFinance(payAmount-costAmount-reserveAmount-row["refund_cost_amount"].Float64()-shopServiceFee-commissionDeduction, 2)
 
 				stats := model.FinanceStatsSummary{
@@ -1298,7 +1298,7 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 			// 佣金 = 定价总额 - 留底 - 货款 - 小店服务费
 			stats.Commission = roundFloatFinance(stats.Commission-stats.ShopServiceFee, 2)
 			// 实时利润 = 定价总额 - 货款 - 留底 - 退款成本 - 小店服务费 - 佣金 - 广告费
-			commissionDeduction := roundFloatFinance((stats.PayAmount-stats.ReserveAmount-stats.CostAmount)*0.005, 2)
+			commissionDeduction := roundFloatFinance(stats.PayAmount*0.005, 2)
 				stats.RealtimeProfit = roundFloatFinance(stats.PayAmount-stats.CostAmount-stats.ReserveAmount-stats.RefundCostAmount-stats.ShopServiceFee-commissionDeduction-stats.AdCostAmount, 2)
 
 			totalStats.TotalOrderCount += stats.TotalOrderCount
@@ -1382,7 +1382,7 @@ func (s *FinanceCommissionService) statsRedirectedOrders(ctx context.Context, tr
 	if totalStats.PayAmount > 0 {
 		totalStats.ShopServiceFee = roundFloatFinance(totalStats.PayAmount*0.02, 2)
 		totalStats.Commission = roundFloatFinance(totalStats.Commission-totalStats.ShopServiceFee, 2)
-		commissionDeduction := roundFloatFinance((totalStats.PayAmount-totalStats.ReserveAmount-totalStats.CostAmount)*0.005, 2)
+		commissionDeduction := roundFloatFinance(totalStats.PayAmount*0.005, 2)
 		totalStats.RealtimeProfit = roundFloatFinance(totalStats.PayAmount-totalStats.CostAmount-totalStats.ReserveAmount-totalStats.RefundCostAmount-totalStats.ShopServiceFee-commissionDeduction-totalStats.AdCostAmount, 2)
 	}
 
@@ -1842,7 +1842,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 
 	shopFee := roundFloatFinance(totalPay*0.02, 2)
 	commission := roundFloatFinance(totalPay-totalCost-totalReserve-shopFee, 2)
-	commissionDeduction := roundFloatFinance((totalPay-totalCost-totalReserve)*0.005, 2)
+	commissionDeduction := roundFloatFinance(totalPay*0.005, 2)
 	res.Summary = model.FinanceStatsSummary{
 		TotalOrderCount:   totalCount + invalidCount,
 		OrderCount:        totalCount,
@@ -1923,7 +1923,7 @@ func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, r
 			// 佣金 = 定价总额 - 留底 - 货款 - 小店服务费
 			stats.Commission = roundFloatFinance(stats.Commission-stats.ShopServiceFee, 2)
 			// 实时利润 = 佣金 - 退款成本 - 广告费 - 0.5%扣减（与达人统计一致）
-			commissionDeduction := roundFloatFinance((stats.PayAmount-stats.CostAmount-stats.ReserveAmount)*0.005, 2)
+			commissionDeduction := roundFloatFinance(stats.PayAmount*0.005, 2)
 			stats.RealtimeProfit = roundFloatFinance(stats.Commission-stats.RefundCostAmount-stats.AdCostAmount-commissionDeduction, 2)
 
 			totalStats.TotalOrderCount += stats.TotalOrderCount
@@ -2447,7 +2447,7 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 
 	shopFee := roundFloatFinance(totalPay*0.02, 2)
 	comm := totalPay - totalCost - totalReserve - shopFee
-	commissionDeduction := roundFloatFinance((totalPay-totalCost-totalReserve)*0.005, 2)
+	commissionDeduction := roundFloatFinance(totalPay*0.005, 2)
 	return &model.FinanceAccountOrdersRes{
 		AccountId:   req.AccountId,
 		AccountName: accountName,
