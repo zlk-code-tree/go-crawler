@@ -264,3 +264,46 @@ func (c *FinanceController) AccountExport(r *ghttp.Request) {
 	r.Response.ServeFile(filename)
 	defer os.Remove(filename)
 }
+
+// TodayCost 查询今日消耗/佣金/盈亏 GET /api/finance/today-cost
+func (c *FinanceController) TodayCost(r *ghttp.Request) {
+	traderId := r.Get("trader_id", 0).Int64()
+	departmentId := r.Get("department_id", 0).Int64()
+	companyId := r.Get("company_id", 0).Int64()
+	date := r.Get("date").String()
+
+	if traderId == 0 && departmentId == 0 && companyId == 0 {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "请指定 trader_id / department_id / company_id 之一"})
+		return
+	}
+
+	financeService := service.NewFinanceCommissionService()
+	result, err := financeService.GetRealtimeProfit(r.Context(), &service.RealtimeProfitReq{
+		TraderId:     traderId,
+		DepartmentId: departmentId,
+		CompanyId:    companyId,
+		Date:         date,
+	})
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": result, "msg": "ok"})
+}
+
+// CostRanking 消耗排行 GET /api/finance/cost-ranking
+func (c *FinanceController) CostRanking(r *ghttp.Request) {
+	date := r.Get("date").String()
+	dimension := r.Get("dimension", "trader").String()
+	limit := r.Get("limit", 20).Int()
+
+	financeService := service.NewFinanceCommissionService()
+	result, err := financeService.GetCostRanking(r.Context(), date, dimension, limit)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": result, "msg": "ok"})
+}

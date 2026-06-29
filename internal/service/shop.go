@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"go-crawler/internal/model"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/xuri/excelize/v2"
@@ -587,4 +589,494 @@ func normalizePlatform(p string) string {
 	default:
 		return strings.ToLower(strings.TrimSpace(p))
 	}
+}
+
+// ==================== 千川广告主映射 ====================
+
+// ListQianchuanMappings 查询千川映射列表
+func (s *ShopService) ListQianchuanMappings(ctx context.Context, page, pageSize int, accountId int, companyId int64) ([]g.Map, int64, error) {
+	query := `SELECT aqm.*, a.account_name, a.platform, a.uid, sc.name AS company_name
+		FROM account_qianchuan_mapping aqm
+		LEFT JOIN account a ON aqm.account_id = a.id
+		LEFT JOIN sys_company sc ON aqm.company_id = sc.id
+		WHERE 1=1`
+	params := []interface{}{}
+
+	if accountId > 0 {
+		query += " AND aqm.account_id = ?"
+		params = append(params, accountId)
+	}
+	if companyId > 0 {
+		query += " AND aqm.company_id = ?"
+		params = append(params, companyId)
+	}
+
+	// 总数
+	countQuery := "SELECT COUNT(*) as total FROM account_qianchuan_mapping aqm WHERE 1=1"
+	countParams := []interface{}{}
+	if accountId > 0 {
+		countQuery += " AND aqm.account_id = ?"
+		countParams = append(countParams, accountId)
+	}
+	if companyId > 0 {
+		countQuery += " AND aqm.company_id = ?"
+		countParams = append(countParams, companyId)
+	}
+	totalRow, _ := g.DB().GetOne(ctx, countQuery, countParams...)
+	total := totalRow["total"].Int64()
+
+	query += " ORDER BY aqm.id DESC LIMIT ? OFFSET ?"
+	params = append(params, pageSize, (page-1)*pageSize)
+
+	rows, err := g.DB().GetAll(ctx, query, params...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	result := make([]g.Map, len(rows))
+	for i, row := range rows {
+		result[i] = g.Map{
+			"id":                     row["id"],
+			"accountId":              row["account_id"],
+			"companyId":              row["company_id"],
+			"qianchuanAdvertiserId":  row["qianchuan_advertiser_id"],
+			"qianchuanAdvertiserName": row["qianchuan_advertiser_name"],
+			"accountName":            row["account_name"],
+			"platform":               row["platform"],
+			"uid":                    row["uid"],
+			"companyName":            row["company_name"],
+			"createdAt":              row["created_at"],
+		}
+	}
+	return result, total, nil
+}
+
+// BindQianchuanAdvertiser 绑定千川广告主
+func (s *ShopService) BindQianchuanAdvertiser(ctx context.Context, accountId int, companyId int64, advertiserId int64, advertiserName string) (int64, error) {
+	// 检查账号是否存在
+	account, _ := g.DB().Model("account").Where("id", accountId).One()
+	if account.IsEmpty() {
+		return 0, gerror.New("账号不存在")
+	}
+
+	// 检查是否已绑定（同一账号+公司组合唯一）
+	existing, _ := g.DB().Model("account_qianchuan_mapping").
+		Where("account_id", accountId).Where("company_id", companyId).One()
+	if !existing.IsEmpty() {
+		// 更新
+		id := existing["id"].Int64()
+		_, err := g.DB().Model("account_qianchuan_mapping").Where("id", id).Data(g.Map{
+			"qianchuan_advertiser_id":   advertiserId,
+			"qianchuan_advertiser_name": advertiserName,
+			"updated_at":                time.Now(),
+		}).Update()
+		return id, err
+	}
+
+	// 新增
+	data := g.Map{
+		"account_id":                accountId,
+		"company_id":                companyId,
+		"qianchuan_advertiser_id":   advertiserId,
+		"qianchuan_advertiser_name": advertiserName,
+		"created_at":                time.Now(),
+		"updated_at":                time.Now(),
+	}
+	id, err := g.DB().Model("account_qianchuan_mapping").Ctx(ctx).Data(data).InsertAndGetId()
+	return id, err
+}
+
+// UnbindQianchuanAdvertiser 解绑千川广告主
+func (s *ShopService) UnbindQianchuanAdvertiser(ctx context.Context, id int64) error {
+	_, err := g.DB().Model("account_qianchuan_mapping").Where("id", id).Delete()
+	return err
+}
+
+// GetAvailableQianchuanAdvertisers 获取当前OAuth授权下可用的千川广告主列表
+func (s *ShopService) GetAvailableQianchuanAdvertisers(ctx context.Context) ([]g.Map, error) {
+	// 从 qianchuan_token 获取最新的 advertiser_ids
+	row, err := g.DB().Model("qianchuan_token").Ctx(ctx).OrderDesc("id").Limit(1).One()
+	if err != nil || row.IsEmpty() {
+		return nil, gerror.New("未找到千川授权信息，请先完成巨量千川OAuth授权")
+	}
+
+	idsJSON := row["advertiser_ids"].String()
+	if idsJSON == "" {
+		return nil, gerror.New("千川授权未包含广告主信息")
+	}
+
+	var ids []int64
+	json.Unmarshal([]byte(idsJSON), &ids)
+
+	// 从 qianchuan_advertiser_daily_report 获取广告主名称（取最新数据）
+	// 如果 report 表没有数据（比如 token 过期导致拉取失败），仍然返回 ID 列表
+	rows, err := g.DB().Model("qianchuan_advertiser_daily_report").Ctx(ctx).
+		Fields("DISTINCT advertiser_id, advertiser_name").
+		WhereIn("advertiser_id", ids).
+		All()
+	if err != nil {
+		// report 表查不出数据时，构造只有 ID 的列表
+		rows = nil
+	}
+
+	// 构建 advertiser_id → advertiser_name 映射
+	nameMap := make(map[int64]string)
+	for _, row := range rows {
+		nameMap[row["advertiser_id"].Int64()] = row["advertiser_name"].String()
+	}
+
+	// 如果 report 表没有某些广告主的名称，也加入列表（名称为空）
+	var advertisers []g.Map
+	seenIds := make(map[int64]bool)
+	for _, row := range rows {
+		advId := row["advertiser_id"].Int64()
+		seenIds[advId] = true
+		advertisers = append(advertisers, g.Map{
+			"advertiserId":   advId,
+			"advertiserName": row["advertiser_name"],
+		})
+	}
+	for _, id := range ids {
+		if !seenIds[id] {
+			advertisers = append(advertisers, g.Map{
+				"advertiserId":   id,
+				"advertiserName": "",
+			})
+		}
+	}
+
+	// 构建已绑定的映射
+	bindings, _ := g.DB().Model("account_qianchuan_mapping").Ctx(ctx).All()
+	boundMap := make(map[int64]g.Map)
+	for _, b := range bindings {
+		advId := b["qianchuan_advertiser_id"].Int64()
+		boundMap[advId] = g.Map{
+			"accountId": b["account_id"],
+			"companyId": b["company_id"],
+		}
+	}
+
+	result := make([]g.Map, len(advertisers))
+	for i, adv := range advertisers {
+		advId := g.NewVar(adv["advertiserId"]).Int64()
+		item := g.Map{
+			"advertiserId":   advId,
+			"advertiserName": adv["advertiserName"],
+			"bound":          false,
+			"accountId":      0,
+			"companyId":      int64(0),
+		}
+		if bound, ok := boundMap[advId]; ok {
+			item["bound"] = true
+			item["accountId"] = bound["accountId"]
+			item["companyId"] = bound["companyId"]
+		}
+		result[i] = item
+	}
+
+	return result, nil
+}
+
+// ==================== 账号组织归属自动补全 ====================
+
+// OrgAttributionResult 账号归属补全结果
+type OrgAttributionResult struct {
+	AccountId    int    `json:"accountId"`
+	AccountName  string `json:"accountName"`
+	OldCompanyId int64  `json:"oldCompanyId"`
+	NewCompanyId int64  `json:"newCompanyId"`
+	TraderId     int64  `json:"traderId"`
+	TraderName   string `json:"traderName"`
+	Updated      bool   `json:"updated"`
+}
+
+// SyncAccountOrgAttribution 通过 trader_account_relation → trader 反向补全 account 的 company_id
+// 解决 account 表 company_id/department_id 全为 0 导致按公司/部门维度统计丢失的问题
+// dryRun=true 只预览不写库
+func (s *ShopService) SyncAccountOrgAttribution(ctx context.Context, dryRun bool) ([]OrgAttributionResult, int, error) {
+	// 查询所有 account → trader 关联（一个 account 可能关联多个 trader，取 company_id 最大的一个）
+	rows, err := g.DB().Model("account a").
+		InnerJoin("trader_account_relation tar", "a.id = tar.account_id").
+		InnerJoin("trader t", "tar.trader_id = t.id").
+		Fields("a.id, a.account_name, a.company_id AS old_company_id, a.department_id AS old_dept_id, MAX(t.id) AS trader_id, MAX(t.name) AS trader_name, MAX(t.company_id) AS trader_company_id, MAX(t.group_id) AS trader_group_id").
+		Group("a.id, a.account_name, a.company_id, a.department_id").
+		All()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	results := make([]OrgAttributionResult, 0, len(rows))
+	updatedCount := 0
+	for _, row := range rows {
+		r := OrgAttributionResult{
+			AccountId:    row["id"].Int(),
+			AccountName:  row["account_name"].String(),
+			OldCompanyId: row["old_company_id"].Int64(),
+			NewCompanyId: row["trader_company_id"].Int64(),
+			TraderId:     row["trader_id"].Int64(),
+			TraderName:   row["trader_name"].String(),
+		}
+
+		// 只更新 company_id 为 0 或与 trader 不一致的
+		if r.OldCompanyId == r.NewCompanyId && r.OldCompanyId != 0 {
+			r.Updated = false
+			results = append(results, r)
+			continue
+		}
+
+		r.Updated = true
+		if !dryRun {
+			data := g.Map{"company_id": r.NewCompanyId}
+			// trader.group_id 若有效则同时补全 department_id
+			if groupId := row["trader_group_id"].Int64(); groupId > 0 {
+				data["department_id"] = groupId
+			}
+			_, err := g.DB().Model("account").Ctx(ctx).Where("id", r.AccountId).Data(data).Update()
+			if err != nil {
+				g.Log().Warningf(ctx, "[SyncOrgAttribution] 更新账号%d失败: %v", r.AccountId, err)
+				r.Updated = false
+			}
+		}
+		if r.Updated {
+			updatedCount++
+		}
+		results = append(results, r)
+	}
+
+	return results, updatedCount, nil
+}
+
+// ==================== 千川广告主自动绑定 ====================
+
+// AutoBindResult 自动绑定单个广告主的结果
+type AutoBindResult struct {
+	QianchuanAdvertiserId   int64  `json:"qianchuanAdvertiserId"`
+	QianchuanAdvertiserName string `json:"qianchuanAdvertiserName"`
+	MatchedType             string `json:"matchedType"` // store / account / none
+	MatchedStoreId          int    `json:"matchedStoreId"`
+	MatchedStoreName        string `json:"matchedStoreName"`
+	MatchedAccountId        int    `json:"matchedAccountId"`
+	MatchedAccountName      string `json:"matchedAccountName"`
+	CompanyId               int64  `json:"companyId"`
+	Bound                   bool   `json:"bound"`     // 是否已绑定过
+	NewBound                bool   `json:"newBound"`  // 本次新绑定
+	SkipReason              string `json:"skipReason"`
+}
+
+// AutoBindQianchuanAdvertisers 自动绑定千川广告主到 store/account
+// 策略：
+//  1. 从 qianchuan_token 取出所有千川广告主 ID
+//  2. 调用千川 advertiser/info API 批量获取广告主名称（token 过期则名称为空，全部标记为 none）
+//  3. 优先用名称匹配 store 表 store_name（店铺名通常与千川广告主名一致或互含）
+//  4. store 未匹配上的，再用 account 表 account_name 匹配
+//  5. 匹配成功的写入 account_qianchuan_mapping（已存在则跳过）
+//  6. dryRun=true 时只返回匹配结果不写库，供人工复核
+func (s *ShopService) AutoBindQianchuanAdvertisers(ctx context.Context, dryRun bool) ([]AutoBindResult, int, int, error) {
+	// 1. 取千川广告主 ID 列表 + access_token
+	tokenRow, err := g.DB().Model("qianchuan_token").Ctx(ctx).OrderDesc("id").Limit(1).One()
+	if err != nil || tokenRow.IsEmpty() {
+		return nil, 0, 0, gerror.New("未找到千川授权信息，请先完成巨量千川OAuth授权")
+	}
+	accessToken := tokenRow["access_token"].String()
+	idsJSON := tokenRow["advertiser_ids"].String()
+	if idsJSON == "" {
+		return nil, 0, 0, gerror.New("千川授权未包含广告主信息，请先调用 /api/qianchuan-poller/sync-advertisers 同步")
+	}
+	var advIDs []int64
+	if err := json.Unmarshal([]byte(idsJSON), &advIDs); err != nil || len(advIDs) == 0 {
+		return nil, 0, 0, gerror.New("千川广告主ID列表解析失败或为空")
+	}
+
+	// 2. 批量获取广告主名称（千川 advertiser/info，每批最多 100 个）
+	nameMap := s.fetchAdvertiserNames(ctx, accessToken, advIDs)
+	g.Log().Infof(ctx, "[AutoBind] 千川广告主共%d个，成功获取名称%d个", len(advIDs), len(nameMap))
+
+	// 3. 预加载 store 和 account（抖音平台）
+	stores, _ := g.DB().Model("store").Ctx(ctx).Where("platform", "douyin").All()
+	accounts, _ := g.DB().Model("account").Ctx(ctx).Where("platform", "douyin").All()
+
+	// 已绑定记录，避免重复
+	boundRows, _ := g.DB().Model("account_qianchuan_mapping").Ctx(ctx).All()
+	boundSet := make(map[int64]bool, len(boundRows))
+	for _, b := range boundRows {
+		boundSet[b["qianchuan_advertiser_id"].Int64()] = true
+	}
+
+	results := make([]AutoBindResult, 0, len(advIDs))
+	newBoundCount := 0
+
+	for _, advID := range advIDs {
+		r := AutoBindResult{
+			QianchuanAdvertiserId:   advID,
+			QianchuanAdvertiserName: nameMap[advID],
+		}
+		if boundSet[advID] {
+			r.Bound = true
+			r.SkipReason = "已绑定，跳过"
+			results = append(results, r)
+			continue
+		}
+		if r.QianchuanAdvertiserName == "" {
+			r.MatchedType = "none"
+			r.SkipReason = "无法获取广告主名称，无法自动匹配（请检查token是否过期）"
+			results = append(results, r)
+			continue
+		}
+
+		// 4. 优先匹配 store
+		if matched := matchByName(r.QianchuanAdvertiserName, stores, "store_name", "id"); matched != nil {
+			r.MatchedType = "store"
+			r.MatchedStoreId = matched["id"].Int()
+			r.MatchedStoreName = matched["store_name"].String()
+			// store 没有 company_id，用 0 占位，后续可人工补
+			r.CompanyId = 0
+			// 尝试从 account 表找同名账号补全 account_id/company_id
+			for _, acc := range accounts {
+				if acc["account_name"].String() == r.MatchedStoreName {
+					r.MatchedAccountId = acc["id"].Int()
+					r.MatchedAccountName = acc["account_name"].String()
+					r.CompanyId = acc["company_id"].Int64()
+					break
+				}
+			}
+			if !dryRun {
+				if _, err := s.BindQianchuanAdvertiser(ctx, r.MatchedAccountId, r.CompanyId, advID, r.QianchuanAdvertiserName); err == nil {
+					r.NewBound = true
+					newBoundCount++
+				} else {
+					r.SkipReason = "写入映射失败: " + err.Error()
+				}
+			} else {
+				r.NewBound = true
+				newBoundCount++
+			}
+			results = append(results, r)
+			continue
+		}
+
+		// 5. store 未匹配，尝试 account
+		if matched := matchByName(r.QianchuanAdvertiserName, accounts, "account_name", "id"); matched != nil {
+			r.MatchedType = "account"
+			r.MatchedAccountId = matched["id"].Int()
+			r.MatchedAccountName = matched["account_name"].String()
+			r.CompanyId = matched["company_id"].Int64()
+			if !dryRun {
+				if _, err := s.BindQianchuanAdvertiser(ctx, r.MatchedAccountId, r.CompanyId, advID, r.QianchuanAdvertiserName); err == nil {
+					r.NewBound = true
+					newBoundCount++
+				} else {
+					r.SkipReason = "写入映射失败: " + err.Error()
+				}
+			} else {
+				r.NewBound = true
+				newBoundCount++
+			}
+			results = append(results, r)
+			continue
+		}
+
+		r.MatchedType = "none"
+		r.SkipReason = "名称未匹配到任何 store 或 account"
+		results = append(results, r)
+	}
+
+	return results, len(advIDs), newBoundCount, nil
+}
+
+// fetchAdvertiserNames 调用千川 advertiser/info 批量获取广告主名称
+// 每批最多 100 个广告主ID，token 过期时返回空 map（不阻断流程）
+func (s *ShopService) fetchAdvertiserNames(ctx context.Context, accessToken string, advIDs []int64) map[int64]string {
+	nameMap := make(map[int64]string, len(advIDs))
+	if accessToken == "" || len(advIDs) == 0 {
+		return nameMap
+	}
+
+	const batchSize = 100
+	client := g.Client()
+	client.SetHeader("Access-Token", accessToken)
+
+	for start := 0; start < len(advIDs); start += batchSize {
+		end := start + batchSize
+		if end > len(advIDs) {
+			end = len(advIDs)
+		}
+		batch := advIDs[start:end]
+
+		// 构造 advertiser_ids 参数（逗号分隔）
+		idStrs := make([]string, len(batch))
+		for i, id := range batch {
+			idStrs[i] = fmt.Sprintf("%d", id)
+		}
+		apiURL := "https://api.oceanengine.com/open_api/2/advertiser/info/?advertiser_ids=" + strings.Join(idStrs, ",")
+		resp, err := client.Get(ctx, apiURL)
+		if err != nil {
+			g.Log().Warningf(ctx, "[AutoBind] 获取广告主名称失败(batch %d-%d): %v", start, end, err)
+			continue
+		}
+		body := resp.ReadAllString()
+		resp.Close()
+
+		var infoResp struct {
+			Code *int64  `json:"code"`
+			Msg  *string `json:"message"`
+			Data []struct {
+				Id   *int64  `json:"id"`
+				Name *string `json:"name"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(body), &infoResp); err != nil {
+			g.Log().Warningf(ctx, "[AutoBind] 解析广告主名称响应失败: %v", err)
+			continue
+		}
+		if infoResp.Code != nil && *infoResp.Code != 0 {
+			g.Log().Warningf(ctx, "[AutoBind] advertiser/info 返回错误: code=%d msg=%s（token可能已过期）", *infoResp.Code, func() string { if infoResp.Msg != nil { return *infoResp.Msg }; return "" }())
+			// token 过期等致命错误，停止后续批次
+			break
+		}
+		for _, d := range infoResp.Data {
+			if d.Id != nil && d.Name != nil {
+				nameMap[*d.Id] = *d.Name
+			}
+		}
+	}
+	return nameMap
+}
+
+// matchByName 在记录集中按名称双向包含匹配
+// nameField 为名称字段
+func matchByName(target string, rows gdb.Result, nameField, _ string) gdb.Record {
+	if target == "" || len(rows) == 0 {
+		return nil
+	}
+	// 去除常见后缀做更宽松匹配：旗舰店/专营店/官方旗舰店
+	targetClean := cleanShopName(target)
+	for _, row := range rows {
+		cand := row[nameField].String()
+		if cand == "" {
+			continue
+		}
+		if target == cand {
+			return row
+		}
+		// 双向包含
+		if strings.Contains(target, cand) || strings.Contains(cand, target) {
+			return row
+		}
+		candClean := cleanShopName(cand)
+		if targetClean != "" && candClean != "" && (targetClean == candClean ||
+			strings.Contains(targetClean, candClean) || strings.Contains(candClean, targetClean)) {
+			return row
+		}
+	}
+	return nil
+}
+
+// cleanShopName 去除店铺名常见后缀，便于模糊匹配
+func cleanShopName(name string) string {
+	suffixes := []string{"官方旗舰店", "旗舰店", "专营店", "专卖店", "图书专营店", "进口图书专营店"}
+	out := name
+	for _, s := range suffixes {
+		out = strings.TrimSuffix(out, s)
+	}
+	return strings.TrimSpace(out)
 }

@@ -44,12 +44,23 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 	accessToken := *tokenResp.Data.AccessToken
 	advertiserIDs := tokenResp.Data.AdvertiserIds
 
-	g.Log().Infof(ctx, "[QianchuanCallback] token换取成功, 授权账户数=%d", len(advertiserIDs))
+	g.Log().Infof(ctx, "[QianchuanCallback] token换取成功, 原始授权账户IDs=%v, 共%d个", advertiserIDs, len(advertiserIDs))
+
+	// 将原始授权账户ID解析为千川广告主ID（原始IDs可能是巨量引擎平台账户ID，需要解析）
+	resolvedIDs, resolveErr := oceanengine.ResolveQianchuanAdvertiserIDs(ctx, accessToken, advertiserIDs)
+	if resolveErr != nil {
+		g.Log().Warningf(ctx, "[QianchuanCallback] 解析千川广告主ID失败，使用原始IDs: %v", resolveErr)
+	} else if len(resolvedIDs) > 0 {
+		advertiserIDs = resolvedIDs
+		g.Log().Infof(ctx, "[QianchuanCallback] 千川广告主IDs解析成功: %v (共%d个)", resolvedIDs, len(resolvedIDs))
+	} else {
+		g.Log().Warningf(ctx, "[QianchuanCallback] 解析千川广告主ID返回空列表，使用原始IDs")
+	}
 
 	// 保存 token 信息
 	saveTokenRecord(ctx, accessToken, tokenResp)
 
-	// Step1-3: 遍历每个广告主，拉取数据
+	// Step1-3: 遍历每个千川广告主，拉取数据
 	client := oceanengine.NewClient(accessToken)
 	pullDays := g.Cfg().MustGet(ctx, "platform.qianchuan.pullDays", 30).Int()
 
@@ -79,34 +90,51 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 		ar.AdvertiserName = pullResult.AdvertiserName
 		ar.TotalCombined = pullResult.TotalCombined
 
-		// 入库
+		// 入库（写入账户维度日结报表）
 		saved := 0
 		for _, item := range pullResult.Combined {
-			data := g.Map{
-				"advertiser_id":   item.AdvertiserID,
-				"advertiser_name": item.AdvertiserName,
-				"ad_id":           item.AdID,
-				"ad_name":         item.AdName,
-				"stat_cost":       item.StatCost,
-				"stat_datetime":   item.StatDatetime,
-			}
-
-			count, _ := g.DB().Model("qianchuan_ad_report").Ctx(ctx).
-				Where("ad_id", item.AdID).
-				Where("stat_datetime", item.StatDatetime).
-				Count()
-
-			if count > 0 {
-				g.DB().Model("qianchuan_ad_report").Ctx(ctx).
-					Where("ad_id", item.AdID).
-					Where("stat_datetime", item.StatDatetime).
-					Data(data).Update()
-			} else {
-				_, err := g.DB().Model("qianchuan_ad_report").Ctx(ctx).Data(data).Insert()
-				if err != nil {
-					g.Log().Errorf(ctx, "[QianchuanCallback] 入库失败 ad_id=%d: %v", item.AdID, err)
-					continue
-				}
+			_, err := g.DB().Ctx(ctx).Exec(ctx,
+				`INSERT INTO qianchuan_advertiser_daily_report
+					(advertiser_id, stat_datetime,
+					stat_cost, show_cnt, click_cnt, ctr, cpc_platform, cpm_platform,
+					convert_cnt, convert_cost, convert_rate, deep_convert_cnt, deep_convert_cost,
+					pay_order_amount, pay_order_count, pay_order_cost_per_order, pay_order_coupon_amount,
+					create_order_amount, create_order_count, create_order_coupon_amount, create_order_roi,
+					prepay_order_amount, prepay_order_count, prepay_and_pay_order_roi,
+					all_order_pay_gmv_7days, all_order_pay_count_7days, all_order_pay_roi_7days,
+					all_order_refund_amount_7d, all_order_refund_count_7d,
+					all_order_refund_amount_14d, all_order_refund_count_14d,
+					dy_follow, total_play)
+				VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+				ON DUPLICATE KEY UPDATE
+					stat_cost=VALUES(stat_cost), show_cnt=VALUES(show_cnt), click_cnt=VALUES(click_cnt),
+					ctr=VALUES(ctr), cpc_platform=VALUES(cpc_platform), cpm_platform=VALUES(cpm_platform),
+					convert_cnt=VALUES(convert_cnt), convert_cost=VALUES(convert_cost), convert_rate=VALUES(convert_rate),
+					deep_convert_cnt=VALUES(deep_convert_cnt), deep_convert_cost=VALUES(deep_convert_cost),
+					pay_order_amount=VALUES(pay_order_amount), pay_order_count=VALUES(pay_order_count),
+					pay_order_cost_per_order=VALUES(pay_order_cost_per_order), pay_order_coupon_amount=VALUES(pay_order_coupon_amount),
+					create_order_amount=VALUES(create_order_amount), create_order_count=VALUES(create_order_count),
+					create_order_coupon_amount=VALUES(create_order_coupon_amount), create_order_roi=VALUES(create_order_roi),
+					prepay_order_amount=VALUES(prepay_order_amount), prepay_order_count=VALUES(prepay_order_count),
+					prepay_and_pay_order_roi=VALUES(prepay_and_pay_order_roi),
+					all_order_pay_gmv_7days=VALUES(all_order_pay_gmv_7days), all_order_pay_count_7days=VALUES(all_order_pay_count_7days),
+					all_order_pay_roi_7days=VALUES(all_order_pay_roi_7days),
+					all_order_refund_amount_7d=VALUES(all_order_refund_amount_7d), all_order_refund_count_7d=VALUES(all_order_refund_count_7d),
+					all_order_refund_amount_14d=VALUES(all_order_refund_amount_14d), all_order_refund_count_14d=VALUES(all_order_refund_count_14d),
+					dy_follow=VALUES(dy_follow), total_play=VALUES(total_play)`,
+				item.AdvertiserID, item.StatDatetime,
+				item.StatCost, item.ShowCnt, item.ClickCnt, item.Ctr, item.CpcPlatform, item.CpmPlatform,
+				item.ConvertCnt, item.ConvertCost, item.ConvertRate, item.DeepConvertCnt, item.DeepConvertCost,
+				item.PayOrderAmount, item.PayOrderCount, item.PayOrderCostPerOrder, item.PayOrderCouponAmount,
+				item.CreateOrderAmount, item.CreateOrderCount, item.CreateOrderCouponAmount, item.CreateOrderRoi,
+				item.PrepayOrderAmount, item.PrepayOrderCount, item.PrepayAndPayOrderRoi,
+				item.AllOrderPayGmv7days, item.AllOrderPayCount7days, item.AllOrderPayRoi7days,
+				item.AllOrderRefundAmount7d, item.AllOrderRefundCount7d,
+				item.AllOrderRefundAmount14d, item.AllOrderRefundCount14d,
+				item.DyFollow, item.TotalPlay)
+			if err != nil {
+				g.Log().Errorf(ctx, "[QianchuanCallback] 入库失败 advID=%d date=%s: %v", advID, item.StatDatetime, err)
+				continue
 			}
 			saved++
 		}
@@ -146,16 +174,42 @@ func saveTokenRecord(ctx context.Context, accessToken string, resp interface{}) 
 
 	// 保存 token 到 qianchuan_token 表，供定时拉取使用
 	if tokenResp, ok := resp.(*models.Oauth2AccessTokenResponse); ok {
-		idsJSON, _ := json.Marshal(tokenResp.Data.AdvertiserIds)
+		accountIDs := tokenResp.Data.AdvertiserIds
 		expiresAt := ""
 		if tokenResp.Data.ExpiresIn != nil && *tokenResp.Data.ExpiresIn > 0 {
 			expiresAt = time.Now().Add(time.Duration(*tokenResp.Data.ExpiresIn) * time.Second).Format("2006-01-02 15:04:05")
 		}
+		refreshToken := ""
+		refreshTokenExpiresAt := ""
+		if tokenResp.Data.RefreshToken != nil {
+			refreshToken = *tokenResp.Data.RefreshToken
+		}
+		if tokenResp.Data.RefreshTokenExpiresIn != nil && *tokenResp.Data.RefreshTokenExpiresIn > 0 {
+			refreshTokenExpiresAt = time.Now().Add(time.Duration(*tokenResp.Data.RefreshTokenExpiresIn) * time.Second).Format("2006-01-02 15:04:05")
+		}
+
+		// 将授权返回的平台账户ID解析为千川广告主ID
+		// token交换返回的AdvertiserIds可能是巨量引擎平台账户ID（店铺级别），
+		// 需要调用 qianchuan/shop/advertiser/list/ 接口解析为真正的千川广告主ID
+		qianchuanIDs, err := oceanengine.ResolveQianchuanAdvertiserIDs(ctx, accessToken, accountIDs)
+		if err != nil {
+			g.Log().Warningf(ctx, "[QianchuanCallback] 解析千川广告主ID失败，使用原始IDs: %v", err)
+			qianchuanIDs = accountIDs
+		}
+		if len(qianchuanIDs) == 0 {
+			g.Log().Warningf(ctx, "[QianchuanCallback] 解析千川广告主ID返回空列表，使用原始IDs")
+			qianchuanIDs = accountIDs
+		}
+		g.Log().Infof(ctx, "[QianchuanCallback] 千川广告主IDs: 原始=%v -> 解析后=%v", accountIDs, qianchuanIDs)
+
+		idsJSON, _ := json.Marshal(qianchuanIDs)
 		g.DB().Model("qianchuan_token").Ctx(ctx).Data(g.Map{
-			"access_token":   accessToken,
-			"advertiser_ids": string(idsJSON),
-			"expires_in":     tokenResp.Data.ExpiresIn,
-			"expires_at":     expiresAt,
+			"access_token":             accessToken,
+			"refresh_token":            refreshToken,
+			"advertiser_ids":           string(idsJSON),
+			"expires_in":               tokenResp.Data.ExpiresIn,
+			"expires_at":               expiresAt,
+			"refresh_token_expires_at": refreshTokenExpiresAt,
 		}).Insert()
 	}
 }

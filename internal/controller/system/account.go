@@ -227,3 +227,137 @@ func (c *AccountController) ShopImport(r *ghttp.Request) {
 		"msg":  fmt.Sprintf("导入完成：成功%d条，跳过%d条，失败%d条", result.SuccessCount, result.SkipCount, result.FailCount),
 	})
 }
+
+// ==================== 千川广告主映射管理 ====================
+
+// QianchuanMappingList 千川映射列表 GET /api/qianchuan-mapping/list
+func (c *AccountController) QianchuanMappingList(r *ghttp.Request) {
+	page := r.Get("page", 1).Int()
+	pageSize := r.Get("pageSize", 10).Int()
+	accountId := r.Get("accountId", 0).Int()
+	companyId := r.Get("companyId", 0).Int64()
+
+	shopService := service.NewShopService()
+	mappings, total, err := shopService.ListQianchuanMappings(r.Context(), page, pageSize, accountId, companyId)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{
+		"code":  0,
+		"data":  mappings,
+		"msg":   "ok",
+		"total": total,
+	})
+}
+
+// QianchuanMappingBind 绑定千川广告主 POST /api/qianchuan-mapping/bind
+func (c *AccountController) QianchuanMappingBind(r *ghttp.Request) {
+	var req model.QianchuanMappingSaveReq
+	if err := r.Parse(&req); err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "参数错误: " + err.Error()})
+		return
+	}
+
+	shopService := service.NewShopService()
+	id, err := shopService.BindQianchuanAdvertiser(r.Context(), req.AccountId, req.CompanyId, req.QianchuanAdvertiserId, req.QianchuanAdvertiserName)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "绑定失败: " + err.Error()})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"id": id}, "msg": "绑定成功"})
+}
+
+// QianchuanMappingUnbind 解绑千川广告主 POST /api/qianchuan-mapping/unbind
+func (c *AccountController) QianchuanMappingUnbind(r *ghttp.Request) {
+	var req struct {
+		Id int64 `json:"id" v:"required#映射ID不能为空"`
+	}
+	if err := r.Parse(&req); err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "参数错误"})
+		return
+	}
+
+	shopService := service.NewShopService()
+	err := shopService.UnbindQianchuanAdvertiser(r.Context(), req.Id)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "解绑失败: " + err.Error()})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": nil, "msg": "解绑成功"})
+}
+
+// QianchuanAdvertisers 获取可用的千川广告主列表 GET /api/qianchuan-mapping/advertisers
+func (c *AccountController) QianchuanAdvertisers(r *ghttp.Request) {
+	shopService := service.NewShopService()
+	advertisers, err := shopService.GetAvailableQianchuanAdvertisers(r.Context())
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": advertisers, "msg": "ok"})
+}
+
+// QianchuanMappingAutoBind 自动绑定千川广告主到 store/account
+// POST /api/qianchuan-mapping/auto-bind
+// 参数: dryRun (bool, 默认 true) - true 只预览不写库，false 实际写入
+// 策略：调用千川 advertiser/info 获取广告主名称，按名称模糊匹配 store 表，匹配不上的再匹配 account 表
+func (c *AccountController) QianchuanMappingAutoBind(r *ghttp.Request) {
+	dryRun := r.Get("dryRun", true).Bool()
+
+	shopService := service.NewShopService()
+	results, total, newBound, err := shopService.AutoBindQianchuanAdvertisers(r.Context(), dryRun)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "自动绑定失败: " + err.Error()})
+		return
+	}
+
+	mode := "预览"
+	if !dryRun {
+		mode = "已写入"
+	}
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"data": g.Map{
+			"total":     total,
+			"newBound":  newBound,
+			"results":   results,
+			"dryRun":    dryRun,
+		},
+		"msg": fmt.Sprintf("%s完成：共%d个广告主，新绑定%d个", mode, total, newBound),
+	})
+}
+
+// SyncOrgAttribution 账号组织归属自动补全
+// POST /api/account/sync-org-attribution?dryRun=true
+// 通过 trader_account_relation → trader 反向补全 account 的 company_id/department_id
+// 解决 account 表 company_id 全为 0 导致按公司/部门维度统计丢失的问题
+func (c *AccountController) SyncOrgAttribution(r *ghttp.Request) {
+	dryRun := r.Get("dryRun", true).Bool()
+
+	shopService := service.NewShopService()
+	results, updated, err := shopService.SyncAccountOrgAttribution(r.Context(), dryRun)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "补全失败: " + err.Error()})
+		return
+	}
+
+	mode := "预览"
+	if !dryRun {
+		mode = "已写入"
+	}
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"data": g.Map{
+			"total":   len(results),
+			"updated": updated,
+			"results": results,
+			"dryRun":  dryRun,
+		},
+		"msg": fmt.Sprintf("%s完成：共%d个账号，更新%d个", mode, len(results), updated),
+	})
+}

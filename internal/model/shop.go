@@ -40,6 +40,33 @@ type ShopSaveReq struct {
 	Operator          string `json:"operator" v:"required#运营者不能为空"`
 }
 
+// AccountQianchuanMapping 内部账号与千川广告主映射
+type AccountQianchuanMapping struct {
+	Id                       int64     `json:"id"`
+	AccountId                int       `json:"accountId"`
+	CompanyId                int64     `json:"companyId"`
+	QianchuanAdvertiserId    int64     `json:"qianchuanAdvertiserId"`
+	QianchuanAdvertiserName  string    `json:"qianchuanAdvertiserName"`
+	CreatedAt                time.Time `json:"createdAt"`
+	UpdatedAt                time.Time `json:"updatedAt"`
+}
+
+// QianchuanMappingSaveReq 保存千川映射请求
+type QianchuanMappingSaveReq struct {
+	AccountId               int    `json:"accountId" v:"required#账号ID不能为空"`
+	CompanyId               int64  `json:"companyId" v:"required#公司ID不能为空"`
+	QianchuanAdvertiserId   int64  `json:"qianchuanAdvertiserId" v:"required#千川广告主ID不能为空"`
+	QianchuanAdvertiserName string `json:"qianchuanAdvertiserName"`
+}
+
+// QianchuanMappingListReq 千川映射列表请求
+type QianchuanMappingListReq struct {
+	Page     int   `json:"page" v:"required|min:1#页码不能为空|页码最小为1"`
+	PageSize int   `json:"pageSize" v:"required|min:1|max:100#每页数量不能为空|每页数量最小为1|每页数量最大为100"`
+	AccountId int  `json:"accountId"` // 按账号筛选
+	CompanyId int64 `json:"companyId"` // 按公司筛选
+}
+
 // ShopExcelRow Excel导入行数据
 type ShopExcelRow struct {
 	Platform          string `json:"platform"`

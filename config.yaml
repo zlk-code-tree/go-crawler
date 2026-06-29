@@ -90,10 +90,12 @@ platform:
     appSecret: ""
     baseUrl: ""
   qianchuan:
-    appId: 1867057521692762                     # 巨量千川应用ID（在巨量千川开放平台创建应用后获取）
+    appId: 1867057521692762                     # 巨量千川应用ID
     appSecret: "2de7efc76d5527514c6b3d37b7ce9c9d698a79c8"                 # 巨量千川应用密钥
     pullDays: 30                  # 拉取最近多少天的报表数据
     redirectUri: "https://admin.liyuntushu.com/api/douyin/callback"  # OAuth授权回调地址
+    rid: "wcetydklb8g"             # 千川授权链接中的rid参数，在开发者后台应用详情页获取
+    materialAuth: 1                # 是否展示敏感物料授权选项（1=是，0=否）
 
 # 飞书配置
 feishu:
@@ -105,3 +107,12 @@ feishu:
 task:
   feishuWebhook: ""  # 飞书机器人webhook地址，用于任务失败告警通知
   concurrency: 5     # 全局并发数，控制同时调用第三方API的工作线程数
+
+# Webhook推送配置（盈亏报告推送）
+webhook:
+  feishu:
+    enabled: false                # 是否启用飞书推送
+    webhook_url: ""               # 飞书机器人webhook地址，如 https://open.feishu.cn/open-apis/bot/v2/hook/xxx
+  push_schedule:
+    morning: "0 9 * * *"          # 早报推送时间（默认09:00）
+    evening: "0 18 * * *"         # 晚报推送时间（默认18:00）

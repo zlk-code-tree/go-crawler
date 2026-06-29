@@ -413,14 +413,14 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 					COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS refund_cost_amount,
 					COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_order_count
 				FROM %s o
-				LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+				LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
 				WHERE o.order_submit_time >= ?
 				  AND o.order_submit_time < ?
 				  AND o.%s IS NOT NULL
 				  AND o.%s != ''
 				  AND o.talent_id %s IN(?)
 				GROUP BY o.talent_id
-			`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, tableName, collate, orderNoCol, orderNoCol, talentCollate)
+			`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, tableName, collate, collate, orderNoCol, orderNoCol, talentCollate)
 
 			endDateNext := CalcEndDateNext(childEndDate)
 			rows, err := g.DB().GetAll(ctx, sql, startDate, endDateNext, uids)
@@ -652,14 +652,14 @@ func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, de
 					COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS refund_cost_amount,
 					COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_order_count
 				FROM %s o
-				LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+				LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
 				WHERE o.order_submit_time >= ?
 				  AND o.order_submit_time < ?
 				  AND o.%s IS NOT NULL
 				  AND o.%s != ''
 				  AND o.talent_id %s IN(?)
 				GROUP BY o.talent_id
-			`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, tableName, collate, orderNoCol, orderNoCol, talentCollate)
+			`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, tableName, collate, collate, orderNoCol, orderNoCol, talentCollate)
 
 			endDateNext := CalcEndDateNext(childEndDate)
 			rows, err := g.DB().GetAll(ctx, sql, startDate, endDateNext, uids)
@@ -1444,14 +1444,14 @@ func (s *FinanceCommissionService) statsOrderTable(ctx context.Context, tableNam
 			COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_order_count,
 			COUNT(DISTINCT CASE WHEN %s AND g.base_price > 0 THEN o.%s END) AS valid_order_cost_match
 		FROM %s o
-		LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+		LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
 		WHERE o.order_submit_time >= ?
 		  AND o.order_submit_time < ?
 		  AND o.%s IS NOT NULL
 		  AND o.%s != ''
 		  %s
 		  %s
-	`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, validCond, orderNoCol, tableName, collateClause, orderNoCol, orderNoCol, uidFilter, attributionClause)
+	`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, validCond, orderNoCol, tableName, collateClause, collateClause, orderNoCol, orderNoCol, uidFilter, attributionClause)
 
 	endDateNext := CalcEndDateNext(endDate)
 
@@ -1637,14 +1637,14 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 				COALESCE(SUM(COALESCE(g.base_price, 0) * o.product_num), 0) AS cost_amount,
 				COALESCE(SUM(o.product_price * o.product_num * 0.03), 0) AS reserve_amount
 			FROM %s o
-			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
 			WHERE o.talent_id %s IN(?)
 			  AND o.order_submit_time >= ?
 			  AND o.order_submit_time < ?
 			  AND o.%s IS NOT NULL
 			  AND o.%s != ''
 			  %s
-		`, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
+		`, tableName, collateClause, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
 
 		sumResult, err := g.DB().GetOne(ctx, sumSQL, uids, startDate, endDateNext)
 		if err == nil {
@@ -1665,8 +1665,8 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		}
 
 		// 查询退款成本（无效+已发货 的货款）
-		refundSQL := fmt.Sprintf(`SELECT COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COUNT(DISTINCT o.%s) AS cnt FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.order_submit_time >= ? AND o.order_submit_time < ? AND o.%s IS NOT NULL AND o.%s != '' AND o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'`,
-			orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol)
+		refundSQL := fmt.Sprintf(`SELECT COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COUNT(DISTINCT o.%s) AS cnt FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s WHERE o.talent_id %s IN(?) AND o.order_submit_time >= ? AND o.order_submit_time < ? AND o.%s IS NOT NULL AND o.%s != '' AND o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'`,
+			orderNoCol, tableName, collateClause, collateClause, talentCollate, orderNoCol, orderNoCol)
 		if refR, _ := g.DB().GetOne(ctx, refundSQL, uids, startDate, endDateNext); refR != nil {
 			totalRefundCost += refR["cost"].Float64()
 			totalRefundCount += refR["cnt"].Int()
@@ -1685,7 +1685,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 				IFNULL(o.order_submit_time, '') AS order_submit_time,
 				o.talent_id
 			FROM %s o
-			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
 			WHERE o.talent_id %s IN(?)
 			  AND o.order_submit_time >= ?
 			  AND o.order_submit_time < ?
@@ -1694,7 +1694,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			  %s
 			ORDER BY o.order_submit_time DESC
 			LIMIT ?, ?
-		`, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
+		`, orderNoCol, tableName, collateClause, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
 
 		result, err := g.DB().GetAll(ctx, sql, uids, startDate, endDateNext, (page-1)*pageSize, pageSize)
 		if err != nil {
@@ -1754,13 +1754,13 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 				COALESCE(SUM(COALESCE(g.base_price, 0) * o.product_num), 0) AS cost,
 				COALESCE(SUM(o.product_price * o.product_num * 0.03), 0) AS reserve
 			FROM %s o
-			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
 			WHERE o.order_submit_time >= ?
 			  AND o.order_submit_time < ?
 			  AND o.%s IS NOT NULL
 			  AND o.%s != ''
 			  %s
-		`, orderNoCol, tableName, collateClause, orderNoCol, orderNoCol, redirectedValidFilter)
+		`, orderNoCol, tableName, collateClause, collateClause, orderNoCol, orderNoCol, redirectedValidFilter)
 		if sumR, _ := g.DB().GetOne(ctx, redirectedSumSQL, startDate, endDateNext); sumR != nil {
 			totalCount += sumR["cnt"].Int()
 			totalPay += sumR["pay"].Float64()
@@ -1781,14 +1781,14 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 				IFNULL(o.order_submit_time, '') AS order_submit_time,
 				o.talent_id
 			FROM %s o
-			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
 			WHERE o.order_submit_time >= ?
 			  AND o.order_submit_time < ?
 			  AND o.%s IS NOT NULL
 			  AND o.%s != ''
 			  %s
 			ORDER BY o.order_submit_time DESC
-		`, orderNoCol, tableName, collateClause, orderNoCol, orderNoCol, redirectedValidFilter)
+		`, orderNoCol, tableName, collateClause, collateClause, orderNoCol, orderNoCol, redirectedValidFilter)
 		if result, err := g.DB().GetAll(ctx, redirectedDetailSQL, startDate, endDateNext); err == nil {
 			for _, row := range result {
 				talentId := row["talent_id"].String()
@@ -2079,7 +2079,7 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 				IFNULL(o.order_submit_time, '') AS order_submit_time,
 				o.talent_id
 			FROM %s o
-			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
 			WHERE o.talent_id %s IN(?)
 			  AND o.order_submit_time >= ?
 			  AND o.order_submit_time < ?
@@ -2087,7 +2087,7 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 			  AND o.%s != ''
 			  %s
 			ORDER BY o.order_submit_time DESC
-		`, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilterWithExclude)
+		`, orderNoCol, tableName, collateClause, collateClause, talentCollate, orderNoCol, orderNoCol, validFilterWithExclude)
 
 		result, err := g.DB().GetAll(ctx, sql, uids, startDate, endDateNext)
 		if err != nil || len(result) == 0 {
@@ -2108,14 +2108,14 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 				IFNULL(o.order_submit_time, '') AS order_submit_time,
 				o.talent_id
 			FROM %s o
-			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
 			WHERE o.order_submit_time >= ?
 			  AND o.order_submit_time < ?
 			  AND o.%s IS NOT NULL
 			  AND o.%s != ''
 			  %s
 			ORDER BY o.order_submit_time DESC
-		`, orderNoCol, tableName, collateClause, orderNoCol, orderNoCol, validFilterWithRedirect)
+		`, orderNoCol, tableName, collateClause, collateClause, orderNoCol, orderNoCol, validFilterWithRedirect)
 		if redirectedResult, err := g.DB().GetAll(ctx, redirectedSQL, startDate, endDateNext); err == nil && len(redirectedResult) > 0 {
 			result = append(result, redirectedResult...)
 		}
@@ -2255,14 +2255,14 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 				o.after_sale_status,
 				IFNULL(o.order_submit_time, '') AS order_submit_time
 			FROM %s o
-			LEFT JOIN goods g ON o.seller_code %s = g.goods_code
+			LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
 			WHERE o.talent_id %s = ?
 			  AND o.order_submit_time >= ?
 			  AND o.order_submit_time < ?
 			  AND o.%s IS NOT NULL AND o.%s != ''
 			  %s
 			ORDER BY o.order_submit_time DESC
-		`, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
+		`, orderNoCol, tableName, collateClause, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
 
 		result, err := g.DB().GetAll(ctx, sql, uid, startDate, endDateNext)
 		if err != nil || len(result) == 0 {
@@ -2387,7 +2387,7 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 		if cntR != nil { totalCount += cntR["cnt"].Int() }
 
 		// sum（货款通过 LEFT JOIN goods 用 base_price 计算）
-		sumSQL := fmt.Sprintf(`SELECT COALESCE(SUM(o.product_price*o.product_num),0) AS pay, COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COALESCE(SUM(o.product_price*o.product_num*0.03),0) AS reserve FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.order_submit_time >= ? AND o.order_submit_time < ? AND o.%s IS NOT NULL AND o.%s != '' %s`, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
+		sumSQL := fmt.Sprintf(`SELECT COALESCE(SUM(o.product_price*o.product_num),0) AS pay, COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COALESCE(SUM(o.product_price*o.product_num*0.03),0) AS reserve FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s WHERE o.talent_id %s IN(?) AND o.order_submit_time >= ? AND o.order_submit_time < ? AND o.%s IS NOT NULL AND o.%s != '' %s`, tableName, collateClause, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
 		sumR, _ := g.DB().GetOne(ctx, sumSQL, uids, startDate, endDateNext)
 		if sumR != nil {
 			totalPay += sumR["pay"].Float64()
@@ -2403,15 +2403,15 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 		}
 
 		// 查询退款成本
-		refundSQL := fmt.Sprintf(`SELECT COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COUNT(DISTINCT o.%s) AS cnt FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.order_submit_time >= ? AND o.order_submit_time < ? AND o.%s IS NOT NULL AND o.%s != '' AND o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'`,
-			orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol)
+		refundSQL := fmt.Sprintf(`SELECT COALESCE(SUM(COALESCE(g.base_price,0)*o.product_num),0) AS cost, COUNT(DISTINCT o.%s) AS cnt FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s WHERE o.talent_id %s IN(?) AND o.order_submit_time >= ? AND o.order_submit_time < ? AND o.%s IS NOT NULL AND o.%s != '' AND o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'`,
+			orderNoCol, tableName, collateClause, collateClause, talentCollate, orderNoCol, orderNoCol)
 		if refR, _ := g.DB().GetOne(ctx, refundSQL, uids, startDate, endDateNext); refR != nil {
 			totalRefundCost += refR["cost"].Float64()
 			totalRefundCount += refR["cnt"].Int()
 		}
 
 		// orders（LEFT JOIN goods 获取 base_price）
-		orderSQL := fmt.Sprintf(`SELECT o.%s AS main_order_no, o.product_name, o.product_num, o.product_price, COALESCE(g.base_price,0) AS base_price, o.order_status, o.after_sale_status, IFNULL(o.order_submit_time,'') AS order_submit_time, o.talent_id FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code WHERE o.talent_id %s IN(?) AND o.order_submit_time >= ? AND o.order_submit_time < ? AND o.%s IS NOT NULL AND o.%s != '' %s ORDER BY o.order_submit_time DESC LIMIT ?,?`, orderNoCol, tableName, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
+		orderSQL := fmt.Sprintf(`SELECT o.%s AS main_order_no, o.product_name, o.product_num, o.product_price, COALESCE(g.base_price,0) AS base_price, o.order_status, o.after_sale_status, IFNULL(o.order_submit_time,'') AS order_submit_time, o.talent_id FROM %s o LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s WHERE o.talent_id %s IN(?) AND o.order_submit_time >= ? AND o.order_submit_time < ? AND o.%s IS NOT NULL AND o.%s != '' %s ORDER BY o.order_submit_time DESC LIMIT ?,?`, orderNoCol, tableName, collateClause, collateClause, talentCollate, orderNoCol, orderNoCol, validFilter)
 		result, _ := g.DB().GetAll(ctx, orderSQL, uids, startDate, endDateNext, (page-1)*pageSize, pageSize)
 		for _, row := range result {
 			pNum := row["product_num"].Int()

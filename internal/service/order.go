@@ -217,7 +217,7 @@ func (s *OrderService) getAdCost(ctx context.Context, startTime, endTime string)
 		qEnd = endTime[:10]
 	}
 
-	query := "SELECT COALESCE(SUM(stat_cost), 0) as cost FROM qianchuan_ad_report WHERE 1=1"
+	query := "SELECT COALESCE(SUM(stat_cost), 0) as cost FROM qianchuan_advertiser_daily_report WHERE 1=1"
 	params := []interface{}{}
 	if qStart != "" {
 		query += " AND stat_datetime >= ?"
@@ -726,6 +726,7 @@ func (s *OrderService) ImportFromExcel(ctx context.Context, filePath string) (*O
 			"seller_real_discount":     parseFloatOrDefault(getCol(cols, headerMap, "商家实际承担优惠金额"), 0),
 			"talent_real_discount":     parseFloatOrDefault(getCol(cols, headerMap, "达人实际承担优惠金额"), 0),
 			"expect_arrive_time":       parseDateTime(getCol(cols, headerMap, "预计送达时间")),
+			"create_time":              time.Now().Format("2006-01-02 15:04:05"),
 		}
 
 		batch = append(batch, data)

@@ -23,7 +23,7 @@ func (s *ProfileService) UpdateProfile(ctx context.Context, userId int64, profil
 	updateData := g.Map{}
 
 	// 安全地复制允许更新的字段
-	allowedFields := []string{"real_name", "nickname", "email", "phone", "avatar", "gender", "position", "remark"}
+	allowedFields := []string{"username", "real_name", "nickname", "email", "phone", "avatar", "gender", "position", "remark"}
 
 	for _, field := range allowedFields {
 		if val, exists := profileData[field]; exists {

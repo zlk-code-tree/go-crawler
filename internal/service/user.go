@@ -53,6 +53,7 @@ func (s *UserService) AssignRoles(ctx context.Context, userId int64, roleIds []i
 // Save 保存用户，同时同步 sys_user_role
 func (s *UserService) Save(ctx context.Context, user *model.SysUser) (int64, error) {
 	data := g.Map{
+		"username":   user.Username,
 		"real_name":  user.RealName,
 		"nickname":   user.Nickname,
 		"email":      user.Email,
@@ -67,6 +68,10 @@ func (s *UserService) Save(ctx context.Context, user *model.SysUser) (int64, err
 		"company_id": user.CompanyId,
 	}
 
+	if user.Username == "" {
+		delete(data, "username")
+	}
+
 	if user.Id == 0 || user.Password != "" {
 		password := user.Password
 		if password == "" {
@@ -77,9 +82,6 @@ func (s *UserService) Save(ctx context.Context, user *model.SysUser) (int64, err
 			return 0, err
 		}
 		data["password"] = string(hashedPassword)
-		if user.Id == 0 {
-			data["username"] = user.Username
-		}
 	}
 
 	var userId int64

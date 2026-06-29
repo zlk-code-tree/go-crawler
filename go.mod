@@ -5,12 +5,10 @@ go 1.25.0
 require (
 	github.com/go-rod/rod v0.116.0
 	github.com/gogf/gf/v2 v2.10.0
+	github.com/oceanengine/ad_open_sdk_go v1.1.88
 )
 
-require (
-	github.com/go-sql-driver/mysql v1.7.1 // indirect
-	github.com/oceanengine/ad_open_sdk_go v1.1.88 // indirect
-)
+require github.com/go-sql-driver/mysql v1.7.1 // indirect
 
 require (
 	doudian.com/open/sdk_golang v0.0.0

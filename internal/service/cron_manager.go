@@ -30,7 +30,7 @@ type CronTaskInfo struct {
 
 type builtinTask struct {
 	cronExpr string
-	handler  func(context.Context)
+	handler  func(context.Context) error
 }
 
 // CronManager 定时任务管理器
@@ -68,7 +68,8 @@ var builtinDisplayNames = map[string]string{
 }
 
 // RegisterBuiltin 注册内置任务
-func (m *CronManager) RegisterBuiltin(name, cronExpr string, handler func(context.Context)) {
+// handler 返回 error 时由 CronManager 统一记录失败日志与通知，handler 内部不应再重复记录
+func (m *CronManager) RegisterBuiltin(name, cronExpr string, handler func(context.Context) error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.builtin[name] = builtinTask{cronExpr: cronExpr, handler: handler}
@@ -88,14 +89,15 @@ func (m *CronManager) StartAll(ctx context.Context) {
 }
 
 // startWrapped 启动带包装的cron任务
-func (m *CronManager) startWrapped(ctx context.Context, name, pattern string, handler func(context.Context)) {
+func (m *CronManager) startWrapped(ctx context.Context, name, pattern string, handler func(context.Context) error) {
 	gcron.AddSingleton(ctx, pattern, func(ctx context.Context) {
 		m.runWithLock(ctx, name, handler)
 	}, name)
 }
 
-// runWithLock 防重复执行 + 日志记录 + 通知+ 任务链
-func (m *CronManager) runWithLock(ctx context.Context, name string, handler func(context.Context)) {
+// runWithLock 防重复执行 + 日志记录 + 通知 + 任务链
+// handler 返回 error 时记录失败，否则记录成功；handler 内部不应再重复写任务日志/通知
+func (m *CronManager) runWithLock(ctx context.Context, name string, handler func(context.Context) error) {
 	m.mu.Lock()
 	if m.running[name] {
 		m.mu.Unlock()
@@ -106,6 +108,9 @@ func (m *CronManager) runWithLock(ctx context.Context, name string, handler func
 	m.mu.Unlock()
 
 	defer func() {
+		if r := recover(); r != nil {
+			g.Log().Errorf(ctx, "[CronManager] 任务 %s panic: %v", name, r)
+		}
 		m.mu.Lock()
 		m.running[name] = false
 		m.lastRun[name] = time.Now().Format("2006-01-02 15:04:05")
@@ -114,8 +119,16 @@ func (m *CronManager) runWithLock(ctx context.Context, name string, handler func
 
 	logId, _ := TaskLogStart(ctx, name, name, "", "")
 	t0 := time.Now()
-	handler(ctx)
+	err := handler(ctx)
 	dur := int(time.Since(t0).Milliseconds())
+
+	if err != nil {
+		TaskLogFailed(ctx, logId, err.Error(), dur)
+		CreateNotification(ctx, name+" 执行失败", fmt.Sprintf(`{"错误":"%s","耗时":%d}`, err.Error(), dur), "task_result", name, logId, NotifyLevelImportant, 0)
+		g.Log().Errorf(ctx, "[CronManager] 任务 %s 失败: %v", name, err)
+		return
+	}
+
 	TaskLogSuccess(ctx, logId, "", fmt.Sprintf(`{"durationMs":%d}`, dur), dur)
 	CreateNotification(ctx, name+" 执行完成", fmt.Sprintf(`{"耗时":%d,"任务":"%s"}`, dur, name), "task_result", name, logId, NotifyLevelNormal, 0)
 
@@ -130,7 +143,8 @@ func (m *CronManager) startDbTask(ctx context.Context, t CronTaskInfo) {
 	if t.Status != 1 {
 		return
 	}
-	handler := func(ctx context.Context) { m.executeHttpTask(ctx, t) }
+	// executeHttpTask 内部已自行处理重试与日志记录，这里返回 nil 不让 CronManager 重复记录
+	handler := func(ctx context.Context) error { m.executeHttpTask(ctx, t); return nil }
 	m.startWrapped(ctx, t.Name, t.CronExpr, handler)
 }
 
@@ -138,6 +152,18 @@ func (m *CronManager) startDbTask(ctx context.Context, t CronTaskInfo) {
 func (m *CronManager) Stop(name string) {
 	gcron.Remove(name)
 	g.DB().Model("cron_task").Where("name", name).Data(g.Map{"status": 0}).Update()
+}
+
+// ResumeTask 恢复内置任务的定时调度（用于被 Stop 停止后重新启动）
+// 仅对 builtin 任务有效，返回是否找到并恢复
+func (m *CronManager) ResumeTask(ctx context.Context, name string) bool {
+	task, ok := m.builtin[name]
+	if !ok {
+		return false
+	}
+	gcron.Remove(name) // 先移除避免重复注册
+	m.startWrapped(ctx, name, task.cronExpr, task.handler)
+	return true
 }
 
 // Trigger 手动触发

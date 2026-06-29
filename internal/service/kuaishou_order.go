@@ -518,6 +518,7 @@ func (s *KuaishouOrderService) ImportFromExcel(ctx context.Context, filePath str
 			"seller_real_discount":   parseFloatOrDefault(getColMoney(cols, headerMap, "商家实际承担优惠金额"), 0),
 			"talent_real_discount":   parseFloatOrDefault(getColMoney(cols, headerMap, "达人实际承担优惠金额"), 0),
 			"expect_arrive_time":     parseDateTime(getColFlex(cols, headerMap, "预计送达时间")),
+			"create_time":            time.Now().Format("2006-01-02 15:04:05"),
 		}
 
 		batch = append(batch, data)

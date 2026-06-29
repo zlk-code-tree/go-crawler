@@ -376,6 +376,7 @@ func (p *Poller) orderToMap(order model.PlatformOrderItem) map[string]interface{
 	setIf("flow_source", order.BTypeDesc)
 	setIf("after_sale_status", fmt.Sprintf("%d", order.AfterSaleStatus))
 	setIf("cancel_reason", order.CancelReason)
+	m["create_time"] = time.Now().Format("2006-01-02 15:04:05")
 	return m
 }
 

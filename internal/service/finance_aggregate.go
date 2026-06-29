@@ -41,6 +41,9 @@ func (s *FinanceAggregateService) DailyAggregateJob(ctx context.Context, date st
 	// 3. 按店铺聚合
 	shopMap := s.aggregateByShop(orders)
 
+	// 3.5 补全广告消耗（通过千川映射表关联）
+	s.enrichAdCost(ctx, shopMap, date)
+
 	// 4. 写入各维度统计（去重：同一组合只写一次）
 	saved := make(map[string]bool)
 	uniqueKey := func(companyId, departmentId, traderId int64, accountId int, platform string) string {
@@ -288,11 +291,47 @@ func (s *FinanceAggregateService) aggregateByShop(orders []OrderStatItem) map[in
 		v.Commission = roundFloat(v.Commission, 2)
 		v.RefundCostAmount = roundFloat(v.RefundCostAmount, 2)
 		v.ShopServiceFee = roundFloat(v.ShopServiceFee, 2)
-		v.RealtimeProfit = roundFloat(v.RealtimeProfit, 2)
+		v.AdCostAmount = roundFloat(v.AdCostAmount, 2)
+		// 净利润 = 定价总额 - 货款 - 留底 - 退款成本 - 小店服务费 - 佣金扣除 - 广告消耗
+		v.RealtimeProfit = roundFloat(v.PayAmount - v.CostAmount - v.ReserveAmount - v.RefundCostAmount - v.ShopServiceFee - v.PayAmount*0.005 - v.AdCostAmount, 2)
 		shopMap[k] = v
 	}
 
 	return shopMap
+}
+
+// enrichAdCost 通过千川映射表补全各账号的广告消耗
+func (s *FinanceAggregateService) enrichAdCost(ctx context.Context, shopMap map[int]OrderStatItem, date string) {
+	if len(shopMap) == 0 {
+		return
+	}
+
+	// 收集所有 accountId
+	accountIds := make([]int, 0, len(shopMap))
+	for accountId := range shopMap {
+		accountIds = append(accountIds, accountId)
+	}
+
+	// 使用 GoFrame 查询构建器批量查询千川消耗
+	rows, err := g.DB().Model("account_qianchuan_mapping aqm").
+		LeftJoin("qianchuan_advertiser_daily_report qar", "aqm.qianchuan_advertiser_id = qar.advertiser_id AND qar.stat_datetime = ?", date).
+		WhereIn("aqm.account_id", accountIds).
+		Fields("aqm.account_id, COALESCE(SUM(qar.stat_cost), 0) AS ad_cost").
+		Group("aqm.account_id").
+		All()
+	if err != nil {
+		g.Log().Warningf(ctx, "[FinanceAggregate] 查询千川消耗失败: %v", err)
+		return
+	}
+
+	for _, row := range rows {
+		accountId := row["account_id"].Int()
+		adCost := row["ad_cost"].Float64()
+		if stat, ok := shopMap[accountId]; ok {
+			stat.AdCostAmount = adCost
+			shopMap[accountId] = stat
+		}
+	}
 }
 
 // saveStat 保存统计数据
