@@ -2143,14 +2143,20 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 			f.SetColWidth(sheetName, col, col, w)
 		}
 
-		// 写表头
-		for i, h := range headers {
-			cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-			f.SetCellValue(sheetName, cell, h)
+		// 流式写入：避免大数据量逐单元格写入导致内存溢出/超时
+		sw, swErr := f.NewStreamWriter(sheetName)
+		if swErr != nil {
+			continue
 		}
-		f.SetRowStyle(sheetName, 1, 1, headerStyle)
 
-		// 写数据
+		// 写表头（带样式）
+		headerRow := make([]interface{}, len(headers))
+		for i, h := range headers {
+			headerRow[i] = h
+		}
+		_ = sw.SetRow("A1", headerRow, excelize.RowOpts{StyleID: headerStyle})
+
+		// 写数据（逐行，远快于逐单元格）
 		for rowIdx, row := range result {
 			talentId := row["talent_id"].String()
 			productNum := row["product_num"].Int()
@@ -2166,7 +2172,8 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 				payTime = payTime[:10]
 			}
 
-			dataRow := []interface{}{
+			cell, _ := excelize.CoordinatesToCellName(1, rowIdx+2)
+			if err := sw.SetRow(cell, []interface{}{
 				row["main_order_no"].String(),
 				row["product_name"].String(),
 				productNum,
@@ -2179,12 +2186,11 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 				row["order_status"].String(),
 				row["after_sale_status"].String(),
 				payTime,
-			}
-			for colIdx, val := range dataRow {
-				cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+2)
-				f.SetCellValue(sheetName, cell, val)
+			}); err != nil {
+				break
 			}
 		}
+		_ = sw.Flush()
 	}
 
 	// 保存文件
@@ -2285,12 +2291,20 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 			f.SetColWidth(sheetName, col, col, w)
 		}
 
-		for i, h := range headers {
-			cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-			f.SetCellValue(sheetName, cell, h)
+		// 流式写入：避免大数据量逐单元格写入导致内存溢出/超时
+		sw, swErr := f.NewStreamWriter(sheetName)
+		if swErr != nil {
+			continue
 		}
-		f.SetRowStyle(sheetName, 1, 1, headerStyle)
 
+		// 写表头（带样式）
+		headerRow := make([]interface{}, len(headers))
+		for i, h := range headers {
+			headerRow[i] = h
+		}
+		_ = sw.SetRow("A1", headerRow, excelize.RowOpts{StyleID: headerStyle})
+
+		// 写数据（逐行）
 		for rowIdx, row := range result {
 			productNum := row["product_num"].Int()
 			productPrice := row["product_price"].Float64()
@@ -2305,7 +2319,8 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 				payTime = payTime[:10]
 			}
 
-			dataRow := []interface{}{
+			cell, _ := excelize.CoordinatesToCellName(1, rowIdx+2)
+			if err := sw.SetRow(cell, []interface{}{
 				row["main_order_no"].String(),
 				row["product_name"].String(),
 				productNum,
@@ -2317,12 +2332,11 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 				row["order_status"].String(),
 				row["after_sale_status"].String(),
 				payTime,
-			}
-			for colIdx, val := range dataRow {
-				cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+2)
-				f.SetCellValue(sheetName, cell, val)
+			}); err != nil {
+				break
 			}
 		}
+		_ = sw.Flush()
 	}
 
 	exportDir := "./exports"
