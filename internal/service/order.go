@@ -160,7 +160,9 @@ func (s *OrderService) Stats(ctx context.Context, shopName string, startTime, en
 
 	// 7. 线上佣金 = 总商品金额 - 留底 - 货款（显示用）
 	stats.OnlineCommission = totalProductAmount - stats.ReserveAmount - stats.ProductCostAmount
-	if stats.OnlineCommission < 0 { stats.OnlineCommission = 0 }
+	if stats.OnlineCommission < 0 {
+		stats.OnlineCommission = 0
+	}
 
 	// 8. 小店服务费 = 总商品金额 × 2%
 	stats.ShopServiceFee = totalProductAmount * 0.02
@@ -174,8 +176,8 @@ func (s *OrderService) Stats(ctx context.Context, shopName string, startTime, en
 	stats.RefundCostAmount = row["cost"].Float64()
 	stats.RefundOrderCount = row["cnt"].Int64()
 
-	// 10. 广告费：从千川报表获取
-	stats.AdCostAmount = s.getAdCost(ctx, startTime, endTime)
+	// 10. 广告费：从千川报表获取（按店铺过滤）
+	stats.AdCostAmount = s.getAdCost(ctx, shopName, startTime, endTime)
 
 	// 11. 有效订单成本已匹配数
 	matchQuery := "SELECT COUNT(*) as total FROM order_info o INNER JOIN goods g ON o.seller_code = g.goods_code WHERE " + dateWhere + shopWhere + " AND " + validJoinClause + " AND g.base_price > 0"
@@ -206,7 +208,8 @@ func (s *OrderService) Stats(ctx context.Context, shopName string, startTime, en
 }
 
 // getAdCost 从千川广告报表获取指定时间段内的广告费消耗
-func (s *OrderService) getAdCost(ctx context.Context, startTime, endTime string) float64 {
+// 当 shopName 非空时，通过 account_qianchuan_mapping 关联到具体账号的广告主ID
+func (s *OrderService) getAdCost(ctx context.Context, shopName string, startTime, endTime string) float64 {
 	// 提取日期部分（stat_datetime 存的是日期字符串 2026-06-01）
 	qStart := ""
 	qEnd := ""
@@ -217,14 +220,30 @@ func (s *OrderService) getAdCost(ctx context.Context, startTime, endTime string)
 		qEnd = endTime[:10]
 	}
 
+	if shopName != "" {
+		// 按店铺关联千川广告主ID查询（通过 account 表关联 shopName）
+		row, err := g.DB().Model("account_qianchuan_mapping aqm").
+			LeftJoin("account a", "aqm.account_id = a.id").
+			LeftJoin("qianchuan_advertiser_daily_report qar", qianchuanAdReportJoinCondRange(qStart, qEnd)).
+			Where("a.account_name = ? OR a.platform_nickname = ?", shopName, shopName).
+			Fields("COALESCE(SUM(qar.stat_cost), 0) AS ad_cost").
+			One()
+		if err != nil {
+			g.Log().Warningf(ctx, "查询千川广告费(按店铺)失败: shopName=%s, err=%v", shopName, err)
+			return 0
+		}
+		return row["ad_cost"].Float64()
+	}
+
+	// 无店铺过滤时全表汇总
 	query := "SELECT COALESCE(SUM(stat_cost), 0) as cost FROM qianchuan_advertiser_daily_report WHERE 1=1"
 	params := []interface{}{}
 	if qStart != "" {
-		query += " AND stat_datetime >= ?"
+		query += " AND LEFT(stat_datetime, 10) >= ?"
 		params = append(params, qStart)
 	}
 	if qEnd != "" {
-		query += " AND stat_datetime <= ?"
+		query += " AND LEFT(stat_datetime, 10) <= ?"
 		params = append(params, qEnd)
 	}
 
@@ -297,38 +316,38 @@ func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, sh
 	orders := make([]g.Map, len(result))
 	for i, row := range result {
 		orders[i] = g.Map{
-			"id":                   row["id"],
-			"shopName":             row["shop_name"],
-			"mainOrderNo":          row["main_order_no"],
-			"subOrderNo":           row["sub_order_no"],
-			"productName":          row["product_name"],
-			"productSpec":          row["product_spec"],
-			"productNum":           row["product_num"],
-			"productId":            row["product_id"],
-			"productPrice":         row["product_price"],
-			"orderPayAmount":       row["order_pay_amount"],
-			"shippingFee":          row["shipping_fee"],
-			"totalDiscount":        row["total_discount"],
-			"orderStatus":          row["order_status"],
-			"orderSubmitTime":      row["order_submit_time"],
-			"payFinishTime":        row["pay_finish_time"],
-			"orderFinishTime":      row["order_finish_time"],
-			"receiverName":         row["receiver_name"],
-			"receiverPhone":        row["receiver_phone"],
-			"province":             row["province"],
-			"city":                 row["city"],
-			"district":             row["district"],
-			"talentName":           row["talent_name"],
-			"flowSource":           row["flow_source"],
-			"afterSaleStatus":      row["after_sale_status"],
-			"talentId":             row["talent_id"],
-			"productCost":          row["product_cost"],
-			"shopServiceFee":       row["shop_service_fee"],
-			"commissionRate":       row["commission_rate"],
-			"douyinAccount":        row["douyin_account"],
-			"uid":                  row["uid"],
-			"teamOwner":            row["team_owner"],
-			"isShopSelfSale":       row["is_shop_self_sale"],
+			"id":              row["id"],
+			"shopName":        row["shop_name"],
+			"mainOrderNo":     row["main_order_no"],
+			"subOrderNo":      row["sub_order_no"],
+			"productName":     row["product_name"],
+			"productSpec":     row["product_spec"],
+			"productNum":      row["product_num"],
+			"productId":       row["product_id"],
+			"productPrice":    row["product_price"],
+			"orderPayAmount":  row["order_pay_amount"],
+			"shippingFee":     row["shipping_fee"],
+			"totalDiscount":   row["total_discount"],
+			"orderStatus":     row["order_status"],
+			"orderSubmitTime": row["order_submit_time"],
+			"payFinishTime":   row["pay_finish_time"],
+			"orderFinishTime": row["order_finish_time"],
+			"receiverName":    row["receiver_name"],
+			"receiverPhone":   row["receiver_phone"],
+			"province":        row["province"],
+			"city":            row["city"],
+			"district":        row["district"],
+			"talentName":      row["talent_name"],
+			"flowSource":      row["flow_source"],
+			"afterSaleStatus": row["after_sale_status"],
+			"talentId":        row["talent_id"],
+			"productCost":     row["product_cost"],
+			"shopServiceFee":  row["shop_service_fee"],
+			"commissionRate":  row["commission_rate"],
+			"douyinAccount":   row["douyin_account"],
+			"uid":             row["uid"],
+			"teamOwner":       row["team_owner"],
+			"isShopSelfSale":  row["is_shop_self_sale"],
 		}
 	}
 
@@ -482,12 +501,12 @@ func (s *OrderService) ExportToExcel(ctx context.Context, keyword, shopName, ord
 	}
 
 	// 设置列宽
-	f.SetColWidth(sheetName, "A", "A", 15)  // 店铺
-	f.SetColWidth(sheetName, "B", "C", 20)  // 订单编号
-	f.SetColWidth(sheetName, "D", "D", 30)  // 商品名称
-	f.SetColWidth(sheetName, "E", "H", 15)  // 规格等
-	f.SetColWidth(sheetName, "I", "T", 12)  // 金额相关
-	f.SetColWidth(sheetName, "U", "AD", 15) // 地址相关
+	f.SetColWidth(sheetName, "A", "A", 15)   // 店铺
+	f.SetColWidth(sheetName, "B", "C", 20)   // 订单编号
+	f.SetColWidth(sheetName, "D", "D", 30)   // 商品名称
+	f.SetColWidth(sheetName, "E", "H", 15)   // 规格等
+	f.SetColWidth(sheetName, "I", "T", 12)   // 金额相关
+	f.SetColWidth(sheetName, "U", "AD", 15)  // 地址相关
 	f.SetColWidth(sheetName, "AE", "BJ", 18) // 时间等
 
 	// 保存文件
@@ -664,69 +683,69 @@ func (s *OrderService) ImportFromExcel(ctx context.Context, filePath string) (*O
 
 		// 构建数据（截断可能超长的字段，避免数据库插入失败）
 		data := g.Map{
-			"shop_name":                truncateString(shopName, 50),
-			"main_order_no":            truncateString(getCol(cols, headerMap, "主订单编号"), 50),
-			"sub_order_no":             truncateString(subOrderNo, 50),
-			"product_name":             truncateString(productName, 255),
-			"product_spec":             truncateString(getCol(cols, headerMap, "商品规格"), 100),
-			"product_num":              parseIntOrDefault(getCol(cols, headerMap, "商品数量"), 1),
-			"product_id":               truncateString(getCol(cols, headerMap, "商品ID"), 50),
-			"seller_code":              truncateString(getCol(cols, headerMap, "商家编码"), 50),
-			"product_price":            parseFloatOrDefault(getCol(cols, headerMap, "商品单价"), 0),
-			"order_pay_amount":         parseFloatOrDefault(getCol(cols, headerMap, "订单应付金额"), 0),
-			"shipping_fee":             parseFloatOrDefault(getCol(cols, headerMap, "运费"), 0),
-			"total_discount":           parseFloatOrDefault(getCol(cols, headerMap, "优惠总金额"), 0),
-			"platform_discount":        parseFloatOrDefault(getCol(cols, headerMap, "平台优惠"), 0),
-			"seller_discount":          parseFloatOrDefault(getCol(cols, headerMap, "商家优惠"), 0),
-			"talent_discount":          parseFloatOrDefault(getCol(cols, headerMap, "达人优惠"), 0),
-			"seller_change_price":      parseFloatOrDefault(getCol(cols, headerMap, "商家改价"), 0),
-			"pay_discount":             parseFloatOrDefault(getCol(cols, headerMap, "支付优惠"), 0),
-			"red_deduction":            parseFloatOrDefault(getCol(cols, headerMap, "红包抵扣"), 0),
-			"pay_type":                 truncateString(getCol(cols, headerMap, "支付方式"), 20),
-			"service_fee":              parseFloatOrDefault(getCol(cols, headerMap, "手续费"), 0),
-			"receiver_name":            truncateString(getCol(cols, headerMap, "收件人"), 50),
-			"receiver_phone":           truncateString(getCol(cols, headerMap, "收件人手机号"), 20),
-			"province":                 truncateString(getCol(cols, headerMap, "省"), 20),
-			"city":                     truncateString(getCol(cols, headerMap, "市"), 20),
-			"district":                 truncateString(getCol(cols, headerMap, "区"), 255),
-			"street":                   truncateString(getCol(cols, headerMap, "街道"), 100),
-			"address_detail":           truncateString(getCol(cols, headerMap, "详细地址"), 255),
-			"is_address_changed":       truncateString(getCol(cols, headerMap, "是否修改过地址"), 10),
-			"address_change_time":      truncateString(getCol(cols, headerMap, "地址修改时段"), 50),
-			"buyer_note":               truncateString(getCol(cols, headerMap, "买家留言"), 255),
-			"order_submit_time":        parseDateTime(getCol(cols, headerMap, "订单提交时间")),
-			"flag_color":               truncateString(getCol(cols, headerMap, "旗帜颜色"), 10),
-			"seller_note":              truncateString(getCol(cols, headerMap, "商家备注"), 255),
-			"order_finish_time":        parseDateTime(getCol(cols, headerMap, "订单完成时间")),
-			"pay_finish_time":          parseDateTime(getCol(cols, headerMap, "支付完成时间")),
-			"app_channel":              truncateString(getCol(cols, headerMap, "APP渠道"), 20),
-			"flow_source":              truncateString(getCol(cols, headerMap, "流量来源"), 20),
-			"order_status":             truncateString(orderStatus, 20),
-			"promise_send_time":        parseDateTime(getCol(cols, headerMap, "承诺发货时间")),
-			"order_type":               truncateString(getCol(cols, headerMap, "订单类型"), 20),
-			"luban_page_id":            truncateString(getCol(cols, headerMap, "鲁班落地页ID"), 50),
-			"talent_id":                truncateString(getCol(cols, headerMap, "达人ID"), 50),
-			"talent_name":              truncateString(getCol(cols, headerMap, "达人昵称"), 50),
-			"store_id":                 truncateString(getCol(cols, headerMap, "所属门店ID"), 50),
-			"after_sale_status":        truncateString(getCol(cols, headerMap, "售后状态"), 20),
-			"cancel_reason":            truncateString(getCol(cols, headerMap, "取消原因"), 100),
-			"appoint_send_time":        parseDateTime(getCol(cols, headerMap, "预约发货时间")),
-			"warehouse_id":             truncateString(getCol(cols, headerMap, "仓库ID"), 50),
-			"warehouse_name":           truncateString(getCol(cols, headerMap, "仓库名称"), 50),
-			"is_safe_buy":              truncateString(getCol(cols, headerMap, "是否安心购"), 10),
-			"ad_channel":               truncateString(getCol(cols, headerMap, "广告渠道"), 20),
-			"flow_type":                truncateString(getCol(cols, headerMap, "流量类型"), 20),
-			"flow_format":              truncateString(getCol(cols, headerMap, "流量体裁"), 20),
-			"flow_channel":             truncateString(getCol(cols, headerMap, "流量渠道"), 20),
-			"send_user":                truncateString(getCol(cols, headerMap, "发货主体"), 20),
-			"send_user_detail":         truncateString(getCol(cols, headerMap, "发货主体明细"), 50),
-			"send_time":                parseDateTime(getCol(cols, headerMap, "发货时间")),
-			"reduce_discount":          parseFloatOrDefault(getCol(cols, headerMap, "降价类优惠"), 0),
-			"platform_real_discount":   parseFloatOrDefault(getCol(cols, headerMap, "平台实际承担优惠金额"), 0),
-			"seller_real_discount":     parseFloatOrDefault(getCol(cols, headerMap, "商家实际承担优惠金额"), 0),
-			"talent_real_discount":     parseFloatOrDefault(getCol(cols, headerMap, "达人实际承担优惠金额"), 0),
-			"expect_arrive_time":       parseDateTime(getCol(cols, headerMap, "预计送达时间")),
-			"create_time":              time.Now().Format("2006-01-02 15:04:05"),
+			"shop_name":              truncateString(shopName, 50),
+			"main_order_no":          truncateString(getCol(cols, headerMap, "主订单编号"), 50),
+			"sub_order_no":           truncateString(subOrderNo, 50),
+			"product_name":           truncateString(productName, 255),
+			"product_spec":           truncateString(getCol(cols, headerMap, "商品规格"), 100),
+			"product_num":            parseIntOrDefault(getCol(cols, headerMap, "商品数量"), 1),
+			"product_id":             truncateString(getCol(cols, headerMap, "商品ID"), 50),
+			"seller_code":            truncateString(getCol(cols, headerMap, "商家编码"), 50),
+			"product_price":          parseFloatOrDefault(getCol(cols, headerMap, "商品单价"), 0),
+			"order_pay_amount":       parseFloatOrDefault(getCol(cols, headerMap, "订单应付金额"), 0),
+			"shipping_fee":           parseFloatOrDefault(getCol(cols, headerMap, "运费"), 0),
+			"total_discount":         parseFloatOrDefault(getCol(cols, headerMap, "优惠总金额"), 0),
+			"platform_discount":      parseFloatOrDefault(getCol(cols, headerMap, "平台优惠"), 0),
+			"seller_discount":        parseFloatOrDefault(getCol(cols, headerMap, "商家优惠"), 0),
+			"talent_discount":        parseFloatOrDefault(getCol(cols, headerMap, "达人优惠"), 0),
+			"seller_change_price":    parseFloatOrDefault(getCol(cols, headerMap, "商家改价"), 0),
+			"pay_discount":           parseFloatOrDefault(getCol(cols, headerMap, "支付优惠"), 0),
+			"red_deduction":          parseFloatOrDefault(getCol(cols, headerMap, "红包抵扣"), 0),
+			"pay_type":               truncateString(getCol(cols, headerMap, "支付方式"), 20),
+			"service_fee":            parseFloatOrDefault(getCol(cols, headerMap, "手续费"), 0),
+			"receiver_name":          truncateString(getCol(cols, headerMap, "收件人"), 50),
+			"receiver_phone":         truncateString(getCol(cols, headerMap, "收件人手机号"), 20),
+			"province":               truncateString(getCol(cols, headerMap, "省"), 20),
+			"city":                   truncateString(getCol(cols, headerMap, "市"), 20),
+			"district":               truncateString(getCol(cols, headerMap, "区"), 255),
+			"street":                 truncateString(getCol(cols, headerMap, "街道"), 100),
+			"address_detail":         truncateString(getCol(cols, headerMap, "详细地址"), 255),
+			"is_address_changed":     truncateString(getCol(cols, headerMap, "是否修改过地址"), 10),
+			"address_change_time":    truncateString(getCol(cols, headerMap, "地址修改时段"), 50),
+			"buyer_note":             truncateString(getCol(cols, headerMap, "买家留言"), 255),
+			"order_submit_time":      parseDateTime(getCol(cols, headerMap, "订单提交时间")),
+			"flag_color":             truncateString(getCol(cols, headerMap, "旗帜颜色"), 10),
+			"seller_note":            truncateString(getCol(cols, headerMap, "商家备注"), 255),
+			"order_finish_time":      parseDateTime(getCol(cols, headerMap, "订单完成时间")),
+			"pay_finish_time":        parseDateTime(getCol(cols, headerMap, "支付完成时间")),
+			"app_channel":            truncateString(getCol(cols, headerMap, "APP渠道"), 20),
+			"flow_source":            truncateString(getCol(cols, headerMap, "流量来源"), 20),
+			"order_status":           truncateString(orderStatus, 20),
+			"promise_send_time":      parseDateTime(getCol(cols, headerMap, "承诺发货时间")),
+			"order_type":             truncateString(getCol(cols, headerMap, "订单类型"), 20),
+			"luban_page_id":          truncateString(getCol(cols, headerMap, "鲁班落地页ID"), 50),
+			"talent_id":              truncateString(getCol(cols, headerMap, "达人ID"), 50),
+			"talent_name":            truncateString(getCol(cols, headerMap, "达人昵称"), 50),
+			"store_id":               truncateString(getCol(cols, headerMap, "所属门店ID"), 50),
+			"after_sale_status":      truncateString(getCol(cols, headerMap, "售后状态"), 20),
+			"cancel_reason":          truncateString(getCol(cols, headerMap, "取消原因"), 100),
+			"appoint_send_time":      parseDateTime(getCol(cols, headerMap, "预约发货时间")),
+			"warehouse_id":           truncateString(getCol(cols, headerMap, "仓库ID"), 50),
+			"warehouse_name":         truncateString(getCol(cols, headerMap, "仓库名称"), 50),
+			"is_safe_buy":            truncateString(getCol(cols, headerMap, "是否安心购"), 10),
+			"ad_channel":             truncateString(getCol(cols, headerMap, "广告渠道"), 20),
+			"flow_type":              truncateString(getCol(cols, headerMap, "流量类型"), 20),
+			"flow_format":            truncateString(getCol(cols, headerMap, "流量体裁"), 20),
+			"flow_channel":           truncateString(getCol(cols, headerMap, "流量渠道"), 20),
+			"send_user":              truncateString(getCol(cols, headerMap, "发货主体"), 20),
+			"send_user_detail":       truncateString(getCol(cols, headerMap, "发货主体明细"), 50),
+			"send_time":              parseDateTime(getCol(cols, headerMap, "发货时间")),
+			"reduce_discount":        parseFloatOrDefault(getCol(cols, headerMap, "降价类优惠"), 0),
+			"platform_real_discount": parseFloatOrDefault(getCol(cols, headerMap, "平台实际承担优惠金额"), 0),
+			"seller_real_discount":   parseFloatOrDefault(getCol(cols, headerMap, "商家实际承担优惠金额"), 0),
+			"talent_real_discount":   parseFloatOrDefault(getCol(cols, headerMap, "达人实际承担优惠金额"), 0),
+			"expect_arrive_time":     parseDateTime(getCol(cols, headerMap, "预计送达时间")),
+			"create_time":            time.Now().Format("2006-01-02 15:04:05"),
 		}
 
 		batch = append(batch, data)
@@ -793,7 +812,7 @@ func (s *OrderService) batchInsert(ctx context.Context, batch []g.Map) error {
 	return err
 }
 
-	// 辅助函数：获取列值
+// 辅助函数：获取列值
 func getCol(cols []string, headerMap map[string]int, header string) string {
 	if idx, exists := headerMap[header]; exists && idx < len(cols) {
 		return strings.TrimSpace(cols[idx])
@@ -853,19 +872,19 @@ func cleanIllegalChars(s string) string {
 	for i := 0; i < len(s); {
 		// 解码一个 rune 和它的字节宽度
 		r, w := utf8.DecodeRuneInString(s[i:])
-		
+
 		// 情况1: 空字节
 		if r == 0 {
 			i += w
 			continue
 		}
-		
+
 		// 情况2: C0 控制字符（保留换行和回车）
 		if r < 32 && r != '\n' && r != '\r' {
 			i += w
 			continue
 		}
-		
+
 		// 情况3: 替换字符（表示输入中有不完整的 UTF-8 序列）
 		if r == unicode.ReplacementChar {
 			// 检查是否是不完整的多字节序列
@@ -884,19 +903,19 @@ func cleanIllegalChars(s string) string {
 			i += w
 			continue
 		}
-		
+
 		// 情况4: 代理对（surrogate pairs）无效
 		if r >= 0xD800 && r <= 0xDFFF {
 			i += w
 			continue
 		}
-		
+
 		// 情况5: 非 Unicode 平面字符（大于 0x10FFFF）
 		if r > 0x10FFFF {
 			i += w
 			continue
 		}
-		
+
 		// 有效字符，添加到结果
 		result.WriteRune(r)
 		i += w
@@ -996,6 +1015,9 @@ func (s *OrderService) getOrderStatsFromTable(ctx context.Context, shopName, sta
 	shopServiceFee := result["shop_service_fee"].Float64()
 	commission := result["commission"].Float64()
 
+	// 查询千川广告消耗
+	adCost := s.getAdCost(ctx, shopName, startTime, endTime)
+
 	return &OrderStats{
 		TotalOrderCount:      totalOrderCount,
 		ValidOrderCount:      validOrderCount,
@@ -1007,9 +1029,9 @@ func (s *OrderService) getOrderStatsFromTable(ctx context.Context, shopName, sta
 		RefundCostAmount:     result["refund_cost_amount"].Float64(),
 		RefundOrderCount:     result["refund_order_count"].Int64(),
 		ShopServiceFee:       shopServiceFee,
-		AdCostAmount:         0,
+		AdCostAmount:         adCost,
 		OnlineCommission:     commission,
-		RealtimeProfit:       validPayAmount - productCostAmount - reserveAmount - result["refund_cost_amount"].Float64() - shopServiceFee - commission,
+		RealtimeProfit:       validPayAmount - productCostAmount - reserveAmount - result["refund_cost_amount"].Float64() - shopServiceFee - commission - adCost,
 		ValidOrderCostMatch:  result["valid_order_cost_match"].Int64(),
 		CommissionOrderCount: validOrderCount,
 		SyncDate:             time.Now().Format("2006-01-02"),

@@ -9,8 +9,6 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 
 	"go-crawler/internal/service/platform/oceanengine"
-
-	"github.com/oceanengine/ad_open_sdk_go/models"
 )
 
 // DouyinCallbackController 抖音/巨量千川 OAuth 回调控制器
@@ -65,12 +63,14 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 	pullDays := g.Cfg().MustGet(ctx, "platform.qianchuan.pullDays", 30).Int()
 
 	type accountResult struct {
-		AdvertiserID   int64                        `json:"advertiser_id"`
-		AdvertiserName string                       `json:"advertiser_name"`
-		TotalCombined  int                          `json:"total_combined"`
-		Saved          int                          `json:"saved"`
-		Combined       []oceanengine.CombinedReport `json:"combined,omitempty"`
-		Error          string                       `json:"error,omitempty"`
+		AdvertiserID     int64                        `json:"advertiser_id"`
+		AdvertiserName   string                       `json:"advertiser_name"`
+		TotalCombined    int                          `json:"total_combined"`
+		TotalPlanReports int                          `json:"total_plan_reports"`
+		Saved            int                          `json:"saved"`
+		PlanSaved        int                          `json:"plan_saved"`
+		Combined         []oceanengine.CombinedReport `json:"combined,omitempty"`
+		Error            string                       `json:"error,omitempty"`
 	}
 
 	var results []accountResult
@@ -89,6 +89,7 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 
 		ar.AdvertiserName = pullResult.AdvertiserName
 		ar.TotalCombined = pullResult.TotalCombined
+		ar.TotalPlanReports = pullResult.TotalPlanReports
 
 		// 入库（写入账户维度日结报表）
 		saved := 0
@@ -141,8 +142,15 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 		ar.Saved = saved
 		totalSaved += saved
 
-		g.Log().Infof(ctx, "[QianchuanCallback] 广告主%d(%s): 拉取%d条, 入库%d条",
-			advID, pullResult.AdvertiserName, pullResult.TotalCombined, saved)
+		planSaved, planFailed := oceanengine.SavePlanReports(ctx, pullResult.PlanReports)
+		ar.PlanSaved = planSaved
+		totalSaved += planSaved
+		if planFailed > 0 {
+			g.Log().Warningf(ctx, "[QianchuanCallback] 广告主%d计划明细入库失败%d条", advID, planFailed)
+		}
+
+		g.Log().Infof(ctx, "[QianchuanCallback] 广告主%d(%s): 账户报表%d条/入库%d条, 计划报表%d条/入库%d条",
+			advID, pullResult.AdvertiserName, pullResult.TotalCombined, saved, pullResult.TotalPlanReports, planSaved)
 
 		results = append(results, ar)
 	}
@@ -154,8 +162,8 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 
 	// 重定向到系统首页
 	// HTTP 302 不支持 # 片段，用 JS 跳转
-r.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
-r.Response.Write(`<!DOCTYPE html><html><head><meta charset="utf-8"><script>location.replace("/#/order/douyin");</script></head><body><p>授权成功，正在跳转...</p></body></html>`)
+	r.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	r.Response.Write(`<!DOCTYPE html><html><head><meta charset="utf-8"><script>location.replace("/#/order/douyin");</script></head><body><p>授权成功，正在跳转...</p></body></html>`)
 }
 
 // ==================== 辅助函数 ====================
@@ -172,46 +180,71 @@ func saveTokenRecord(ctx context.Context, accessToken string, resp interface{}) 
 		"status":         1,
 	}).Insert()
 
-	// 保存 token 到 qianchuan_token 表，供定时拉取使用
-	if tokenResp, ok := resp.(*models.Oauth2AccessTokenResponse); ok {
-		accountIDs := tokenResp.Data.AdvertiserIds
-		expiresAt := ""
-		if tokenResp.Data.ExpiresIn != nil && *tokenResp.Data.ExpiresIn > 0 {
-			expiresAt = time.Now().Add(time.Duration(*tokenResp.Data.ExpiresIn) * time.Second).Format("2006-01-02 15:04:05")
-		}
-		refreshToken := ""
-		refreshTokenExpiresAt := ""
-		if tokenResp.Data.RefreshToken != nil {
-			refreshToken = *tokenResp.Data.RefreshToken
-		}
-		if tokenResp.Data.RefreshTokenExpiresIn != nil && *tokenResp.Data.RefreshTokenExpiresIn > 0 {
-			refreshTokenExpiresAt = time.Now().Add(time.Duration(*tokenResp.Data.RefreshTokenExpiresIn) * time.Second).Format("2006-01-02 15:04:05")
-		}
-
-		// 将授权返回的平台账户ID解析为千川广告主ID
-		// token交换返回的AdvertiserIds可能是巨量引擎平台账户ID（店铺级别），
-		// 需要调用 qianchuan/shop/advertiser/list/ 接口解析为真正的千川广告主ID
-		qianchuanIDs, err := oceanengine.ResolveQianchuanAdvertiserIDs(ctx, accessToken, accountIDs)
-		if err != nil {
-			g.Log().Warningf(ctx, "[QianchuanCallback] 解析千川广告主ID失败，使用原始IDs: %v", err)
-			qianchuanIDs = accountIDs
-		}
-		if len(qianchuanIDs) == 0 {
-			g.Log().Warningf(ctx, "[QianchuanCallback] 解析千川广告主ID返回空列表，使用原始IDs")
-			qianchuanIDs = accountIDs
-		}
-		g.Log().Infof(ctx, "[QianchuanCallback] 千川广告主IDs: 原始=%v -> 解析后=%v", accountIDs, qianchuanIDs)
-
-		idsJSON, _ := json.Marshal(qianchuanIDs)
-		g.DB().Model("qianchuan_token").Ctx(ctx).Data(g.Map{
-			"access_token":             accessToken,
-			"refresh_token":            refreshToken,
-			"advertiser_ids":           string(idsJSON),
-			"expires_in":               tokenResp.Data.ExpiresIn,
-			"expires_at":               expiresAt,
-			"refresh_token_expires_at": refreshTokenExpiresAt,
-		}).Insert()
+	// 直接从 resp 序列化的 JSON 中解析，避免 SDK 模型 omitempty 丢失 refresh_token 等字段
+	var parsed struct {
+		Code    *int64  `json:"code"`
+		Message *string `json:"message"`
+		Data    struct {
+			AccessToken           *string `json:"access_token"`
+			AdvertiserIds         []int64 `json:"advertiser_ids"`
+			ExpiresIn             *int64  `json:"expires_in"`
+			RefreshToken          *string `json:"refresh_token"`
+			RefreshTokenExpiresIn *int64  `json:"refresh_token_expires_in"`
+		} `json:"data"`
 	}
+	if err := json.Unmarshal(b, &parsed); err != nil {
+		g.Log().Errorf(ctx, "[QianchuanCallback] 解析token响应失败: %v", err)
+		return
+	}
+	if parsed.Code != nil && *parsed.Code != 0 {
+		msg := ""
+		if parsed.Message != nil {
+			msg = *parsed.Message
+		}
+		g.Log().Errorf(ctx, "[QianchuanCallback] token响应错误: code=%d, msg=%s", *parsed.Code, msg)
+		return
+	}
+
+	accountIDs := parsed.Data.AdvertiserIds
+	expiresAt := ""
+	if parsed.Data.ExpiresIn != nil && *parsed.Data.ExpiresIn > 0 {
+		expiresAt = time.Now().Add(time.Duration(*parsed.Data.ExpiresIn) * time.Second).Format("2006-01-02 15:04:05")
+	}
+	refreshToken := ""
+	refreshTokenExpiresAt := ""
+	if parsed.Data.RefreshToken != nil && *parsed.Data.RefreshToken != "" {
+		refreshToken = *parsed.Data.RefreshToken
+		g.Log().Infof(ctx, "[QianchuanCallback] 获取到refresh_token, 长度=%d", len(refreshToken))
+	} else {
+		g.Log().Warning(ctx, "[QianchuanCallback] token响应中无refresh_token，token过期后需重新授权")
+	}
+	if parsed.Data.RefreshTokenExpiresIn != nil && *parsed.Data.RefreshTokenExpiresIn > 0 {
+		refreshTokenExpiresAt = time.Now().Add(time.Duration(*parsed.Data.RefreshTokenExpiresIn) * time.Second).Format("2006-01-02 15:04:05")
+	}
+
+	// 将授权返回的平台账户ID解析为千川广告主ID
+	// token交换返回的AdvertiserIds可能是巨量引擎平台账户ID（店铺级别），
+	// 需要调用 qianchuan/shop/advertiser/list/ 接口解析为真正的千川广告主ID
+	qianchuanIDs, err := oceanengine.ResolveQianchuanAdvertiserIDs(ctx, accessToken, accountIDs)
+	if err != nil {
+		g.Log().Warningf(ctx, "[QianchuanCallback] 解析千川广告主ID失败，使用原始IDs: %v", err)
+		qianchuanIDs = accountIDs
+	}
+	if len(qianchuanIDs) == 0 {
+		g.Log().Warningf(ctx, "[QianchuanCallback] 解析千川广告主ID返回空列表，使用原始IDs")
+		qianchuanIDs = accountIDs
+	}
+	g.Log().Infof(ctx, "[QianchuanCallback] 千川广告主IDs: 原始=%v -> 解析后=%v", accountIDs, qianchuanIDs)
+
+	idsJSON, _ := json.Marshal(qianchuanIDs)
+	g.DB().Model("qianchuan_token").Ctx(ctx).Data(g.Map{
+		"access_token":             accessToken,
+		"refresh_token":            refreshToken,
+		"advertiser_ids":           string(idsJSON),
+		"expires_in":               parsed.Data.ExpiresIn,
+		"expires_at":               expiresAt,
+		"refresh_token_expires_at": refreshTokenExpiresAt,
+	}).Insert()
 }
 
 func logCallbackReq(ctx context.Context, authCode string, advertiserIDs []int64, results interface{}) {

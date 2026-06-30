@@ -309,12 +309,17 @@ func (c *QianchuanPollerController) DebugToken(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
 		"data": g.Map{
-			"tokenPrefix":         token[:min(8, len(token))],
-			"expiresAt":           expiresAt,
-			"refreshTokenPrefix":  func() string { if len(refreshToken) > 8 { return refreshToken[:8] }; return refreshToken }(),
-			"refreshExpiresAt":    refreshExpiresAt,
-			"dbAdvertiserIds":     dbAdvIds,
-			"apiAdvertiserGet":    apiResult,
+			"tokenPrefix": token[:min(8, len(token))],
+			"expiresAt":   expiresAt,
+			"refreshTokenPrefix": func() string {
+				if len(refreshToken) > 8 {
+					return refreshToken[:8]
+				}
+				return refreshToken
+			}(),
+			"refreshExpiresAt": refreshExpiresAt,
+			"dbAdvertiserIds":  dbAdvIds,
+			"apiAdvertiserGet": apiResult,
 		},
 		"msg": "ok",
 	})
@@ -376,6 +381,24 @@ func (c *QianchuanPollerController) ManualTrigger(r *ghttp.Request) {
 	}
 
 	if startDate != "" && endDate != "" {
+		start, startErr := time.Parse("2006-01-02", startDate)
+		end, endErr := time.Parse("2006-01-02", endDate)
+		if startErr != nil || endErr != nil || end.Before(start) {
+			msg := "日期格式错误或结束日期早于开始日期"
+			if logId > 0 {
+				service.TaskLogFailed(r.Context(), logId, msg, 0)
+			}
+			r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": msg})
+			return
+		}
+		if int(end.Sub(start).Hours()/24)+1 > 30 {
+			msg := "千川日维度单次拉取不能超过30个自然日，请缩小日期范围"
+			if logId > 0 {
+				service.TaskLogFailed(r.Context(), logId, msg, 0)
+			}
+			r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": msg})
+			return
+		}
 		g.Log().Infof(r.Context(), "[QianchuanPoller] 收到异步拉取请求: %s~%s, logId=%d, userId=%d", startDate, endDate, logId, userId)
 		go c.runQianchuanPullByDate(context.Background(), startDate, endDate, logId, userId)
 	} else {
@@ -383,8 +406,12 @@ func (c *QianchuanPollerController) ManualTrigger(r *ghttp.Request) {
 		if days <= 0 {
 			days = 1
 		}
-		if days > 90 {
-			r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "拉取天数不能超过90天"})
+		if days > 30 {
+			msg := "千川日维度单次拉取不能超过30天"
+			if logId > 0 {
+				service.TaskLogFailed(r.Context(), logId, msg, 0)
+			}
+			r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": msg})
 			return
 		}
 		g.Log().Infof(r.Context(), "[QianchuanPoller] 收到异步拉取请求: days=%d, logId=%d, userId=%d", days, logId, userId)
@@ -409,11 +436,13 @@ func (c *QianchuanPollerController) runQianchuanPullByDate(ctx context.Context, 
 	}
 
 	respBody, _ := json.Marshal(g.Map{
-		"totalSaved": result.TotalSaved,
-		"totalPlans": result.TotalPlans,
-		"totalFailed": result.TotalFailed,
-		"errors":     result.Errors,
-		"durationMs": durationMs,
+		"totalSaved":       result.TotalSaved,
+		"totalPlans":       result.TotalPlans,
+		"totalPlanReports": result.TotalPlanReports,
+		"totalPlanSaved":   result.TotalPlanSaved,
+		"totalFailed":      result.TotalFailed,
+		"errors":           result.Errors,
+		"durationMs":       durationMs,
 	})
 	level := service.NotifyLevelNormal
 	if len(result.Errors) > 0 {
@@ -440,11 +469,13 @@ func (c *QianchuanPollerController) runQianchuanPullByDays(ctx context.Context, 
 	}
 
 	respBody, _ := json.Marshal(g.Map{
-		"totalSaved": result.TotalSaved,
-		"totalPlans": result.TotalPlans,
-		"totalFailed": result.TotalFailed,
-		"errors":     result.Errors,
-		"durationMs": durationMs,
+		"totalSaved":       result.TotalSaved,
+		"totalPlans":       result.TotalPlans,
+		"totalPlanReports": result.TotalPlanReports,
+		"totalPlanSaved":   result.TotalPlanSaved,
+		"totalFailed":      result.TotalFailed,
+		"errors":           result.Errors,
+		"durationMs":       durationMs,
 	})
 	level := service.NotifyLevelNormal
 	if len(result.Errors) > 0 {
@@ -472,8 +503,8 @@ func (c *QianchuanPollerController) DailyReportList(r *ghttp.Request) {
 	}
 
 	query := g.DB().Model("qianchuan_advertiser_daily_report").Ctx(ctx).
-		Where("stat_datetime >= ?", startDate).
-		Where("stat_datetime <= ?", endDate)
+		Where("LEFT(stat_datetime, 10) >= ?", startDate).
+		Where("LEFT(stat_datetime, 10) <= ?", endDate)
 
 	if advertiserId > 0 {
 		query = query.Where("advertiser_id", advertiserId)
@@ -494,8 +525,8 @@ func (c *QianchuanPollerController) DailyReportList(r *ghttp.Request) {
 	}
 
 	summaryRow, _ := g.DB().Model("qianchuan_advertiser_daily_report").Ctx(ctx).
-		Where("stat_datetime >= ?", startDate).
-		Where("stat_datetime <= ?", endDate).
+		Where("LEFT(stat_datetime, 10) >= ?", startDate).
+		Where("LEFT(stat_datetime, 10) <= ?", endDate).
 		Fields(`
 			COALESCE(SUM(stat_cost),0) as total_cost,
 			COALESCE(SUM(pay_order_amount),0) as total_pay_amount,

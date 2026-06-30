@@ -20,6 +20,9 @@ func NewFinanceAggregateService() *FinanceAggregateService {
 // DailyAggregateJob 每日聚合任务
 // 建议在每天凌晨2点执行，统计前一天的数据
 func (s *FinanceAggregateService) DailyAggregateJob(ctx context.Context, date string) error {
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		return fmt.Errorf("日期格式错误，期望 2006-01-02: %s", date)
+	}
 	g.Log().Infof(ctx, "[FinanceAggregate] 开始执行日聚合任务, 日期: %s", date)
 
 	// 1. 先删除该日期的旧数据（保证幂等性）
@@ -225,7 +228,7 @@ func newOrderStatItem(row gdb.Record, talentId, platform string) OrderStatItem {
 	// 佣金 = 定价总额 - 留底 - 货款 - 小店服务费
 	commission := payAmount - costAmount - reserveAmount
 	commissionDeduction := payAmount * 0.005
-		realtimeProfit := payAmount - costAmount - reserveAmount - refundCostAmount - shopServiceFee - commissionDeduction
+	realtimeProfit := payAmount - costAmount - reserveAmount - refundCostAmount - shopServiceFee - commissionDeduction
 
 	return OrderStatItem{
 		TalentId:             talentId,
@@ -293,7 +296,7 @@ func (s *FinanceAggregateService) aggregateByShop(orders []OrderStatItem) map[in
 		v.ShopServiceFee = roundFloat(v.ShopServiceFee, 2)
 		v.AdCostAmount = roundFloat(v.AdCostAmount, 2)
 		// 净利润 = 定价总额 - 货款 - 留底 - 退款成本 - 小店服务费 - 佣金扣除 - 广告消耗
-		v.RealtimeProfit = roundFloat(v.PayAmount - v.CostAmount - v.ReserveAmount - v.RefundCostAmount - v.ShopServiceFee - v.PayAmount*0.005 - v.AdCostAmount, 2)
+		v.RealtimeProfit = roundFloat(v.PayAmount-v.CostAmount-v.ReserveAmount-v.RefundCostAmount-v.ShopServiceFee-v.PayAmount*0.005-v.AdCostAmount, 2)
 		shopMap[k] = v
 	}
 
@@ -314,7 +317,7 @@ func (s *FinanceAggregateService) enrichAdCost(ctx context.Context, shopMap map[
 
 	// 使用 GoFrame 查询构建器批量查询千川消耗
 	rows, err := g.DB().Model("account_qianchuan_mapping aqm").
-		LeftJoin("qianchuan_advertiser_daily_report qar", "aqm.qianchuan_advertiser_id = qar.advertiser_id AND qar.stat_datetime = ?", date).
+		LeftJoin("qianchuan_advertiser_daily_report qar", qianchuanAdReportJoinCond(date)).
 		WhereIn("aqm.account_id", accountIds).
 		Fields("aqm.account_id, COALESCE(SUM(qar.stat_cost), 0) AS ad_cost").
 		Group("aqm.account_id").
@@ -341,7 +344,7 @@ func (s *FinanceAggregateService) saveStat(ctx context.Context, date string, com
 		"company_id":             companyId,
 		"department_id":          departmentId,
 		"trader_id":              traderId,
-		"account_id":                accountId,
+		"account_id":             accountId,
 		"platform":               platform,
 		"total_order_count":      stat.TotalOrderCount,
 		"order_count":            stat.OrderCount,
@@ -361,11 +364,11 @@ func (s *FinanceAggregateService) saveStat(ctx context.Context, date string, com
 	}
 
 	_, err := g.DB().Model("finance_daily_stats").Ctx(ctx).Data(data).OnDuplicate(
-			"total_order_count", "order_count", "invalid_order_count", "product_num",
-			"pay_amount", "cost_amount", "reserve_amount", "commission",
-			"refund_cost_amount", "refund_order_count", "shop_service_fee",
-			"ad_cost_amount", "valid_order_cost_match", "commission_order_count", "realtime_profit",
-		).Insert()
+		"total_order_count", "order_count", "invalid_order_count", "product_num",
+		"pay_amount", "cost_amount", "reserve_amount", "commission",
+		"refund_cost_amount", "refund_order_count", "shop_service_fee",
+		"ad_cost_amount", "valid_order_cost_match", "commission_order_count", "realtime_profit",
+	).Insert()
 	if err != nil {
 		g.Log().Warningf(ctx, "[FinanceAggregate] 保存统计失败: %v, data: %+v", err, data)
 	}
@@ -404,7 +407,7 @@ func (s *FinanceAggregateService) AggregateRange(ctx context.Context, startDate,
 			defer wg.Done()
 			for date := range dateCh {
 				if err := s.DailyAggregateJob(ctx, date); err != nil {
-					g.Log().Errorf(ctx, "[FinanceAggregate] 回填数据失败, 日期: %s, 错误: %v", date)
+					g.Log().Errorf(ctx, "[FinanceAggregate] 回填数据失败, 日期: %s, 错误: %v", date, err)
 				}
 			}
 		}()

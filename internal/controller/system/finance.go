@@ -267,9 +267,12 @@ func (c *FinanceController) AccountExport(r *ghttp.Request) {
 
 // TodayCost 查询今日消耗/佣金/盈亏 GET /api/finance/today-cost
 func (c *FinanceController) TodayCost(r *ghttp.Request) {
-	traderId := r.Get("trader_id", 0).Int64()
-	departmentId := r.Get("department_id", 0).Int64()
-	companyId := r.Get("company_id", 0).Int64()
+	// 兼容驼峰(traderId)和下划线(trader_id)两种参数命名
+	traderId := r.Get("trader_id", r.Get("traderId", 0).Int64()).Int64()
+	departmentId := r.Get("department_id", r.Get("departmentId", 0).Int64()).Int64()
+	companyId := r.Get("company_id", r.Get("companyId", 0).Int64()).Int64()
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
 	date := r.Get("date").String()
 
 	if traderId == 0 && departmentId == 0 && companyId == 0 {
@@ -283,6 +286,8 @@ func (c *FinanceController) TodayCost(r *ghttp.Request) {
 		DepartmentId: departmentId,
 		CompanyId:    companyId,
 		Date:         date,
+		StartDate:    startDate,
+		EndDate:      endDate,
 	})
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})
@@ -294,12 +299,36 @@ func (c *FinanceController) TodayCost(r *ghttp.Request) {
 
 // CostRanking 消耗排行 GET /api/finance/cost-ranking
 func (c *FinanceController) CostRanking(r *ghttp.Request) {
-	date := r.Get("date").String()
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	// 兼容旧版单日期参数
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
 	dimension := r.Get("dimension", "trader").String()
 	limit := r.Get("limit", 20).Int()
 
 	financeService := service.NewFinanceCommissionService()
-	result, err := financeService.GetCostRanking(r.Context(), date, dimension, limit)
+	result, err := financeService.GetCostRanking(r.Context(), startDate, endDate, dimension, limit)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": result, "msg": "ok"})
+}
+
+// AuthorCostRanking 达人维度消耗排行 GET /api/finance/author-cost-ranking
+func (c *FinanceController) AuthorCostRanking(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
+	limit := r.Get("limit", 20).Int()
+
+	financeService := service.NewFinanceCommissionService()
+	result, err := financeService.GetAuthorCostRanking(r.Context(), startDate, endDate, limit)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
 		return

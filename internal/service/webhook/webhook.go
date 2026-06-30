@@ -35,18 +35,18 @@ type PeriodProfit struct {
 
 // WebhookConfig webhook推送配置（对应 webhook_config 表）
 type WebhookConfig struct {
-	Id           int64  `json:"id"`
-	Name         string `json:"name"`
-	Platform     string `json:"platform"`     // feishu/wecom
-	WebhookUrl   string `json:"webhookUrl"`
-	Secret       string `json:"secret"`
-	NodeType     string `json:"nodeType"`     // summary/company/department/trader
-	NodeId       int64  `json:"nodeId"`
-	NodeName     string `json:"nodeName"`
-	PushMorning  int    `json:"pushMorning"`
-	PushEvening  int    `json:"pushEvening"`
-	PushPeriods  string `json:"pushPeriods"` // "0,7,15,30"
-	Enabled      int    `json:"enabled"`
+	Id          int64  `json:"id"`
+	Name        string `json:"name"`
+	Platform    string `json:"platform"` // feishu/wecom
+	WebhookUrl  string `json:"webhookUrl"`
+	Secret      string `json:"secret"`
+	NodeType    string `json:"nodeType"` // summary/company/department/trader
+	NodeId      int64  `json:"nodeId"`
+	NodeName    string `json:"nodeName"`
+	PushMorning int    `json:"pushMorning"`
+	PushEvening int    `json:"pushEvening"`
+	PushPeriods string `json:"pushPeriods"` // "0,7,15,30"
+	Enabled     int    `json:"enabled"`
 }
 
 // ==================== WebhookPushService ====================
@@ -196,8 +196,8 @@ func (s *WebhookPushService) fallbackPush(ctx context.Context) error {
 // BuildProfitCard 构建全公司汇总盈亏数据（兼容旧调用）
 func (s *WebhookPushService) BuildProfitCard(ctx context.Context) (*ProfitCardData, error) {
 	return s.BuildProfitCardForNode(ctx, &WebhookConfig{
-		NodeType: "summary",
-		NodeName: "全公司汇总",
+		NodeType:    "summary",
+		NodeName:    "全公司汇总",
 		PushPeriods: "0,7,15,30",
 	})
 }
@@ -405,8 +405,8 @@ func (s *WebhookPushService) queryAdCostByNode(ctx context.Context, nodeType str
 	if nodeType == "summary" {
 		// 全公司：直接汇总所有日报
 		row, err := g.DB().Model("qianchuan_advertiser_daily_report").
-			Where("stat_datetime >= ?", startDate).
-			Where("stat_datetime <= ?", endDate).
+			Where("LEFT(stat_datetime, 10) >= ?", startDate).
+			Where("LEFT(stat_datetime, 10) <= ?", endDate).
 			Fields("COALESCE(SUM(stat_cost), 0) AS cost").
 			One()
 		if err != nil {
@@ -418,8 +418,8 @@ func (s *WebhookPushService) queryAdCostByNode(ctx context.Context, nodeType str
 	// 非汇总节点：通过 account_qianchuan_mapping 关联
 	query := g.DB().Model("qianchuan_advertiser_daily_report qar").
 		InnerJoin("account_qianchuan_mapping aqm", "qar.advertiser_id = aqm.qianchuan_advertiser_id").
-		Where("qar.stat_datetime >= ?", startDate).
-		Where("qar.stat_datetime <= ?", endDate).
+		Where("LEFT(qar.stat_datetime, 10) >= ?", startDate).
+		Where("LEFT(qar.stat_datetime, 10) <= ?", endDate).
 		Fields("COALESCE(SUM(qar.stat_cost), 0) AS cost")
 
 	switch nodeType {

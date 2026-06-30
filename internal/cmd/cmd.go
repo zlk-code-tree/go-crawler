@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
@@ -28,8 +29,8 @@ import (
 	// 注册第三方平台实现（init() 自动注册）
 	"go-crawler/internal/service"
 	douyinSvc "go-crawler/internal/service/platform/douyin"
-	"go-crawler/internal/service/webhook"
 	"go-crawler/internal/service/platform/oceanengine"
+	"go-crawler/internal/service/webhook"
 )
 
 var (
@@ -45,6 +46,24 @@ var (
 			sqlLogger.SetLevel(glog.LEVEL_ALL) // 记录所有执行细节
 			s := g.Server()
 			s.SetClientMaxBodySize(0) // 0表示无限制，解决大文件上传问题
+
+			addColumnIfMissing := func(table, column, definition string) {
+				row, err := g.DB().GetOne(ctx, `
+					SELECT COUNT(1) AS cnt
+					FROM information_schema.columns
+					WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?
+				`, table, column)
+				if err != nil {
+					g.Log().Warningf(ctx, "[DBInit] 检查字段失败 table=%s column=%s err=%v", table, column, err)
+					return
+				}
+				if row["cnt"].Int() > 0 {
+					return
+				}
+				if _, err := g.DB().Exec(ctx, fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN %s", table, definition)); err != nil {
+					g.Log().Warningf(ctx, "[DBInit] 添加字段失败 table=%s column=%s err=%v", table, column, err)
+				}
+			}
 
 			// 自动建表：千川token存储
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS qianchuan_token (
@@ -104,6 +123,75 @@ var (
 				UNIQUE KEY uk_adv_date (advertiser_id, stat_datetime),
 				KEY idx_stat_datetime (stat_datetime)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千川广告主日结报表'`)
+
+			// 自动建表：千川计划维度日结报表（含内部组织归属）
+			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS qianchuan_ad_report (
+				id BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+				organization_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '组织ID（默认公司ID）',
+				account_id INT(11) NOT NULL DEFAULT 0 COMMENT '内部账号ID，关联account.id',
+				company_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '公司ID',
+				department_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '部门ID',
+				trader_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '投手/运营ID',
+				advertiser_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '千川账户ID（广告主ID）',
+				advertiser_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '账户名称（广告主名称）',
+				ad_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '计划ID',
+				ad_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '计划名称',
+				product_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '商品ID',
+				product_name VARCHAR(512) NOT NULL DEFAULT '' COMMENT '商品名称',
+				aweme_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '抖音账号ID',
+				aweme_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '抖音账号名称',
+				aweme_show_id VARCHAR(100) NOT NULL DEFAULT '' COMMENT '抖音号',
+				stat_cost DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '消耗（元）',
+				stat_datetime VARCHAR(20) NOT NULL DEFAULT '' COMMENT '统计日期',
+				show_cnt BIGINT(20) NOT NULL DEFAULT 0 COMMENT '展示数',
+				click_cnt BIGINT(20) NOT NULL DEFAULT 0 COMMENT '点击数',
+				ctr DECIMAL(10,4) NOT NULL DEFAULT 0.0000 COMMENT '点击率',
+				convert_cnt BIGINT(20) NOT NULL DEFAULT 0 COMMENT '转化数',
+				convert_cost DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '转化成本',
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+				PRIMARY KEY (id),
+				UNIQUE KEY uk_ad_date (ad_id, stat_datetime),
+				KEY idx_organization_id (organization_id),
+				KEY idx_account_id (account_id),
+				KEY idx_company_id (company_id),
+				KEY idx_department_id (department_id),
+				KEY idx_trader_id (trader_id),
+				KEY idx_advertiser_id (advertiser_id),
+				KEY idx_ad_id (ad_id),
+				KEY idx_product_id (product_id),
+				KEY idx_aweme_id (aweme_id),
+				KEY idx_stat_datetime (stat_datetime)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='巨量千川广告计划日结报表'`)
+
+			// 自动建表：千川达人维度日报表
+			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS qianchuan_author_daily_report (
+				id BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+				advertiser_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '千川广告主ID',
+				account_id INT NOT NULL DEFAULT 0 COMMENT '内部账号ID（关联account.id）',
+				company_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '公司ID',
+				department_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '部门ID',
+				trader_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '投手ID',
+				aweme_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '抖音账号ID（达人UID）',
+				aweme_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '抖音账号名称',
+				stat_cost DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '消耗（元）',
+				pay_order_gmv DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '成交金额',
+				pay_order_count BIGINT(20) NOT NULL DEFAULT 0 COMMENT '成交订单数',
+				stat_datetime VARCHAR(20) NOT NULL DEFAULT '' COMMENT '统计日期',
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+				PRIMARY KEY (id),
+				UNIQUE KEY uk_adv_aweme_date (advertiser_id, aweme_id, stat_datetime),
+				KEY idx_aweme_id (aweme_id),
+				KEY idx_stat_datetime (stat_datetime),
+				KEY idx_account_id (account_id)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千川达人维度日报表'`)
+
+			addColumnIfMissing("qianchuan_ad_report", "organization_id", "organization_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '组织ID（默认公司ID）' AFTER `id`")
+			addColumnIfMissing("qianchuan_ad_report", "account_id", "account_id INT(11) NOT NULL DEFAULT 0 COMMENT '内部账号ID，关联account.id' AFTER `organization_id`")
+			addColumnIfMissing("qianchuan_ad_report", "company_id", "company_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '公司ID' AFTER `account_id`")
+			addColumnIfMissing("qianchuan_ad_report", "department_id", "department_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '部门ID' AFTER `company_id`")
+			addColumnIfMissing("qianchuan_ad_report", "trader_id", "trader_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '投手/运营ID' AFTER `department_id`")
 
 			// 自动建表：系统消息通知
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS system_notification (
@@ -196,9 +284,13 @@ var (
 				bgCtx := context.Background()
 				time.Sleep(3 * time.Second)
 				row, _ := g.DB().Model("qianchuan_token").Ctx(bgCtx).OrderDesc("id").Limit(1).One()
-				if row.IsEmpty() { return }
+				if row.IsEmpty() {
+					return
+				}
 				token := row["access_token"].String()
-				if len(token) < 8 { return }
+				if len(token) < 8 {
+					return
+				}
 				g.Log().Infof(bgCtx, "[Qianchuan] 启动获取advertiser列表, token前8位=%s", token[:8])
 
 				// Step1: 获取平台账户列表（店铺级别）
@@ -208,7 +300,9 @@ var (
 					return
 				}
 				g.Log().Infof(bgCtx, "[Qianchuan] 平台账户列表: %v (共%d个)", shopIDs, len(shopIDs))
-				if len(shopIDs) == 0 { return }
+				if len(shopIDs) == 0 {
+					return
+				}
 
 				// Step2: 将平台账户ID解析为千川广告主ID
 				qianchuanIDs, err := oceanengine.ResolveQianchuanAdvertiserIDs(bgCtx, token, shopIDs)
@@ -237,10 +331,10 @@ var (
 				)
 				// 抖店/巨量千川 OAuth 回调（无需认证）
 				// OAuth回调：独立路由，不使用 MiddlewareHandlerResponse（需要302跳转）
-			s.BindHandler("GET:/api/douyin/callback", system.NewDouyinCallbackController().Callback)
+				s.BindHandler("GET:/api/douyin/callback", system.NewDouyinCallbackController().Callback)
 				group.GET("/qianchuan/auth-url", system.NewQianchuanPollerController().AuthUrl)
 				group.GET("/qianchuan/token-status", system.NewQianchuanPollerController().TokenStatus)
-				})
+			})
 
 			// 需要认证的 API 路由
 			s.Group("/api", func(group *ghttp.RouterGroup) {
@@ -299,10 +393,10 @@ var (
 				group.POST("/notifications/read-all", notifyCtrl.ReadAll)
 				group.GET("/notifications/detail", notifyCtrl.Detail)
 
-					// 精选联盟订单
-					allianceCtrl := system.NewAllianceController()
-					group.GET("/order/alliance-list", allianceCtrl.AllianceList)
-						group.POST("/order/alliance-fill-buyin", allianceCtrl.AllianceFillBuyinId)
+				// 精选联盟订单
+				allianceCtrl := system.NewAllianceController()
+				group.GET("/order/alliance-list", allianceCtrl.AllianceList)
+				group.POST("/order/alliance-fill-buyin", allianceCtrl.AllianceFillBuyinId)
 
 				// 店铺管理 CRUD
 				storeCtrl := system.NewStoreController()
@@ -322,26 +416,27 @@ var (
 				group.GET("/shop-account-attribution/operators", saaCtrl.Operators)
 				group.GET("/shop-account-attribution/search-accounts", saaCtrl.SearchAccounts)
 
-		// 千川广告主映射管理
-		accountCtrl := system.NewAccountController()
-		group.GET("/qianchuan-mapping/list", accountCtrl.QianchuanMappingList)
-		group.POST("/qianchuan-mapping/bind", accountCtrl.QianchuanMappingBind)
-		group.POST("/qianchuan-mapping/unbind", accountCtrl.QianchuanMappingUnbind)
-		group.GET("/qianchuan-mapping/advertisers", accountCtrl.QianchuanAdvertisers)
-		group.POST("/qianchuan-mapping/auto-bind", accountCtrl.QianchuanMappingAutoBind)
-			group.POST("/account/sync-org-attribution", accountCtrl.SyncOrgAttribution)
+				// 千川广告主映射管理
+				accountCtrl := system.NewAccountController()
+				group.GET("/qianchuan-mapping/list", accountCtrl.QianchuanMappingList)
+				group.POST("/qianchuan-mapping/bind", accountCtrl.QianchuanMappingBind)
+				group.POST("/qianchuan-mapping/unbind", accountCtrl.QianchuanMappingUnbind)
+				group.GET("/qianchuan-mapping/advertisers", accountCtrl.QianchuanAdvertisers)
+				group.POST("/qianchuan-mapping/auto-bind", accountCtrl.QianchuanMappingAutoBind)
+				group.POST("/account/sync-org-attribution", accountCtrl.SyncOrgAttribution)
 
-			// 实时盈亏查询（含千川消耗）
-			group.GET("/finance/today-cost", system.NewFinanceController().TodayCost)
-			group.GET("/finance/cost-ranking", system.NewFinanceController().CostRanking)
+				// 实时盈亏查询（含千川消耗）
+				group.GET("/finance/today-cost", system.NewFinanceController().TodayCost)
+				group.GET("/finance/cost-ranking", system.NewFinanceController().CostRanking)
+				group.GET("/finance/author-cost-ranking", system.NewFinanceController().AuthorCostRanking)
 
-			// Webhook推送配置管理
-			webhookCtrl := system.NewWebhookConfigController()
-			group.GET("/webhook-config/list", webhookCtrl.List)
-			group.POST("/webhook-config/save", webhookCtrl.Save)
-			group.POST("/webhook-config/delete", webhookCtrl.Delete)
-			group.POST("/webhook-config/toggle", webhookCtrl.Toggle)
-			group.POST("/webhook-config/test-push", webhookCtrl.TestPush)
+				// Webhook推送配置管理
+				webhookCtrl := system.NewWebhookConfigController()
+				group.GET("/webhook-config/list", webhookCtrl.List)
+				group.POST("/webhook-config/save", webhookCtrl.Save)
+				group.POST("/webhook-config/delete", webhookCtrl.Delete)
+				group.POST("/webhook-config/toggle", webhookCtrl.Toggle)
+				group.POST("/webhook-config/test-push", webhookCtrl.TestPush)
 			})
 
 			// 导出类接口: 需要 JWT 认证，但使用 raw *ghttp.Request 直接处理文件下载
@@ -446,7 +541,6 @@ var (
 			cronMgr.RegisterBuiltin("profit_evening_push", "0 18 * * *", func(ctx context.Context) error {
 				return webhook.NewWebhookPushService().SendReport(ctx, "evening")
 			})
-
 
 			// 启动所有定时任务
 			cronMgr.StartAll(ctx)

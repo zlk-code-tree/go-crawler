@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"go-crawler/internal/service"
 
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -91,10 +93,10 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 		json.Unmarshal([]byte(idsJSON), &advertiserIDs)
 	}
 
-	// 检查 access_token 是否过期
+	// 检查 access_token 是否过期（提前1小时触发续期，避免边界时刻过期）
 	tokenExpired := false
 	if expiresAt != "" {
-		if t, err := time.Parse("2006-01-02 15:04:05", expiresAt); err == nil && time.Now().After(t) {
+		if t, err := time.Parse("2006-01-02 15:04:05", expiresAt); err == nil && time.Now().Add(time.Hour).After(t) {
 			tokenExpired = true
 		}
 	}
@@ -111,6 +113,10 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 
 		if refreshExpired {
 			g.Log().Infof(ctx, "[QianchuanPoller] access_token和refresh_token均已过期，请重新授权")
+			// 发送系统通知，提醒管理员重新授权
+			service.CreateNotification(ctx, "千川授权已过期",
+				`{"reason":"access_token和refresh_token均已过期","action":"请重新完成巨量千川OAuth授权","authUrl":"/api/qianchuan/auth-url"}`,
+				"system_alert", "qianchuan_token_expired", 0, service.NotifyLevelUrgent, 0)
 			return "", nil, fmt.Errorf("access_token和refresh_token均已过期，请重新完成巨量千川OAuth授权")
 		}
 
@@ -172,6 +178,10 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 		}
 	} else if tokenExpired {
 		g.Log().Infof(ctx, "[QianchuanPoller] token已过期且无refresh_token，请重新授权")
+		// 发送系统通知，提醒管理员重新授权
+		service.CreateNotification(ctx, "千川授权已过期",
+			`{"reason":"access_token已过期且无refresh_token","action":"请重新完成巨量千川OAuth授权","authUrl":"/api/qianchuan/auth-url"}`,
+			"system_alert", "qianchuan_token_expired", 0, service.NotifyLevelUrgent, 0)
 		return "", nil, fmt.Errorf("access_token已于%s过期且无refresh_token，请重新完成巨量千川OAuth授权", expiresAt[:10])
 	}
 
@@ -190,17 +200,25 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 
 // PollerResult 拉取结果
 type PollerResult struct {
-	TotalSaved int      `json:"total_saved"`
-	TotalPlans int      `json:"total_plans"`
-	TotalFailed int     `json:"total_failed"`
-	Errors     []string `json:"errors,omitempty"`
+	TotalSaved       int      `json:"total_saved"`
+	TotalPlans       int      `json:"total_plans"`
+	TotalPlanReports int      `json:"total_plan_reports"`
+	TotalPlanSaved   int      `json:"total_plan_saved"`
+	TotalFailed      int      `json:"total_failed"`
+	Errors           []string `json:"errors,omitempty"`
 }
 
 // ManualPull 手动拉取最近 N 天的数据
 func (p *Poller) ManualPull(ctx context.Context, days int) (*PollerResult, error) {
+	if days <= 0 {
+		days = 1
+	}
+	if days > 30 {
+		days = 30
+	}
 	now := time.Now()
 	return p.pullByDate(ctx,
-		now.AddDate(0, 0, -days).Format("2006-01-02"),
+		now.AddDate(0, 0, -(days-1)).Format("2006-01-02"),
 		now.Format("2006-01-02"))
 }
 
@@ -221,10 +239,12 @@ func (p *Poller) dailyPull(ctx context.Context) error {
 
 // advResult 单个广告主拉取结果
 type advResult struct {
-	plans int
-	saved int
-	failed int
-	err   string
+	plans       int
+	planReports int
+	planSaved   int
+	saved       int
+	failed      int
+	err         string
 }
 
 // pullByDate 执行指定日期范围的数据拉取（并发拉取多个广告主）
@@ -290,11 +310,13 @@ func (p *Poller) pullByDate(ctx context.Context, startDate, endDate string) (*Po
 			result.Errors = append(result.Errors, r.err)
 		}
 		result.TotalPlans += r.plans
+		result.TotalPlanReports += r.planReports
+		result.TotalPlanSaved += r.planSaved
 		result.TotalSaved += r.saved
 		result.TotalFailed += r.failed
 	}
 
-	g.Log().Infof(ctx, "[QianchuanPoller] pullByDate完成: 入库%d条, 失败%d条, 错误%d个", result.TotalSaved, result.TotalFailed, len(result.Errors))
+	g.Log().Infof(ctx, "[QianchuanPoller] pullByDate完成: 入库%d条(计划明细%d条), 失败%d条, 错误%d个", result.TotalSaved, result.TotalPlanSaved, result.TotalFailed, len(result.Errors))
 
 	// 自动清理 40002 错误的无效广告主ID，避免后续重复拉取
 	p.cleanInvalidAdvertisers(ctx, advertiserIDs, result.Errors)
@@ -352,8 +374,15 @@ func (p *Poller) pullOneAdvertiser(ctx context.Context, client *Client, advID in
 		g.Log().Warningf(ctx, "[QianchuanPoller] 广告主%d有%d条计划但0条报表, 可能原因: 1)该日期范围无消耗 2)APP缺少千川报表权限(stat_cost等基础字段), 请在巨量引擎开放平台检查应用权限", advID, pullResult.TotalPlans)
 	}
 
+	planSaved, planFailed := p.savePlanReports(ctx, pullResult.PlanReports)
 	if len(pullResult.Combined) == 0 {
-		return advResult{plans: pullResult.TotalPlans}
+		return advResult{
+			plans:       pullResult.TotalPlans,
+			planReports: pullResult.TotalPlanReports,
+			planSaved:   planSaved,
+			saved:       planSaved,
+			failed:      planFailed,
+		}
 	}
 
 	// 批量入库：将 N 次 INSERT 合并为每批 50 条的批量 INSERT
@@ -426,5 +455,268 @@ func (p *Poller) pullOneAdvertiser(ctx context.Context, client *Client, advID in
 	}
 
 	g.Log().Infof(ctx, "[QianchuanPoller] 广告主%d: 入库%d条, 失败%d条", advID, saved, failed)
-	return advResult{plans: pullResult.TotalPlans, saved: saved, failed: failed}
+
+	// 拉取达人维度报表（按每个达人UID单独查询消耗）
+	p.pullAuthorReports(ctx, client, advID, startDate, endDate)
+
+	return advResult{
+		plans:       pullResult.TotalPlans,
+		planReports: pullResult.TotalPlanReports,
+		planSaved:   planSaved,
+		saved:       saved + planSaved,
+		failed:      failed + planFailed,
+	}
+}
+
+// pullAuthorReports 拉取达人维度报表
+// 千川 author/get API 需要指定 aweme_id，因此需要先获取该广告主关联的达人UID列表，
+// 然后逐个查询每个达人的消耗数据。
+func (p *Poller) pullAuthorReports(ctx context.Context, client *Client, advID int64, startDate, endDate string) {
+	// 1. 获取该广告主关联的内部账号及其达人UID
+	rows, err := g.DB().Model("account_qianchuan_mapping aqm").
+		LeftJoin("account a", "aqm.account_id = a.id").
+		LeftJoin("trader_account_relation tar", "aqm.account_id = tar.account_id").
+		Where("aqm.qianchuan_advertiser_id", advID).
+		Fields("aqm.account_id, a.uid, a.account_name, a.platform_nickname, aqm.company_id, a.department_id, MIN(tar.trader_id) AS trader_id").
+		Group("aqm.account_id, a.uid, a.account_name, a.platform_nickname, aqm.company_id, a.department_id").
+		All()
+	if err != nil {
+		g.Log().Warningf(ctx, "[QianchuanPoller] 查询广告主%d关联账号失败: %v", advID, err)
+		return
+	}
+	if len(rows) == 0 {
+		return
+	}
+
+	// 2. 逐个达人查询消耗（author/get API 需要指定 aweme_id）
+	var allReports []AuthorReport
+	for _, row := range rows {
+		uidStr := row["uid"].String()
+		if uidStr == "" {
+			continue
+		}
+		awemeID, parseErr := strconv.ParseInt(uidStr, 10, 64)
+		if parseErr != nil || awemeID == 0 {
+			continue
+		}
+
+		report, queryErr := client.GetAuthorDimensionReport(ctx, advID, awemeID, startDate, endDate)
+		if queryErr != nil {
+			g.Log().Warningf(ctx, "[QianchuanPoller] 广告主%d达人%d报表查询失败: %v", advID, awemeID, queryErr)
+			continue
+		}
+		if report == nil {
+			continue
+		}
+
+		// 补充达人名称
+		name := row["platform_nickname"].String()
+		if name == "" {
+			name = row["account_name"].String()
+		}
+		report.AwemeName = name
+		allReports = append(allReports, *report)
+	}
+
+	if len(allReports) == 0 {
+		return
+	}
+
+	// 3. 入库
+	saved, failed := p.saveAuthorReports(ctx, rows, allReports)
+	g.Log().Infof(ctx, "[QianchuanPoller] 广告主%d达人维度报表: 查询%d个达人, 入库%d条, 失败%d条", advID, len(rows), saved, failed)
+}
+
+// saveAuthorReports 批量保存达人维度报表
+func (p *Poller) saveAuthorReports(ctx context.Context, mappingRows gdb.Result, reports []AuthorReport) (int, int) {
+	if len(reports) == 0 {
+		return 0, 0
+	}
+
+	// 构建 aweme_id → 组织映射
+	type orgInfo struct {
+		AccountID    int
+		CompanyID    int64
+		DepartmentID int64
+		TraderID     int64
+	}
+	orgMap := make(map[int64]orgInfo)
+	for _, row := range mappingRows {
+		uidStr := row["uid"].String()
+		if uidStr == "" {
+			continue
+		}
+		awemeID, err := strconv.ParseInt(uidStr, 10, 64)
+		if err != nil || awemeID == 0 {
+			continue
+		}
+		orgMap[awemeID] = orgInfo{
+			AccountID:    row["account_id"].Int(),
+			CompanyID:    row["company_id"].Int64(),
+			DepartmentID: row["department_id"].Int64(),
+			TraderID:     row["trader_id"].Int64(),
+		}
+	}
+
+	const batchSize = 50
+	saved := 0
+	failed := 0
+	for batchStart := 0; batchStart < len(reports); batchStart += batchSize {
+		batchEnd := batchStart + batchSize
+		if batchEnd > len(reports) {
+			batchEnd = len(reports)
+		}
+		batch := reports[batchStart:batchEnd]
+
+		placeholders := make([]string, 0, len(batch))
+		args := make([]interface{}, 0, len(batch)*11)
+		for _, item := range batch {
+			org := orgMap[item.AwemeID]
+			statDate := item.StatDatetime
+			if len(statDate) >= 10 {
+				statDate = statDate[:10]
+			}
+			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?)")
+			args = append(args,
+				item.AdvertiserID, org.AccountID, org.CompanyID, org.DepartmentID, org.TraderID,
+				item.AwemeID, item.AwemeName, item.StatCost, item.PayOrderGmv, item.PayOrderCount,
+				statDate,
+			)
+		}
+
+		sql := fmt.Sprintf(`INSERT INTO qianchuan_author_daily_report
+			(advertiser_id, account_id, company_id, department_id, trader_id,
+			aweme_id, aweme_name, stat_cost, pay_order_gmv, pay_order_count, stat_datetime)
+		VALUES %s
+		ON DUPLICATE KEY UPDATE
+			account_id=VALUES(account_id), company_id=VALUES(company_id),
+			department_id=VALUES(department_id), trader_id=VALUES(trader_id),
+			aweme_name=VALUES(aweme_name), stat_cost=VALUES(stat_cost),
+			pay_order_gmv=VALUES(pay_order_gmv), pay_order_count=VALUES(pay_order_count)`,
+			strings.Join(placeholders, ","))
+
+		_, execErr := g.DB().Ctx(ctx).Exec(ctx, sql, args...)
+		if execErr != nil {
+			failed += batchEnd - batchStart
+			continue
+		}
+		saved += batchEnd - batchStart
+	}
+	return saved, failed
+}
+
+type qianchuanOrgMapping struct {
+	AccountID      int
+	CompanyID      int64
+	DepartmentID   int64
+	TraderID       int64
+	OrganizationID int64
+}
+
+func (p *Poller) loadOrgMappings(ctx context.Context, advertiserIDs []int64) map[int64]qianchuanOrgMapping {
+	result := make(map[int64]qianchuanOrgMapping)
+	if len(advertiserIDs) == 0 {
+		return result
+	}
+
+	rows, err := g.DB().Model("account_qianchuan_mapping aqm").
+		LeftJoin("account a", "aqm.account_id = a.id").
+		LeftJoin("trader_account_relation tar", "aqm.account_id = tar.account_id").
+		WhereIn("aqm.qianchuan_advertiser_id", advertiserIDs).
+		Fields("aqm.qianchuan_advertiser_id, aqm.account_id, aqm.company_id, a.department_id, MIN(tar.trader_id) AS trader_id").
+		Group("aqm.qianchuan_advertiser_id, aqm.account_id, aqm.company_id, a.department_id").
+		All()
+	if err != nil {
+		g.Log().Warningf(ctx, "[QianchuanPoller] 查询千川组织映射失败: %v", err)
+		return result
+	}
+	for _, row := range rows {
+		companyID := row["company_id"].Int64()
+		result[row["qianchuan_advertiser_id"].Int64()] = qianchuanOrgMapping{
+			AccountID:      row["account_id"].Int(),
+			CompanyID:      companyID,
+			DepartmentID:   row["department_id"].Int64(),
+			TraderID:       row["trader_id"].Int64(),
+			OrganizationID: companyID,
+		}
+	}
+	return result
+}
+
+func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyReport) (int, int) {
+	if len(reports) == 0 {
+		return 0, 0
+	}
+
+	advSet := make(map[int64]bool)
+	var advIDs []int64
+	for _, report := range reports {
+		if !advSet[report.AdvertiserID] {
+			advSet[report.AdvertiserID] = true
+			advIDs = append(advIDs, report.AdvertiserID)
+		}
+	}
+	orgMappings := p.loadOrgMappings(ctx, advIDs)
+
+	const batchSize = 100
+	saved := 0
+	failed := 0
+	for batchStart := 0; batchStart < len(reports); batchStart += batchSize {
+		batchEnd := batchStart + batchSize
+		if batchEnd > len(reports) {
+			batchEnd = len(reports)
+		}
+		batch := reports[batchStart:batchEnd]
+
+		placeholders := make([]string, 0, len(batch))
+		args := make([]interface{}, 0, len(batch)*21)
+		for _, item := range batch {
+			if item.AdID == 0 {
+				failed++
+				continue
+			}
+			mapping := orgMappings[item.AdvertiserID]
+			awemeID, _ := strconv.ParseInt(item.AwemeID, 10, 64)
+			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+			args = append(args,
+				mapping.OrganizationID, mapping.AccountID, mapping.CompanyID, mapping.DepartmentID, mapping.TraderID,
+				item.AdvertiserID, "", item.AdID, item.AdName, item.ProductID, item.ProductName,
+				awemeID, item.AwemeName, item.AwemeShowID, item.StatCost, item.StatDatetime,
+				item.ShowCnt, item.ClickCnt, item.Ctr, item.ConvertCnt, item.ConvertCost,
+			)
+		}
+		if len(placeholders) == 0 {
+			continue
+		}
+
+		sql := fmt.Sprintf(`INSERT INTO qianchuan_ad_report
+			(organization_id, account_id, company_id, department_id, trader_id,
+			advertiser_id, advertiser_name, ad_id, ad_name, product_id, product_name,
+			aweme_id, aweme_name, aweme_show_id, stat_cost, stat_datetime,
+			show_cnt, click_cnt, ctr, convert_cnt, convert_cost)
+		VALUES %s
+		ON DUPLICATE KEY UPDATE
+			organization_id=VALUES(organization_id), account_id=VALUES(account_id),
+			company_id=VALUES(company_id), department_id=VALUES(department_id), trader_id=VALUES(trader_id),
+			advertiser_name=VALUES(advertiser_name), ad_name=VALUES(ad_name),
+			product_id=VALUES(product_id), product_name=VALUES(product_name),
+			aweme_id=VALUES(aweme_id), aweme_name=VALUES(aweme_name), aweme_show_id=VALUES(aweme_show_id),
+			stat_cost=VALUES(stat_cost), show_cnt=VALUES(show_cnt), click_cnt=VALUES(click_cnt),
+			ctr=VALUES(ctr), convert_cnt=VALUES(convert_cnt), convert_cost=VALUES(convert_cost)`,
+			strings.Join(placeholders, ","))
+
+		if _, err := g.DB().Ctx(ctx).Exec(ctx, sql, args...); err != nil {
+			g.Log().Warningf(ctx, "[QianchuanPoller] 计划明细入库失败 batch=%d-%d: %v", batchStart, batchEnd, err)
+			failed += len(placeholders)
+			continue
+		}
+		saved += len(placeholders)
+	}
+	g.Log().Infof(ctx, "[QianchuanPoller] 计划明细入库%d条, 失败%d条", saved, failed)
+	return saved, failed
+}
+
+// SavePlanReports 保存千川计划维度日结报表，供 OAuth 回调和定时拉取复用同一套入库逻辑。
+func SavePlanReports(ctx context.Context, reports []AdPlanDailyReport) (int, int) {
+	return GetPoller().savePlanReports(ctx, reports)
 }

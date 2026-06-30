@@ -1249,6 +1249,35 @@ func (s *FinanceCommissionService) buildPlatformUids(ctx context.Context, shops 
 	return platformUids
 }
 
+// getAdCostByAccountIds 查询指定账号集合在日期范围内的千川广告消耗
+func (s *FinanceCommissionService) getAdCostByAccountIds(ctx context.Context, accountIds []int, startDate, endDate string) float64 {
+	if len(accountIds) == 0 || startDate == "" || endDate == "" {
+		return 0
+	}
+	row, err := g.DB().Model("account_qianchuan_mapping aqm").
+		LeftJoin("qianchuan_advertiser_daily_report qar", qianchuanAdReportJoinCondRange(startDate, endDate)).
+		WhereIn("aqm.account_id", accountIds).
+		Fields("COALESCE(SUM(qar.stat_cost), 0) AS ad_cost").
+		One()
+	if err != nil {
+		g.Log().Warningf(ctx, "[Finance] 查询千川广告消耗失败: accountIds=%v, err=%v", accountIds, err)
+		return 0
+	}
+	return roundFloatFinance(row["ad_cost"].Float64(), 2)
+}
+
+// extractDateRange 从 startDate/endDate（可能含时间部分）提取纯日期 2006-01-02
+func extractDateRange(startDate, endDate string) (string, string) {
+	qStart, qEnd := "", ""
+	if len(startDate) >= 10 {
+		qStart = startDate[:10]
+	}
+	if len(endDate) >= 10 {
+		qEnd = endDate[:10]
+	}
+	return qStart, qEnd
+}
+
 // statsOrdersByAccountIds 统计账号订单数据（根据店铺 platform 只查对应订单表）
 // traderName 非空时启用归属规则：排除被重定向的订单 + 纳入从其他投手重定向过来的订单
 func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, accountIds []int, startDate, endDate string, traderName string) (*model.FinanceStatsSummary, error) {
@@ -1347,7 +1376,15 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 	totalStats.Commission = roundFloatFinance(totalStats.Commission, 2)
 	totalStats.RefundCostAmount = roundFloatFinance(totalStats.RefundCostAmount, 2)
 	totalStats.ShopServiceFee = roundFloatFinance(totalStats.ShopServiceFee, 2)
-	totalStats.RealtimeProfit = roundFloatFinance(totalStats.RealtimeProfit, 2)
+
+	// 查询千川广告消耗（按账号ID和日期范围）
+	if len(accountIds) > 0 {
+		qStart, qEnd := extractDateRange(startDate, endDate)
+		totalStats.AdCostAmount = s.getAdCostByAccountIds(ctx, accountIds, qStart, qEnd)
+	}
+	// 重新计算实时利润（含广告费）
+	commissionDeduction := roundFloatFinance(totalStats.PayAmount*0.005, 2)
+	totalStats.RealtimeProfit = roundFloatFinance(totalStats.PayAmount-totalStats.CostAmount-totalStats.ReserveAmount-totalStats.RefundCostAmount-totalStats.ShopServiceFee-commissionDeduction-totalStats.AdCostAmount, 2)
 
 	return totalStats, nil
 }
