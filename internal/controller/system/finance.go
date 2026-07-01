@@ -90,7 +90,7 @@ func (c *FinanceController) ShopDetail(ctx context.Context, req *v1.FinanceShopD
 	financeService := service.NewFinanceCommissionService()
 
 	detailReq := &model.FinanceShopDetailReq{
-		AccountId:    req.AccountId,
+		AccountId: req.AccountId,
 		TimeType:  req.TimeType,
 		StartDate: req.StartDate,
 		EndDate:   req.EndDate,
@@ -265,6 +265,70 @@ func (c *FinanceController) AccountExport(r *ghttp.Request) {
 	defer os.Remove(filename)
 }
 
+// CostRankingExport 导出千川消耗统计 GET /api/finance/cost-ranking-export
+func (c *FinanceController) CostRankingExport(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
+	dimension := r.Get("dimension", "trader").String()
+
+	filename, err := service.NewFinanceCommissionService().ExportCostRanking(r.Context(), startDate, endDate, dimension)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
+		return
+	}
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+	defer os.Remove(filename)
+}
+
+// AuthorCostRankingExport 导出达人维度消耗统计 GET /api/finance/author-cost-ranking-export
+func (c *FinanceController) AuthorCostRankingExport(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
+
+	filename, err := service.NewFinanceCommissionService().ExportAuthorCostRanking(r.Context(), startDate, endDate)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
+		return
+	}
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+	defer os.Remove(filename)
+}
+
+// CostDetailExport 导出千川账号消耗明细 GET /api/finance/cost-detail-export
+func (c *FinanceController) CostDetailExport(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
+	dimension := r.Get("dimension", "trader").String()
+	id := r.Get("id").Int64()
+	if id <= 0 {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "ID不能为空"})
+		return
+	}
+
+	filename, err := service.NewFinanceCommissionService().ExportCostDetails(r.Context(), startDate, endDate, dimension, id)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
+		return
+	}
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+	defer os.Remove(filename)
+}
+
 // TodayCost 查询今日消耗/佣金/盈亏 GET /api/finance/today-cost
 func (c *FinanceController) TodayCost(r *ghttp.Request) {
 	// 兼容驼峰(traderId)和下划线(trader_id)两种参数命名
@@ -318,21 +382,36 @@ func (c *FinanceController) CostRanking(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": result, "msg": "ok"})
 }
 
-// AuthorCostRanking 达人维度消耗排行 GET /api/finance/author-cost-ranking
+// AuthorCostRanking 达人维度消耗统计 GET /api/finance/author-cost-ranking
 func (c *FinanceController) AuthorCostRanking(r *ghttp.Request) {
 	startDate := r.Get("startDate").String()
 	endDate := r.Get("endDate").String()
 	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
 		startDate, endDate = date, date
 	}
-	limit := r.Get("limit", 20).Int()
+	page := r.Get("page", 1).Int()
+	pageSize := r.Get("pageSize", r.Get("limit", 20).Int()).Int()
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 200 {
+		pageSize = 200
+	}
 
 	financeService := service.NewFinanceCommissionService()
-	result, err := financeService.GetAuthorCostRanking(r.Context(), startDate, endDate, limit)
+	list, total, err := financeService.GetAuthorCostRanking(r.Context(), startDate, endDate, page, pageSize)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
 		return
 	}
 
-	r.Response.WriteJsonExit(g.Map{"code": 0, "data": result, "msg": "ok"})
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{
+		"list":     list,
+		"total":    total,
+		"page":     page,
+		"pageSize": pageSize,
+	}, "msg": "ok"})
 }

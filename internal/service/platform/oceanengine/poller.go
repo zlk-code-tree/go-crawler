@@ -11,7 +11,6 @@ import (
 
 	"go-crawler/internal/service"
 
-	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -225,6 +224,19 @@ func (p *Poller) ManualPull(ctx context.Context, days int) (*PollerResult, error
 // ManualPullByDate 手动拉取指定日期范围的数据
 // startDate/endDate 格式: 2006-01-02
 func (p *Poller) ManualPullByDate(ctx context.Context, startDate, endDate string) (*PollerResult, error) {
+	start, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
+	}
+	end, err := time.Parse("2006-01-02", endDate)
+	if err != nil {
+		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
+	}
+	today := time.Now().Format("2006-01-02")
+	todayDate, _ := time.Parse("2006-01-02", today)
+	if start.After(todayDate) || end.After(todayDate) {
+		return nil, fmt.Errorf("千川数据暂不支持拉取未来日期。当前服务器日期是 %s", today)
+	}
 	return p.pullByDate(ctx, startDate, endDate)
 }
 
@@ -245,6 +257,21 @@ type advResult struct {
 	saved       int
 	failed      int
 	err         string
+}
+
+type authorOrgInfo struct {
+	AccountID        int
+	CompanyID        int64
+	DepartmentID     int64
+	TraderID         int64
+	AccountName      string
+	PlatformNickname string
+}
+
+type authorMatchIndex struct {
+	uidMap         map[int64][]authorOrgInfo
+	showIDMap      map[string][]authorOrgInfo
+	accountNameMap map[string][]authorOrgInfo
 }
 
 // pullByDate 执行指定日期范围的数据拉取（并发拉取多个广告主）
@@ -468,16 +495,89 @@ func (p *Poller) pullOneAdvertiser(ctx context.Context, client *Client, advID in
 	}
 }
 
-// pullAuthorReports 拉取达人维度报表
-// 千川 author/get API 需要指定 aweme_id，因此需要先获取该广告主关联的达人UID列表，
-// 然后逐个查询每个达人的消耗数据。
+// pullAuthorReports 拉取达人维度报表。
+// 优先按“千川广告主授权抖音号 -> 内部抖音账号(uid/抖音号)”直接匹配，
+// 这样同一个广告主下挂多个达人时，也能把消耗正确归属到员工/团队。
 func (p *Poller) pullAuthorReports(ctx context.Context, client *Client, advID int64, startDate, endDate string) {
-	// 1. 获取该广告主关联的内部账号及其达人UID
+	authorizedAwemes, err := client.GetAuthorizedAwemes(ctx, advID)
+	if err != nil {
+		g.Log().Warningf(ctx, "[QianchuanPoller] 查询广告主%d授权抖音号失败，回退旧映射逻辑: %v", advID, err)
+		p.pullAuthorReportsByMapping(ctx, client, advID, startDate, endDate)
+		return
+	}
+	if len(authorizedAwemes) == 0 {
+		p.pullAuthorReportsByMapping(ctx, client, advID, startDate, endDate)
+		return
+	}
+
+	matchIndex, err := p.loadAuthorMatchIndex(ctx)
+	if err != nil {
+		g.Log().Warningf(ctx, "[QianchuanPoller] 构建达人归属索引失败，回退旧映射逻辑: %v", err)
+		p.pullAuthorReportsByMapping(ctx, client, advID, startDate, endDate)
+		return
+	}
+
+	matchedOrgMap := make(map[int64]authorOrgInfo)
+	allReports := make([]AuthorReport, 0, len(authorizedAwemes))
+	matchedCount := 0
+	for _, aweme := range authorizedAwemes {
+		if aweme.AwemeID == 0 {
+			continue
+		}
+		org, matchType, ok := matchIndex.match(aweme)
+		if !ok {
+			g.Log().Infof(ctx, "[QianchuanPoller] 广告主%d授权抖音号未匹配内部账号: awemeID=%d, showID=%s, name=%s",
+				advID, aweme.AwemeID, aweme.AwemeShowID, aweme.AwemeName)
+			continue
+		}
+
+		reports, queryErr := client.GetAuthorDimensionReports(ctx, advID, aweme.AwemeID, startDate, endDate)
+		if queryErr != nil {
+			g.Log().Warningf(ctx, "[QianchuanPoller] 广告主%d达人%d报表查询失败: %v", advID, aweme.AwemeID, queryErr)
+			continue
+		}
+		if len(reports) == 0 {
+			continue
+		}
+
+		for i := range reports {
+			if reports[i].AwemeName == "" {
+				reports[i].AwemeName = aweme.AwemeName
+			}
+			if reports[i].AwemeName == "" {
+				reports[i].AwemeName = org.PlatformNickname
+			}
+			if reports[i].AwemeName == "" {
+				reports[i].AwemeName = org.AccountName
+			}
+		}
+		matchedOrgMap[aweme.AwemeID] = org
+		allReports = append(allReports, reports...)
+		matchedCount++
+
+		g.Log().Infof(ctx, "[QianchuanPoller] 广告主%d达人匹配成功: awemeID=%d match=%s accountID=%d traderID=%d",
+			advID, aweme.AwemeID, matchType, org.AccountID, org.TraderID)
+	}
+
+	if len(allReports) == 0 {
+		if matchedCount == 0 {
+			p.pullAuthorReportsByMapping(ctx, client, advID, startDate, endDate)
+		}
+		return
+	}
+
+	saved, failed := p.saveAuthorReports(ctx, matchedOrgMap, allReports)
+	g.Log().Infof(ctx, "[QianchuanPoller] 广告主%d达人维度报表: 授权抖音号%d个, 成功匹配%d个, 入库%d条, 失败%d条",
+		advID, len(authorizedAwemes), matchedCount, saved, failed)
+}
+
+func (p *Poller) pullAuthorReportsByMapping(ctx context.Context, client *Client, advID int64, startDate, endDate string) {
 	rows, err := g.DB().Model("account_qianchuan_mapping aqm").
 		LeftJoin("account a", "aqm.account_id = a.id").
 		LeftJoin("trader_account_relation tar", "aqm.account_id = tar.account_id").
+		LeftJoin("trader t", "tar.trader_id = t.id").
 		Where("aqm.qianchuan_advertiser_id", advID).
-		Fields("aqm.account_id, a.uid, a.account_name, a.platform_nickname, aqm.company_id, a.department_id, MIN(tar.trader_id) AS trader_id").
+		Fields("aqm.account_id, a.uid, a.account_name, a.platform_nickname, aqm.company_id, a.department_id, MIN(tar.trader_id) AS trader_id, MIN(t.group_id) AS trader_group_id").
 		Group("aqm.account_id, a.uid, a.account_name, a.platform_nickname, aqm.company_id, a.department_id").
 		All()
 	if err != nil {
@@ -488,7 +588,7 @@ func (p *Poller) pullAuthorReports(ctx context.Context, client *Client, advID in
 		return
 	}
 
-	// 2. 逐个达人查询消耗（author/get API 需要指定 aweme_id）
+	orgMap := make(map[int64]authorOrgInfo)
 	var allReports []AuthorReport
 	for _, row := range rows {
 		uidStr := row["uid"].String()
@@ -500,62 +600,118 @@ func (p *Poller) pullAuthorReports(ctx context.Context, client *Client, advID in
 			continue
 		}
 
-		report, queryErr := client.GetAuthorDimensionReport(ctx, advID, awemeID, startDate, endDate)
+		reports, queryErr := client.GetAuthorDimensionReports(ctx, advID, awemeID, startDate, endDate)
 		if queryErr != nil {
 			g.Log().Warningf(ctx, "[QianchuanPoller] 广告主%d达人%d报表查询失败: %v", advID, awemeID, queryErr)
 			continue
 		}
-		if report == nil {
+		if len(reports) == 0 {
 			continue
 		}
 
-		// 补充达人名称
-		name := row["platform_nickname"].String()
-		if name == "" {
-			name = row["account_name"].String()
+		orgMap[awemeID] = authorOrgInfo{
+			AccountID:        row["account_id"].Int(),
+			CompanyID:        row["company_id"].Int64(),
+			DepartmentID:     fallbackDepartmentID(row["department_id"].Int64(), row["trader_group_id"].Int64()),
+			TraderID:         row["trader_id"].Int64(),
+			AccountName:      row["account_name"].String(),
+			PlatformNickname: row["platform_nickname"].String(),
 		}
-		report.AwemeName = name
-		allReports = append(allReports, *report)
+		for i := range reports {
+			if reports[i].AwemeName == "" {
+				reports[i].AwemeName = row["platform_nickname"].String()
+			}
+			if reports[i].AwemeName == "" {
+				reports[i].AwemeName = row["account_name"].String()
+			}
+		}
+		allReports = append(allReports, reports...)
 	}
 
 	if len(allReports) == 0 {
 		return
 	}
 
-	// 3. 入库
-	saved, failed := p.saveAuthorReports(ctx, rows, allReports)
-	g.Log().Infof(ctx, "[QianchuanPoller] 广告主%d达人维度报表: 查询%d个达人, 入库%d条, 失败%d条", advID, len(rows), saved, failed)
+	saved, failed := p.saveAuthorReports(ctx, orgMap, allReports)
+	g.Log().Infof(ctx, "[QianchuanPoller] 广告主%d达人维度报表(旧映射回退): 查询%d个达人, 入库%d条, 失败%d条", advID, len(rows), saved, failed)
+}
+
+func (p *Poller) loadAuthorMatchIndex(ctx context.Context) (*authorMatchIndex, error) {
+	rows, err := g.DB().Model("account a").
+		LeftJoin("trader_account_relation tar", "a.id = tar.account_id").
+		LeftJoin("trader t", "tar.trader_id = t.id").
+		Fields("a.id AS account_id, a.uid, a.account_name, a.platform_nickname, a.company_id, a.department_id, MIN(tar.trader_id) AS trader_id, MIN(t.group_id) AS trader_group_id").
+		Where("a.platform", "douyin").
+		Group("a.id, a.uid, a.account_name, a.platform_nickname, a.company_id, a.department_id").
+		All()
+	if err != nil {
+		return nil, err
+	}
+
+	index := &authorMatchIndex{
+		uidMap:         make(map[int64][]authorOrgInfo),
+		showIDMap:      make(map[string][]authorOrgInfo),
+		accountNameMap: make(map[string][]authorOrgInfo),
+	}
+	for _, row := range rows {
+		info := authorOrgInfo{
+			AccountID:        row["account_id"].Int(),
+			CompanyID:        row["company_id"].Int64(),
+			DepartmentID:     fallbackDepartmentID(row["department_id"].Int64(), row["trader_group_id"].Int64()),
+			TraderID:         row["trader_id"].Int64(),
+			AccountName:      row["account_name"].String(),
+			PlatformNickname: row["platform_nickname"].String(),
+		}
+		if awemeID, err := strconv.ParseInt(row["uid"].String(), 10, 64); err == nil && awemeID > 0 {
+			index.uidMap[awemeID] = append(index.uidMap[awemeID], info)
+		}
+		if showID := normalizeAuthorMatchValue(row["platform_nickname"].String()); showID != "" {
+			index.showIDMap[showID] = append(index.showIDMap[showID], info)
+		}
+		if accountName := normalizeAuthorMatchValue(row["account_name"].String()); accountName != "" {
+			index.accountNameMap[accountName] = append(index.accountNameMap[accountName], info)
+		}
+	}
+	return index, nil
+}
+
+func normalizeAuthorMatchValue(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func fallbackDepartmentID(accountDepartmentID, traderGroupID int64) int64 {
+	if accountDepartmentID > 0 {
+		return accountDepartmentID
+	}
+	return traderGroupID
+}
+
+func (m *authorMatchIndex) match(aweme AuthorizedAweme) (authorOrgInfo, string, bool) {
+	if m == nil {
+		return authorOrgInfo{}, "", false
+	}
+	if aweme.AwemeID > 0 {
+		if candidates := m.uidMap[aweme.AwemeID]; len(candidates) == 1 {
+			return candidates[0], "uid", true
+		}
+	}
+	if showID := normalizeAuthorMatchValue(aweme.AwemeShowID); showID != "" {
+		if candidates := m.showIDMap[showID]; len(candidates) == 1 {
+			return candidates[0], "show_id", true
+		}
+	}
+	if name := normalizeAuthorMatchValue(aweme.AwemeName); name != "" {
+		if candidates := m.accountNameMap[name]; len(candidates) == 1 {
+			return candidates[0], "account_name", true
+		}
+	}
+	return authorOrgInfo{}, "", false
 }
 
 // saveAuthorReports 批量保存达人维度报表
-func (p *Poller) saveAuthorReports(ctx context.Context, mappingRows gdb.Result, reports []AuthorReport) (int, int) {
+func (p *Poller) saveAuthorReports(ctx context.Context, orgMap map[int64]authorOrgInfo, reports []AuthorReport) (int, int) {
 	if len(reports) == 0 {
 		return 0, 0
-	}
-
-	// 构建 aweme_id → 组织映射
-	type orgInfo struct {
-		AccountID    int
-		CompanyID    int64
-		DepartmentID int64
-		TraderID     int64
-	}
-	orgMap := make(map[int64]orgInfo)
-	for _, row := range mappingRows {
-		uidStr := row["uid"].String()
-		if uidStr == "" {
-			continue
-		}
-		awemeID, err := strconv.ParseInt(uidStr, 10, 64)
-		if err != nil || awemeID == 0 {
-			continue
-		}
-		orgMap[awemeID] = orgInfo{
-			AccountID:    row["account_id"].Int(),
-			CompanyID:    row["company_id"].Int64(),
-			DepartmentID: row["department_id"].Int64(),
-			TraderID:     row["trader_id"].Int64(),
-		}
 	}
 
 	const batchSize = 50
@@ -622,8 +778,9 @@ func (p *Poller) loadOrgMappings(ctx context.Context, advertiserIDs []int64) map
 	rows, err := g.DB().Model("account_qianchuan_mapping aqm").
 		LeftJoin("account a", "aqm.account_id = a.id").
 		LeftJoin("trader_account_relation tar", "aqm.account_id = tar.account_id").
+		LeftJoin("trader t", "tar.trader_id = t.id").
 		WhereIn("aqm.qianchuan_advertiser_id", advertiserIDs).
-		Fields("aqm.qianchuan_advertiser_id, aqm.account_id, aqm.company_id, a.department_id, MIN(tar.trader_id) AS trader_id").
+		Fields("aqm.qianchuan_advertiser_id, aqm.account_id, aqm.company_id, a.department_id, MIN(tar.trader_id) AS trader_id, MIN(t.group_id) AS trader_group_id").
 		Group("aqm.qianchuan_advertiser_id, aqm.account_id, aqm.company_id, a.department_id").
 		All()
 	if err != nil {
@@ -635,7 +792,7 @@ func (p *Poller) loadOrgMappings(ctx context.Context, advertiserIDs []int64) map
 		result[row["qianchuan_advertiser_id"].Int64()] = qianchuanOrgMapping{
 			AccountID:      row["account_id"].Int(),
 			CompanyID:      companyID,
-			DepartmentID:   row["department_id"].Int64(),
+			DepartmentID:   fallbackDepartmentID(row["department_id"].Int64(), row["trader_group_id"].Int64()),
 			TraderID:       row["trader_id"].Int64(),
 			OrganizationID: companyID,
 		}

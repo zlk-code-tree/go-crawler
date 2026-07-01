@@ -176,6 +176,15 @@ type AdPlan struct {
 	AwemeShowID  string // 抖音号
 }
 
+// AuthorizedAweme 千川广告主授权抖音号
+type AuthorizedAweme struct {
+	AwemeID     int64
+	AwemeName   string
+	AwemeShowID string
+	AwemeStatus string
+	BindTypes   []string
+}
+
 // GetAllAdPlans 获取广告主下所有广告计划（千川 v1.0/qianchuan/ad/get/）
 // 千川 API 要求 filtering.marketing_goal 必填，需要分别拉取直播和短视频两类计划
 func (c *Client) GetAllAdPlans(ctx context.Context, advertiserID int64) ([]AdPlan, error) {
@@ -270,34 +279,86 @@ func (c *Client) GetAllAdPlans(ctx context.Context, advertiserID int64) ([]AdPla
 	return allPlans, nil
 }
 
+// GetAuthorizedAwemes 获取广告主下全部授权抖音号（自动翻页）
+func (c *Client) GetAuthorizedAwemes(ctx context.Context, advertiserID int64) ([]AuthorizedAweme, error) {
+	sdkClient := ad_open_sdk_go.Init(c.cfg)
+	page := int32(1)
+	pageSize := int32(100)
+	var result []AuthorizedAweme
+
+	for {
+		resp, _, err := sdkClient.QianchuanAwemeAuthorizedGetV10Api().Get(ctx).
+			AdvertiserId(advertiserID).
+			Filtering(models.QianchuanAwemeAuthorizedGetV10Filtering{
+				MarketingGoal: models.ALL_QianchuanAwemeAuthorizedGetV10FilteringMarketingGoal.Ptr(),
+			}).
+			Page(page).
+			PageSize(pageSize).
+			AccessToken(c.accessToken).
+			Execute()
+		if err != nil {
+			return nil, fmt.Errorf("获取授权抖音号列表失败(advID=%d,page=%d): %w", advertiserID, page, err)
+		}
+		if resp.Code != nil && *resp.Code != 0 {
+			msg := ""
+			if resp.Message != nil {
+				msg = *resp.Message
+			}
+			return nil, fmt.Errorf("授权抖音号列表返回错误(code=%d,msg=%s)", *resp.Code, msg)
+		}
+		if resp.Data == nil || len(resp.Data.AwemeIdList) == 0 {
+			break
+		}
+
+		for _, item := range resp.Data.AwemeIdList {
+			if item == nil {
+				continue
+			}
+			aweme := AuthorizedAweme{}
+			if item.AwemeId != nil {
+				aweme.AwemeID = *item.AwemeId
+			}
+			if item.AwemeName != nil {
+				aweme.AwemeName = *item.AwemeName
+			}
+			if item.AwemeShowId != nil {
+				aweme.AwemeShowID = *item.AwemeShowId
+			}
+			if item.AwemeStatus != nil {
+				aweme.AwemeStatus = string(*item.AwemeStatus)
+			}
+			for _, bindType := range item.BindType {
+				if bindType != nil {
+					aweme.BindTypes = append(aweme.BindTypes, string(*bindType))
+				}
+			}
+			result = append(result, aweme)
+		}
+
+		if resp.Data.PageInfo == nil || resp.Data.PageInfo.TotalPage == nil || int64(page) >= *resp.Data.PageInfo.TotalPage {
+			break
+		}
+		page++
+	}
+
+	return result, nil
+}
+
 // tryFillAwemeInfo 通过 qianchuan_aweme_authorized_get 接口获取授权抖音号列表，
 // 填充计划列表中缺失的 aweme_info（计划页面的aweme_info可能有空）
 func tryFillAwemeInfo(ctx context.Context, c *Client, allPlans *[]AdPlan, advertiserID int64) {
-	sdkClient := ad_open_sdk_go.Init(c.cfg)
-	resp, _, err := sdkClient.QianchuanAwemeAuthorizedGetV10Api().Get(ctx).
-		AdvertiserId(advertiserID).
-		Filtering(models.QianchuanAwemeAuthorizedGetV10Filtering{
-			MarketingGoal: models.ALL_QianchuanAwemeAuthorizedGetV10FilteringMarketingGoal.Ptr(),
-		}).
-		Page(1).
-		PageSize(50).
-		AccessToken(c.accessToken).
-		Execute()
+	awemes, err := c.GetAuthorizedAwemes(ctx, advertiserID)
 	if err != nil {
 		g.Log().Warningf(ctx, "[Qianchuan] 获取授权抖音号列表失败(advID=%d): %v", advertiserID, err)
 		return
 	}
-	if resp.Code != nil && *resp.Code != 0 {
-		g.Log().Warningf(ctx, "[Qianchuan] 授权抖音号列表返回错误(code=%d, msg=%s)", *resp.Code, *resp.Message)
-		return
-	}
-	if resp.Data == nil || len(resp.Data.AwemeIdList) == 0 {
+	if len(awemes) == 0 {
 		return
 	}
 
 	// 仅当只有一个授权抖音号时，用它作为缺失aweme的默认值
 	// 多个授权抖音号时无法自动匹配，跳过填充避免数据错配
-	if len(resp.Data.AwemeIdList) > 1 {
+	if len(awemes) > 1 {
 		emptyCount := 0
 		for i := range *allPlans {
 			if (*allPlans)[i].AwemeID == "" {
@@ -306,28 +367,15 @@ func tryFillAwemeInfo(ctx context.Context, c *Client, allPlans *[]AdPlan, advert
 		}
 		if emptyCount > 0 {
 			g.Log().Warningf(ctx, "[Qianchuan] advID=%d 有 %d 个授权抖音号，但 %d 个计划缺少aweme数据，无法自动匹配，已跳过",
-				advertiserID, len(resp.Data.AwemeIdList), emptyCount)
+				advertiserID, len(awemes), emptyCount)
 		}
 		return
 	}
 
-	firstAweme := resp.Data.AwemeIdList[0]
-	if firstAweme == nil {
-		return
-	}
-
-	awemeID := ""
-	awemeName := ""
-	awemeShowID := ""
-	if firstAweme.AwemeId != nil {
-		awemeID = strconv.FormatInt(*firstAweme.AwemeId, 10)
-	}
-	if firstAweme.AwemeName != nil {
-		awemeName = *firstAweme.AwemeName
-	}
-	if firstAweme.AwemeShowId != nil {
-		awemeShowID = *firstAweme.AwemeShowId
-	}
+	firstAweme := awemes[0]
+	awemeID := strconv.FormatInt(firstAweme.AwemeID, 10)
+	awemeName := firstAweme.AwemeName
+	awemeShowID := firstAweme.AwemeShowID
 
 	count := 0
 	for i := range *allPlans {
@@ -680,6 +728,36 @@ type AuthorReport struct {
 // 调用 /open_api/v1.0/qianchuan/report/uni_promotion/dimension_data/author/get/
 // 该接口需要指定 aweme_id，本方法用于拉取单个达人的消耗数据。
 func (c *Client) GetAuthorDimensionReport(ctx context.Context, advertiserID, awemeID int64, startDate, endDate string) (*AuthorReport, error) {
+	reports, err := c.GetAuthorDimensionReports(ctx, advertiserID, awemeID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	if len(reports) == 0 {
+		return nil, nil
+	}
+
+	total := &AuthorReport{
+		AdvertiserID: advertiserID,
+		AwemeID:      awemeID,
+		AwemeName:    reports[0].AwemeName,
+		StatDatetime: reports[0].StatDatetime,
+	}
+	for _, item := range reports {
+		total.StatCost += item.StatCost
+		total.PayOrderGmv += item.PayOrderGmv
+		total.PayOrderCount += item.PayOrderCount
+		if total.AwemeName == "" && item.AwemeName != "" {
+			total.AwemeName = item.AwemeName
+		}
+	}
+	if total.StatCost == 0 && total.PayOrderGmv == 0 {
+		return nil, nil
+	}
+	return total, nil
+}
+
+// GetAuthorDimensionReports 获取全域推广分维度数据(抖音号维度)，按天返回明细
+func (c *Client) GetAuthorDimensionReports(ctx context.Context, advertiserID, awemeID int64, startDate, endDate string) ([]AuthorReport, error) {
 	sdkClient := ad_open_sdk_go.Init(c.cfg)
 	metrics := []*models.QianchuanReportUniPromotionDimensionDataAuthorGetV10Metrics{
 		models.STAT_COST_QianchuanReportUniPromotionDimensionDataAuthorGetV10Metrics.Ptr(),
@@ -731,38 +809,34 @@ func (c *Client) GetAuthorDimensionReport(ctx context.Context, advertiserID, awe
 		return nil, nil
 	}
 
-	// 汇总所有天的数据（如果日期范围跨多天，每条记录是一天的）
-	totalCost := 0.0
-	totalGmv := 0.0
-	totalCount := int64(0)
-	var statDate string
+	result := make([]AuthorReport, 0, len(resp.Data.List))
 	for _, item := range resp.Data.List {
+		report := AuthorReport{
+			AdvertiserID: advertiserID,
+			AwemeID:      awemeID,
+		}
+		if item.StatDatetime != nil {
+			report.StatDatetime = *item.StatDatetime
+		}
 		if item.StatCost != nil {
-			totalCost += *item.StatCost
+			report.StatCost = *item.StatCost
 		}
 		if item.TotalPayOrderGmvForRoi2 != nil {
-			totalGmv += *item.TotalPayOrderGmvForRoi2
+			report.PayOrderGmv = *item.TotalPayOrderGmvForRoi2
 		}
 		if item.TotalPayOrderCountForRoi2 != nil {
-			totalCount += int64(*item.TotalPayOrderCountForRoi2)
+			report.PayOrderCount = int64(*item.TotalPayOrderCountForRoi2)
 		}
-		if item.StatDatetime != nil && statDate == "" {
-			statDate = *item.StatDatetime
+		if report.StatCost == 0 && report.PayOrderGmv == 0 && report.PayOrderCount == 0 {
+			continue
 		}
+		result = append(result, report)
 	}
 
-	if totalCost == 0 && totalGmv == 0 {
+	if len(result) == 0 {
 		return nil, nil
 	}
-
-	return &AuthorReport{
-		AdvertiserID:  advertiserID,
-		AwemeID:       awemeID,
-		StatDatetime:  statDate,
-		StatCost:      totalCost,
-		PayOrderGmv:   totalGmv,
-		PayOrderCount: totalCount,
-	}, nil
+	return result, nil
 }
 
 // GetAdPlanReport 获取广告计划日结报表（千川 v1.0/qianchuan/report/ad/get/）

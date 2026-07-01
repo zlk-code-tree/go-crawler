@@ -391,6 +391,16 @@ func (c *QianchuanPollerController) ManualTrigger(r *ghttp.Request) {
 			r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": msg})
 			return
 		}
+		today := time.Now().Format("2006-01-02")
+		todayDate, _ := time.Parse("2006-01-02", today)
+		if start.After(todayDate) || end.After(todayDate) {
+			msg := fmt.Sprintf("千川数据暂不支持拉取未来日期。当前服务器日期是 %s，请检查前端传参", today)
+			if logId > 0 {
+				service.TaskLogFailed(r.Context(), logId, msg, 0)
+			}
+			r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": msg})
+			return
+		}
 		if int(end.Sub(start).Hours()/24)+1 > 30 {
 			msg := "千川日维度单次拉取不能超过30个自然日，请缩小日期范围"
 			if logId > 0 {

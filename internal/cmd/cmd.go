@@ -454,6 +454,9 @@ var (
 				financeCtrl := system.NewFinanceController()
 				group.GET("/finance/trader-export", financeCtrl.TraderExport)
 				group.GET("/finance/account-export", financeCtrl.AccountExport)
+				group.GET("/finance/cost-ranking-export", financeCtrl.CostRankingExport)
+				group.GET("/finance/author-cost-ranking-export", financeCtrl.AuthorCostRankingExport)
+				group.GET("/finance/cost-detail-export", financeCtrl.CostDetailExport)
 				// 抖店轮询器控制
 				douyinPollerCtrl := system.NewDouyinPollerController()
 				group.POST("/douyin-poller/start", douyinPollerCtrl.Start)
