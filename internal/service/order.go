@@ -198,10 +198,9 @@ func (s *OrderService) Stats(ctx context.Context, shopName string, startTime, en
 		stats.CommissionOrderCount = row["total"].Int64()
 	}
 
-	// 13. 实时利润 = 总商品金额 - 货款 - 留底 - 退款成本 - 小店服务费 - 线上佣金 - 广告费
-	// 利润 = 定价总额 - 货款 - 留底 - 退款成本 - 小店服务费 - 佣金(5%×0.1) - 广告费
-	// 佣金扣除 = (定价总额 - 留底 - 货款) × 5% × 0.1
-	commissionDeduction := (totalProductAmount - stats.ReserveAmount - stats.ProductCostAmount) * 0.005
+	// 13. 实时利润 = 总商品金额 - 货款 - 留底 - 退款成本 - 小店服务费 - 佣金扣除 - 广告费
+	// 佣金扣除 = 定价总额 × 0.5%（即 5% × 0.1）
+	commissionDeduction := totalProductAmount * 0.005
 	stats.RealtimeProfit = totalProductAmount - stats.ProductCostAmount - stats.ReserveAmount - stats.RefundCostAmount - stats.ShopServiceFee - commissionDeduction - stats.AdCostAmount
 
 	return stats, nil

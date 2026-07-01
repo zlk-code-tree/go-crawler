@@ -93,14 +93,32 @@ func (s *FinanceCommissionService) GetRealtimeProfit(ctx context.Context, req *R
 	}
 
 	// 2. 查询三平台订单统计
-	validCond, invalidCond, refundCond := getValidCond("o")
-	s.orderStatsByAccounts(ctx, accountIds, startTime, endTime, validCond, invalidCond, refundCond, result)
+	// 投手维度：使用 statsOrdersByAccountIds（含归属规则），与佣金统计口径一致
+	if req.TraderId > 0 {
+		traderName, _ := s.getTraderName(ctx, req.TraderId)
+		if traderName != "" {
+			stats, err := s.statsOrdersByAccountIds(ctx, accountIds, startDate, endDate, traderName)
+			if err == nil && stats != nil {
+				result.OrderCount = int64(stats.OrderCount)
+				result.PayAmount = stats.PayAmount
+				result.CostAmount = stats.CostAmount
+				result.ReserveAmount = stats.ReserveAmount
+				result.ShopServiceFee = stats.ShopServiceFee
+				result.Commission = stats.Commission
+				result.RefundCost = stats.RefundCostAmount
+				result.RefundCount = int64(stats.RefundOrderCount)
+			}
+		}
+	} else {
+		validCond, invalidCond, refundCond := getValidCond("o")
+		s.orderStatsByAccounts(ctx, accountIds, startTime, endTime, validCond, invalidCond, refundCond, result)
+	}
 
 	// 3. 查询千川广告消耗（按日期范围）
 	result.AdCost = s.getAdCostByAccountsRange(ctx, accountIds, startDate, endDate)
 
 	// 4. 计算净利润
-	commissionDeduction := (result.PayAmount - result.ReserveAmount - result.CostAmount) * 0.005
+	commissionDeduction := result.PayAmount * 0.005
 	result.NetProfit = result.PayAmount - result.CostAmount - result.ReserveAmount - result.RefundCost - result.ShopServiceFee - commissionDeduction - result.AdCost
 	result.NetProfit = roundFloatFinance(result.NetProfit, 2)
 	result.AdCost = roundFloatFinance(result.AdCost, 2)

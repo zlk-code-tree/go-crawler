@@ -203,8 +203,16 @@ func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId 
 	}
 
 	// 2. 统计这些账号的订单数据（跨三张订单表）
-	// 注意：getStatsRealtime 不传 traderName，归属规则在投手级别单独处理
-	stats, err := s.statsOrdersByAccountIds(ctx, accountIds, startDate, endDate, "")
+	// 投手节点：传入投手名称，启用归属规则（排除被重定向到其他投手的订单 + 纳入从其他投手重定向过来的订单），
+	// 使小组汇总与订单明细口径一致
+	traderName := ""
+	if nodeType == "trader" {
+		realTraderId := model.DecodeTraderID(nodeId)
+		if name, e := s.getTraderName(ctx, realTraderId); e == nil {
+			traderName = name
+		}
+	}
+	stats, err := s.statsOrdersByAccountIds(ctx, accountIds, startDate, endDate, traderName)
 	if err != nil {
 		g.Log().Warningf(ctx, "[Finance] statsOrdersByAccountIds 失败: accountIds=%v, err=%v", accountIds, err)
 		return nil, err
@@ -489,7 +497,20 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 		}
 	}
 
-	// 5. 构建结果
+	// 5. 投手子节点需要应用归属规则，批量 SQL 无法处理，改为逐个用 statsOrdersByAccountIds 重新计算
+	for i, cn := range childNodes {
+		if cn.nodeType == "trader" && len(cn.accountIds) > 0 {
+			realTraderId := model.DecodeTraderID(cn.id)
+			traderName, _ := s.getTraderName(ctx, realTraderId)
+			if traderName != "" {
+				if st, e := s.statsOrdersByAccountIds(ctx, cn.accountIds, startDate, childEndDate, traderName); e == nil && st != nil {
+					nodeStats[i] = *st
+				}
+			}
+		}
+	}
+
+	// 6. 构建结果
 	var children []model.NodeStatsItem
 	for i, cn := range childNodes {
 		st := nodeStats[i]
@@ -725,7 +746,20 @@ func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, de
 		}
 	}
 
-	// 5. 构建结果
+	// 5. 投手子节点需要应用归属规则，批量 SQL 无法处理，改为逐个用 statsOrdersByAccountIds 重新计算
+	for i, cn := range childNodes {
+		if cn.nodeType == "trader" && len(cn.accountIds) > 0 {
+			realTraderId := model.DecodeTraderID(cn.id)
+			traderName, _ := s.getTraderName(ctx, realTraderId)
+			if traderName != "" {
+				if st, e := s.statsOrdersByAccountIds(ctx, cn.accountIds, startDate, childEndDate, traderName); e == nil && st != nil {
+					nodeStats[i] = *st
+				}
+			}
+		}
+	}
+
+	// 6. 构建结果
 	var children []model.NodeStatsItem
 	for i, cn := range childNodes {
 		st := nodeStats[i]
@@ -1747,7 +1781,12 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 			payAmount := roundFloatFinance(productPrice*float64(productNum), 2)
 			costAmount := basePrice * float64(productNum)
 			reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.03, 2)
-			commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
+			// 小店服务费 = 定价总额 × 2%（仅抖音），与系统汇总口径一致
+			shopServiceFee := 0.0
+			if platform == "douyin" {
+				shopServiceFee = roundFloatFinance(payAmount*0.02, 2)
+			}
+			commission := roundFloatFinance(payAmount-costAmount-reserveAmount-shopServiceFee, 2)
 
 			payTime := row["order_submit_time"].String()
 			if len(payTime) >= 10 {
@@ -1832,17 +1871,22 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 				productNum := row["product_num"].Int()
 				productPrice := row["product_price"].Float64()
 				basePrice := row["base_price"].Float64()
-				payAmount := roundFloatFinance(productPrice*float64(productNum), 2)
-				costAmount := basePrice * float64(productNum)
-				reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.03, 2)
-				commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
+			payAmount := roundFloatFinance(productPrice*float64(productNum), 2)
+			costAmount := basePrice * float64(productNum)
+			reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.03, 2)
+			// 小店服务费 = 定价总额 × 2%（仅抖音），与系统汇总口径一致
+			shopServiceFee := 0.0
+			if platformItem == "douyin" {
+				shopServiceFee = roundFloatFinance(payAmount*0.02, 2)
+			}
+			commission := roundFloatFinance(payAmount-costAmount-reserveAmount-shopServiceFee, 2)
 
-				payTime := row["order_submit_time"].String()
-				if len(payTime) >= 10 {
-					payTime = payTime[:10]
-				}
+			payTime := row["order_submit_time"].String()
+			if len(payTime) >= 10 {
+				payTime = payTime[:10]
+			}
 
-				// 重定向订单的店铺名从订单表获取
+			// 重定向订单的店铺名从订单表获取
 				shopName := talentId
 				if info, ok := uidShopMap[talentId]; ok {
 					shopName = info.name
@@ -2202,7 +2246,12 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 			payAmount := roundFloatFinance(productPrice*float64(productNum), 2)
 			costAmount := basePrice * float64(productNum)
 			reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.03, 2)
-			commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
+			// 小店服务费 = 定价总额 × 2%（仅抖音），与系统汇总口径一致
+			shopServiceFee := 0.0
+			if platform == "douyin" {
+				shopServiceFee = roundFloatFinance(payAmount*0.02, 2)
+			}
+			commission := roundFloatFinance(payAmount-costAmount-reserveAmount-shopServiceFee, 2)
 
 			payTime := row["order_submit_time"].String()
 			if len(payTime) >= 10 {
@@ -2349,7 +2398,12 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 			payAmount := roundFloatFinance(productPrice*float64(productNum), 2)
 			costAmount := basePrice * float64(productNum)
 			reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.03, 2)
-			commission := roundFloatFinance(payAmount-costAmount-reserveAmount, 2)
+			// 小店服务费 = 定价总额 × 2%（仅抖音），与系统汇总口径一致
+			shopServiceFee := 0.0
+			if platform == "douyin" {
+				shopServiceFee = roundFloatFinance(payAmount*0.02, 2)
+			}
+			commission := roundFloatFinance(payAmount-costAmount-reserveAmount-shopServiceFee, 2)
 
 			payTime := row["order_submit_time"].String()
 			if len(payTime) >= 10 {
@@ -2471,7 +2525,12 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 			payAmt := roundFloatFinance(pPrice*float64(pNum), 2)
 			costAmt := bPrice * float64(pNum)
 			reserveAmt := roundFloatFinance(pPrice*float64(pNum)*0.03, 2)
-			comm := roundFloatFinance(payAmt-costAmt-reserveAmt, 2)
+			// 小店服务费 = 定价总额 × 2%（仅抖音），与系统汇总口径一致
+			shopFee := 0.0
+			if platform == "douyin" {
+				shopFee = roundFloatFinance(payAmt*0.02, 2)
+			}
+			comm := roundFloatFinance(payAmt-costAmt-reserveAmt-shopFee, 2)
 			payTime := row["order_submit_time"].String()
 			if len(payTime) >= 10 { payTime = payTime[:10] }
 			allOrders = append(allOrders, model.FinanceOrderItem{
