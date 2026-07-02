@@ -139,13 +139,30 @@ func (s *FinanceCommissionService) getAccountIdsByDimension(ctx context.Context,
 			accountIds = append(accountIds, row["account_id"].Int())
 		}
 	} else if req.DepartmentId > 0 {
-		rows, err := g.DB().Model("account a").
-			LeftJoin("trader_account_relation tar", "a.id = tar.account_id").
-			LeftJoin("trader t", "tar.trader_id = t.id").
-			Where("a.department_id", req.DepartmentId).
-			WhereOr("t.group_id", req.DepartmentId).
-			Fields("DISTINCT a.id AS id").
-			All()
+		departmentIds, err := s.getDepartmentTreeIds(ctx, req.DepartmentId)
+		if err != nil {
+			return nil, err
+		}
+		if len(departmentIds) == 0 {
+			departmentIds = []int64{req.DepartmentId}
+		}
+
+		placeholders := strings.TrimRight(strings.Repeat("?,", len(departmentIds)), ",")
+		params := make([]interface{}, 0, len(departmentIds)*2)
+		for _, id := range departmentIds {
+			params = append(params, id)
+		}
+		for _, id := range departmentIds {
+			params = append(params, id)
+		}
+
+		rows, err := g.DB().GetAll(ctx, fmt.Sprintf(`
+			SELECT DISTINCT a.id AS id
+			FROM account a
+			LEFT JOIN trader_account_relation tar ON a.id = tar.account_id
+			LEFT JOIN trader t ON tar.trader_id = t.id
+			WHERE a.department_id IN (%s) OR t.group_id IN (%s)
+		`, placeholders, placeholders), params...)
 		if err != nil {
 			return nil, err
 		}
@@ -163,6 +180,29 @@ func (s *FinanceCommissionService) getAccountIdsByDimension(ctx context.Context,
 	}
 
 	return accountIds, nil
+}
+
+func (s *FinanceCommissionService) getDepartmentTreeIds(ctx context.Context, departmentId int64) ([]int64, error) {
+	rows, err := g.DB().GetAll(ctx, `
+		WITH RECURSIVE dept_tree AS (
+			SELECT id FROM sys_department WHERE id = ?
+			UNION ALL
+			SELECT d.id FROM sys_department d
+			INNER JOIN dept_tree dt ON d.parent_id = dt.id
+		)
+		SELECT id FROM dept_tree
+	`, departmentId)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		if id := row["id"].Int64(); id > 0 {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
 }
 
 // orderStatsByAccounts 查询指定账号集合的订单统计
@@ -204,7 +244,7 @@ func (s *FinanceCommissionService) orderStatsByAccounts(ctx context.Context, acc
 				COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS refund_cost,
 				COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_count
 			FROM %s o
-			LEFT JOIN goods g ON o.seller_code = g.goods_code
+			LEFT JOIN goods g ON o.seller_code COLLATE utf8mb4_unicode_ci = g.goods_code COLLATE utf8mb4_unicode_ci
 			WHERE o.pay_finish_time >= ? AND o.pay_finish_time <= ?
 			  AND o.talent_id IN (%s)
 		`, p.orderNoCol, validCond, validCond, refundCond, refundCond, p.orderNoCol, p.table, placeholders)
@@ -320,6 +360,147 @@ type QianchuanCostDetailItem struct {
 	AdCost         float64 `json:"adCost"`
 	PayOrderGmv    float64 `json:"payOrderGmv"`
 	OrderCount     int64   `json:"orderCount"`
+}
+
+// QianchuanSubjectCostItem 账户主体消耗统计
+type QianchuanSubjectCostItem struct {
+	SubjectID       int64   `json:"subjectId"`
+	AdvertiserID    int64   `json:"advertiserId"`
+	AdvertiserName  string  `json:"advertiserName"`
+	SubjectName     string  `json:"subjectName"`
+	AccountName     string  `json:"accountName"`
+	Status          string  `json:"status"`
+	StatusType      string  `json:"statusType"`
+	StatCost        float64 `json:"statCost"`
+	PayOrderAmount  float64 `json:"payOrderAmount"`
+	AllOrderPayGmv  float64 `json:"allOrderPayGmv"`
+	ROI             float64 `json:"roi"`
+	Percent         float64 `json:"percent"`
+	MappingCount    int64   `json:"mappingCount"`
+	AdvertiserCount int64   `json:"advertiserCount"`
+	MatchedSubject  bool    `json:"matchedSubject"`
+}
+
+// GetSubjectCostStats 查询账户主体消耗统计
+func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, startDate, endDate string, limit int) ([]QianchuanSubjectCostItem, error) {
+	if startDate == "" && endDate == "" {
+		today := time.Now().Format("2006-01-02")
+		startDate, endDate = today, today
+	} else {
+		if startDate == "" {
+			startDate = endDate
+		}
+		if endDate == "" {
+			endDate = startDate
+		}
+	}
+	if _, err := time.Parse("2006-01-02", startDate); err != nil {
+		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
+	}
+	if _, err := time.Parse("2006-01-02", endDate); err != nil {
+		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	rows, err := g.DB().GetAll(ctx, `
+		SELECT
+			COALESCE(map.subject_id, 0) AS subject_id,
+			COALESCE(NULLIF(map.subject_name, ''), '未匹配主体') AS subject_name,
+			COUNT(DISTINCT adv.advertiser_id) AS advertiser_count,
+			COALESCE(SUM(adv.stat_cost), 0) AS stat_cost,
+			COALESCE(SUM(adv.pay_order_amount), 0) AS pay_order_amount,
+			COALESCE(SUM(adv.all_order_pay_gmv), 0) AS all_order_pay_gmv,
+			COALESCE(SUM(map.mapping_count), 0) AS mapping_count,
+			MAX(COALESCE(map.matched_subject, 0)) AS matched_subject
+		FROM (
+			SELECT
+				advertiser_id,
+				COALESCE(SUM(stat_cost), 0) AS stat_cost,
+				COALESCE(SUM(pay_order_amount), 0) AS pay_order_amount,
+				COALESCE(SUM(all_order_pay_gmv_7days), 0) AS all_order_pay_gmv
+			FROM qianchuan_advertiser_daily_report
+			WHERE LEFT(stat_datetime, 10) >= ?
+			  AND LEFT(stat_datetime, 10) <= ?
+			GROUP BY advertiser_id
+		) adv
+		LEFT JOIN (
+			SELECT
+				aqm.qianchuan_advertiser_id,
+				MAX(COALESCE(NULLIF(aqm.company_id, 0), a.company_id, 0)) AS subject_id,
+				MAX(NULLIF(c.name, '')) AS subject_name,
+				COUNT(DISTINCT aqm.account_id) AS mapping_count,
+				MAX(CASE WHEN COALESCE(NULLIF(aqm.company_id, 0), a.company_id, 0) > 0 THEN 1 ELSE 0 END) AS matched_subject
+			FROM account_qianchuan_mapping aqm
+			LEFT JOIN account a ON a.id = aqm.account_id
+			LEFT JOIN sys_company c ON c.id = COALESCE(NULLIF(aqm.company_id, 0), a.company_id)
+			GROUP BY aqm.qianchuan_advertiser_id
+		) map ON map.qianchuan_advertiser_id = adv.advertiser_id
+		GROUP BY COALESCE(map.subject_id, 0), COALESCE(NULLIF(map.subject_name, ''), '未匹配主体')
+		ORDER BY stat_cost DESC
+		LIMIT ?
+	`, startDate, endDate, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]QianchuanSubjectCostItem, len(rows))
+	maxCost := 0.0
+	for _, row := range rows {
+		if cost := row["stat_cost"].Float64(); cost > maxCost {
+			maxCost = cost
+		}
+	}
+
+	for i, row := range rows {
+		statCost := row["stat_cost"].Float64()
+		payOrderAmount := row["pay_order_amount"].Float64()
+		allOrderPayGmv := row["all_order_pay_gmv"].Float64()
+		roiAmount := payOrderAmount
+		if roiAmount <= 0 {
+			roiAmount = allOrderPayGmv
+		}
+		roi := 0.0
+		if statCost > 0 {
+			roi = roiAmount / statCost
+		}
+
+		matchedSubject := row["matched_subject"].Int() > 0
+		status := "待识别组织"
+		statusType := "warning"
+		if matchedSubject {
+			status = "known"
+			statusType = "known"
+		}
+
+		percent := 0.0
+		if maxCost > 0 {
+			percent = statCost / maxCost * 100
+		}
+
+		result[i] = QianchuanSubjectCostItem{
+			SubjectID:       row["subject_id"].Int64(),
+			AdvertiserID:    row["subject_id"].Int64(),
+			AdvertiserName:  row["subject_name"].String(),
+			SubjectName:     row["subject_name"].String(),
+			AccountName:     fmt.Sprintf("%d 个千川账户", row["advertiser_count"].Int64()),
+			Status:          status,
+			StatusType:      statusType,
+			StatCost:        roundFloatFinance(statCost, 2),
+			PayOrderAmount:  roundFloatFinance(payOrderAmount, 2),
+			AllOrderPayGmv:  roundFloatFinance(allOrderPayGmv, 2),
+			ROI:             roundFloatFinance(roi, 2),
+			Percent:         roundFloatFinance(percent, 2),
+			MappingCount:    row["mapping_count"].Int64(),
+			AdvertiserCount: row["advertiser_count"].Int64(),
+			MatchedSubject:  matchedSubject,
+		}
+	}
+	return result, nil
 }
 
 // GetAuthorCostRanking 查询达人维度消耗统计

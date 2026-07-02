@@ -179,11 +179,13 @@ func (c *WebhookConfigController) TestPush(r *ghttp.Request) {
 	svc := webhook.NewWebhookPushService()
 	card, err := svc.BuildProfitCardForNode(ctx, cfg)
 	if err != nil {
+		g.Log().Errorf(ctx, "[WebhookPush] 主动推送构建数据失败 id=%d name=%s node=%s/%d: %v", cfg.Id, cfg.Name, cfg.NodeType, cfg.NodeId, err)
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "构建数据失败: " + err.Error()})
 		return
 	}
 
 	if err := pushByPlatform(ctx, cfg, card); err != nil {
+		g.Log().Errorf(ctx, "[WebhookPush] 主动推送失败 id=%d name=%s platform=%s node=%s/%d: %v", cfg.Id, cfg.Name, cfg.Platform, cfg.NodeType, cfg.NodeId, err)
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "推送失败: " + err.Error()})
 		return
 	}

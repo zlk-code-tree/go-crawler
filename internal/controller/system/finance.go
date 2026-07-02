@@ -382,6 +382,25 @@ func (c *FinanceController) CostRanking(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": result, "msg": "ok"})
 }
 
+// SubjectCostStats 账户主体消耗统计 GET /api/finance/subject-cost-stats
+func (c *FinanceController) SubjectCostStats(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
+	limit := r.Get("limit", 10).Int()
+
+	financeService := service.NewFinanceCommissionService()
+	result, err := financeService.GetSubjectCostStats(r.Context(), startDate, endDate, limit)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": result, "msg": "ok"})
+}
+
 // AuthorCostRanking 达人维度消耗统计 GET /api/finance/author-cost-ranking
 func (c *FinanceController) AuthorCostRanking(r *ghttp.Request) {
 	startDate := r.Get("startDate").String()

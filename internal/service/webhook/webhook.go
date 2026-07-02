@@ -2,8 +2,12 @@ package webhook
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	financeService "go-crawler/internal/service"
 	"strconv"
 	"strings"
 	"time"
@@ -155,6 +159,7 @@ func (s *WebhookPushService) pushOneConfig(ctx context.Context, cfg *WebhookConf
 // sendFeishu 发送飞书卡片
 func (s *WebhookPushService) sendFeishu(ctx context.Context, cfg *WebhookConfig, card *ProfitCardData) error {
 	msg := buildFeishuCard(card)
+	msg = signFeishuMessage(msg, cfg.Secret)
 	return postJSON(ctx, cfg.WebhookUrl, msg)
 }
 
@@ -274,23 +279,49 @@ func periodLabel(days int) string {
 // nodeType: summary=全公司/company/department/trader
 func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days int, nodeType string, nodeId int64) (*PeriodProfit, error) {
 	now := time.Now()
-	var startTime, endTime string
+	var startDate, endDate string
 
 	if days == 0 {
-		startTime = now.Format("2006-01-02") + " 00:00:00"
-		endTime = now.Format("2006-01-02") + " 23:59:59"
+		startDate = now.Format("2006-01-02")
+		endDate = startDate
 	} else {
-		startTime = now.AddDate(0, 0, -days).Format("2006-01-02") + " 00:00:00"
-		endTime = now.AddDate(0, 0, -1).Format("2006-01-02") + " 23:59:59"
+		startDate = now.AddDate(0, 0, -days).Format("2006-01-02")
+		endDate = now.AddDate(0, 0, -1).Format("2006-01-02")
 	}
 
-	// 确定该节点的达人UID列表（用于订单过滤）
-	uids, err := s.getUidsByNode(ctx, nodeType, nodeId)
-	if err != nil {
-		return nil, err
+	if nodeType != "summary" {
+		req := &financeService.RealtimeProfitReq{
+			StartDate: startDate,
+			EndDate:   endDate,
+		}
+		switch nodeType {
+		case "company":
+			req.CompanyId = nodeId
+		case "department":
+			req.DepartmentId = nodeId
+		case "trader":
+			req.TraderId = nodeId
+		default:
+			return &PeriodProfit{}, nil
+		}
+
+		result, err := financeService.NewFinanceCommissionService().GetRealtimeProfit(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		return &PeriodProfit{
+			Revenue:    result.PayAmount,
+			Cost:       result.CostAmount,
+			AdCost:     result.AdCost,
+			Commission: result.Commission,
+			NetProfit:  result.NetProfit,
+			OrderCount: result.OrderCount,
+		}, nil
 	}
 
 	profit := &PeriodProfit{}
+	startTime := startDate + " 00:00:00"
+	endTime := endDate + " 23:59:59"
 
 	validCond := "((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
 	refundCond := "o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'"
@@ -313,20 +344,11 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 				COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS cost_amount,
 				COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS refund_cost
 			FROM %s o
-			LEFT JOIN goods g ON o.seller_code = g.goods_code
+			LEFT JOIN goods g ON o.seller_code COLLATE utf8mb4_unicode_ci = g.goods_code COLLATE utf8mb4_unicode_ci
 			WHERE o.pay_finish_time >= ? AND o.pay_finish_time <= ?
 		`, validCond, p.orderNoCol, validCond, validCond, refundCond, p.table)
 
 		params := []interface{}{startTime, endTime}
-		// 非汇总节点需要按达人UID过滤
-		if nodeType != "summary" && len(uids) > 0 {
-			placeholders := make([]string, len(uids))
-			for i, u := range uids {
-				placeholders[i] = "?"
-				params = append(params, u)
-			}
-			sql += " AND o.talent_id IN (" + strings.Join(placeholders, ",") + ")"
-		}
 
 		r, err := g.DB().GetOne(ctx, sql, params...)
 		if err != nil {
@@ -343,21 +365,23 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 		payAmount := r["pay_amount"].Float64()
 		profit.Revenue += payAmount
 		profit.Cost += r["cost_amount"].Float64()
+		if p.isDouyin {
+			profit.Commission -= payAmount * 0.02
+		}
 	}
 
 	// 留底3%和佣金
 	reserveTotal := profit.Revenue * 0.03
-	shopServiceFee := profit.Revenue * 0.02
+	shopServiceFee := -profit.Commission
 	profit.Commission = profit.Revenue - reserveTotal - profit.Cost - shopServiceFee
 	if profit.Commission < 0 {
 		profit.Commission = 0
 	}
 
-	// 查询千川广告消耗（按节点关联的广告主）
-	profit.AdCost = s.queryAdCostByNode(ctx, nodeType, nodeId, startTime[:10], endTime[:10])
+	profit.AdCost = s.querySummaryAdCost(ctx, startDate, endDate)
 
 	// 净利润
-	commissionDeduction := (profit.Revenue - reserveTotal - profit.Cost) * 0.005
+	commissionDeduction := profit.Revenue * 0.005
 	profit.NetProfit = profit.Revenue - profit.Cost - reserveTotal - shopServiceFee - commissionDeduction - profit.AdCost
 
 	profit.Revenue = round2(profit.Revenue)
@@ -369,71 +393,21 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 	return profit, nil
 }
 
-// getUidsByNode 根据节点类型获取达人UID列表
-func (s *WebhookPushService) getUidsByNode(ctx context.Context, nodeType string, nodeId int64) ([]string, error) {
-	if nodeType == "summary" || nodeId == 0 {
-		return nil, nil
-	}
-
-	query := g.DB().Model("account a").Fields("a.uid")
-	switch nodeType {
-	case "company":
-		query = query.Where("a.company_id", nodeId)
-	case "department":
-		query = query.Where("a.department_id", nodeId)
-	case "trader":
-		query = query.InnerJoin("trader_account_relation tar", "a.id = tar.account_id").Where("tar.trader_id", nodeId)
-	default:
-		return nil, nil
-	}
-
-	rows, err := query.All()
-	if err != nil {
-		return nil, err
-	}
-	uids := make([]string, 0, len(rows))
-	for _, row := range rows {
-		if uid := row["uid"].String(); uid != "" {
-			uids = append(uids, uid)
-		}
-	}
-	return uids, nil
-}
-
-// queryAdCostByNode 查询指定节点的千川广告消耗
-func (s *WebhookPushService) queryAdCostByNode(ctx context.Context, nodeType string, nodeId int64, startDate, endDate string) float64 {
-	if nodeType == "summary" {
-		// 全公司：直接汇总所有日报
-		row, err := g.DB().Model("qianchuan_advertiser_daily_report").
-			Where("LEFT(stat_datetime, 10) >= ?", startDate).
-			Where("LEFT(stat_datetime, 10) <= ?", endDate).
-			Fields("COALESCE(SUM(stat_cost), 0) AS cost").
-			One()
-		if err != nil {
-			return 0
-		}
+func (s *WebhookPushService) querySummaryAdCost(ctx context.Context, startDate, endDate string) float64 {
+	row, err := g.DB().Model("qianchuan_author_daily_report").
+		Where("LEFT(stat_datetime, 10) >= ?", startDate).
+		Where("LEFT(stat_datetime, 10) <= ?", endDate).
+		Fields("COALESCE(SUM(stat_cost), 0) AS cost").
+		One()
+	if err == nil && row["cost"].Float64() > 0 {
 		return row["cost"].Float64()
 	}
 
-	// 非汇总节点：通过 account_qianchuan_mapping 关联
-	query := g.DB().Model("qianchuan_advertiser_daily_report qar").
-		InnerJoin("account_qianchuan_mapping aqm", "qar.advertiser_id = aqm.qianchuan_advertiser_id").
-		Where("LEFT(qar.stat_datetime, 10) >= ?", startDate).
-		Where("LEFT(qar.stat_datetime, 10) <= ?", endDate).
-		Fields("COALESCE(SUM(qar.stat_cost), 0) AS cost")
-
-	switch nodeType {
-	case "company":
-		query = query.InnerJoin("account a", "aqm.account_id = a.id").Where("a.company_id", nodeId)
-	case "department":
-		query = query.InnerJoin("account a", "aqm.account_id = a.id").Where("a.department_id", nodeId)
-	case "trader":
-		query = query.InnerJoin("trader_account_relation tar", "aqm.account_id = tar.account_id").Where("tar.trader_id", nodeId)
-	default:
-		return 0
-	}
-
-	row, err := query.One()
+	row, err = g.DB().Model("qianchuan_advertiser_daily_report").
+		Where("LEFT(stat_datetime, 10) >= ?", startDate).
+		Where("LEFT(stat_datetime, 10) <= ?", endDate).
+		Fields("COALESCE(SUM(stat_cost), 0) AS cost").
+		One()
 	if err != nil {
 		return 0
 	}
@@ -477,6 +451,22 @@ func postJSON(ctx context.Context, webhookURL string, body interface{}) error {
 	}
 
 	return nil
+}
+
+func signFeishuMessage(msg map[string]interface{}, secret string) map[string]interface{} {
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return msg
+	}
+
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	stringToSign := timestamp + "\n" + secret
+	h := hmac.New(sha256.New, []byte(stringToSign))
+	sign := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+	msg["timestamp"] = timestamp
+	msg["sign"] = sign
+	return msg
 }
 
 // formatMoney 格式化金额

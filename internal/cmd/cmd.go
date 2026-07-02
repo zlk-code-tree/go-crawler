@@ -428,6 +428,7 @@ var (
 				// 实时盈亏查询（含千川消耗）
 				group.GET("/finance/today-cost", system.NewFinanceController().TodayCost)
 				group.GET("/finance/cost-ranking", system.NewFinanceController().CostRanking)
+				group.GET("/finance/subject-cost-stats", system.NewFinanceController().SubjectCostStats)
 				group.GET("/finance/author-cost-ranking", system.NewFinanceController().AuthorCostRanking)
 
 				// Webhook推送配置管理

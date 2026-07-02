@@ -21,20 +21,36 @@ func SendToFeishu(ctx context.Context, card *ProfitCardData) error {
 
 // buildFeishuCard 构建飞书消息卡片
 func buildFeishuCard(card *ProfitCardData) map[string]interface{} {
-	// 构建各周期的数据行
-	fields := make([]map[string]interface{}, 0)
-
+	elements := []map[string]interface{}{
+		{
+			"tag": "hr",
+		},
+	}
 	for _, p := range card.Periods {
-		fields = append(fields,
+		elements = append(elements,
 			map[string]interface{}{
-				"is_short": false,
+				"tag": "div",
 				"text": map[string]interface{}{
 					"tag":     "lark_md",
-					"content": fmt.Sprintf("**%s**  流水 %s  成本 %s  广告 %s  佣金 %s  净利 **%s**", p.Label, formatMoney(p.Revenue), formatMoney(p.Cost), formatMoney(p.AdCost), formatMoney(p.Commission), formatMoney(p.NetProfit)),
+					"content": fmt.Sprintf("**%s**\n流水 %s  成本 %s  广告 %s  佣金 %s  净利 **%s**", p.Label, formatMoney(p.Revenue), formatMoney(p.Cost), formatMoney(p.AdCost), formatMoney(p.Commission), formatMoney(p.NetProfit)),
 				},
 			},
 		)
 	}
+	elements = append(elements,
+		map[string]interface{}{
+			"tag": "hr",
+		},
+		map[string]interface{}{
+			"tag": "note",
+			"elements": []map[string]interface{}{
+				{
+					"tag":     "plain_text",
+					"content": fmt.Sprintf("数据更新时间: %s | 由系统自动推送", card.UpdatedAt),
+				},
+			},
+		},
+	)
 
 	// 计算今日净利润用于标题
 	todayProfit := "—"
@@ -52,27 +68,7 @@ func buildFeishuCard(card *ProfitCardData) map[string]interface{} {
 				},
 				"template": "blue",
 			},
-			"elements": append(
-				[]map[string]interface{}{
-					{
-						"tag": "hr",
-					},
-				},
-				append(fields,
-					map[string]interface{}{
-						"tag": "hr",
-					},
-					map[string]interface{}{
-						"tag": "note",
-						"elements": []map[string]interface{}{
-							{
-								"tag":     "plain_text",
-								"content": fmt.Sprintf("数据更新时间: %s | 由系统自动推送", card.UpdatedAt),
-							},
-						},
-					},
-				)...,
-			),
+			"elements": elements,
 		},
 	}
 }
