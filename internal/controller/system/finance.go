@@ -11,6 +11,7 @@ import (
 	v1 "go-crawler/api/hello/v1"
 	"go-crawler/internal/model"
 	"go-crawler/internal/service"
+	"go-crawler/internal/service/platform/oceanengine"
 
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
@@ -319,6 +320,93 @@ func (c *FinanceController) CostDetailExport(r *ghttp.Request) {
 	}
 
 	filename, err := service.NewFinanceCommissionService().ExportCostDetails(r.Context(), startDate, endDate, dimension, id)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
+		return
+	}
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+	defer os.Remove(filename)
+}
+
+// SubjectCostDetailExport 导出主体消耗明细 GET /api/finance/subject-cost-detail-export
+func (c *FinanceController) SubjectCostDetailExport(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
+	subjectId := r.Get("subjectId", 0).Int64()
+
+	filename, err := service.NewFinanceCommissionService().ExportSubjectCostDetail(r.Context(), startDate, endDate, subjectId)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
+		return
+	}
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+	defer os.Remove(filename)
+}
+
+// OverallDetailExport 导出乘方抖音号明细 GET /api/finance/overall-detail-export
+func (c *FinanceController) OverallDetailExport(r *ghttp.Request) {
+	ctx := r.Context()
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
+	if startDate == "" || endDate == "" {
+		today := time.Now().Format("2006-01-02")
+		startDate, endDate = today, today
+	}
+	advertiserId := r.Get("advertiserId", 0).Int64()
+	if advertiserId <= 0 {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "advertiserId不能为空"})
+		return
+	}
+
+	// 读取最新token
+	tokenRow, err := g.DB().Model("qianchuan_token").Ctx(ctx).OrderDesc("id").Limit(1).One()
+	if err != nil || tokenRow.IsEmpty() {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "未找到有效token，请先完成千川授权"})
+		return
+	}
+	client := oceanengine.NewClient(tokenRow["access_token"].String())
+
+	// 翻页拉取全量明细
+	var exportList []service.OverallDetailExportItem
+	page := 1
+	pageSize := 100
+	for {
+		result, err := client.GetOverallProductAwemeReport(ctx, advertiserId, startDate, endDate, page, pageSize, "")
+		if err != nil {
+			r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": fmt.Sprintf("拉取乘方明细失败(page=%d): %v", page, err)})
+			return
+		}
+		for _, item := range result.List {
+			exportList = append(exportList, service.OverallDetailExportItem{
+				AnchorName:                                 item.AnchorName,
+				AnchorShowID:                               item.AnchorShowID,
+				StatCostForOverallRoi2:                     item.StatCostForOverallRoi2,
+				TotalPrepayAndPaySettleOverallRoi21h:       item.TotalPrepayAndPaySettleOverallRoi21h,
+				TotalCostPerPayOrderSettleForOverallRoi21h: item.TotalCostPerPayOrderSettleForOverallRoi21h,
+				ShopEstimatedComissionCost:                 item.ShopEstimatedComissionCost,
+				TotalOrderSettleAmountForRoi21h:            item.TotalOrderSettleAmountForRoi21h,
+				StatCostForRoi2:                            item.StatCostForRoi2,
+				TotalOrderSettleCountForRoi21h:             item.TotalOrderSettleCountForRoi21h,
+				TotalOrderRealSettleAmountForRoi21h:        item.TotalOrderRealSettleAmountForRoi21h,
+			})
+		}
+		if int64(len(exportList)) >= result.Total || len(result.List) == 0 {
+			break
+		}
+		page++
+	}
+
+	filename, err := service.NewFinanceCommissionService().ExportOverallDetail(exportList)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return

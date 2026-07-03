@@ -511,6 +511,8 @@ var (
 				group.GET("/finance/cost-ranking-export", financeCtrl.CostRankingExport)
 				group.GET("/finance/author-cost-ranking-export", financeCtrl.AuthorCostRankingExport)
 				group.GET("/finance/cost-detail-export", financeCtrl.CostDetailExport)
+				group.GET("/finance/subject-cost-detail-export", financeCtrl.SubjectCostDetailExport)
+				group.GET("/finance/overall-detail-export", financeCtrl.OverallDetailExport)
 				// 抖店轮询器控制
 				douyinPollerCtrl := system.NewDouyinPollerController()
 				group.POST("/douyin-poller/start", douyinPollerCtrl.Start)

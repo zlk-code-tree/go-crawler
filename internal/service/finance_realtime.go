@@ -1029,6 +1029,70 @@ func (s *FinanceCommissionService) ExportCostDetails(ctx context.Context, startD
 	})
 }
 
+// ExportSubjectCostDetail 导出主体消耗明细（按千川广告主账户维度，全量数据）
+func (s *FinanceCommissionService) ExportSubjectCostDetail(ctx context.Context, startDate, endDate string, subjectId int64) (string, error) {
+	list, _, err := s.GetSubjectCostDetail(ctx, startDate, endDate, subjectId, 1, 1000000)
+	if err != nil {
+		return "", err
+	}
+	return writeExcelFile("主体消耗明细", []string{
+		"排名", "千川广告主ID", "广告主名称", "账号名称", "UID", "投手", "千川消耗(元)", "成交金额(元)", "成交订单数", "展示数", "点击数", "ROI",
+	}, []float64{8, 18, 24, 20, 16, 14, 16, 16, 12, 12, 12, 10}, len(list), func(rowIdx int) []interface{} {
+		item := list[rowIdx]
+		return []interface{}{
+			rowIdx + 1,
+			fmt.Sprintf("%d", item.AdvertiserID),
+			item.AdvertiserName,
+			item.AccountName,
+			item.UID,
+			item.TraderName,
+			item.StatCost,
+			item.PayOrderAmount,
+			item.PayOrderCount,
+			item.ShowCnt,
+			item.ClickCnt,
+			item.ROI,
+		}
+	})
+}
+
+// OverallDetailExportItem 乘方明细导出项（供 controller 层填充）
+type OverallDetailExportItem struct {
+	AnchorName                                 string  `json:"anchorName"`
+	AnchorShowID                               string  `json:"anchorShowId"`
+	StatCostForOverallRoi2                     float64 `json:"statCostForOverallRoi2"`
+	TotalPrepayAndPaySettleOverallRoi21h       float64 `json:"totalPrepayAndPaySettleOverallRoi21h"`
+	TotalCostPerPayOrderSettleForOverallRoi21h float64 `json:"totalCostPerPayOrderSettleForOverallRoi21h"`
+	ShopEstimatedComissionCost                 float64 `json:"shopEstimatedComissionCost"`
+	TotalOrderSettleAmountForRoi21h            float64 `json:"totalOrderSettleAmountForRoi21h"`
+	StatCostForRoi2                            float64 `json:"statCostForRoi2"`
+	TotalOrderSettleCountForRoi21h             int64   `json:"totalOrderSettleCountForRoi21h"`
+	TotalOrderRealSettleAmountForRoi21h        float64 `json:"totalOrderRealSettleAmountForRoi21h"`
+}
+
+// ExportOverallDetail 导出乘方抖音号明细（接收已拉取的明细数据列表）
+func (s *FinanceCommissionService) ExportOverallDetail(list []OverallDetailExportItem) (string, error) {
+	return writeExcelFile("乘方抖音号明细", []string{
+		"排名", "抖音号", "抖音号ID", "综合成本(元)", "综合ROI", "综合订单成本", "预估达人佣金(元)",
+		"净成交金额(元)", "整体消耗(元)", "净成交订单数", "用户实际支付净成交金额(元)",
+	}, []float64{8, 22, 18, 16, 12, 16, 18, 18, 16, 14, 22}, len(list), func(rowIdx int) []interface{} {
+		item := list[rowIdx]
+		return []interface{}{
+			rowIdx + 1,
+			item.AnchorName,
+			item.AnchorShowID,
+			item.StatCostForOverallRoi2,
+			item.TotalPrepayAndPaySettleOverallRoi21h,
+			item.TotalCostPerPayOrderSettleForOverallRoi21h,
+			item.ShopEstimatedComissionCost,
+			item.TotalOrderSettleAmountForRoi21h,
+			item.StatCostForRoi2,
+			item.TotalOrderSettleCountForRoi21h,
+			item.TotalOrderRealSettleAmountForRoi21h,
+		}
+	})
+}
+
 func writeExcelFile(sheetName string, headers []string, colWidths []float64, rowCount int, rowData func(rowIdx int) []interface{}) (string, error) {
 	f := excelize.NewFile()
 	defer f.Close()
