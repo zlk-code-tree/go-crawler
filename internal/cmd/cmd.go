@@ -187,6 +187,58 @@ var (
 				KEY idx_account_id (account_id)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千川达人维度日报表'`)
 
+			// 自动建表：千川乘方日报表（账户维度）
+			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS qianchuan_overall_promotion_daily_report (
+				id BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+				account_id INT(11) NOT NULL DEFAULT 0 COMMENT '内部账号ID，关联 account.id',
+				company_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '公司ID',
+				department_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '部门ID',
+				trader_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '投手ID',
+				advertiser_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '千川广告主ID',
+				stat_datetime VARCHAR(20) NOT NULL DEFAULT '' COMMENT '统计日期',
+				adlab_scene VARCHAR(32) NOT NULL DEFAULT 'OVERALL_PROJECT' COMMENT '计划场景',
+				data_period VARCHAR(32) NOT NULL DEFAULT 'OVER_ALL_DATA' COMMENT '数据周期',
+				marketing_goal VARCHAR(32) NOT NULL DEFAULT 'ALL' COMMENT '营销目标',
+				order_platform VARCHAR(32) NOT NULL DEFAULT 'QIANCHUAN' COMMENT '下单平台',
+				shop_estimated_comission_cost DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '预估达人佣金成本',
+				stat_cost_for_overall_roi2 DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '综合成本',
+				stat_cost_for_roi2 DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '整体消耗',
+				total_cost_per_pay_order_for_roi2 DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '整体成交订单成本',
+				total_cost_per_pay_order_settle_for_overall_roi2_1h DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '综合订单成本',
+				total_cost_per_pay_order_settle_for_roi2_1h DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '净成交订单成本',
+				total_ecom_platform_subsidy_amount_for_roi2 DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '平台补贴金额',
+				total_order_real_settle_amount_for_roi2_1h DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '实际结算金额',
+				total_order_settle_amount_for_roi2_1h DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '净成交金额',
+				total_order_settle_amount_rate_for_roi2_1h DECIMAL(12,4) NOT NULL DEFAULT 0.0000 COMMENT '净成交金额占比',
+				total_order_settle_count_for_roi2_1h BIGINT(20) NOT NULL DEFAULT 0 COMMENT '净成交订单数',
+				total_order_settle_count_rate_for_roi2_1h DECIMAL(12,4) NOT NULL DEFAULT 0.0000 COMMENT '净成交订单数占比',
+				total_pay_order_count_for_roi2 BIGINT(20) NOT NULL DEFAULT 0 COMMENT '整体成交订单数',
+				total_pay_order_coupon_amount_for_roi2 DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '整体成交优惠券金额',
+				total_pay_order_gmv_for_roi2 DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '用户实际支付金额',
+				total_pay_order_gmv_include_coupon_for_roi2 DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '整体成交金额',
+				total_prepay_and_pay_order_roi2 DECIMAL(12,4) NOT NULL DEFAULT 0.0000 COMMENT '整体支付ROI',
+				total_prepay_and_pay_settle_overall_roi2_1h DECIMAL(12,4) NOT NULL DEFAULT 0.0000 COMMENT '综合ROI',
+				total_prepay_and_pay_settle_roi2_1h DECIMAL(12,4) NOT NULL DEFAULT 0.0000 COMMENT '净成交ROI',
+				total_prepay_order_count_for_roi2 BIGINT(20) NOT NULL DEFAULT 0 COMMENT '整体预售订单数',
+				total_prepay_order_gmv_for_roi2 DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '整体预售订单金额',
+				total_refund_order_count_for_roi2_1h BIGINT(20) NOT NULL DEFAULT 0 COMMENT '退款订单数',
+				total_refund_order_gmv_for_roi2_1h_all DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '退款订单金额',
+				total_refund_order_gmv_for_roi2_1h_rate DECIMAL(12,4) NOT NULL DEFAULT 0.0000 COMMENT '退款订单金额占比',
+				total_unfinished_estimate_order_gmv_for_roi2 DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '未完结预售订单预估金额',
+				no_refund_ecom_coupon_amount_for_roi2 DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '不含退款优惠券金额',
+				no_refund_ecom_platform_subsidy_amount_for_roi2 DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '不含退款平台补贴金额',
+				raw_payload LONGTEXT COMMENT '原始响应快照',
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+				PRIMARY KEY (id),
+				UNIQUE KEY uk_adv_date_dims (advertiser_id, stat_datetime, adlab_scene, data_period, marketing_goal, order_platform),
+				KEY idx_stat_datetime (stat_datetime),
+				KEY idx_account_id (account_id),
+				KEY idx_company_id (company_id),
+				KEY idx_department_id (department_id),
+				KEY idx_trader_id (trader_id)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千川乘方日报表'`)
+
 			addColumnIfMissing("qianchuan_ad_report", "organization_id", "organization_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '组织ID（默认公司ID）' AFTER `id`")
 			addColumnIfMissing("qianchuan_ad_report", "account_id", "account_id INT(11) NOT NULL DEFAULT 0 COMMENT '内部账号ID，关联account.id' AFTER `organization_id`")
 			addColumnIfMissing("qianchuan_ad_report", "company_id", "company_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '公司ID' AFTER `account_id`")
@@ -429,6 +481,7 @@ var (
 				group.GET("/finance/today-cost", system.NewFinanceController().TodayCost)
 				group.GET("/finance/cost-ranking", system.NewFinanceController().CostRanking)
 				group.GET("/finance/subject-cost-stats", system.NewFinanceController().SubjectCostStats)
+				group.GET("/finance/subject-cost-detail", system.NewFinanceController().SubjectCostDetail)
 				group.GET("/finance/author-cost-ranking", system.NewFinanceController().AuthorCostRanking)
 
 				// Webhook推送配置管理
@@ -472,10 +525,13 @@ var (
 				group.POST("/qianchuan-poller/stop", qianchuanPollerCtrl.Stop)
 				group.GET("/qianchuan-poller/status", qianchuanPollerCtrl.Status)
 				group.POST("/qianchuan-poller/trigger", qianchuanPollerCtrl.ManualTrigger)
+				group.POST("/qianchuan-poller/trigger-overall", qianchuanPollerCtrl.ManualTriggerOverall)
 				group.GET("/qianchuan-poller/debug", qianchuanPollerCtrl.DebugToken)
 				group.POST("/qianchuan-poller/sync-advertisers", qianchuanPollerCtrl.SyncAdvertisers)
 				group.GET("/qianchuan-poller/test-report", qianchuanPollerCtrl.TestReportAPI)
 				group.GET("/qianchuan-poller/daily-report", qianchuanPollerCtrl.DailyReportList)
+				group.GET("/qianchuan-poller/overall-report", qianchuanPollerCtrl.OverallReportList)
+				group.GET("/qianchuan-poller/overall-report-detail", qianchuanPollerCtrl.OverallReportDetailList)
 				group.GET("/qianchuan-poller/daily-report-advertisers", qianchuanPollerCtrl.DailyReportAdvertisers)
 				// 店铺管理 导入/导出
 				storeFileCtrl := system.NewStoreController()

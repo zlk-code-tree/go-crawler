@@ -431,6 +431,37 @@ func (c *QianchuanPollerController) ManualTrigger(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"logId": logId}, "msg": "任务已启动，后台拉取中"})
 }
 
+// ManualTriggerOverall 手动拉取乘方数据 POST /api/qianchuan-poller/trigger-overall
+func (c *QianchuanPollerController) ManualTriggerOverall(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	userId := r.GetCtxVar("userId").Int64()
+
+	if startDate == "" || endDate == "" {
+		yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+		startDate = yesterday
+		endDate = yesterday
+	}
+
+	start, startErr := time.Parse("2006-01-02", startDate)
+	end, endErr := time.Parse("2006-01-02", endDate)
+	if startErr != nil || endErr != nil || end.Before(start) {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "日期格式错误或结束日期早于开始日期"})
+		return
+	}
+
+	reqParams, _ := json.Marshal(g.Map{"startDate": startDate, "endDate": endDate})
+	logId, err := service.TaskLogStart(r.Context(), "千川乘方数据手动拉取", "qianchuan_overall_pull", "/api/qianchuan-poller/trigger-overall", string(reqParams))
+	if err != nil {
+		g.Log().Errorf(r.Context(), "[QianchuanPoller] 写入乘方任务日志失败: %v", err)
+	}
+
+	g.Log().Infof(r.Context(), "[QianchuanPoller] 收到乘方异步拉取请求: %s~%s, logId=%d, userId=%d", startDate, endDate, logId, userId)
+	go c.runQianchuanOverallPullByDate(context.Background(), startDate, endDate, logId, userId)
+
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"logId": logId}, "msg": "乘方任务已启动，后台拉取中"})
+}
+
 func (c *QianchuanPollerController) runQianchuanPullByDate(ctx context.Context, startDate, endDate string, logId, userId int64) {
 	overallStart := time.Now()
 	poller := oceanengine.GetPoller()
@@ -446,13 +477,14 @@ func (c *QianchuanPollerController) runQianchuanPullByDate(ctx context.Context, 
 	}
 
 	respBody, _ := json.Marshal(g.Map{
-		"totalSaved":       result.TotalSaved,
-		"totalPlans":       result.TotalPlans,
-		"totalPlanReports": result.TotalPlanReports,
-		"totalPlanSaved":   result.TotalPlanSaved,
-		"totalFailed":      result.TotalFailed,
-		"errors":           result.Errors,
-		"durationMs":       durationMs,
+		"totalSaved":        result.TotalSaved,
+		"totalOverallSaved": result.TotalOverallSaved,
+		"totalPlans":        result.TotalPlans,
+		"totalPlanReports":  result.TotalPlanReports,
+		"totalPlanSaved":    result.TotalPlanSaved,
+		"totalFailed":       result.TotalFailed,
+		"errors":            result.Errors,
+		"durationMs":        durationMs,
 	})
 	level := service.NotifyLevelNormal
 	if len(result.Errors) > 0 {
@@ -479,13 +511,14 @@ func (c *QianchuanPollerController) runQianchuanPullByDays(ctx context.Context, 
 	}
 
 	respBody, _ := json.Marshal(g.Map{
-		"totalSaved":       result.TotalSaved,
-		"totalPlans":       result.TotalPlans,
-		"totalPlanReports": result.TotalPlanReports,
-		"totalPlanSaved":   result.TotalPlanSaved,
-		"totalFailed":      result.TotalFailed,
-		"errors":           result.Errors,
-		"durationMs":       durationMs,
+		"totalSaved":        result.TotalSaved,
+		"totalOverallSaved": result.TotalOverallSaved,
+		"totalPlans":        result.TotalPlans,
+		"totalPlanReports":  result.TotalPlanReports,
+		"totalPlanSaved":    result.TotalPlanSaved,
+		"totalFailed":       result.TotalFailed,
+		"errors":            result.Errors,
+		"durationMs":        durationMs,
 	})
 	level := service.NotifyLevelNormal
 	if len(result.Errors) > 0 {
@@ -494,6 +527,37 @@ func (c *QianchuanPollerController) runQianchuanPullByDays(ctx context.Context, 
 	if logId > 0 {
 		service.TaskLogSuccess(ctx, logId, "", string(respBody), durationMs)
 		service.CreateNotification(ctx, "千川数据拉取完成", string(respBody), "task_result", "qianchuan_pull", logId, level, userId)
+	}
+}
+
+func (c *QianchuanPollerController) runQianchuanOverallPullByDate(ctx context.Context, startDate, endDate string, logId, userId int64) {
+	overallStart := time.Now()
+	poller := oceanengine.GetPoller()
+	result, err := poller.ManualPullOverallByDate(ctx, startDate, endDate)
+	durationMs := int(time.Since(overallStart).Milliseconds())
+
+	if err != nil {
+		if logId > 0 {
+			service.TaskLogFailed(ctx, logId, err.Error(), durationMs)
+			service.CreateNotification(ctx, "千川乘方数据拉取失败", `{"error":"`+err.Error()+`"}`, "task_result", "qianchuan_overall_pull", logId, service.NotifyLevelImportant, userId)
+		}
+		return
+	}
+
+	respBody, _ := json.Marshal(g.Map{
+		"totalSaved":        result.TotalSaved,
+		"totalOverallSaved": result.TotalOverallSaved,
+		"totalFailed":       result.TotalFailed,
+		"errors":            result.Errors,
+		"durationMs":        durationMs,
+	})
+	level := service.NotifyLevelNormal
+	if len(result.Errors) > 0 {
+		level = service.NotifyLevelImportant
+	}
+	if logId > 0 {
+		service.TaskLogSuccess(ctx, logId, "", string(respBody), durationMs)
+		service.CreateNotification(ctx, "千川乘方数据拉取完成", string(respBody), "task_result", "qianchuan_overall_pull", logId, level, userId)
 	}
 }
 
@@ -558,6 +622,135 @@ func (c *QianchuanPollerController) DailyReportList(r *ghttp.Request) {
 			"summary":   summaryRow,
 			"startDate": startDate,
 			"endDate":   endDate,
+		},
+		"msg": "ok",
+	})
+}
+
+// OverallReportList 查询千川乘方日报表 GET /api/qianchuan-poller/overall-report
+func (c *QianchuanPollerController) OverallReportList(r *ghttp.Request) {
+	ctx := r.Context()
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	advertiserId := r.Get("advertiserId", int64(0)).Int64()
+	page := r.Get("page", 1).Int()
+	pageSize := r.Get("pageSize", 20).Int()
+
+	if startDate == "" || endDate == "" {
+		today := time.Now().Format("2006-01-02")
+		startDate = today
+		endDate = today
+	}
+
+	query := g.DB().Model("qianchuan_overall_promotion_daily_report qopr").Ctx(ctx).
+		Where("LEFT(qopr.stat_datetime, 10) >= ?", startDate).
+		Where("LEFT(qopr.stat_datetime, 10) <= ?", endDate)
+
+	if advertiserId > 0 {
+		query = query.Where("qopr.advertiser_id", advertiserId)
+	}
+
+	total, err := query.Count()
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询乘方日报总数失败: " + err.Error()})
+		return
+	}
+
+	list, err := query.
+		Fields(`
+			qopr.*,
+			COALESCE(NULLIF(a.account_name, ''), '') AS account_name,
+			COALESCE(NULLIF(sc.name, ''), '') AS company_name,
+			COALESCE(NULLIF(sd.name, ''), '') AS department_name,
+			COALESCE(NULLIF(t.name, ''), '') AS trader_name
+		`).
+		LeftJoin("account a", "qopr.account_id = a.id").
+		LeftJoin("sys_company sc", "qopr.company_id = sc.id").
+		LeftJoin("sys_department sd", "qopr.department_id = sd.id").
+		LeftJoin("trader t", "qopr.trader_id = t.id").
+		OrderDesc("stat_datetime").
+		OrderDesc("stat_cost_for_overall_roi2").
+		Page(page, pageSize).
+		All()
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询乘方日报失败: " + err.Error()})
+		return
+	}
+
+	summaryQuery := g.DB().Model("qianchuan_overall_promotion_daily_report").Ctx(ctx).
+		Fields(`
+			COALESCE(SUM(stat_cost_for_overall_roi2),0) AS overallCost,
+			COALESCE(SUM(total_order_settle_amount_for_roi2_1h),0) AS settleAmount,
+			COALESCE(SUM(total_order_settle_count_for_roi2_1h),0) AS settleOrderCount
+		`).
+		Where("LEFT(stat_datetime, 10) >= ?", startDate).
+		Where("LEFT(stat_datetime, 10) <= ?", endDate)
+	if advertiserId > 0 {
+		summaryQuery = summaryQuery.Where("advertiser_id", advertiserId)
+	}
+	summaryRow, _ := summaryQuery.One()
+
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"data": g.Map{
+			"list": list,
+			"pagination": g.Map{
+				"page":     page,
+				"pageSize": pageSize,
+				"total":    total,
+			},
+			"summary": g.Map{
+				"overallCost":      summaryRow["overallCost"],
+				"settleAmount":     summaryRow["settleAmount"],
+				"settleOrderCount": summaryRow["settleOrderCount"],
+			},
+		},
+		"msg": "ok",
+	})
+}
+
+// OverallReportDetailList 查询千川乘方明细（达人维度） GET /api/qianchuan-poller/overall-report-detail
+func (c *QianchuanPollerController) OverallReportDetailList(r *ghttp.Request) {
+	ctx := r.Context()
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	advertiserId := r.Get("advertiserId").Int64()
+	page := r.Get("page", 1).Int()
+	pageSize := r.Get("pageSize", 20).Int()
+	anchorShowId := r.Get("anchorShowId").String()
+
+	if advertiserId <= 0 {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "advertiserId不能为空"})
+		return
+	}
+	if startDate == "" || endDate == "" {
+		today := time.Now().Format("2006-01-02")
+		startDate = today
+		endDate = today
+	}
+
+	row, err := g.DB().Model("qianchuan_token").Ctx(ctx).OrderDesc("id").Limit(1).One()
+	if err != nil || row.IsEmpty() {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "未找到有效token，请先完成千川授权"})
+		return
+	}
+
+	client := oceanengine.NewClient(row["access_token"].String())
+	result, err := client.GetOverallProductAwemeReport(ctx, advertiserId, startDate, endDate, page, pageSize, anchorShowId)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询乘方抖音号明细失败: " + err.Error()})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"data": g.Map{
+			"list": result.List,
+			"pagination": g.Map{
+				"page":     result.Page,
+				"pageSize": result.PageSize,
+				"total":    result.Total,
+			},
 		},
 		"msg": "ok",
 	})

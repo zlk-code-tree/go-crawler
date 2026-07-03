@@ -401,6 +401,41 @@ func (c *FinanceController) SubjectCostStats(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": result, "msg": "ok"})
 }
 
+// SubjectCostDetail 主体消耗明细（按千川广告主账户维度）GET /api/finance/subject-cost-detail
+func (c *FinanceController) SubjectCostDetail(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
+	subjectId := r.Get("subjectId", 0).Int64()
+	page := r.Get("page", 1).Int()
+	pageSize := r.Get("pageSize", r.Get("limit", 20).Int()).Int()
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 500 {
+		pageSize = 500
+	}
+
+	financeService := service.NewFinanceCommissionService()
+	list, total, err := financeService.GetSubjectCostDetail(r.Context(), startDate, endDate, subjectId, page, pageSize)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
+		return
+	}
+
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{
+		"list":     list,
+		"total":    total,
+		"page":     page,
+		"pageSize": pageSize,
+	}, "msg": "ok"})
+}
+
 // AuthorCostRanking 达人维度消耗统计 GET /api/finance/author-cost-ranking
 func (c *FinanceController) AuthorCostRanking(r *ghttp.Request) {
 	startDate := r.Get("startDate").String()

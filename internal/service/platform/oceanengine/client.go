@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	ad_open_sdk_go "github.com/oceanengine/ad_open_sdk_go"
@@ -431,6 +432,71 @@ type AdReport struct {
 	TotalPlay               int64   // 播放数
 }
 
+// OverallPromotionDailyReport 乘方日报表（广告主/账户维度）
+type OverallPromotionDailyReport struct {
+	AdvertiserID                               int64
+	StatDatetime                               string
+	AdlabScene                                 string
+	DataPeriod                                 string
+	MarketingGoal                              string
+	OrderPlatform                              string
+	ShopEstimatedComissionCost                 float64
+	StatCostForOverallRoi2                     float64
+	StatCostForRoi2                            float64
+	TotalCostPerPayOrderForRoi2                float64
+	TotalCostPerPayOrderSettleForOverallRoi21h float64
+	TotalCostPerPayOrderSettleForRoi21h        float64
+	TotalEcomPlatformSubsidyAmountForRoi2      float64
+	TotalOrderRealSettleAmountForRoi21h        float64
+	TotalOrderSettleAmountForRoi21h            float64
+	TotalOrderSettleAmountRateForRoi21h        float64
+	TotalOrderSettleCountForRoi21h             int64
+	TotalOrderSettleCountRateForRoi21h         float64
+	TotalPayOrderCountForRoi2                  int64
+	TotalPayOrderCouponAmountForRoi2           float64
+	TotalPayOrderGmvForRoi2                    float64
+	TotalPayOrderGmvIncludeCouponForRoi2       float64
+	TotalPrepayAndPayOrderRoi2                 float64
+	TotalPrepayAndPaySettleOverallRoi21h       float64
+	TotalPrepayAndPaySettleRoi21h              float64
+	TotalPrepayOrderCountForRoi2               int64
+	TotalPrepayOrderGmvForRoi2                 float64
+	TotalRefundOrderCountForRoi21h             int64
+	TotalRefundOrderGmvForRoi21hAll            float64
+	TotalRefundOrderGmvForRoi21hRate           float64
+	TotalUnfinishedEstimateOrderGmvForRoi2     float64
+	NoRefundEcomCouponAmountForRoi2            float64
+	NoRefundEcomPlatformSubsidyAmountForRoi2   float64
+}
+
+func floatValue(value *float64) float64 {
+	if value == nil {
+		return 0
+	}
+	return *value
+}
+
+func floatToInt64(value *float64) int64 {
+	if value == nil {
+		return 0
+	}
+	return int64(*value)
+}
+
+func (r OverallPromotionDailyReport) ToAdReport() AdReport {
+	return AdReport{
+		AdvertiserID:         r.AdvertiserID,
+		StatDatetime:         normalizeStatDate(r.StatDatetime),
+		StatCost:             r.StatCostForRoi2,
+		PayOrderAmount:       r.TotalPayOrderGmvForRoi2,
+		PayOrderCount:        r.TotalPayOrderCountForRoi2,
+		PayOrderCouponAmount: r.TotalPayOrderCouponAmountForRoi2,
+		PrepayAndPayOrderRoi: r.TotalPrepayAndPayOrderRoi2,
+		PrepayOrderAmount:    r.TotalPrepayOrderGmvForRoi2,
+		PrepayOrderCount:     r.TotalPrepayOrderCountForRoi2,
+	}
+}
+
 // AdPlanReport 广告计划日结报表（计划维度，来自 report/ad/get API）
 type AdPlanReport struct {
 	AdvertiserID int64
@@ -713,6 +779,146 @@ func (c *Client) GetUniPromotionReport(ctx context.Context, advertiserID int64, 
 	return reports, nil
 }
 
+// GetOverallPromotionReport 获取乘方账户维度消耗。
+// all_promotion/get 返回区间聚合数据，这里按天逐日调用后组装为日报，便于和现有财务口径对齐。
+func (c *Client) GetOverallPromotionReport(ctx context.Context, advertiserID int64, startDate, endDate string) ([]OverallPromotionDailyReport, error) {
+	start, err := time.Parse("2006-01-02", normalizeStatDate(startDate))
+	if err != nil {
+		return nil, fmt.Errorf("开始日期格式错误: %w", err)
+	}
+	end, err := time.Parse("2006-01-02", normalizeStatDate(endDate))
+	if err != nil {
+		return nil, fmt.Errorf("结束日期格式错误: %w", err)
+	}
+	if end.Before(start) {
+		return nil, fmt.Errorf("结束日期早于开始日期")
+	}
+
+	reportFields := []string{
+		"shop_estimated_comission_cost",
+		"stat_cost_for_overall_roi2",
+		"stat_cost_for_roi2",
+		"total_cost_per_pay_order_for_roi2",
+		"total_cost_per_pay_order_settle_for_overall_roi2_1h",
+		"total_cost_per_pay_order_settle_for_roi2_1h",
+		"total_ecom_platform_subsidy_amount_for_roi2",
+		"total_order_real_settle_amount_for_roi2_1h",
+		"total_order_settle_amount_for_roi2_1h",
+		"total_order_settle_amount_rate_for_roi2_1h",
+		"total_order_settle_count_for_roi2_1h",
+		"total_order_settle_count_rate_for_roi2_1h",
+		"total_pay_order_count_for_roi2",
+		"total_pay_order_coupon_amount_for_roi2",
+		"total_pay_order_gmv_for_roi2",
+		"total_pay_order_gmv_include_coupon_for_roi2",
+		"total_prepay_and_pay_order_roi2",
+		"total_prepay_and_pay_settle_overall_roi2_1h",
+		"total_refund_order_count_for_roi2_1h",
+		"total_refund_order_gmv_for_roi2_1h_all",
+		"total_refund_order_gmv_for_roi2_1h_rate",
+		"total_unfinished_estimate_order_gmv_for_roi2",
+		"no_refund_ecom_coupon_amount_for_roi2",
+		"no_refund_ecom_platform_subsidy_amount_for_roi2",
+	}
+
+	sdkClient := ad_open_sdk_go.Init(c.cfg)
+	reports := make([]OverallPromotionDailyReport, 0, int(end.Sub(start).Hours()/24)+1)
+
+	for day := start; !day.After(end); day = day.AddDate(0, 0, 1) {
+		date := day.Format("2006-01-02")
+		var resp *models.QianchuanReportAllPromotionGetV10Response
+		var rawResp *http.Response
+		err := retryWithBackoff(ctx, fmt.Sprintf("乘方报表API(advID=%d,date=%s)", advertiserID, date), func() error {
+			var e error
+			resp, rawResp, e = sdkClient.QianchuanReportAllPromotionGetV10Api().Get(ctx).
+				AdvertiserId(advertiserID).
+				StartTime(date + " 00:00:00").
+				EndTime(date + " 23:59:59").
+				AdlabScene(models.OVERALL_PROJECT_QianchuanReportAllPromotionGetV10AdlabScene).
+				DataPeriod(models.OVER_ALL_DATA_QianchuanReportAllPromotionGetV10DataPeriod).
+				Fields(reportFields).
+				MarketingGoal(models.ALL_QianchuanReportAllPromotionGetV10MarketingGoal).
+				OrderPlatform(models.QIANCHUAN_QianchuanReportAllPromotionGetV10OrderPlatform).
+				AccessToken(c.accessToken).
+				Execute()
+			return e
+		})
+		if err != nil {
+			return nil, fmt.Errorf("获取乘方报表失败(advertiserID=%d,date=%s): %w", advertiserID, date, err)
+		}
+
+		codeVal := int64(0)
+		msgVal := ""
+		if resp.Code != nil {
+			codeVal = *resp.Code
+		}
+		if resp.Message != nil {
+			msgVal = *resp.Message
+		}
+		httpStatus := 0
+		if rawResp != nil {
+			httpStatus = rawResp.StatusCode
+		}
+		g.Log().Infof(ctx, "[Qianchuan] 乘方报表API: advID=%d, date=%s, HTTP=%d, code=%d, msg=%s",
+			advertiserID, date, httpStatus, codeVal, msgVal)
+
+		if codeVal != 0 {
+			return nil, fmt.Errorf("乘方报表返回错误: code=%d, msg=%s", codeVal, msgVal)
+		}
+		if resp.Data == nil {
+			continue
+		}
+
+		report := OverallPromotionDailyReport{
+			AdvertiserID:                advertiserID,
+			StatDatetime:                date,
+			AdlabScene:                  string(models.OVERALL_PROJECT_QianchuanReportAllPromotionGetV10AdlabScene),
+			DataPeriod:                  string(models.OVER_ALL_DATA_QianchuanReportAllPromotionGetV10DataPeriod),
+			MarketingGoal:               string(models.ALL_QianchuanReportAllPromotionGetV10MarketingGoal),
+			OrderPlatform:               string(models.QIANCHUAN_QianchuanReportAllPromotionGetV10OrderPlatform),
+			ShopEstimatedComissionCost:  floatValue(resp.Data.ShopEstimatedComissionCost),
+			StatCostForOverallRoi2:      floatValue(resp.Data.StatCostForOverallRoi2),
+			StatCostForRoi2:             floatValue(resp.Data.StatCostForRoi2),
+			TotalCostPerPayOrderForRoi2: floatValue(resp.Data.TotalCostPerPayOrderForRoi2),
+			TotalCostPerPayOrderSettleForOverallRoi21h: floatValue(resp.Data.TotalCostPerPayOrderSettleForOverallRoi21h),
+			TotalCostPerPayOrderSettleForRoi21h:        floatValue(resp.Data.TotalCostPerPayOrderSettleForRoi21h),
+			TotalEcomPlatformSubsidyAmountForRoi2:      floatValue(resp.Data.TotalEcomPlatformSubsidyAmountForRoi2),
+			TotalOrderRealSettleAmountForRoi21h:        floatValue(resp.Data.TotalOrderRealSettleAmountForRoi21h),
+			TotalOrderSettleAmountForRoi21h:            floatValue(resp.Data.TotalOrderSettleAmountForRoi21h),
+			TotalOrderSettleAmountRateForRoi21h:        floatValue(resp.Data.TotalOrderSettleAmountRateForRoi21h),
+			TotalOrderSettleCountForRoi21h:             floatToInt64(resp.Data.TotalOrderSettleCountForRoi21h),
+			TotalOrderSettleCountRateForRoi21h:         floatValue(resp.Data.TotalOrderSettleCountRateForRoi21h),
+			TotalPayOrderCountForRoi2:                  floatToInt64(resp.Data.TotalPayOrderCountForRoi2),
+			TotalPayOrderCouponAmountForRoi2:           floatValue(resp.Data.TotalPayOrderCouponAmountForRoi2),
+			TotalPayOrderGmvForRoi2:                    floatValue(resp.Data.TotalPayOrderGmvForRoi2),
+			TotalPayOrderGmvIncludeCouponForRoi2:       floatValue(resp.Data.TotalPayOrderGmvIncludeCouponForRoi2),
+			TotalPrepayAndPayOrderRoi2:                 floatValue(resp.Data.TotalPrepayAndPayOrderRoi2),
+			TotalPrepayAndPaySettleOverallRoi21h:       floatValue(resp.Data.TotalPrepayAndPaySettleOverallRoi21h),
+			TotalPrepayAndPaySettleRoi21h:              floatValue(resp.Data.TotalPrepayAndPaySettleRoi21h),
+			TotalPrepayOrderCountForRoi2:               floatToInt64(resp.Data.TotalPrepayOrderCountForRoi2),
+			TotalPrepayOrderGmvForRoi2:                 floatValue(resp.Data.TotalPrepayOrderGmvForRoi2),
+			TotalRefundOrderCountForRoi21h:             floatToInt64(resp.Data.TotalRefundOrderCountForRoi21h),
+			TotalRefundOrderGmvForRoi21hAll:            floatValue(resp.Data.TotalRefundOrderGmvForRoi21hAll),
+			TotalRefundOrderGmvForRoi21hRate:           floatValue(resp.Data.TotalRefundOrderGmvForRoi21hRate),
+			TotalUnfinishedEstimateOrderGmvForRoi2:     floatValue(resp.Data.TotalUnfinishedEstimateOrderGmvForRoi2),
+			NoRefundEcomCouponAmountForRoi2:            floatValue(resp.Data.NoRefundEcomCouponAmountForRoi2),
+			NoRefundEcomPlatformSubsidyAmountForRoi2:   floatValue(resp.Data.NoRefundEcomPlatformSubsidyAmountForRoi2),
+		}
+
+		if report.StatCostForRoi2 == 0 &&
+			report.TotalPayOrderGmvForRoi2 == 0 &&
+			report.TotalPayOrderCountForRoi2 == 0 &&
+			report.StatCostForOverallRoi2 == 0 &&
+			report.ShopEstimatedComissionCost == 0 {
+			continue
+		}
+		reports = append(reports, report)
+	}
+
+	g.Log().Infof(ctx, "[Qianchuan] 乘方报表汇总(advID=%d): 共%d条(%s~%s)", advertiserID, len(reports), startDate, endDate)
+	return reports, nil
+}
+
 // AuthorReport 达人维度日报表
 type AuthorReport struct {
 	AdvertiserID  int64
@@ -722,6 +928,157 @@ type AuthorReport struct {
 	StatCost      float64
 	PayOrderGmv   float64
 	PayOrderCount int64
+}
+
+// OverallProductAwemeReportItem 乘方商品数据页下的抖音号明细
+type OverallProductAwemeReportItem struct {
+	AnchorID                                   string  `json:"anchorId"`
+	AnchorName                                 string  `json:"anchorName"`
+	AnchorShowID                               string  `json:"anchorShowId"`
+	AnchorIcon                                 string  `json:"anchorIcon"`
+	ShopEstimatedComissionCost                 float64 `json:"shopEstimatedComissionCost"`
+	StatCostForOverallRoi2                     float64 `json:"statCostForOverallRoi2"`
+	StatCostForRoi2                            float64 `json:"statCostForRoi2"`
+	TotalCostPerPayOrderSettleForOverallRoi21h float64 `json:"totalCostPerPayOrderSettleForOverallRoi21h"`
+	TotalOrderRealSettleAmountForRoi21h        float64 `json:"totalOrderRealSettleAmountForRoi21h"`
+	TotalOrderSettleAmountForRoi21h            float64 `json:"totalOrderSettleAmountForRoi21h"`
+	TotalOrderSettleCountForRoi21h             int64   `json:"totalOrderSettleCountForRoi21h"`
+	TotalPrepayAndPaySettleOverallRoi21h       float64 `json:"totalPrepayAndPaySettleOverallRoi21h"`
+}
+
+// OverallProductAwemeReportPage 乘方商品-抖音号明细分页结果
+type OverallProductAwemeReportPage struct {
+	List     []OverallProductAwemeReportItem
+	Page     int64
+	PageSize int64
+	Total    int64
+}
+
+// GetOverallProductAwemeReport 获取乘方商品数据页下的抖音号明细。
+// 对应数据主题：OVERALL_ROI_PRODUCT_AWEME。
+func (c *Client) GetOverallProductAwemeReport(ctx context.Context, advertiserID int64, startDate, endDate string, page, pageSize int, anchorShowID string) (*OverallProductAwemeReportPage, error) {
+	if page <= 0 {
+		page = 1
+	}
+	sizeEnum := toUniPromotionPageSize(pageSize)
+	if pageSize <= 0 {
+		pageSize = int(sizeEnum)
+	}
+
+	dimensions := []string{"anchor_name", "anchor_show_id", "anchor_icon"}
+	metrics := []string{
+		"stat_cost_for_overall_roi2",
+		"total_prepay_and_pay_settle_overall_roi2_1h",
+		"total_cost_per_pay_order_settle_for_overall_roi2_1h",
+		"shop_estimated_comission_cost",
+		"total_order_settle_amount_for_roi2_1h",
+		"stat_cost_for_roi2",
+		"total_order_settle_count_for_roi2_1h",
+		"total_order_real_settle_amount_for_roi2_1h",
+	}
+	filters := []*models.QianchuanReportUniPromotionDataGetV10FiltersInner{}
+	if strings.TrimSpace(anchorShowID) != "" {
+		filters = append(filters, &models.QianchuanReportUniPromotionDataGetV10FiltersInner{
+			Field:    "anchor_show_id",
+			Operator: 7,
+			Values:   []string{strings.TrimSpace(anchorShowID)},
+		})
+	}
+	orderField := "stat_cost_for_overall_roi2"
+	orderType := int64(2)
+	orderBy := []*models.QianchuanReportUniPromotionDataGetV10OrderByInner{
+		{
+			Field: &orderField,
+			Type:  &orderType,
+		},
+	}
+
+	sdkClient := ad_open_sdk_go.Init(c.cfg)
+	var resp *models.QianchuanReportUniPromotionDataGetV10Response
+	var rawResp *http.Response
+	err := retryWithBackoff(ctx, fmt.Sprintf("乘方商品抖音号明细API(advID=%d,page=%d)", advertiserID, page), func() error {
+		var e error
+		resp, rawResp, e = sdkClient.QianchuanReportUniPromotionDataGetV10Api().Get(ctx).
+			AdvertiserId(advertiserID).
+			DataTopic(models.OVERALL_ROI_PRODUCT_AWEME_QianchuanReportUniPromotionDataGetV10DataTopic).
+			Dimensions(dimensions).
+			Metrics(metrics).
+			Filters(filters).
+			StartTime(normalizeStatDate(startDate) + " 00:00:00").
+			EndTime(normalizeStatDate(endDate) + " 23:59:59").
+			OrderBy(orderBy).
+			DataPeriod(models.OVER_ALL_DATA_QianchuanReportUniPromotionDataGetV10DataPeriod).
+			Page(int64(page)).
+			PageSize(sizeEnum).
+			AccessToken(c.accessToken).
+			Execute()
+		return e
+	})
+	if err != nil {
+		return nil, fmt.Errorf("获取乘方商品抖音号明细失败(advertiserID=%d): %w", advertiserID, err)
+	}
+
+	codeVal := int64(0)
+	msgVal := ""
+	if resp.Code != nil {
+		codeVal = *resp.Code
+	}
+	if resp.Message != nil {
+		msgVal = *resp.Message
+	}
+	httpStatus := 0
+	if rawResp != nil {
+		httpStatus = rawResp.StatusCode
+	}
+	g.Log().Infof(ctx, "[Qianchuan] 乘方商品抖音号明细API: advID=%d, page=%d, HTTP=%d, code=%d, msg=%s",
+		advertiserID, page, httpStatus, codeVal, msgVal)
+	if codeVal != 0 {
+		return nil, fmt.Errorf("乘方商品抖音号明细返回错误: code=%d, msg=%s", codeVal, msgVal)
+	}
+
+	result := &OverallProductAwemeReportPage{
+		List:     []OverallProductAwemeReportItem{},
+		Page:     int64(page),
+		PageSize: int64(pageSize),
+		Total:    0,
+	}
+	if resp.Data == nil {
+		return result, nil
+	}
+	if resp.Data.PageInfo != nil {
+		if resp.Data.PageInfo.Page != nil {
+			result.Page = *resp.Data.PageInfo.Page
+		}
+		if resp.Data.PageInfo.PageSize != nil {
+			result.PageSize = *resp.Data.PageInfo.PageSize
+		}
+		if resp.Data.PageInfo.TotalNumber != nil {
+			result.Total = *resp.Data.PageInfo.TotalNumber
+		}
+	}
+
+	for _, row := range resp.Data.Rows {
+		if row == nil {
+			continue
+		}
+		item := OverallProductAwemeReportItem{
+			AnchorID:                   extractRowFieldString(row.Dimensions, "anchor_id"),
+			AnchorName:                 extractRowFieldString(row.Dimensions, "anchor_name"),
+			AnchorShowID:               extractRowFieldString(row.Dimensions, "anchor_show_id"),
+			AnchorIcon:                 extractRowFieldImageURL(row.Dimensions, "anchor_icon"),
+			ShopEstimatedComissionCost: extractRowFieldFloat(row.Metrics, "shop_estimated_comission_cost"),
+			StatCostForOverallRoi2:     extractRowFieldFloat(row.Metrics, "stat_cost_for_overall_roi2"),
+			StatCostForRoi2:            extractRowFieldFloat(row.Metrics, "stat_cost_for_roi2"),
+			TotalCostPerPayOrderSettleForOverallRoi21h: extractRowFieldFloat(row.Metrics, "total_cost_per_pay_order_settle_for_overall_roi2_1h"),
+			TotalOrderRealSettleAmountForRoi21h:        extractRowFieldFloat(row.Metrics, "total_order_real_settle_amount_for_roi2_1h"),
+			TotalOrderSettleAmountForRoi21h:            extractRowFieldFloat(row.Metrics, "total_order_settle_amount_for_roi2_1h"),
+			TotalOrderSettleCountForRoi21h:             extractRowFieldInt64(row.Metrics, "total_order_settle_count_for_roi2_1h"),
+			TotalPrepayAndPaySettleOverallRoi21h:       extractRowFieldFloat(row.Metrics, "total_prepay_and_pay_settle_overall_roi2_1h"),
+		}
+		result.List = append(result.List, item)
+	}
+
+	return result, nil
 }
 
 // GetAuthorDimensionReport 获取全域推广分维度数据(抖音号维度)
@@ -949,17 +1306,19 @@ func (c *Client) GetAdPlanReport(ctx context.Context, advertiserID int64, startD
 
 // PullResult 一次拉取的结果
 type PullResult struct {
-	AdvertiserID     int64               `json:"advertiser_id"`
-	AdvertiserName   string              `json:"advertiser_name"`
-	Company          string              `json:"company"`
-	Plans            []AdPlan            `json:"-"`
-	Reports          []AdReport          `json:"-"`
-	PlanReports      []AdPlanDailyReport `json:"-"`
-	Combined         []CombinedReport    `json:"combined"`
-	TotalPlans       int                 `json:"total_plans"`
-	TotalReports     int                 `json:"total_reports"`
-	TotalPlanReports int                 `json:"total_plan_reports"`
-	TotalCombined    int                 `json:"total_combined"`
+	AdvertiserID        int64                         `json:"advertiser_id"`
+	AdvertiserName      string                        `json:"advertiser_name"`
+	Company             string                        `json:"company"`
+	Plans               []AdPlan                      `json:"-"`
+	Reports             []AdReport                    `json:"-"`
+	OverallReports      []OverallPromotionDailyReport `json:"-"`
+	PlanReports         []AdPlanDailyReport           `json:"-"`
+	Combined            []CombinedReport              `json:"combined"`
+	TotalPlans          int                           `json:"total_plans"`
+	TotalReports        int                           `json:"total_reports"`
+	TotalOverallReports int                           `json:"total_overall_reports"`
+	TotalPlanReports    int                           `json:"total_plan_reports"`
+	TotalCombined       int                           `json:"total_combined"`
 }
 
 // CombinedReport 账户维度日结报表数据
@@ -1048,6 +1407,127 @@ func normalizeStatDate(statDatetime string) string {
 	return statDatetime
 }
 
+func toUniPromotionPageSize(pageSize int) models.QianchuanReportUniPromotionDataGetV10PageSize {
+	switch pageSize {
+	case 50:
+		return models.Enum_50_QianchuanReportUniPromotionDataGetV10PageSize
+	case 100:
+		return models.Enum_100_QianchuanReportUniPromotionDataGetV10PageSize
+	case 200:
+		return models.Enum_200_QianchuanReportUniPromotionDataGetV10PageSize
+	default:
+		return models.Enum_20_QianchuanReportUniPromotionDataGetV10PageSize
+	}
+}
+
+func extractRowFieldString(bucket map[string]map[string]interface{}, key string) string {
+	if len(bucket) == 0 {
+		return ""
+	}
+	item, ok := bucket[key]
+	if !ok {
+		return ""
+	}
+	if valueStr, ok := item["ValueStr"].(string); ok && valueStr != "" {
+		return valueStr
+	}
+	if value, ok := item["Value"]; ok {
+		switch v := value.(type) {
+		case string:
+			return v
+		case float64:
+			return strconv.FormatInt(int64(v), 10)
+		case int64:
+			return strconv.FormatInt(v, 10)
+		case json.Number:
+			return v.String()
+		}
+	}
+	return ""
+}
+
+func extractRowFieldFloat(bucket map[string]map[string]interface{}, key string) float64 {
+	if len(bucket) == 0 {
+		return 0
+	}
+	item, ok := bucket[key]
+	if !ok {
+		return 0
+	}
+	if value, ok := item["Value"]; ok {
+		switch v := value.(type) {
+		case float64:
+			return v
+		case int64:
+			return float64(v)
+		case int:
+			return float64(v)
+		case json.Number:
+			if parsed, err := v.Float64(); err == nil {
+				return parsed
+			}
+		case string:
+			if parsed, err := strconv.ParseFloat(strings.ReplaceAll(v, ",", ""), 64); err == nil {
+				return parsed
+			}
+		}
+	}
+	valueStr := strings.ReplaceAll(extractRowFieldString(bucket, key), ",", "")
+	if valueStr == "" {
+		return 0
+	}
+	parsed, _ := strconv.ParseFloat(valueStr, 64)
+	return parsed
+}
+
+func extractRowFieldInt64(bucket map[string]map[string]interface{}, key string) int64 {
+	if len(bucket) == 0 {
+		return 0
+	}
+	item, ok := bucket[key]
+	if !ok {
+		return 0
+	}
+	if value, ok := item["Value"]; ok {
+		switch v := value.(type) {
+		case int64:
+			return v
+		case int:
+			return int64(v)
+		case float64:
+			return int64(v)
+		case json.Number:
+			if parsed, err := v.Int64(); err == nil {
+				return parsed
+			}
+		case string:
+			if parsed, err := strconv.ParseInt(strings.ReplaceAll(v, ",", ""), 10, 64); err == nil {
+				return parsed
+			}
+		}
+	}
+	valueStr := strings.ReplaceAll(extractRowFieldString(bucket, key), ",", "")
+	if valueStr == "" {
+		return 0
+	}
+	parsed, _ := strconv.ParseInt(valueStr, 10, 64)
+	return parsed
+}
+
+func extractRowFieldImageURL(bucket map[string]map[string]interface{}, key string) string {
+	raw := extractRowFieldString(bucket, key)
+	if raw == "" {
+		return ""
+	}
+	var image struct {
+		UrlList []string `json:"UrlList"`
+	}
+	if err := json.Unmarshal([]byte(raw), &image); err == nil && len(image.UrlList) > 0 {
+		return image.UrlList[0]
+	}
+	return raw
+}
+
 // PullAllByDate 拉取指定广告主在指定日期范围内的日结报表（账户维度）
 // 账户维度报表已包含所有汇总数据，不需要与计划合并
 func (c *Client) PullAllByDate(ctx context.Context, advertiserID int64, startDate, endDate string) (*PullResult, error) {
@@ -1063,6 +1543,18 @@ func (c *Client) PullAllByDate(ctx context.Context, advertiserID int64, startDat
 		g.Log().Warningf(ctx, "[Qianchuan] 获取全域推广报表失败(advID=%d): %v，将仅使用标准推广消耗", advertiserID, uniErr)
 	} else {
 		reports = mergeAdReports(reports, uniReports)
+	}
+	overallReports, overallErr := c.GetOverallPromotionReport(ctx, advertiserID, startDate, endDate)
+	if overallErr != nil {
+		g.Log().Warningf(ctx, "[Qianchuan] 获取乘方报表失败(advID=%d): %v，将仅使用标准推广+全域消耗", advertiserID, overallErr)
+	} else {
+		result.OverallReports = overallReports
+		result.TotalOverallReports = len(overallReports)
+		overallAdReports := make([]AdReport, 0, len(overallReports))
+		for _, item := range overallReports {
+			overallAdReports = append(overallAdReports, item.ToAdReport())
+		}
+		reports = mergeAdReports(reports, overallAdReports)
 	}
 	result.Reports = reports
 	result.TotalReports = len(reports)
@@ -1117,7 +1609,8 @@ func (c *Client) PullAllByDate(ctx context.Context, advertiserID int64, startDat
 		result.TotalPlans = totalPlans
 	}
 
-	g.Log().Infof(ctx, "[Qianchuan] PullAll结果: reports=%d, planReports=%d, combined=%d(%s~%s)", result.TotalReports, result.TotalPlanReports, result.TotalCombined, startDate, endDate)
+	g.Log().Infof(ctx, "[Qianchuan] PullAll结果: reports=%d, overallReports=%d, planReports=%d, combined=%d(%s~%s)",
+		result.TotalReports, result.TotalOverallReports, result.TotalPlanReports, result.TotalCombined, startDate, endDate)
 	return result, nil
 }
 

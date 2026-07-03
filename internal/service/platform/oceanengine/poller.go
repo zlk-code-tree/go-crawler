@@ -199,12 +199,13 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 
 // PollerResult 拉取结果
 type PollerResult struct {
-	TotalSaved       int      `json:"total_saved"`
-	TotalPlans       int      `json:"total_plans"`
-	TotalPlanReports int      `json:"total_plan_reports"`
-	TotalPlanSaved   int      `json:"total_plan_saved"`
-	TotalFailed      int      `json:"total_failed"`
-	Errors           []string `json:"errors,omitempty"`
+	TotalSaved        int      `json:"total_saved"`
+	TotalPlans        int      `json:"total_plans"`
+	TotalOverallSaved int      `json:"total_overall_saved"`
+	TotalPlanReports  int      `json:"total_plan_reports"`
+	TotalPlanSaved    int      `json:"total_plan_saved"`
+	TotalFailed       int      `json:"total_failed"`
+	Errors            []string `json:"errors,omitempty"`
 }
 
 // ManualPull 手动拉取最近 N 天的数据
@@ -240,6 +241,28 @@ func (p *Poller) ManualPullByDate(ctx context.Context, startDate, endDate string
 	return p.pullByDate(ctx, startDate, endDate)
 }
 
+// ManualPullOverallByDate 仅拉取乘方数据。
+// 乘方接口更容易触发限流，这里单独走一条轻量链路，只调用 all_promotion/get 并写入乘方表。
+func (p *Poller) ManualPullOverallByDate(ctx context.Context, startDate, endDate string) (*PollerResult, error) {
+	start, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
+	}
+	end, err := time.Parse("2006-01-02", endDate)
+	if err != nil {
+		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
+	}
+	today := time.Now().Format("2006-01-02")
+	todayDate, _ := time.Parse("2006-01-02", today)
+	if start.After(todayDate) || end.After(todayDate) {
+		return nil, fmt.Errorf("千川数据暂不支持拉取未来日期。当前服务器日期是 %s", today)
+	}
+	if end.Before(start) {
+		return nil, fmt.Errorf("结束日期早于开始日期")
+	}
+	return p.pullOverallByDate(ctx, startDate, endDate)
+}
+
 // dailyPull 已废弃：定时调度统一由 CronManager 管理并记录日志/通知，
 // cmd.go 直接调用 ManualPullByDate(ctx, yesterday, yesterday)
 // 保留方法签名避免外部引用断裂，内部直接转发
@@ -251,12 +274,13 @@ func (p *Poller) dailyPull(ctx context.Context) error {
 
 // advResult 单个广告主拉取结果
 type advResult struct {
-	plans       int
-	planReports int
-	planSaved   int
-	saved       int
-	failed      int
-	err         string
+	plans        int
+	overallSaved int
+	planReports  int
+	planSaved    int
+	saved        int
+	failed       int
+	err          string
 }
 
 type authorOrgInfo struct {
@@ -337,17 +361,86 @@ func (p *Poller) pullByDate(ctx context.Context, startDate, endDate string) (*Po
 			result.Errors = append(result.Errors, r.err)
 		}
 		result.TotalPlans += r.plans
+		result.TotalOverallSaved += r.overallSaved
 		result.TotalPlanReports += r.planReports
 		result.TotalPlanSaved += r.planSaved
 		result.TotalSaved += r.saved
 		result.TotalFailed += r.failed
 	}
 
-	g.Log().Infof(ctx, "[QianchuanPoller] pullByDate完成: 入库%d条(计划明细%d条), 失败%d条, 错误%d个", result.TotalSaved, result.TotalPlanSaved, result.TotalFailed, len(result.Errors))
+	g.Log().Infof(ctx, "[QianchuanPoller] pullByDate完成: 入库%d条(乘方%d条, 计划明细%d条), 失败%d条, 错误%d个",
+		result.TotalSaved, result.TotalOverallSaved, result.TotalPlanSaved, result.TotalFailed, len(result.Errors))
 
 	// 自动清理 40002 错误的无效广告主ID，避免后续重复拉取
 	p.cleanInvalidAdvertisers(ctx, advertiserIDs, result.Errors)
 
+	return result, nil
+}
+
+func (p *Poller) pullOverallByDate(ctx context.Context, startDate, endDate string) (*PollerResult, error) {
+	accessToken, advertiserIDs, err := p.getLatestToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(advertiserIDs) == 0 {
+		return nil, fmt.Errorf("千川广告主列表为空，请先调用 /api/qianchuan-poller/sync-advertisers 同步广告主")
+	}
+
+	g.Log().Infof(ctx, "[QianchuanPoller] pullOverallByDate: 开始拉取乘方 %s~%s, 广告主共%d个", startDate, endDate, len(advertiserIDs))
+
+	client := NewClient(accessToken)
+	result := &PollerResult{}
+
+	// 乘方接口较严格，单独降低并发，避免频控。
+	const maxConcurrent = 1
+	const perAdvertiserTimeout = 2 * time.Minute
+	ch := make(chan advResult, len(advertiserIDs))
+	sem := make(chan struct{}, maxConcurrent)
+	var wg sync.WaitGroup
+
+	done := false
+	for i, advID := range advertiserIDs {
+		if done {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			g.Log().Warningf(ctx, "[QianchuanPoller] 上下文已取消，剩余%d个广告主未派发", len(advertiserIDs)-i)
+			done = true
+		case sem <- struct{}{}:
+			wg.Add(1)
+			go func(id int64) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				defer func() {
+					if r := recover(); r != nil {
+						g.Log().Errorf(ctx, "[QianchuanPoller] 广告主%d乘方拉取panic: %v", id, r)
+						ch <- advResult{err: fmt.Sprintf("广告主%d乘方拉取panic: %v", id, r)}
+					}
+				}()
+				advCtx, cancel := context.WithTimeout(ctx, perAdvertiserTimeout)
+				defer cancel()
+				ch <- p.pullOneOverallAdvertiser(advCtx, client, id, startDate, endDate)
+			}(advID)
+		}
+	}
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	for r := range ch {
+		if r.err != "" {
+			result.Errors = append(result.Errors, r.err)
+		}
+		result.TotalOverallSaved += r.overallSaved
+		result.TotalSaved += r.saved
+		result.TotalFailed += r.failed
+	}
+
+	g.Log().Infof(ctx, "[QianchuanPoller] pullOverallByDate完成: 入库%d条(乘方%d条), 失败%d条, 错误%d个",
+		result.TotalSaved, result.TotalOverallSaved, result.TotalFailed, len(result.Errors))
 	return result, nil
 }
 
@@ -401,14 +494,16 @@ func (p *Poller) pullOneAdvertiser(ctx context.Context, client *Client, advID in
 		g.Log().Warningf(ctx, "[QianchuanPoller] 广告主%d有%d条计划但0条报表, 可能原因: 1)该日期范围无消耗 2)APP缺少千川报表权限(stat_cost等基础字段), 请在巨量引擎开放平台检查应用权限", advID, pullResult.TotalPlans)
 	}
 
+	overallSaved, overallFailed := p.saveOverallPromotionReports(ctx, client, pullResult.OverallReports)
 	planSaved, planFailed := p.savePlanReports(ctx, pullResult.PlanReports)
 	if len(pullResult.Combined) == 0 {
 		return advResult{
-			plans:       pullResult.TotalPlans,
-			planReports: pullResult.TotalPlanReports,
-			planSaved:   planSaved,
-			saved:       planSaved,
-			failed:      planFailed,
+			plans:        pullResult.TotalPlans,
+			overallSaved: overallSaved,
+			planReports:  pullResult.TotalPlanReports,
+			planSaved:    planSaved,
+			saved:        overallSaved + planSaved,
+			failed:       overallFailed + planFailed,
 		}
 	}
 
@@ -487,11 +582,35 @@ func (p *Poller) pullOneAdvertiser(ctx context.Context, client *Client, advID in
 	p.pullAuthorReports(ctx, client, advID, startDate, endDate)
 
 	return advResult{
-		plans:       pullResult.TotalPlans,
-		planReports: pullResult.TotalPlanReports,
-		planSaved:   planSaved,
-		saved:       saved + planSaved,
-		failed:      failed + planFailed,
+		plans:        pullResult.TotalPlans,
+		overallSaved: overallSaved,
+		planReports:  pullResult.TotalPlanReports,
+		planSaved:    planSaved,
+		saved:        saved + overallSaved + planSaved,
+		failed:       failed + overallFailed + planFailed,
+	}
+}
+
+func (p *Poller) pullOneOverallAdvertiser(ctx context.Context, client *Client, advID int64, startDate, endDate string) advResult {
+	// 单独拉乘方时主动放缓一点，避免开发者频控把整批请求打断。
+	defer time.Sleep(120 * time.Millisecond)
+
+	reports, err := client.GetOverallPromotionReport(ctx, advID, startDate, endDate)
+	if err != nil {
+		errMsg := fmt.Sprintf("广告主%d乘方拉取失败: %v", advID, err)
+		g.Log().Warning(ctx, "[QianchuanPoller] "+errMsg)
+		return advResult{err: errMsg}
+	}
+	if len(reports) == 0 {
+		return advResult{}
+	}
+
+	saved, failed := p.saveOverallPromotionReports(ctx, client, reports)
+	g.Log().Infof(ctx, "[QianchuanPoller] 广告主%d乘方日报: 拉取%d条, 入库%d条, 失败%d条", advID, len(reports), saved, failed)
+	return advResult{
+		overallSaved: saved,
+		saved:        saved,
+		failed:       failed,
 	}
 }
 
@@ -708,6 +827,152 @@ func (m *authorMatchIndex) match(aweme AuthorizedAweme) (authorOrgInfo, string, 
 	return authorOrgInfo{}, "", false
 }
 
+func (m *authorMatchIndex) matchOverallProductAweme(item OverallProductAwemeReportItem) (authorOrgInfo, string, bool) {
+	if m == nil {
+		return authorOrgInfo{}, "", false
+	}
+	if anchorID, err := strconv.ParseInt(strings.TrimSpace(item.AnchorID), 10, 64); err == nil && anchorID > 0 {
+		if candidates := m.uidMap[anchorID]; len(candidates) == 1 {
+			return candidates[0], "uid", true
+		}
+	}
+	if showID := normalizeAuthorMatchValue(item.AnchorShowID); showID != "" {
+		if candidates := m.showIDMap[showID]; len(candidates) == 1 {
+			return candidates[0], "show_id", true
+		}
+	}
+	if name := normalizeAuthorMatchValue(item.AnchorName); name != "" {
+		if candidates := m.accountNameMap[name]; len(candidates) == 1 {
+			return candidates[0], "account_name", true
+		}
+	}
+	return authorOrgInfo{}, "", false
+}
+
+func overallReportOrgCacheKey(advertiserID int64, statDate string) string {
+	return fmt.Sprintf("%d_%s", advertiserID, normalizeStatDate(statDate))
+}
+
+func isActiveOverallProductAweme(item OverallProductAwemeReportItem) bool {
+	return item.StatCostForOverallRoi2 > 0 ||
+		item.StatCostForRoi2 > 0 ||
+		item.ShopEstimatedComissionCost > 0 ||
+		item.TotalOrderSettleAmountForRoi21h > 0 ||
+		item.TotalOrderRealSettleAmountForRoi21h > 0 ||
+		item.TotalOrderSettleCountForRoi21h > 0
+}
+
+func (p *Poller) resolveOverallReportOrgMappings(
+	ctx context.Context,
+	client *Client,
+	reports []OverallPromotionDailyReport,
+	fallback map[int64]qianchuanOrgMapping,
+) map[string]qianchuanOrgMapping {
+	resolved := make(map[string]qianchuanOrgMapping, len(reports))
+	if len(reports) == 0 || client == nil {
+		return resolved
+	}
+
+	matchIndex, err := p.loadAuthorMatchIndex(ctx)
+	if err != nil {
+		g.Log().Warningf(ctx, "[QianchuanPoller] 构建乘方抖音号归属索引失败，回退广告主映射: %v", err)
+		for _, report := range reports {
+			key := overallReportOrgCacheKey(report.AdvertiserID, report.StatDatetime)
+			if mapping, ok := fallback[report.AdvertiserID]; ok {
+				resolved[key] = companyOnlyOverallMapping(mapping)
+			}
+		}
+		return resolved
+	}
+
+	for _, report := range reports {
+		key := overallReportOrgCacheKey(report.AdvertiserID, report.StatDatetime)
+		if _, exists := resolved[key]; exists {
+			continue
+		}
+
+		mapping, status := p.resolveOverallReportOrgMapping(ctx, client, report, matchIndex)
+		switch status {
+		case "matched":
+			resolved[key] = mapping
+		case "conflict":
+			// 同一广告主同一天命中多个组织时，不再回退广告主级绑定，避免误归属。
+			resolved[key] = qianchuanOrgMapping{}
+		default:
+			if fallbackMapping, ok := fallback[report.AdvertiserID]; ok {
+				resolved[key] = companyOnlyOverallMapping(fallbackMapping)
+			}
+		}
+	}
+
+	return resolved
+}
+
+func (p *Poller) resolveOverallReportOrgMapping(
+	ctx context.Context,
+	client *Client,
+	report OverallPromotionDailyReport,
+	matchIndex *authorMatchIndex,
+) (qianchuanOrgMapping, string) {
+	reportDate := normalizeStatDate(report.StatDatetime)
+	page := 1
+	pageSize := 200
+	totalPages := 1
+
+	uniqueCompanies := make(map[int64]struct{})
+	matchedCount := 0
+
+	for page <= totalPages {
+		result, err := client.GetOverallProductAwemeReport(ctx, report.AdvertiserID, reportDate, reportDate, page, pageSize, "")
+		if err != nil {
+			g.Log().Warningf(ctx, "[QianchuanPoller] 查询广告主%d乘方抖音号明细失败(%s,page=%d): %v", report.AdvertiserID, reportDate, page, err)
+			return qianchuanOrgMapping{}, "none"
+		}
+		if result == nil {
+			break
+		}
+		if result.PageSize > 0 && result.Total > result.PageSize {
+			totalPages = int((result.Total + result.PageSize - 1) / result.PageSize)
+		}
+
+		for _, item := range result.List {
+			if !isActiveOverallProductAweme(item) {
+				continue
+			}
+			org, _, ok := matchIndex.matchOverallProductAweme(item)
+			if !ok {
+				continue
+			}
+			matchedCount++
+			if org.CompanyID > 0 {
+				uniqueCompanies[org.CompanyID] = struct{}{}
+			}
+		}
+		page++
+	}
+
+	if matchedCount == 0 || len(uniqueCompanies) == 0 {
+		return qianchuanOrgMapping{}, "none"
+	}
+	if len(uniqueCompanies) == 1 {
+		var companyID int64
+		for id := range uniqueCompanies {
+			companyID = id
+		}
+		return qianchuanOrgMapping{
+			AccountID:      0,
+			CompanyID:      companyID,
+			DepartmentID:   0,
+			TraderID:       0,
+			OrganizationID: companyID,
+		}, "matched"
+	}
+
+	g.Log().Warningf(ctx, "[QianchuanPoller] 广告主%d在%s命中多个公司，跳过乘方汇总归属: companies=%d",
+		report.AdvertiserID, reportDate, len(uniqueCompanies))
+	return qianchuanOrgMapping{}, "conflict"
+}
+
 // saveAuthorReports 批量保存达人维度报表
 func (p *Poller) saveAuthorReports(ctx context.Context, orgMap map[int64]authorOrgInfo, reports []AuthorReport) (int, int) {
 	if len(reports) == 0 {
@@ -769,6 +1034,16 @@ type qianchuanOrgMapping struct {
 	OrganizationID int64
 }
 
+func companyOnlyOverallMapping(mapping qianchuanOrgMapping) qianchuanOrgMapping {
+	if mapping.CompanyID <= 0 {
+		return qianchuanOrgMapping{}
+	}
+	return qianchuanOrgMapping{
+		CompanyID:      mapping.CompanyID,
+		OrganizationID: mapping.CompanyID,
+	}
+}
+
 func (p *Poller) loadOrgMappings(ctx context.Context, advertiserIDs []int64) map[int64]qianchuanOrgMapping {
 	result := make(map[int64]qianchuanOrgMapping)
 	if len(advertiserIDs) == 0 {
@@ -798,6 +1073,118 @@ func (p *Poller) loadOrgMappings(ctx context.Context, advertiserIDs []int64) map
 		}
 	}
 	return result
+}
+
+func (p *Poller) saveOverallPromotionReports(ctx context.Context, client *Client, reports []OverallPromotionDailyReport) (int, int) {
+	if len(reports) == 0 {
+		return 0, 0
+	}
+
+	advSet := make(map[int64]bool)
+	var advIDs []int64
+	for _, report := range reports {
+		if !advSet[report.AdvertiserID] {
+			advSet[report.AdvertiserID] = true
+			advIDs = append(advIDs, report.AdvertiserID)
+		}
+	}
+	orgMappings := p.loadOrgMappings(ctx, advIDs)
+	detailDerivedMappings := p.resolveOverallReportOrgMappings(ctx, client, reports, orgMappings)
+
+	const batchSize = 100
+	saved := 0
+	failed := 0
+	for batchStart := 0; batchStart < len(reports); batchStart += batchSize {
+		batchEnd := batchStart + batchSize
+		if batchEnd > len(reports) {
+			batchEnd = len(reports)
+		}
+		batch := reports[batchStart:batchEnd]
+
+		placeholders := make([]string, 0, len(batch))
+		args := make([]interface{}, 0, len(batch)*38)
+		for _, item := range batch {
+			mapping := orgMappings[item.AdvertiserID]
+			if detailMapping, ok := detailDerivedMappings[overallReportOrgCacheKey(item.AdvertiserID, item.StatDatetime)]; ok {
+				mapping = detailMapping
+			}
+			mapping = companyOnlyOverallMapping(mapping)
+			payloadBytes, _ := json.Marshal(item)
+			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+			args = append(args,
+				mapping.AccountID, mapping.CompanyID, mapping.DepartmentID, mapping.TraderID,
+				item.AdvertiserID, normalizeStatDate(item.StatDatetime), item.AdlabScene, item.DataPeriod, item.MarketingGoal, item.OrderPlatform,
+				item.ShopEstimatedComissionCost, item.StatCostForOverallRoi2, item.StatCostForRoi2,
+				item.TotalCostPerPayOrderForRoi2, item.TotalCostPerPayOrderSettleForOverallRoi21h, item.TotalCostPerPayOrderSettleForRoi21h,
+				item.TotalEcomPlatformSubsidyAmountForRoi2, item.TotalOrderRealSettleAmountForRoi21h, item.TotalOrderSettleAmountForRoi21h,
+				item.TotalOrderSettleAmountRateForRoi21h, item.TotalOrderSettleCountForRoi21h, item.TotalOrderSettleCountRateForRoi21h,
+				item.TotalPayOrderCountForRoi2, item.TotalPayOrderCouponAmountForRoi2, item.TotalPayOrderGmvForRoi2, item.TotalPayOrderGmvIncludeCouponForRoi2,
+				item.TotalPrepayAndPayOrderRoi2, item.TotalPrepayAndPaySettleOverallRoi21h, item.TotalPrepayAndPaySettleRoi21h,
+				item.TotalPrepayOrderCountForRoi2, item.TotalPrepayOrderGmvForRoi2, item.TotalRefundOrderCountForRoi21h,
+				item.TotalRefundOrderGmvForRoi21hAll, item.TotalRefundOrderGmvForRoi21hRate,
+				item.TotalUnfinishedEstimateOrderGmvForRoi2, item.NoRefundEcomCouponAmountForRoi2, item.NoRefundEcomPlatformSubsidyAmountForRoi2,
+				string(payloadBytes),
+			)
+		}
+		if len(placeholders) == 0 {
+			continue
+		}
+
+		sql := fmt.Sprintf(`INSERT INTO qianchuan_overall_promotion_daily_report
+			(account_id, company_id, department_id, trader_id,
+			advertiser_id, stat_datetime, adlab_scene, data_period, marketing_goal, order_platform,
+			shop_estimated_comission_cost, stat_cost_for_overall_roi2, stat_cost_for_roi2,
+			total_cost_per_pay_order_for_roi2, total_cost_per_pay_order_settle_for_overall_roi2_1h, total_cost_per_pay_order_settle_for_roi2_1h,
+			total_ecom_platform_subsidy_amount_for_roi2, total_order_real_settle_amount_for_roi2_1h, total_order_settle_amount_for_roi2_1h,
+			total_order_settle_amount_rate_for_roi2_1h, total_order_settle_count_for_roi2_1h, total_order_settle_count_rate_for_roi2_1h,
+			total_pay_order_count_for_roi2, total_pay_order_coupon_amount_for_roi2, total_pay_order_gmv_for_roi2, total_pay_order_gmv_include_coupon_for_roi2,
+			total_prepay_and_pay_order_roi2, total_prepay_and_pay_settle_overall_roi2_1h, total_prepay_and_pay_settle_roi2_1h,
+			total_prepay_order_count_for_roi2, total_prepay_order_gmv_for_roi2, total_refund_order_count_for_roi2_1h,
+			total_refund_order_gmv_for_roi2_1h_all, total_refund_order_gmv_for_roi2_1h_rate,
+			total_unfinished_estimate_order_gmv_for_roi2, no_refund_ecom_coupon_amount_for_roi2, no_refund_ecom_platform_subsidy_amount_for_roi2,
+			raw_payload)
+		VALUES %s
+		ON DUPLICATE KEY UPDATE
+			account_id=VALUES(account_id), company_id=VALUES(company_id), department_id=VALUES(department_id), trader_id=VALUES(trader_id),
+			shop_estimated_comission_cost=VALUES(shop_estimated_comission_cost),
+			stat_cost_for_overall_roi2=VALUES(stat_cost_for_overall_roi2), stat_cost_for_roi2=VALUES(stat_cost_for_roi2),
+			total_cost_per_pay_order_for_roi2=VALUES(total_cost_per_pay_order_for_roi2),
+			total_cost_per_pay_order_settle_for_overall_roi2_1h=VALUES(total_cost_per_pay_order_settle_for_overall_roi2_1h),
+			total_cost_per_pay_order_settle_for_roi2_1h=VALUES(total_cost_per_pay_order_settle_for_roi2_1h),
+			total_ecom_platform_subsidy_amount_for_roi2=VALUES(total_ecom_platform_subsidy_amount_for_roi2),
+			total_order_real_settle_amount_for_roi2_1h=VALUES(total_order_real_settle_amount_for_roi2_1h),
+			total_order_settle_amount_for_roi2_1h=VALUES(total_order_settle_amount_for_roi2_1h),
+			total_order_settle_amount_rate_for_roi2_1h=VALUES(total_order_settle_amount_rate_for_roi2_1h),
+			total_order_settle_count_for_roi2_1h=VALUES(total_order_settle_count_for_roi2_1h),
+			total_order_settle_count_rate_for_roi2_1h=VALUES(total_order_settle_count_rate_for_roi2_1h),
+			total_pay_order_count_for_roi2=VALUES(total_pay_order_count_for_roi2),
+			total_pay_order_coupon_amount_for_roi2=VALUES(total_pay_order_coupon_amount_for_roi2),
+			total_pay_order_gmv_for_roi2=VALUES(total_pay_order_gmv_for_roi2),
+			total_pay_order_gmv_include_coupon_for_roi2=VALUES(total_pay_order_gmv_include_coupon_for_roi2),
+			total_prepay_and_pay_order_roi2=VALUES(total_prepay_and_pay_order_roi2),
+			total_prepay_and_pay_settle_overall_roi2_1h=VALUES(total_prepay_and_pay_settle_overall_roi2_1h),
+			total_prepay_and_pay_settle_roi2_1h=VALUES(total_prepay_and_pay_settle_roi2_1h),
+			total_prepay_order_count_for_roi2=VALUES(total_prepay_order_count_for_roi2),
+			total_prepay_order_gmv_for_roi2=VALUES(total_prepay_order_gmv_for_roi2),
+			total_refund_order_count_for_roi2_1h=VALUES(total_refund_order_count_for_roi2_1h),
+			total_refund_order_gmv_for_roi2_1h_all=VALUES(total_refund_order_gmv_for_roi2_1h_all),
+			total_refund_order_gmv_for_roi2_1h_rate=VALUES(total_refund_order_gmv_for_roi2_1h_rate),
+			total_unfinished_estimate_order_gmv_for_roi2=VALUES(total_unfinished_estimate_order_gmv_for_roi2),
+			no_refund_ecom_coupon_amount_for_roi2=VALUES(no_refund_ecom_coupon_amount_for_roi2),
+			no_refund_ecom_platform_subsidy_amount_for_roi2=VALUES(no_refund_ecom_platform_subsidy_amount_for_roi2),
+			raw_payload=VALUES(raw_payload)`,
+			strings.Join(placeholders, ","))
+
+		if _, err := g.DB().Ctx(ctx).Exec(ctx, sql, args...); err != nil {
+			g.Log().Warningf(ctx, "[QianchuanPoller] 乘方报表入库失败 batch=%d-%d: %v", batchStart, batchEnd, err)
+			failed += len(placeholders)
+			continue
+		}
+		saved += len(placeholders)
+	}
+
+	g.Log().Infof(ctx, "[QianchuanPoller] 乘方日报入库%d条, 失败%d条", saved, failed)
+	return saved, failed
 }
 
 func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyReport) (int, int) {

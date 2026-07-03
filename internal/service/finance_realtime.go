@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"go-crawler/internal/model"
+
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/util/gconv"
@@ -128,58 +130,33 @@ func (s *FinanceCommissionService) GetRealtimeProfit(ctx context.Context, req *R
 
 // getAccountIdsByDimension 根据维度获取账号ID列表
 func (s *FinanceCommissionService) getAccountIdsByDimension(ctx context.Context, req *RealtimeProfitReq) ([]int, error) {
-	var accountIds []int
+	var (
+		accountIds []int
+		err        error
+	)
 
-	if req.TraderId > 0 {
-		rows, err := g.DB().Model("trader_account_relation").Where("trader_id", req.TraderId).Fields("account_id").All()
-		if err != nil {
-			return nil, err
+	switch {
+	case req.TraderId > 0:
+		traderId := req.TraderId
+		if !model.IsTraderID(traderId) {
+			traderId = model.EncodeTraderID(traderId)
 		}
-		for _, row := range rows {
-			accountIds = append(accountIds, row["account_id"].Int())
+		accountIds, err = s.getAccountIdsByNode(ctx, traderId, "trader", "")
+	case req.DepartmentId > 0:
+		departmentId := req.DepartmentId
+		if !model.IsDeptID(departmentId) {
+			departmentId = model.EncodeDeptID(departmentId)
 		}
-	} else if req.DepartmentId > 0 {
-		departmentIds, err := s.getDepartmentTreeIds(ctx, req.DepartmentId)
-		if err != nil {
-			return nil, err
-		}
-		if len(departmentIds) == 0 {
-			departmentIds = []int64{req.DepartmentId}
-		}
-
-		placeholders := strings.TrimRight(strings.Repeat("?,", len(departmentIds)), ",")
-		params := make([]interface{}, 0, len(departmentIds)*2)
-		for _, id := range departmentIds {
-			params = append(params, id)
-		}
-		for _, id := range departmentIds {
-			params = append(params, id)
-		}
-
-		rows, err := g.DB().GetAll(ctx, fmt.Sprintf(`
-			SELECT DISTINCT a.id AS id
-			FROM account a
-			LEFT JOIN trader_account_relation tar ON a.id = tar.account_id
-			LEFT JOIN trader t ON tar.trader_id = t.id
-			WHERE a.department_id IN (%s) OR t.group_id IN (%s)
-		`, placeholders, placeholders), params...)
-		if err != nil {
-			return nil, err
-		}
-		for _, row := range rows {
-			accountIds = append(accountIds, row["id"].Int())
-		}
-	} else if req.CompanyId > 0 {
-		rows, err := g.DB().Model("account").Where("company_id", req.CompanyId).Fields("id").All()
-		if err != nil {
-			return nil, err
-		}
-		for _, row := range rows {
-			accountIds = append(accountIds, row["id"].Int())
-		}
+		accountIds, err = s.getAccountIdsByNode(ctx, departmentId, "department", "")
+	case req.CompanyId > 0:
+		// 公司维度需要汇总当前公司及所有子公司，口径与佣金统计保持一致。
+		accountIds, err = s.getAccountIdsByNode(ctx, req.CompanyId, "company", "")
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	return accountIds, nil
+	return uniqueIntSlice(accountIds), nil
 }
 
 func (s *FinanceCommissionService) getDepartmentTreeIds(ctx context.Context, departmentId int64) ([]int64, error) {
@@ -203,6 +180,23 @@ func (s *FinanceCommissionService) getDepartmentTreeIds(ctx context.Context, dep
 		}
 	}
 	return ids, nil
+}
+
+func uniqueIntSlice(values []int) []int {
+	if len(values) <= 1 {
+		return values
+	}
+
+	seen := make(map[int]struct{}, len(values))
+	result := make([]int, 0, len(values))
+	for _, value := range values {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }
 
 // orderStatsByAccounts 查询指定账号集合的订单统计
@@ -501,6 +495,148 @@ func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, star
 		}
 	}
 	return result, nil
+}
+
+// QianchuanSubjectCostDetailItem 主体消耗明细（按千川广告主账户维度）
+type QianchuanSubjectCostDetailItem struct {
+	AdvertiserID    int64   `json:"advertiserId"`
+	AdvertiserName  string  `json:"advertiserName"`
+	AccountID       int64   `json:"accountId"`
+	AccountName     string  `json:"accountName"`
+	UID             string  `json:"uid"`
+	TraderName      string  `json:"traderName"`
+	StatCost        float64 `json:"statCost"`
+	PayOrderAmount  float64 `json:"payOrderAmount"`
+	AllOrderPayGmv  float64 `json:"allOrderPayGmv"`
+	ShowCnt         int64   `json:"showCnt"`
+	ClickCnt        int64   `json:"clickCnt"`
+	PayOrderCount   int64   `json:"payOrderCount"`
+	ROI             float64 `json:"roi"`
+}
+
+// GetSubjectCostDetail 查询指定主体下所有千川广告主账户的消耗明细
+// subjectId 为公司ID（sys_company.id），0 表示未匹配主体的账户
+func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, startDate, endDate string, subjectId int64, page, pageSize int) ([]QianchuanSubjectCostDetailItem, int64, error) {
+	if startDate == "" && endDate == "" {
+		today := time.Now().Format("2006-01-02")
+		startDate, endDate = today, today
+	} else {
+		if startDate == "" {
+			startDate = endDate
+		}
+		if endDate == "" {
+			endDate = startDate
+		}
+	}
+	if _, err := time.Parse("2006-01-02", startDate); err != nil {
+		return nil, 0, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
+	}
+	if _, err := time.Parse("2006-01-02", endDate); err != nil {
+		return nil, 0, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 500 {
+		pageSize = 500
+	}
+	offset := (page - 1) * pageSize
+
+	// 统计总数
+	countRow, err := g.DB().GetOne(ctx, `
+		SELECT COUNT(*) AS total FROM (
+			SELECT adv.advertiser_id
+			FROM (
+				SELECT advertiser_id
+				FROM qianchuan_advertiser_daily_report
+				WHERE LEFT(stat_datetime, 10) >= ? AND LEFT(stat_datetime, 10) <= ?
+				GROUP BY advertiser_id
+			) adv
+			LEFT JOIN account_qianchuan_mapping aqm ON aqm.qianchuan_advertiser_id = adv.advertiser_id
+			LEFT JOIN account a ON a.id = aqm.account_id
+			WHERE COALESCE(NULLIF(aqm.company_id, 0), a.company_id, 0) = ?
+			GROUP BY adv.advertiser_id
+		) t
+	`, startDate, endDate, subjectId)
+	if err != nil {
+		return nil, 0, err
+	}
+	total := countRow["total"].Int64()
+
+	rows, err := g.DB().GetAll(ctx, `
+		SELECT
+			adv.advertiser_id,
+			COALESCE(NULLIF(MAX(aqm.qianchuan_advertiser_name), ''), CAST(adv.advertiser_id AS CHAR), '') AS advertiser_name,
+			COALESCE(NULLIF(MAX(a.platform_nickname), ''), NULLIF(MAX(a.account_name), ''), '') AS account_name,
+			COALESCE(MAX(a.id), 0) AS account_id,
+			COALESCE(NULLIF(MAX(a.uid), ''), '') AS uid,
+			COALESCE(NULLIF(MAX(t.name), ''), '') AS trader_name,
+			MAX(adv.stat_cost) AS stat_cost,
+			MAX(adv.pay_order_amount) AS pay_order_amount,
+			MAX(adv.all_order_pay_gmv) AS all_order_pay_gmv,
+			MAX(adv.show_cnt) AS show_cnt,
+			MAX(adv.click_cnt) AS click_cnt,
+			MAX(adv.pay_order_count) AS pay_order_count
+		FROM (
+			SELECT
+				advertiser_id,
+				COALESCE(SUM(stat_cost), 0) AS stat_cost,
+				COALESCE(SUM(pay_order_amount), 0) AS pay_order_amount,
+				COALESCE(SUM(all_order_pay_gmv_7days), 0) AS all_order_pay_gmv,
+				COALESCE(SUM(show_cnt), 0) AS show_cnt,
+				COALESCE(SUM(click_cnt), 0) AS click_cnt,
+				COALESCE(SUM(pay_order_count), 0) AS pay_order_count
+			FROM qianchuan_advertiser_daily_report
+			WHERE LEFT(stat_datetime, 10) >= ? AND LEFT(stat_datetime, 10) <= ?
+			GROUP BY advertiser_id
+		) adv
+		LEFT JOIN account_qianchuan_mapping aqm ON aqm.qianchuan_advertiser_id = adv.advertiser_id
+		LEFT JOIN account a ON a.id = aqm.account_id
+		LEFT JOIN trader_account_relation tar ON tar.account_id = a.id
+		LEFT JOIN trader t ON t.id = tar.trader_id
+		WHERE COALESCE(NULLIF(aqm.company_id, 0), a.company_id, 0) = ?
+		GROUP BY adv.advertiser_id
+		ORDER BY stat_cost DESC
+		LIMIT ?, ?
+	`, startDate, endDate, subjectId, offset, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	result := make([]QianchuanSubjectCostDetailItem, len(rows))
+	for i, row := range rows {
+		statCost := row["stat_cost"].Float64()
+		payOrderAmount := row["pay_order_amount"].Float64()
+		allOrderPayGmv := row["all_order_pay_gmv"].Float64()
+		roiAmount := payOrderAmount
+		if roiAmount <= 0 {
+			roiAmount = allOrderPayGmv
+		}
+		roi := 0.0
+		if statCost > 0 {
+			roi = roiAmount / statCost
+		}
+
+		result[i] = QianchuanSubjectCostDetailItem{
+			AdvertiserID:   row["advertiser_id"].Int64(),
+			AdvertiserName: row["advertiser_name"].String(),
+			AccountID:      row["account_id"].Int64(),
+			AccountName:    row["account_name"].String(),
+			UID:            row["uid"].String(),
+			TraderName:     row["trader_name"].String(),
+			StatCost:       roundFloatFinance(statCost, 2),
+			PayOrderAmount: roundFloatFinance(payOrderAmount, 2),
+			AllOrderPayGmv: roundFloatFinance(allOrderPayGmv, 2),
+			ShowCnt:        row["show_cnt"].Int64(),
+			ClickCnt:       row["click_cnt"].Int64(),
+			PayOrderCount:  row["pay_order_count"].Int64(),
+			ROI:            roundFloatFinance(roi, 2),
+		}
+	}
+	return result, total, nil
 }
 
 // GetAuthorCostRanking 查询达人维度消耗统计
@@ -839,7 +975,7 @@ func (s *FinanceCommissionService) ExportAuthorCostRanking(ctx context.Context, 
 			rowIdx + 1,
 			item.DouyinNickname,
 			item.OperatorName,
-			item.AwemeID,
+			fmt.Sprintf("%d", item.AwemeID),
 			item.StatCost,
 			item.PayOrderGmv,
 			item.OrderCount,
@@ -885,7 +1021,7 @@ func (s *FinanceCommissionService) ExportCostDetails(ctx context.Context, startD
 			rowIdx + 1,
 			item.DouyinNickname,
 			item.AuthorName,
-			item.AwemeID,
+			fmt.Sprintf("%d", item.AwemeID),
 			item.AdCost,
 			item.PayOrderGmv,
 			item.OrderCount,
