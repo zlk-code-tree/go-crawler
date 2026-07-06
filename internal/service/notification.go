@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
@@ -20,7 +21,8 @@ const (
 // CreateNotification 创建一条系统消息，并可选择推送给指定用户
 // userId: 接收消息的用户ID（用于WebSocket实时推送，0表示不推送）
 func CreateNotification(ctx context.Context, title, content, notifyType, sourceType string, sourceID int64, level int, userId int64) (int64, error) {
-	result, err := g.DB().Ctx(ctx).Model("system_notification").Data(g.Map{
+	autoRead := shouldAutoReadNotification(title, notifyType, level)
+	data := g.Map{
 		"title":       title,
 		"content":     content,
 		"type":        notifyType,
@@ -28,7 +30,13 @@ func CreateNotification(ctx context.Context, title, content, notifyType, sourceT
 		"source_id":   sourceID,
 		"level":       level,
 		"is_read":     0,
-	}).Insert()
+	}
+	if autoRead {
+		data["is_read"] = 1
+		data["read_at"] = time.Now().Format("2006-01-02 15:04:05")
+	}
+
+	result, err := g.DB().Ctx(ctx).Model("system_notification").Data(data).Insert()
 	if err != nil {
 		return 0, err
 	}
@@ -36,17 +44,29 @@ func CreateNotification(ctx context.Context, title, content, notifyType, sourceT
 
 	// WebSocket 实时推送给对应用户
 	if userId > 0 {
-		payload, _ := json.Marshal(g.Map{
-			"type":    "notification",
-			"id":      id,
-			"title":   title,
-			"message": content,
-			"level":   level,
-		})
+		payloadData := g.Map{
+			"type":     "notification",
+			"id":       id,
+			"title":    title,
+			"message":  content,
+			"level":    level,
+			"autoRead": autoRead,
+		}
+		if autoRead {
+			payloadData["durationMs"] = 30000
+		}
+		payload, _ := json.Marshal(payloadData)
 		ws.BroadcastNotification(userId, string(payload))
 	}
 
 	return id, nil
+}
+
+func shouldAutoReadNotification(title, notifyType string, level int) bool {
+	if notifyType != "task_result" || level != NotifyLevelNormal {
+		return false
+	}
+	return strings.Contains(title, "拉取完成") || strings.Contains(title, "数据拉取完成")
 }
 
 // GetUnreadCount 获取未读消息数
