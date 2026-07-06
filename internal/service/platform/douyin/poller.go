@@ -78,7 +78,7 @@ func (p *Poller) Start(ctx context.Context) error {
 	}
 
 	// 每天凌晨重置计数器
-	_, err = gcron.AddSingleton(ctx, "1 0 * * *", func(ctx context.Context) {
+	_, err = gcron.AddSingleton(ctx, "0 1 0 * * *", func(ctx context.Context) {
 		p.mu.Lock()
 		p.dailyCount = 0
 		p.mu.Unlock()
@@ -89,7 +89,7 @@ func (p *Poller) Start(ctx context.Context) error {
 	}
 
 	// 每天凌晨3点清理7天前的历史日志详情
-	_, err = gcron.AddSingleton(ctx, "0 3 * * *", func(ctx context.Context) {
+	_, err = gcron.AddSingleton(ctx, "0 0 3 * * *", func(ctx context.Context) {
 		service.CleanOldLogs(ctx)
 	}, "task_log_cleaner")
 	if err != nil {

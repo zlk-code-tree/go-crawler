@@ -594,7 +594,7 @@ var (
 			// 约定：handler 返回 error 时由 CronManager 统一记录失败日志与通知，handler 内部不应再重复记录
 			cronMgr := service.GetCronManager()
 
-			cronMgr.RegisterBuiltin("douyin_order_daily_pull", "0 1 * * *", func(ctx context.Context) error {
+			cronMgr.RegisterBuiltin("douyin_order_daily_pull", "0 0 1 * * *", func(ctx context.Context) error {
 				yesterday := time.Now().AddDate(0, 0, -1)
 				startTime := yesterday.Format("2006-01-02") + " 00:00:00"
 				endTime := time.Now().Format("2006-01-02") + " 00:00:00"
@@ -604,34 +604,34 @@ var (
 				return err
 			})
 
-			cronMgr.RegisterBuiltin("alliance_order_daily_pull", "30 1 * * *", func(ctx context.Context) error {
+			cronMgr.RegisterBuiltin("alliance_order_daily_pull", "0 30 1 * * *", func(ctx context.Context) error {
 				return douyinSvc.NewService().DailyPullAllianceOrders(ctx)
 			})
 
-			cronMgr.RegisterBuiltin("finance_daily_aggregate", "0 2 * * *", func(ctx context.Context) error {
+			cronMgr.RegisterBuiltin("finance_daily_aggregate", "0 0 2 * * *", func(ctx context.Context) error {
 				yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 				return service.NewFinanceAggregateService().DailyAggregateJob(ctx, yesterday)
 			})
 
-			cronMgr.RegisterBuiltin("order_daily_aggregate", "0 3 * * *", func(ctx context.Context) error {
+			cronMgr.RegisterBuiltin("order_daily_aggregate", "0 0 3 * * *", func(ctx context.Context) error {
 				yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 				return service.NewFinanceAggregateService().OrderDailyAggregateJob(ctx, yesterday)
 			})
 
 			// 千川定时拉取：每日只拉昨天，需要回补走手动接口 /api/qianchuan-poller/trigger
-			cronMgr.RegisterBuiltin("qianchuan_daily_pull", "37 4 * * *", func(ctx context.Context) error {
+			cronMgr.RegisterBuiltin("qianchuan_daily_pull", "0 37 4 * * *", func(ctx context.Context) error {
 				yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 				_, err := oceanengine.GetPoller().ManualPullByDate(ctx, yesterday, yesterday)
 				return err
 			})
 
 			// 盈亏早报推送 (09:00) - 只推 push_morning=1 的配置
-			cronMgr.RegisterBuiltin("profit_morning_push", "0 9 * * *", func(ctx context.Context) error {
+			cronMgr.RegisterBuiltin("profit_morning_push", "0 0 9 * * *", func(ctx context.Context) error {
 				return webhook.NewWebhookPushService().SendReport(ctx, "morning")
 			})
 
 			// 盈亏晚报推送 (18:00) - 只推 push_evening=1 的配置
-			cronMgr.RegisterBuiltin("profit_evening_push", "0 18 * * *", func(ctx context.Context) error {
+			cronMgr.RegisterBuiltin("profit_evening_push", "0 0 18 * * *", func(ctx context.Context) error {
 				return webhook.NewWebhookPushService().SendReport(ctx, "evening")
 			})
 

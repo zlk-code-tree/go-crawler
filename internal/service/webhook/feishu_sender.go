@@ -27,12 +27,17 @@ func buildFeishuCard(card *ProfitCardData) map[string]interface{} {
 		},
 	}
 	for _, p := range card.Periods {
+		content := fmt.Sprintf("**%s**\n流水 %s  成本 %s  广告 %s  佣金 %s  净利 **%s**",
+			p.Label, formatMoney(p.Revenue), formatMoney(p.Cost), formatMoney(p.AdCost), formatMoney(p.Commission), formatMoney(p.NetProfit))
+		if p.UnassignedAdCost > 0 {
+			content += fmt.Sprintf("\n全局未归属广告 %s", formatMoney(p.UnassignedAdCost))
+		}
 		elements = append(elements,
 			map[string]interface{}{
 				"tag": "div",
 				"text": map[string]interface{}{
 					"tag":     "lark_md",
-					"content": fmt.Sprintf("**%s**\n流水 %s  成本 %s  广告 %s  佣金 %s  净利 **%s**", p.Label, formatMoney(p.Revenue), formatMoney(p.Cost), formatMoney(p.AdCost), formatMoney(p.Commission), formatMoney(p.NetProfit)),
+					"content": content,
 				},
 			},
 		)
@@ -46,7 +51,7 @@ func buildFeishuCard(card *ProfitCardData) map[string]interface{} {
 			"elements": []map[string]interface{}{
 				{
 					"tag":     "plain_text",
-					"content": fmt.Sprintf("数据更新时间: %s | 由系统自动推送", card.UpdatedAt),
+					"content": fmt.Sprintf("数据更新时间: %s | 全局未归属广告=广告主总消耗-达人归属消耗 | 由系统自动推送", card.UpdatedAt),
 				},
 			},
 		},
@@ -82,9 +87,12 @@ func buildWecomMarkdown(card *ProfitCardData) map[string]interface{} {
 	for _, p := range card.Periods {
 		sb.WriteString(fmt.Sprintf("**%s**  流水 %s  成本 %s  广告 %s  佣金 %s  净利 **%s**\n",
 			p.Label, formatMoney(p.Revenue), formatMoney(p.Cost), formatMoney(p.AdCost), formatMoney(p.Commission), formatMoney(p.NetProfit)))
+		if p.UnassignedAdCost > 0 {
+			sb.WriteString(fmt.Sprintf("> 全局未归属广告 %s\n", formatMoney(p.UnassignedAdCost)))
+		}
 	}
 
-	sb.WriteString("\n---\n> 由系统自动推送")
+	sb.WriteString("\n---\n> 全局未归属广告=广告主总消耗-达人归属消耗，由系统自动推送")
 
 	return map[string]interface{}{
 		"msgtype": "markdown",

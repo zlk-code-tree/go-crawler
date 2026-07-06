@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	financeService "go-crawler/internal/service"
+	"go-crawler/internal/service/platform/oceanengine"
 	"strconv"
 	"strings"
 	"time"
@@ -27,14 +28,15 @@ type ProfitCardData struct {
 
 // PeriodProfit 单个周期的盈亏数据
 type PeriodProfit struct {
-	Label      string  `json:"label"`      // "今日" / "近7日" / "近15日" / "近30日"
-	Days       int     `json:"days"`       // 0(今日) / 7 / 15 / 30
-	Revenue    float64 `json:"revenue"`    // 总流水
-	Cost       float64 `json:"cost"`       // 货款成本
-	AdCost     float64 `json:"adCost"`     // 广告消耗
-	Commission float64 `json:"commission"` // 佣金
-	NetProfit  float64 `json:"netProfit"`  // 净利润
-	OrderCount int64   `json:"orderCount"` // 有效订单数
+	Label            string  `json:"label"`            // "今日" / "近7日" / "近15日" / "近30日"
+	Days             int     `json:"days"`             // 0(今日) / 7 / 15 / 30
+	Revenue          float64 `json:"revenue"`          // 总流水
+	Cost             float64 `json:"cost"`             // 货款成本
+	AdCost           float64 `json:"adCost"`           // 广告消耗
+	UnassignedAdCost float64 `json:"unassignedAdCost"` // 广告主总消耗中未归属到达人/节点的差额
+	Commission       float64 `json:"commission"`       // 佣金
+	NetProfit        float64 `json:"netProfit"`        // 净利润
+	OrderCount       int64   `json:"orderCount"`       // 有效订单数
 }
 
 // WebhookConfig webhook推送配置（对应 webhook_config 表）
@@ -80,6 +82,10 @@ func (s *WebhookPushService) SendReport(ctx context.Context, pushType string) er
 		return fmt.Errorf("加载webhook配置失败: %w", err)
 	}
 
+	if err := s.refreshTodayQianchuan(ctx); err != nil {
+		g.Log().Warningf(ctx, "[WebhookPush] 推送前补拉当天千川数据失败，继续推送现有数据: %v", err)
+	}
+
 	if len(configs) == 0 {
 		// 降级：从 config.yaml 读取，推全公司汇总到飞书
 		g.Log().Info(ctx, "[WebhookPush] webhook_config表无配置，降级使用config.yaml飞书配置推送汇总")
@@ -110,6 +116,24 @@ func (s *WebhookPushService) SendReport(ctx context.Context, pushType string) er
 	}
 
 	g.Log().Infof(ctx, "[WebhookPush] 推送完成: 成功%d 失败%d", successCount, failCount)
+	return nil
+}
+
+// refreshTodayQianchuan 推送前补拉当天千川数据，避免“今日”卡片沿用空数据。
+func (s *WebhookPushService) refreshTodayQianchuan(ctx context.Context) error {
+	today := time.Now().Format("2006-01-02")
+	pullCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	result, err := oceanengine.GetPoller().ManualPullByDate(pullCtx, today, today)
+	if err != nil {
+		return err
+	}
+	g.Log().Infof(ctx, "[WebhookPush] 推送前千川当天补拉完成 date=%s totalSaved=%d overall=%d plan=%d errors=%d",
+		today, result.TotalSaved, result.TotalOverallSaved, result.TotalPlanSaved, len(result.Errors))
+	if len(result.Errors) > 0 {
+		return fmt.Errorf("千川当天补拉存在%d个错误: %s", len(result.Errors), strings.Join(result.Errors, "; "))
+	}
 	return nil
 }
 
@@ -310,12 +334,13 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 			return nil, err
 		}
 		return &PeriodProfit{
-			Revenue:    result.PayAmount,
-			Cost:       result.CostAmount,
-			AdCost:     result.AdCost,
-			Commission: result.Commission,
-			NetProfit:  result.NetProfit,
-			OrderCount: result.OrderCount,
+			Revenue:          result.PayAmount,
+			Cost:             result.CostAmount,
+			AdCost:           result.AdCost,
+			UnassignedAdCost: s.queryUnassignedAdCost(ctx, startDate, endDate),
+			Commission:       result.Commission,
+			NetProfit:        result.NetProfit,
+			OrderCount:       result.OrderCount,
 		}, nil
 	}
 
@@ -379,6 +404,7 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 	}
 
 	profit.AdCost = s.querySummaryAdCost(ctx, startDate, endDate)
+	profit.UnassignedAdCost = s.queryUnassignedAdCost(ctx, startDate, endDate)
 
 	// 净利润
 	commissionDeduction := profit.Revenue * 0.005
@@ -388,13 +414,14 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 	profit.Cost = round2(profit.Cost)
 	profit.Commission = round2(profit.Commission)
 	profit.AdCost = round2(profit.AdCost)
+	profit.UnassignedAdCost = round2(profit.UnassignedAdCost)
 	profit.NetProfit = round2(profit.NetProfit)
 
 	return profit, nil
 }
 
 func (s *WebhookPushService) querySummaryAdCost(ctx context.Context, startDate, endDate string) float64 {
-	row, err := g.DB().Model("qianchuan_author_daily_report").
+	row, err := g.DB().Model("qianchuan_advertiser_daily_report").
 		Where("LEFT(stat_datetime, 10) >= ?", startDate).
 		Where("LEFT(stat_datetime, 10) <= ?", endDate).
 		Fields("COALESCE(SUM(stat_cost), 0) AS cost").
@@ -403,7 +430,7 @@ func (s *WebhookPushService) querySummaryAdCost(ctx context.Context, startDate, 
 		return row["cost"].Float64()
 	}
 
-	row, err = g.DB().Model("qianchuan_advertiser_daily_report").
+	row, err = g.DB().Model("qianchuan_author_daily_report").
 		Where("LEFT(stat_datetime, 10) >= ?", startDate).
 		Where("LEFT(stat_datetime, 10) <= ?", endDate).
 		Fields("COALESCE(SUM(stat_cost), 0) AS cost").
@@ -412,6 +439,34 @@ func (s *WebhookPushService) querySummaryAdCost(ctx context.Context, startDate, 
 		return 0
 	}
 	return row["cost"].Float64()
+}
+
+func (s *WebhookPushService) queryUnassignedAdCost(ctx context.Context, startDate, endDate string) float64 {
+	advertiserRow, err := g.DB().Model("qianchuan_advertiser_daily_report").
+		Where("LEFT(stat_datetime, 10) >= ?", startDate).
+		Where("LEFT(stat_datetime, 10) <= ?", endDate).
+		Fields("COALESCE(SUM(stat_cost), 0) AS cost").
+		One()
+	if err != nil {
+		g.Log().Warningf(ctx, "[WebhookPush] 查询广告主消耗失败: %v", err)
+		return 0
+	}
+
+	authorRow, err := g.DB().Model("qianchuan_author_daily_report").
+		Where("LEFT(stat_datetime, 10) >= ?", startDate).
+		Where("LEFT(stat_datetime, 10) <= ?", endDate).
+		Fields("COALESCE(SUM(stat_cost), 0) AS cost").
+		One()
+	if err != nil {
+		g.Log().Warningf(ctx, "[WebhookPush] 查询达人归属消耗失败: %v", err)
+		return 0
+	}
+
+	diff := advertiserRow["cost"].Float64() - authorRow["cost"].Float64()
+	if diff <= 0 {
+		return 0
+	}
+	return round2(diff)
 }
 
 // postJSON 发送JSON请求到webhook
