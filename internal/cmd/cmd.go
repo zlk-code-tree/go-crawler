@@ -65,6 +65,24 @@ var (
 				}
 			}
 
+			addIndexIfMissing := func(table, indexName, definition string) {
+				row, err := g.DB().GetOne(ctx, `
+					SELECT COUNT(1) AS cnt
+					FROM information_schema.statistics
+					WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?
+				`, table, indexName)
+				if err != nil {
+					g.Log().Warningf(ctx, "[DBInit] 检查索引失败 table=%s index=%s err=%v", table, indexName, err)
+					return
+				}
+				if row["cnt"].Int() > 0 {
+					return
+				}
+				if _, err := g.DB().Exec(ctx, fmt.Sprintf("ALTER TABLE `%s` ADD %s", table, definition)); err != nil {
+					g.Log().Warningf(ctx, "[DBInit] 添加索引失败 table=%s index=%s err=%v", table, indexName, err)
+				}
+			}
+
 			// 自动建表：千川token存储
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS qianchuan_token (
 				id BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -244,6 +262,16 @@ var (
 			addColumnIfMissing("qianchuan_ad_report", "company_id", "company_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '公司ID' AFTER `account_id`")
 			addColumnIfMissing("qianchuan_ad_report", "department_id", "department_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '部门ID' AFTER `company_id`")
 			addColumnIfMissing("qianchuan_ad_report", "trader_id", "trader_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '投手/运营ID' AFTER `department_id`")
+
+			// account 表：status 字段，用于支持软删除
+			addColumnIfMissing("account", "status", "status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0=已删除 1=正常'")
+			addColumnIfMissing("account", "created_at", "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'")
+			addColumnIfMissing("account", "updated_at", "updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'")
+			addColumnIfMissing("account", "bind_status", "bind_status TINYINT NOT NULL DEFAULT 0 COMMENT '绑定状态：0=未绑定，1=被绑定'")
+
+			// account 表：唯一索引，防止重复导入
+			addIndexIfMissing("account", "uk_platform_account_name", "UNIQUE KEY `uk_platform_account_name` (`platform`, `account_name`) COMMENT '平台+账号名称唯一'")
+			addIndexIfMissing("account", "idx_bind_status", "KEY `idx_bind_status` (`bind_status`)")
 
 			// 自动建表：系统消息通知
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS system_notification (
@@ -476,6 +504,7 @@ var (
 				group.GET("/qianchuan-mapping/advertisers", accountCtrl.QianchuanAdvertisers)
 				group.POST("/qianchuan-mapping/auto-bind", accountCtrl.QianchuanMappingAutoBind)
 				group.POST("/account/sync-org-attribution", accountCtrl.SyncOrgAttribution)
+				group.POST("/account/sync-trader-relations", accountCtrl.SyncTraderRelations)
 
 				// 实时盈亏查询（含千川消耗）
 				group.GET("/finance/today-cost", system.NewFinanceController().TodayCost)
@@ -521,6 +550,8 @@ var (
 				group.POST("/douyin-poller/trigger-alliance", douyinPollerCtrl.TriggerAlliance)
 				group.GET("/douyin/query-shop-alliance-order", douyinPollerCtrl.QueryShopAllianceOrder)
 				group.POST("/douyin-poller/trigger-order", douyinPollerCtrl.TriggerOrder)
+				wechatShopOrderCtrl := system.NewShipinhaoOrderController()
+				group.POST("/wechat-shop-order/trigger-pull", wechatShopOrderCtrl.WechatShopOrderPull)
 				// 千川数据拉取控制
 				qianchuanPollerCtrl := system.NewQianchuanPollerController()
 				group.POST("/qianchuan-poller/start", qianchuanPollerCtrl.Start)

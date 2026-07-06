@@ -354,7 +354,7 @@ func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, sh
 }
 
 // ExportToExcel 导出订单数据到Excel
-func (s *OrderService) ExportToExcel(ctx context.Context, keyword, shopName, orderStatus string, startTime, endTime string) (string, error) {
+func (s *OrderService) ExportToExcel(ctx context.Context, keyword, shopName, orderStatus, talentId string, startTime, endTime string) (string, error) {
 	// 查询所有符合条件的订单
 	query := "SELECT * FROM order_info WHERE 1=1"
 	params := []interface{}{}
@@ -373,6 +373,10 @@ func (s *OrderService) ExportToExcel(ctx context.Context, keyword, shopName, ord
 	if orderStatus != "" {
 		query += " AND order_status = ?"
 		params = append(params, orderStatus)
+	}
+	if talentId != "" {
+		query += " AND talent_id = ?"
+		params = append(params, talentId)
 	}
 
 	if startTime != "" {

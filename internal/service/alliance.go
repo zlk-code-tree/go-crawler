@@ -118,29 +118,33 @@ func rowToAllianceOrder(row gdb.Record) AllianceOrder {
 }
 
 // Export 导出精选联盟订单
-func (s *AllianceService) Export(ctx context.Context, keyword, shopName, authorName, orderStatus, startTime, endTime string) (string, error) {
-	query := g.DB().Model("alliance_orders").Ctx(ctx)
+func (s *AllianceService) Export(ctx context.Context, keyword, shopName, authorName, authorId, orderStatus, startTime, endTime string) (string, error) {
+	query := g.DB().Model("alliance_orders ao").Ctx(ctx).
+		LeftJoin("account a", "ao.author_account COLLATE utf8mb4_unicode_ci = a.account_name COLLATE utf8mb4_unicode_ci")
 
 	if keyword != "" {
-		query = query.Where("(order_id LIKE ? OR product_name LIKE ? OR author_name LIKE ?)", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
+		query = query.Where("(ao.order_id LIKE ? OR ao.product_name LIKE ? OR ao.author_account LIKE ?)", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 	}
 	if shopName != "" {
-		query = query.Where("shop_name LIKE ?", "%"+shopName+"%")
+		query = query.Where("ao.shop_name LIKE ?", "%"+shopName+"%")
 	}
 	if authorName != "" {
-		query = query.Where("author_name LIKE ?", "%"+authorName+"%")
+		query = query.Where("ao.author_account LIKE ?", "%"+authorName+"%")
+	}
+	if authorId != "" {
+		query = query.Where("ao.author_id LIKE ? OR a.uid LIKE ?", "%"+authorId+"%", "%"+authorId+"%")
 	}
 	if orderStatus != "" {
-		query = query.Where("order_status = ?", orderStatus)
+		query = query.Where("ao.order_status = ?", orderStatus)
 	}
 	if startTime != "" {
-		query = query.Where("pay_time >= ?", startTime)
+		query = query.Where("ao.pay_time >= ?", startTime)
 	}
 	if endTime != "" {
-		query = query.Where("pay_time <= ?", endTime)
+		query = query.Where("ao.pay_time <= ?", endTime)
 	}
 
-	result, err := query.Order("pay_time DESC").All()
+	result, err := query.Fields("ao.*, COALESCE(a.uid, '') as buyer_uid").Order("ao.pay_time DESC").All()
 	if err != nil {
 		return "", err
 	}

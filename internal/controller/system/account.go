@@ -25,9 +25,10 @@ func (c *AccountController) ShopList(r *ghttp.Request) {
 	pageSize := r.Get("pageSize", 10).Int()
 	keyword := r.Get("keyword").String()
 	platform := r.Get("platform").String()
+	operator := r.Get("operator").String()
 
 	shopService := service.NewShopService()
-	shops, total, err := shopService.List(r.Context(), page, pageSize, keyword, platform)
+	shops, total, err := shopService.List(r.Context(), page, pageSize, keyword, platform, operator)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})
 		return
@@ -122,9 +123,11 @@ func (c *AccountController) ShopDelete(r *ghttp.Request) {
 // ShopExport 导出账号Excel接口 GET /system/shop/export
 func (c *AccountController) ShopExport(r *ghttp.Request) {
 	keyword := r.Get("keyword").String()
+	platform := r.Get("platform").String()
+	operator := r.Get("operator").String()
 
 	shopService := service.NewShopService()
-	filename, err := shopService.ExportToExcel(r.Context(), keyword)
+	filename, err := shopService.ExportToExcel(r.Context(), keyword, platform, operator)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return
@@ -224,7 +227,7 @@ func (c *AccountController) ShopImport(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
 		"data": result,
-		"msg":  fmt.Sprintf("导入完成：成功%d条，跳过%d条，失败%d条", result.SuccessCount, result.SkipCount, result.FailCount),
+		"msg":  fmt.Sprintf("导入完成：新增%d条，更新%d条，跳过%d条，失败%d条", result.SuccessCount, result.UpdateCount, result.SkipCount, result.FailCount),
 	})
 }
 
@@ -323,10 +326,10 @@ func (c *AccountController) QianchuanMappingAutoBind(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
 		"data": g.Map{
-			"total":     total,
-			"newBound":  newBound,
-			"results":   results,
-			"dryRun":    dryRun,
+			"total":    total,
+			"newBound": newBound,
+			"results":  results,
+			"dryRun":   dryRun,
 		},
 		"msg": fmt.Sprintf("%s完成：共%d个广告主，新绑定%d个", mode, total, newBound),
 	})
@@ -359,5 +362,35 @@ func (c *AccountController) SyncOrgAttribution(r *ghttp.Request) {
 			"dryRun":  dryRun,
 		},
 		"msg": fmt.Sprintf("%s完成：共%d个账号，更新%d个", mode, len(results), updated),
+	})
+}
+
+// SyncTraderRelations 根据账号表 operator 重建账号-投手绑定关系
+// POST /api/account/sync-trader-relations?dryRun=true
+func (c *AccountController) SyncTraderRelations(r *ghttp.Request) {
+	dryRun := r.Get("dryRun", true).Bool()
+
+	shopService := service.NewShopService()
+	summary, err := shopService.SyncTraderAccountRelationsFromAccounts(r.Context(), dryRun)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "同步失败: " + err.Error()})
+		return
+	}
+
+	mode := "预览"
+	if !dryRun {
+		mode = "已写入"
+	}
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"data": summary,
+		"msg": fmt.Sprintf("%s完成：共%d个账号，匹配%d个，重绑%d个，解绑%d个，未匹配%d个",
+			mode,
+			summary.TotalCount,
+			summary.MatchedCount,
+			summary.ReboundCount,
+			summary.UnboundCount,
+			summary.UnmatchedCount,
+		),
 	})
 }

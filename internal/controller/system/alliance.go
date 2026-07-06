@@ -54,11 +54,12 @@ func (c *AllianceController) AllianceExport(r *ghttp.Request) {
 	keyword := r.Get("keyword").String()
 	shopName := r.Get("shopName").String()
 	authorName := r.Get("authorName").String()
+	authorId := r.Get("authorId").String()
 	orderStatus := r.Get("orderStatus").String()
 	startTime := r.Get("startTime").String()
 	endTime := r.Get("endTime").String()
 
-	filename, err := service.NewAllianceService().Export(r.Context(), keyword, shopName, authorName, orderStatus, startTime, endTime)
+	filename, err := service.NewAllianceService().Export(r.Context(), keyword, shopName, authorName, authorId, orderStatus, startTime, endTime)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return

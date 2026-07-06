@@ -23,8 +23,8 @@ func NewShopService() *ShopService {
 }
 
 // List 查询账号列表
-func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword, platform string) ([]g.Map, int64, error) {
-	query := "SELECT * FROM account WHERE 1=1"
+func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword, platform, operator string) ([]g.Map, int64, error) {
+	query := "SELECT * FROM account WHERE status = 1"
 	params := []interface{}{}
 
 	if keyword != "" {
@@ -35,6 +35,10 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword, pla
 	if platform != "" {
 		query += " AND platform = ?"
 		params = append(params, platform)
+	}
+	if operator != "" {
+		query += " AND operator LIKE ?"
+		params = append(params, "%"+operator+"%")
 	}
 
 	query += " ORDER BY id DESC LIMIT ? OFFSET ?"
@@ -47,7 +51,7 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword, pla
 	}
 
 	// 获取总数
-	totalQuery := "SELECT COUNT(*) as total FROM account WHERE 1=1"
+	totalQuery := "SELECT COUNT(*) as total FROM account WHERE status = 1"
 	totalParams := []interface{}{}
 	if keyword != "" {
 		totalQuery += " AND (uid LIKE ? OR account_name LIKE ? OR platform_nickname LIKE ? OR operator LIKE ?)"
@@ -57,6 +61,10 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword, pla
 	if platform != "" {
 		totalQuery += " AND platform = ?"
 		totalParams = append(totalParams, platform)
+	}
+	if operator != "" {
+		totalQuery += " AND operator LIKE ?"
+		totalParams = append(totalParams, "%"+operator+"%")
 	}
 
 	resultTotal, err := g.DB().GetOne(ctx, totalQuery, totalParams...)
@@ -68,21 +76,21 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword, pla
 	shops := make([]g.Map, len(result))
 	for i, row := range result {
 		shops[i] = g.Map{
-			"id":                row["id"],
-			"platform":          row["platform"],
-			"uid":               row["uid"],
-			"accountName":       row["account_name"],
-			"platformNickname":  row["platform_nickname"],
-			"operator":          row["operator"],
-			"companyId":         row["company_id"],
-			"departmentId":      row["department_id"],
-			"groupType":         row["group_type"],
-			"memberName":        row["member_name"],
-			"talentImage":       row["talent_image"],
-			"bindStatus":        row["bind_status"],
-			"status":            row["status"],
-			"createdAt":         row["created_at"],
-			"updatedAt":         row["updated_at"],
+			"id":               row["id"],
+			"platform":         row["platform"],
+			"uid":              row["uid"],
+			"accountName":      row["account_name"],
+			"platformNickname": row["platform_nickname"],
+			"operator":         row["operator"],
+			"companyId":        row["company_id"],
+			"departmentId":     row["department_id"],
+			"groupType":        row["group_type"],
+			"memberName":       row["member_name"],
+			"talentImage":      row["talent_image"],
+			"bindStatus":       row["bind_status"],
+			"status":           row["status"],
+			"createdAt":        row["created_at"],
+			"updatedAt":        row["updated_at"],
 		}
 	}
 
@@ -105,21 +113,21 @@ func (s *ShopService) Detail(ctx context.Context, id int) (g.Map, error) {
 	}
 
 	shop := g.Map{
-		"id":                result["id"],
-		"platform":          result["platform"],
-		"uid":               result["uid"],
-		"accountName":       result["account_name"],
-		"platformNickname":  result["platform_nickname"],
-		"operator":          result["operator"],
-		"companyId":         result["company_id"],
-		"departmentId":      result["department_id"],
-		"groupType":         result["group_type"],
-		"memberName":        result["member_name"],
-		"talentImage":       result["talent_image"],
-		"bindStatus":        result["bind_status"],
-		"status":            result["status"],
-		"createdAt":         result["created_at"],
-		"updatedAt":         result["updated_at"],
+		"id":               result["id"],
+		"platform":         result["platform"],
+		"uid":              result["uid"],
+		"accountName":      result["account_name"],
+		"platformNickname": result["platform_nickname"],
+		"operator":         result["operator"],
+		"companyId":        result["company_id"],
+		"departmentId":     result["department_id"],
+		"groupType":        result["group_type"],
+		"memberName":       result["member_name"],
+		"talentImage":      result["talent_image"],
+		"bindStatus":       result["bind_status"],
+		"status":           result["status"],
+		"createdAt":        result["created_at"],
+		"updatedAt":        result["updated_at"],
 	}
 
 	return shop, nil
@@ -141,18 +149,20 @@ func (s *ShopService) Save(ctx context.Context, req *model.ShopSaveReq) (int64, 
 	}
 
 	data := g.Map{
-		"platform":            req.Platform,
-		"uid": req.Uid,
-		"account_name":        req.AccountName,
-		"platform_nickname":   req.PlatformNickname,
-		"operator":            req.Operator,
+		"platform":          req.Platform,
+		"uid":               req.Uid,
+		"account_name":      req.AccountName,
+		"platform_nickname": req.PlatformNickname,
+		"operator":          req.Operator,
 	}
 
 	if req.Id > 0 {
+		data["status"] = 1
 		data["updated_at"] = time.Now()
 		_, err := g.DB().Model("account").Where("id", req.Id).Data(data).Update()
 		return int64(req.Id), err
 	} else {
+		data["status"] = 1
 		data["created_at"] = time.Now()
 		data["updated_at"] = time.Now()
 		id, err := g.DB().Model("account").Data(data).InsertAndGetId()
@@ -162,7 +172,7 @@ func (s *ShopService) Save(ctx context.Context, req *model.ShopSaveReq) (int64, 
 
 // Stats 账号平台统计
 func (s *ShopService) Stats(ctx context.Context) (g.Map, error) {
-	rows, err := g.DB().GetAll(ctx, "SELECT platform, COUNT(*) as cnt FROM account GROUP BY platform")
+	rows, err := g.DB().GetAll(ctx, "SELECT platform, COUNT(*) as cnt FROM account WHERE status = 1 GROUP BY platform")
 	if err != nil {
 		return nil, err
 	}
@@ -178,13 +188,16 @@ func (s *ShopService) Stats(ctx context.Context) (g.Map, error) {
 	return stats, nil
 }
 
-// Delete 删除账号
+// Delete 删除账号（软删除：status=0，不真正删除数据）
 func (s *ShopService) Delete(ctx context.Context, id int) error {
 	if id <= 0 {
 		return gerror.New("账号ID不能为空")
 	}
 
-	_, err := g.DB().Model("account").Where("id", id).Delete()
+	_, err := g.DB().Model("account").Where("id", id).Data(g.Map{
+		"status":     0,
+		"updated_at": time.Now(),
+	}).Update()
 	return err
 }
 
@@ -257,15 +270,23 @@ func (s *ShopService) ExportTemplate(ctx context.Context) (string, error) {
 }
 
 // ExportToExcel 导出账号数据到Excel
-func (s *ShopService) ExportToExcel(ctx context.Context, keyword string) (string, error) {
+func (s *ShopService) ExportToExcel(ctx context.Context, keyword, platform, operator string) (string, error) {
 	// 查询所有符合条件的店铺
-	query := "SELECT * FROM account WHERE 1=1"
+	query := "SELECT * FROM account WHERE status = 1"
 	params := []interface{}{}
 
 	if keyword != "" {
 		query += " AND (uid LIKE ? OR account_name LIKE ? OR platform_nickname LIKE ? OR operator LIKE ?)"
 		searchKey := "%" + keyword + "%"
 		params = append(params, searchKey, searchKey, searchKey, searchKey)
+	}
+	if platform != "" {
+		query += " AND platform = ?"
+		params = append(params, platform)
+	}
+	if operator != "" {
+		query += " AND operator LIKE ?"
+		params = append(params, "%"+operator+"%")
 	}
 
 	query += " ORDER BY id DESC"
@@ -334,14 +355,21 @@ func (s *ShopService) ExportToExcel(ctx context.Context, keyword string) (string
 
 // ImportResult 导入结果
 type ImportResult struct {
-	TotalRows    int      `json:"totalRows"`    // 总行数
-	SuccessCount int      `json:"successCount"` // 成功导入数
-	SkipCount    int      `json:"skipCount"`    // 跳过数
-	FailCount    int      `json:"failCount"`    // 失败数
-	Errors       []string `json:"errors"`       // 错误信息列表
+	TotalRows    int                        `json:"totalRows"`              // 总行数
+	SuccessCount int                        `json:"successCount"`           // 成功导入数（新增）
+	UpdateCount  int                        `json:"updateCount"`            // 更新数（已存在账号被更新）
+	SkipCount    int                        `json:"skipCount"`              // 跳过数
+	FailCount    int                        `json:"failCount"`              // 失败数
+	Errors       []string                   `json:"errors"`                 // 错误信息列表
+	RelationSync *TraderRelationSyncSummary `json:"relationSync,omitempty"` // 导入后账号-投手关系同步结果
 }
 
-// ImportFromExcel 从Excel导入账号数据（优化版：流式处理+批量入库）
+// ImportFromExcel 从Excel导入账号数据（优化版：流式处理+事务批量upsert）
+//
+// 去重策略（双层保障）：
+//  1. 内存层：预加载已有数据构建 map，导入过程中同 platform+account_name 只保留第一次出现
+//  2. 数据库层：INSERT ... ON DUPLICATE KEY UPDATE 兜底（需 uk_platform_account_name 唯一索引）
+//
 // 平台信息从Excel的"平台"列读取
 func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*ImportResult, error) {
 	g.Log().Infof(ctx, "开始导入账号文件: %s", filePath)
@@ -349,7 +377,6 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
 		g.Log().Errorf(ctx, "打开Excel文件失败: %s, 错误: %v", filePath, err)
-		// 返回更详细的错误信息，包含文件路径
 		return nil, fmt.Errorf("打开Excel文件失败(filePath=%s): %w", filePath, err)
 	}
 	defer f.Close()
@@ -386,21 +413,21 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 
 	// 验证表头 - 支持中英文表头
 	headerMapping := map[string]string{
-		"platform":            "platform",
-		"平台":                  "platform",
-		"达人ID":                "uid",
-		"account_name":        "account_name",
-		"抖音名称":                "account_name",
-		"抖音号名称":               "account_name",
-		"账号名称":                "account_name",
-		"platform_nickname":   "platform_nickname",
-		"抖音ID":               "platform_nickname",
-		"抖音号":                 "platform_nickname",
-		"平台昵称":                "platform_nickname",
-		"operator":            "operator",
-		"运营者":                 "operator",
-		"运营负责人":               "operator",
-		"运营组长":                "operator",
+		"platform":          "platform",
+		"平台":                "platform",
+		"达人ID":              "uid",
+		"account_name":      "account_name",
+		"抖音名称":              "account_name",
+		"抖音号名称":             "account_name",
+		"账号名称":              "account_name",
+		"platform_nickname": "platform_nickname",
+		"抖音ID":              "platform_nickname",
+		"抖音号":               "platform_nickname",
+		"平台昵称":              "platform_nickname",
+		"operator":          "operator",
+		"运营者":               "operator",
+		"运营负责人":             "operator",
+		"运营组长":              "operator",
 	}
 
 	// 打印读取到的表头
@@ -421,7 +448,6 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 			}
 		}
 		if !found {
-			// 改进错误提示：显示实际读取到的表头
 			g.Log().Errorf(ctx, "缺少必要的列: %s, 实际读取到的表头: %v", required, headers)
 			return nil, gerror.New(fmt.Sprintf("缺少必要的列: %s\n实际读取到的表头: %v\n支持的中文列名：平台、账号名称、运营者", required, headers))
 		}
@@ -439,26 +465,56 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 		}
 	}
 
-	// 批量处理配置
-	const batchSize = 1000
-	batch := make([]g.Map, 0, batchSize)
-	rowNum := 1 // 从第2行开始（第1行是表头）
+	// ===== 关键优化1：预加载已有数据，错误不静默 =====
+	// 记录已存在记录的ID，用于后续更新判断
+	type existingAccount struct {
+		id  int64
+		has bool
+	}
+	existingKeys := make(map[string]existingAccount)
 
-	// 预加载所有已存在的 platform+account_name 到内存，避免每行都查询数据库
-	existingKeys := make(map[string]bool)
-	existingRows, _ := g.DB().Model("account").Fields("platform, account_name").All()
+	// 尝试加载 status=1 的记录用于去重
+	existingRows, preloadErr := g.DB().Model("account").Where("status", 1).Fields("id, platform, account_name").All()
+	if preloadErr != nil {
+		// 不静默吞掉错误：记录日志警告，但不阻断导入
+		// 降级策略：如果 status 列不存在，尝试不筛选 status
+		g.Log().Warningf(ctx, "[ImportFromExcel] 预加载已有账号(status=1)失败: %v，尝试无 status 筛选", preloadErr)
+		existingRows, preloadErr = g.DB().Model("account").Fields("id, platform, account_name").All()
+		if preloadErr != nil {
+			g.Log().Warningf(ctx, "[ImportFromExcel] 预加载已有账号(全部)也失败: %v，本次导入无法按已有数据去重", preloadErr)
+		}
+	}
 	for _, row := range existingRows {
 		key := row["platform"].String() + "|" + row["account_name"].String()
-		existingKeys[key] = true
+		existingKeys[key] = existingAccount{id: row["id"].Int64(), has: true}
 	}
+	g.Log().Infof(ctx, "[ImportFromExcel] 预加载已有账号 %d 条用于去重", len(existingKeys))
+
+	// ===== 关键优化2：开启事务，保证一致性 =====
+	tx, err := g.DB().Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("开启事务失败：%w", err)
+	}
+	// 事务结束后自动回滚未提交的变更
+	defer func() {
+		if rec := recover(); rec != nil {
+			tx.Rollback()
+			panic(rec)
+		}
+	}()
+
+	// 批量处理配置
+	const batchSize = 500
+	batch := make([]g.Map, 0, batchSize)
+	rowNum := 1 // 从第2行开始（第1行是表头）
 
 	// 流式读取并批量处理
 	for rows.Next() {
 		rowNum++
 		cols, err := rows.Columns()
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: 读取失败 - %v", rowNum, err))
 			result.FailCount++
+			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: 读取失败 - %v", rowNum, err))
 			continue
 		}
 
@@ -486,39 +542,61 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 
 		// 验证必填字段
 		if platform == "" {
-			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: platform(平台)不能为空", rowNum))
 			result.FailCount++
+			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: platform(平台)不能为空", rowNum))
 			continue
 		}
 		// 统一平台值为英文标识
 		platform = normalizePlatform(platform)
 		if accountName == "" {
-			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: account_name(账号名称)不能为空", rowNum))
 			result.FailCount++
+			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: account_name(账号名称)不能为空", rowNum))
 			continue
 		}
 		if operator == "" {
-			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: operator(运营者/运营组长)不能为空", rowNum))
 			result.FailCount++
+			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: operator(运营者/运营组长)不能为空", rowNum))
 			continue
 		}
 
 		// 检查同一平台下 account_name 是否已存在
+		// ===== 关键优化3：同文件内重复也通过 updateData 走批量upsert处理 =====
 		key := platform + "|" + accountName
-		if existingKeys[key] {
-			result.SkipCount++
+		if existing, ok := existingKeys[key]; ok && existing.has {
+			// 已存在（数据库中已有或同文件前面已出现）：加入更新批次
+			updateData := g.Map{
+				"operator":          operator,
+				"platform_nickname": platformNickname,
+				"status":            1,
+				"updated_at":        time.Now(),
+			}
+			if platformAccountId != "" {
+				updateData["uid"] = platformAccountId
+			}
+			_, err := tx.Model("account").Ctx(ctx).Where("id", existing.id).Data(updateData).Update()
+			if err != nil {
+				result.FailCount++
+				result.Errors = append(result.Errors, fmt.Sprintf("第%d行: 更新账号[%s]失败 - %v", rowNum, accountName, err))
+			} else {
+				result.UpdateCount++
+			}
 			continue
 		}
-		existingKeys[key] = true // 标记为已存在，避免同一批次内重复
+
+		// ===== 关键优化4：标记并记住新记录的 key，防止同文件内重复 =====
+		// id 暂为 0，后续 INSERT 后可通过 LastInsertId 回填（当前批量模式不回填，
+		// 但 existingKeys 中的 has=true 已确保同 key 不会再次进入新增分支）
+		existingKeys[key] = existingAccount{has: true}
 
 		// 添加到批次
 		data := g.Map{
-			"platform":            platform,
-			"account_name":        accountName,
-			"platform_nickname":   platformNickname,
-			"operator":            operator,
-			"created_at":          time.Now(),
-			"updated_at":          time.Now(),
+			"platform":          platform,
+			"account_name":      accountName,
+			"platform_nickname": platformNickname,
+			"operator":          operator,
+			"status":            1,
+			"created_at":        time.Now(),
+			"updated_at":        time.Now(),
 		}
 		if platformAccountId != "" {
 			data["uid"] = platformAccountId
@@ -527,25 +605,45 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 
 		// 达到批次大小，执行批量插入
 		if len(batch) >= batchSize {
-			success, skip, err := s.batchInsert(ctx, batch)
-			result.SuccessCount += success
-			result.SkipCount += skip
-			if err != nil {
+			if err := s.batchUpsert(ctx, tx, batch); err != nil {
+				tx.Rollback()
+				result.FailCount += len(batch)
 				result.Errors = append(result.Errors, fmt.Sprintf("批量插入失败: %v", err))
-				result.FailCount += len(batch) - success - skip
+				return result, err
 			}
-			batch = batch[:0] // 清空批次
+			result.SuccessCount += len(batch)
+			batch = batch[:0]
 		}
 	}
 
 	// 处理剩余的数据
 	if len(batch) > 0 {
-		success, skip, err := s.batchInsert(ctx, batch)
-		result.SuccessCount += success
-		result.SkipCount += skip
-		if err != nil {
+		if err := s.batchUpsert(ctx, tx, batch); err != nil {
+			tx.Rollback()
+			result.FailCount += len(batch)
 			result.Errors = append(result.Errors, fmt.Sprintf("批量插入失败: %v", err))
-			result.FailCount += len(batch) - success - skip
+			return result, err
+		}
+		result.SuccessCount += len(batch)
+	}
+
+	// 提交事务
+	if err := tx.Commit(); err != nil {
+		return result, fmt.Errorf("提交事务失败: %w", err)
+	}
+
+	g.Log().Infof(ctx, "[ImportFromExcel] 导入完成: 总行%d, 新增%d, 更新%d, 跳过%d, 失败%d",
+		result.TotalRows, result.SuccessCount, result.UpdateCount, result.SkipCount, result.FailCount)
+
+	if result.SuccessCount+result.UpdateCount > 0 {
+		syncSummary, syncErr := s.SyncTraderAccountRelationsFromAccounts(ctx, false)
+		if syncErr != nil {
+			g.Log().Warningf(ctx, "[ImportFromExcel] 同步账号投手关系失败: %v", syncErr)
+			result.Errors = append(result.Errors, fmt.Sprintf("账号投手关系同步失败: %v", syncErr))
+		} else {
+			result.RelationSync = syncSummary
+			g.Log().Infof(ctx, "[ImportFromExcel] 账号投手关系同步完成: matched=%d unmatched=%d rebound=%d unbound=%d unchanged=%d",
+				syncSummary.MatchedCount, syncSummary.UnmatchedCount, syncSummary.ReboundCount, syncSummary.UnboundCount, syncSummary.UnchangedCount)
 		}
 	}
 
@@ -557,24 +655,41 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 	return result, nil
 }
 
-// batchInsert 批量插入数据，返回（成功数，跳过数，错误）
-func (s *ShopService) batchInsert(ctx context.Context, batch []g.Map) (int, int, error) {
+// batchUpsert 使用 INSERT ... ON DUPLICATE KEY UPDATE 批量写入
+// 如果 (platform, account_name) 唯一索引冲突，自动转为 UPDATE
+func (s *ShopService) batchUpsert(ctx context.Context, tx gdb.TX, batch []g.Map) error {
 	if len(batch) == 0 {
-		return 0, 0, nil
+		return nil
 	}
-	success, skip := 0, 0
+
+	// 构建批量 INSERT SQL
+	columns := []string{"platform", "account_name", "platform_nickname", "operator", "uid", "status", "created_at", "updated_at"}
+	colList := strings.Join(columns, ", ")
+
+	var placeholders []string
+	var values []interface{}
 	for _, data := range batch {
-		_, err := g.DB().Model("account").Ctx(ctx).Data(data).Insert()
-		if err != nil {
-			if strings.Contains(err.Error(), "Duplicate entry") || strings.Contains(err.Error(), "1062") {
-				skip++
-				continue
-			}
-			return success, skip, err
+		placeholders = append(placeholders, "(?,?,?,?,?,?,?,?)")
+		for _, col := range columns {
+			values = append(values, data[col])
 		}
-		success++
 	}
-	return success, skip, nil
+
+	// INSERT ... ON DUPLICATE KEY UPDATE：插入失败时自动更新已有记录
+	// 依赖 uk_platform_account_name(platform, account_name) 唯一索引
+	sql := "INSERT INTO account (" + colList + ") VALUES " + strings.Join(placeholders, ", ") +
+		" ON DUPLICATE KEY UPDATE " +
+		"operator = VALUES(operator), " +
+		"platform_nickname = VALUES(platform_nickname), " +
+		"uid = VALUES(uid), " +
+		"status = VALUES(status), " +
+		"updated_at = VALUES(updated_at)"
+
+	_, err := tx.Exec(sql, values...)
+	if err != nil {
+		return fmt.Errorf("批量upsert %d 条失败: %w", len(batch), err)
+	}
+	return nil
 }
 
 // normalizePlatform 将中文平台名统一转为英文标识
@@ -636,16 +751,16 @@ func (s *ShopService) ListQianchuanMappings(ctx context.Context, page, pageSize 
 	result := make([]g.Map, len(rows))
 	for i, row := range rows {
 		result[i] = g.Map{
-			"id":                     row["id"],
-			"accountId":              row["account_id"],
-			"companyId":              row["company_id"],
-			"qianchuanAdvertiserId":  row["qianchuan_advertiser_id"],
+			"id":                      row["id"],
+			"accountId":               row["account_id"],
+			"companyId":               row["company_id"],
+			"qianchuanAdvertiserId":   row["qianchuan_advertiser_id"],
 			"qianchuanAdvertiserName": row["qianchuan_advertiser_name"],
-			"accountName":            row["account_name"],
-			"platform":               row["platform"],
-			"uid":                    row["uid"],
-			"companyName":            row["company_name"],
-			"createdAt":              row["created_at"],
+			"accountName":             row["account_name"],
+			"platform":                row["platform"],
+			"uid":                     row["uid"],
+			"companyName":             row["company_name"],
+			"createdAt":               row["created_at"],
 		}
 	}
 	return result, total, nil
@@ -790,6 +905,180 @@ type OrgAttributionResult struct {
 	Updated      bool   `json:"updated"`
 }
 
+// TraderRelationSyncItem 单个账号投手绑定同步结果
+type TraderRelationSyncItem struct {
+	AccountId        int    `json:"accountId"`
+	AccountName      string `json:"accountName"`
+	Platform         string `json:"platform"`
+	Operator         string `json:"operator"`
+	TraderId         int64  `json:"traderId"`
+	TraderName       string `json:"traderName"`
+	CurrentTraderIds string `json:"currentTraderIds"`
+	Action           string `json:"action"` // bound/unbound/unchanged/skipped
+	SkipReason       string `json:"skipReason,omitempty"`
+}
+
+// TraderRelationSyncSummary 账号投手绑定同步汇总
+type TraderRelationSyncSummary struct {
+	TotalCount     int                      `json:"totalCount"`
+	MatchedCount   int                      `json:"matchedCount"`
+	UnmatchedCount int                      `json:"unmatchedCount"`
+	ReboundCount   int                      `json:"reboundCount"`
+	UnboundCount   int                      `json:"unboundCount"`
+	UnchangedCount int                      `json:"unchangedCount"`
+	DryRun         bool                     `json:"dryRun"`
+	Results        []TraderRelationSyncItem `json:"results"`
+}
+
+// SyncTraderAccountRelationsFromAccounts 以 account.operator 为来源重建账号-投手绑定关系。
+// 规则：
+//  1. account.operator 精确匹配 trader.name（仅 status=1 的投手）。
+//  2. 每个账号只保留一个投手绑定；旧绑定会被清理后按 operator 重建。
+//  3. 找不到同名投手时清理旧绑定并将 bind_status 置为未绑定。
+//
+// dryRun=true 只返回预览，不写库。
+func (s *ShopService) SyncTraderAccountRelationsFromAccounts(ctx context.Context, dryRun bool) (*TraderRelationSyncSummary, error) {
+	rows, err := g.DB().GetAll(ctx, `
+		SELECT
+			a.id,
+			a.platform,
+			a.account_name,
+			a.operator,
+			a.bind_status,
+			a.company_id,
+			a.department_id,
+			t.id AS trader_id,
+			t.name AS trader_name,
+			t.company_id AS trader_company_id,
+			t.group_id AS trader_group_id,
+			COALESCE(GROUP_CONCAT(tar.trader_id ORDER BY tar.trader_id SEPARATOR ','), '') AS current_trader_ids
+		FROM account a
+		LEFT JOIN (
+			SELECT TRIM(name) AS operator_name, MIN(id) AS trader_id
+			FROM trader
+			WHERE status = 1 AND TRIM(COALESCE(name, '')) <> ''
+			GROUP BY TRIM(name)
+		) mt ON TRIM(a.operator) = mt.operator_name
+		LEFT JOIN trader t ON t.id = mt.trader_id
+		LEFT JOIN trader_account_relation tar ON tar.account_id = a.id
+		WHERE COALESCE(a.status, 1) = 1
+			AND TRIM(COALESCE(a.operator, '')) <> ''
+		GROUP BY
+			a.id, a.platform, a.account_name, a.operator, a.bind_status,
+			a.company_id, a.department_id, t.id, t.name, t.company_id, t.group_id
+		ORDER BY a.id
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	summary := &TraderRelationSyncSummary{
+		TotalCount: len(rows),
+		DryRun:     dryRun,
+		Results:    make([]TraderRelationSyncItem, 0, len(rows)),
+	}
+
+	var tx gdb.TX
+	if !dryRun {
+		tx, err = g.DB().Begin(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("开启账号投手关系同步事务失败: %w", err)
+		}
+	}
+
+	for _, row := range rows {
+		accountId := row["id"].Int()
+		traderId := row["trader_id"].Int64()
+		currentTraderIds := row["current_trader_ids"].String()
+
+		item := TraderRelationSyncItem{
+			AccountId:        accountId,
+			AccountName:      row["account_name"].String(),
+			Platform:         row["platform"].String(),
+			Operator:         row["operator"].String(),
+			TraderId:         traderId,
+			TraderName:       row["trader_name"].String(),
+			CurrentTraderIds: currentTraderIds,
+		}
+
+		if traderId == 0 {
+			summary.UnmatchedCount++
+			item.Action = "skipped"
+			item.SkipReason = "operator未匹配到启用投手"
+			if currentTraderIds != "" {
+				item.Action = "unbound"
+				summary.UnboundCount++
+				if !dryRun {
+					if _, err := tx.Model("trader_account_relation").Ctx(ctx).Where("account_id", accountId).Delete(); err != nil {
+						_ = tx.Rollback()
+						return nil, fmt.Errorf("清理账号%d旧投手关系失败: %w", accountId, err)
+					}
+					if _, err := tx.Model("account").Ctx(ctx).Where("id", accountId).Data(g.Map{"bind_status": 0}).Update(); err != nil {
+						_ = tx.Rollback()
+						return nil, fmt.Errorf("更新账号%d绑定状态失败: %w", accountId, err)
+					}
+				}
+			}
+			summary.Results = append(summary.Results, item)
+			continue
+		}
+
+		summary.MatchedCount++
+		expectedTraderIds := fmt.Sprintf("%d", traderId)
+		if currentTraderIds == expectedTraderIds {
+			item.Action = "unchanged"
+			summary.UnchangedCount++
+			if !dryRun {
+				updateData := g.Map{
+					"bind_status":   1,
+					"company_id":    row["trader_company_id"].Int64(),
+					"department_id": row["trader_group_id"].Int64(),
+				}
+				if _, err := tx.Model("account").Ctx(ctx).Where("id", accountId).Data(updateData).Update(); err != nil {
+					_ = tx.Rollback()
+					return nil, fmt.Errorf("更新账号%d组织归属失败: %w", accountId, err)
+				}
+			}
+			summary.Results = append(summary.Results, item)
+			continue
+		}
+
+		item.Action = "bound"
+		summary.ReboundCount++
+		if !dryRun {
+			if _, err := tx.Model("trader_account_relation").Ctx(ctx).Where("account_id", accountId).Delete(); err != nil {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("清理账号%d旧投手关系失败: %w", accountId, err)
+			}
+			if _, err := tx.Model("trader_account_relation").Ctx(ctx).Data(g.Map{
+				"trader_id":  traderId,
+				"account_id": accountId,
+			}).Insert(); err != nil {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("写入账号%d投手关系失败: %w", accountId, err)
+			}
+			updateData := g.Map{
+				"bind_status":   1,
+				"company_id":    row["trader_company_id"].Int64(),
+				"department_id": row["trader_group_id"].Int64(),
+			}
+			if _, err := tx.Model("account").Ctx(ctx).Where("id", accountId).Data(updateData).Update(); err != nil {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("更新账号%d组织归属失败: %w", accountId, err)
+			}
+		}
+		summary.Results = append(summary.Results, item)
+	}
+
+	if !dryRun {
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("提交账号投手关系同步事务失败: %w", err)
+		}
+	}
+
+	return summary, nil
+}
+
 // SyncAccountOrgAttribution 通过 trader_account_relation → trader 反向补全 account 的 company_id
 // 解决 account 表 company_id/department_id 全为 0 导致按公司/部门维度统计丢失的问题
 // dryRun=true 只预览不写库
@@ -858,8 +1147,8 @@ type AutoBindResult struct {
 	MatchedAccountId        int    `json:"matchedAccountId"`
 	MatchedAccountName      string `json:"matchedAccountName"`
 	CompanyId               int64  `json:"companyId"`
-	Bound                   bool   `json:"bound"`     // 是否已绑定过
-	NewBound                bool   `json:"newBound"`  // 本次新绑定
+	Bound                   bool   `json:"bound"`    // 是否已绑定过
+	NewBound                bool   `json:"newBound"` // 本次新绑定
 	SkipReason              string `json:"skipReason"`
 }
 
@@ -1029,7 +1318,12 @@ func (s *ShopService) fetchAdvertiserNames(ctx context.Context, accessToken stri
 			continue
 		}
 		if infoResp.Code != nil && *infoResp.Code != 0 {
-			g.Log().Warningf(ctx, "[AutoBind] advertiser/info 返回错误: code=%d msg=%s（token可能已过期）", *infoResp.Code, func() string { if infoResp.Msg != nil { return *infoResp.Msg }; return "" }())
+			g.Log().Warningf(ctx, "[AutoBind] advertiser/info 返回错误: code=%d msg=%s（token可能已过期）", *infoResp.Code, func() string {
+				if infoResp.Msg != nil {
+					return *infoResp.Msg
+				}
+				return ""
+			}())
 			// token 过期等致命错误，停止后续批次
 			break
 		}

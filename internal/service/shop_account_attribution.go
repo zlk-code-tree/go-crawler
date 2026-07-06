@@ -108,7 +108,7 @@ func (s *ShopAccountAttributionService) Delete(ctx context.Context, id int) (int
 
 // GetShops 获取所有店铺名称列表
 func (s *ShopAccountAttributionService) GetShops(ctx context.Context) ([]string, error) {
-	rows, err := g.DB().Model("account").Fields("DISTINCT account_name").Where("platform", "douyin").Order("account_name").All()
+	rows, err := g.DB().Model("account").Fields("DISTINCT account_name").Where("platform", "douyin").Where("status", 1).Order("account_name").All()
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (s *ShopAccountAttributionService) GetShops(ctx context.Context) ([]string,
 
 // GetOperators 获取所有运营者列表
 func (s *ShopAccountAttributionService) GetOperators(ctx context.Context) ([]string, error) {
-	rows, err := g.DB().Model("account").Fields("DISTINCT operator").Where("operator IS NOT NULL AND operator != ''").Order("operator").All()
+	rows, err := g.DB().Model("account").Fields("DISTINCT operator").Where("operator IS NOT NULL AND operator != ''").Where("status", 1).Order("operator").All()
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +138,7 @@ func (s *ShopAccountAttributionService) SearchAccounts(ctx context.Context, keyw
 	rows, err := g.DB().Model("account").
 		Fields("uid, account_name, platform_nickname, operator").
 		Where("platform", "douyin").
+		Where("status", 1).
 		Where("(account_name LIKE ? OR platform_nickname LIKE ? OR uid LIKE ?)", like, like, like).
 		Limit(20).
 		All()

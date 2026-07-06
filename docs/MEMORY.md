@@ -1,4 +1,5 @@
 - 用户名为张立昆。
+- ly_crawler_web 前端项目路径：`/Users/zhanglikun/WorkSpace/service/docker/www/ly_crawler_web`。后续涉及前端页面、按钮、路由、接口调用时优先到该路径处理，不要只在当前 Go 后端仓库查找前端源码。
 - 项目技术栈：Go + GoFrame + go-rod，用于开发抖音电商罗盘自动化爬虫。
 - 项目架构：标准三层架构 (API → Controller → Logic → Service → Model/DAO)。
 - 核心功能：模拟真人操作抓取商品榜单和视频分析数据，支持扫码/账号密码登录。

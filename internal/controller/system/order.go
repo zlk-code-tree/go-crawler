@@ -73,11 +73,12 @@ func (c *OrderController) OrderExport(r *ghttp.Request) {
 	keyword := r.Get("keyword").String()
 	shopName := r.Get("shopName").String()
 	orderStatus := r.Get("orderStatus").String()
+	talentId := r.Get("talentId").String()
 	startTime := r.Get("startTime").String()
 	endTime := r.Get("endTime").String()
 
 	orderService := service.NewOrderService()
-	filename, err := orderService.ExportToExcel(r.Context(), keyword, shopName, orderStatus, startTime, endTime)
+	filename, err := orderService.ExportToExcel(r.Context(), keyword, shopName, orderStatus, talentId, startTime, endTime)
 	if err != nil {
 		g.Log().Error(r.Context(), "订单导出失败:", err)
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
