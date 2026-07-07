@@ -40,9 +40,9 @@ func (c *ShipinhaoOrderController) WechatShopOrderPull(r *ghttp.Request) {
 func (c *ShipinhaoOrderController) runWechatShopOrderPull(ctx context.Context, params wechatshop.PullParams, logId, userId int64) {
 	start := time.Now()
 	result, err := wechatshop.NewService().PullOrders(ctx, params)
-	durationMs := int(time.Since(start).Milliseconds())
 
 	if err != nil {
+		durationMs := int(time.Since(start).Milliseconds())
 		if logId > 0 {
 			service.TaskLogFailed(ctx, logId, err.Error(), durationMs)
 			service.CreateNotification(ctx, "微信小店订单拉取失败", fmt.Sprintf(`{"error":"%s"}`, err.Error()), "task_result", "wechat_shop_order_pull", logId, service.NotifyLevelImportant, userId)
@@ -50,11 +50,21 @@ func (c *ShipinhaoOrderController) runWechatShopOrderPull(ctx context.Context, p
 		return
 	}
 
-	respBody, _ := json.Marshal(result)
+	autoMatchResult, matchErr := service.NewOrderMatchService().AutoMatchShipinhaoPulledOrders(ctx, params.StartTime, params.EndTime, params.StoreId, params.TimeType)
+	resp := g.Map{
+		"pull":      result,
+		"autoMatch": autoMatchResult,
+	}
+	if matchErr != nil {
+		g.Log().Warningf(ctx, "[WechatShopOrder] 微信小店订单自动达人匹配失败: %v", matchErr)
+		resp["autoMatchError"] = matchErr.Error()
+	}
+	respBody, _ := json.Marshal(resp)
 	if logId > 0 {
+		durationMs := int(time.Since(start).Milliseconds())
 		service.TaskLogSuccess(ctx, logId, "", string(respBody), durationMs)
 		level := service.NotifyLevelNormal
-		if result.FailedCount > 0 {
+		if result.FailedCount > 0 || matchErr != nil {
 			level = service.NotifyLevelImportant
 		}
 		service.CreateNotification(ctx, "微信小店订单拉取完成", string(respBody), "task_result", "wechat_shop_order_pull", logId, level, userId)

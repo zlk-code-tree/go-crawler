@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS wechat_shop_auth (
 		{"wechat_order_status", "`wechat_order_status` INT NOT NULL DEFAULT 0 COMMENT '微信小店订单状态码' AFTER `order_status`"},
 		{"wechat_order_status_desc", "`wechat_order_status_desc` VARCHAR(50) NOT NULL DEFAULT '' COMMENT '微信小店订单状态描述' AFTER `wechat_order_status`"},
 		{"order_update_time", "`order_update_time` DATETIME DEFAULT NULL COMMENT '订单更新时间' AFTER `order_submit_time`"},
+		{"account_type", "`account_type` VARCHAR(50) NOT NULL DEFAULT '' COMMENT '带货账号类型' AFTER `talent_name`"},
 		{"source_info", "`source_info` JSON DEFAULT NULL COMMENT '订单来源信息' AFTER `flow_channel`"},
 		{"commission_info", "`commission_info` JSON DEFAULT NULL COMMENT '分账/佣金信息' AFTER `source_info`"},
 		{"raw_json", "`raw_json` JSON DEFAULT NULL COMMENT '微信小店订单原始详情JSON' AFTER `expect_arrive_time`"},

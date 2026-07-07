@@ -54,15 +54,15 @@ func normalizeMatchPlatform(p string) string {
 
 // 普通订单 - 通用映射
 var ordersHeaderCommon = map[string]string{
-	"订单号":    "order_no",
-	"店铺名称":  "shop_name",
-	"商品名称":  "product_name",
-	"商品数量":  "product_num",
-	"付款金额":  "order_pay_amount",
-	"订单状态":  "order_status",
-	"达人ID":   "talent_id",
-	"达人昵称":  "talent_name",
-	"付款时间":  "pay_finish_time",
+	"订单号":  "order_no",
+	"店铺名称": "shop_name",
+	"商品名称": "product_name",
+	"商品数量": "product_num",
+	"付款金额": "order_pay_amount",
+	"订单状态": "order_status",
+	"达人ID": "talent_id",
+	"达人昵称": "talent_name",
+	"付款时间": "pay_finish_time",
 }
 
 // 普通订单 - 平台专属映射
@@ -70,32 +70,32 @@ var ordersHeaderPlatform = map[string]map[string]string{
 	"douyin": {
 		"主订单编号":  "order_no",
 		"子订单编号":  "sub_order_no",
-		"店铺":      "shop_name",
+		"店铺":     "shop_name",
 		"选购商品":   "product_name",
 		"订单应付金额": "order_pay_amount",
 		"支付完成时间": "pay_finish_time",
 	},
 	"kuaishou": {
-		"订单编号":   "order_no",
-		"店铺名":    "shop_name",
-		"商品名":    "product_name",
-		"下单时间":   "pay_finish_time",
-		"售后状态":   "after_sale_status",
+		"订单编号": "order_no",
+		"店铺名":  "shop_name",
+		"商品名":  "product_name",
+		"下单时间": "pay_finish_time",
+		"售后状态": "after_sale_status",
 	},
 	"shipinhao": {
-		"订单编号":       "order_no",
-		"商品数量（件）":   "product_num",
-		"实付金额":       "order_pay_amount",
-		"下单时间":       "pay_finish_time",
-		"售后状态":       "after_sale_status",
-		"带货账号类型":    "account_type",
+		"订单编号":    "order_no",
+		"商品数量（件）": "product_num",
+		"实付金额":    "order_pay_amount",
+		"下单时间":    "pay_finish_time",
+		"售后状态":    "after_sale_status",
+		"带货账号类型":  "account_type",
 	},
 }
 
 // 精选联盟 - 通用映射
 var jingxuanHeaderCommon = map[string]string{
-	"订单号":   "order_no",
-	"达人ID":  "talent_id",
+	"订单号":  "order_no",
+	"达人ID": "talent_id",
 	"达人昵称": "talent_name",
 	"商品名称": "product_name",
 	"佣金比例": "commission_rate",
@@ -104,23 +104,23 @@ var jingxuanHeaderCommon = map[string]string{
 // 精选联盟 - 平台专属映射
 var jingxuanHeaderPlatform = map[string]map[string]string{
 	"douyin": {
-		"订单id":     "order_no",
-		"抖音/火山号":  "talent_id",
-		"作者账号":    "talent_name",
-		"佣金率":     "commission_rate",
+		"订单id":   "order_no",
+		"抖音/火山号": "talent_id",
+		"作者账号":   "talent_name",
+		"佣金率":    "commission_rate",
 	},
 	"kuaishou": {
-		"订单编号":    "order_no",
-		"达人账号":    "talent_id",
-		"达人名称":    "talent_name",
-		"佣金率":     "commission_rate",
-		"预估佣金":    "commission_rate",
+		"订单编号": "order_no",
+		"达人账号": "talent_id",
+		"达人名称": "talent_name",
+		"佣金率":  "commission_rate",
+		"预估佣金": "commission_rate",
 	},
 	"shipinhao": {
-		"订单编号":          "order_no",
-		"推广带货者ID":      "talent_id",
-		"推广带货者昵称":     "talent_name",
-		"带货者佣金率":       "commission_rate",
+		"订单编号":    "order_no",
+		"推广带货者ID": "talent_id",
+		"推广带货者昵称": "talent_name",
+		"带货者佣金率":  "commission_rate",
 	},
 }
 
@@ -419,13 +419,13 @@ func (s *OrderMatchService) ImportJingxuan(ctx context.Context, filePath, platfo
 		existingKeys[key] = true
 
 		data := g.Map{
-			"platform":         platform,
-			"order_no":         orderNo,
-			"talent_id":        talentId,
-			"talent_name":      getCol("talent_name"),
-			"product_name":     getCol("product_name"),
-			"commission_rate":  getCol("commission_rate"),
-			"created_at":       time.Now(),
+			"platform":        platform,
+			"order_no":        orderNo,
+			"talent_id":       talentId,
+			"talent_name":     getCol("talent_name"),
+			"product_name":    getCol("product_name"),
+			"commission_rate": getCol("commission_rate"),
+			"created_at":      time.Now(),
 		}
 		batch = append(batch, data)
 
@@ -593,6 +593,149 @@ func (s *OrderMatchService) MatchOrders(ctx context.Context) (*model.OrderMatchR
 		result.Total, result.Matched, result.Unmatched)
 
 	return result, nil
+}
+
+// AutoMatchShipinhaoPulledOrders 将微信小店 API 拉取的带货机构订单自动套用视频号匹配规则。
+// 小店接口里带货机构订单的 talent_id 往往是机构账号，不是真正的推广带货者；
+// 因此这里把带货机构订单同步到 match_orders 时置空 talent_id，再用 match_jingxuan_orders 回填真实达人。
+func (s *OrderMatchService) AutoMatchShipinhaoPulledOrders(ctx context.Context, startTime, endTime string, storeId int, timeType string) (*model.OrderMatchResult, error) {
+	result := &model.OrderMatchResult{Errors: make([]string, 0)}
+	timeField := "order_submit_time"
+	if strings.EqualFold(strings.TrimSpace(timeType), "update") {
+		timeField = "order_update_time"
+	}
+
+	candidateWhere, candidateArgs := buildShipinhaoAutoMatchWhere("o", timeField, startTime, endTime, storeId)
+	stageSQL := fmt.Sprintf(`
+		INSERT INTO match_orders (
+			platform, order_no, shop_name, product_name, product_num, order_pay_amount,
+			order_status, after_sale_status, talent_id, talent_name, account_type, pay_finish_time, status, created_at
+		)
+		SELECT
+			'shipinhao', o.order_no, o.shop_name, o.product_name, o.product_num, o.order_pay_amount,
+			o.order_status, IFNULL(o.after_sale_status, ''), '', '', '带货机构',
+			IFNULL(DATE_FORMAT(o.pay_finish_time, '%%Y-%%m-%%d %%H:%%i:%%s'), ''), 0, NOW()
+		FROM shipinhao_orders o
+		WHERE %s
+		ON DUPLICATE KEY UPDATE
+			shop_name = VALUES(shop_name),
+			product_name = VALUES(product_name),
+			product_num = VALUES(product_num),
+			order_pay_amount = VALUES(order_pay_amount),
+			order_status = VALUES(order_status),
+			after_sale_status = VALUES(after_sale_status),
+			talent_id = '',
+			talent_name = '',
+			account_type = '带货机构',
+			pay_finish_time = VALUES(pay_finish_time),
+			status = 0`, candidateWhere)
+	stageRes, err := g.DB().Exec(ctx, stageSQL, candidateArgs...)
+	if err != nil {
+		return result, fmt.Errorf("同步微信小店待匹配订单失败: %w", err)
+	}
+	staged, _ := stageRes.RowsAffected()
+	g.Log().Infof(ctx, "[OrderMatch] 微信小店带货机构订单同步到匹配暂存表: %d", staged)
+
+	existsWhere, existsArgs := buildShipinhaoAutoMatchWhere("o", timeField, startTime, endTime, storeId)
+	matchSQL := fmt.Sprintf(`
+		INSERT IGNORE INTO match_result (platform, order_no, talent_id, talent_name, match_status, matched_table, created_at)
+		SELECT mo.platform, mo.order_no, mj.talent_id, mj.talent_name, 0, '', NOW()
+		FROM match_orders mo
+		INNER JOIN match_jingxuan_orders mj
+			ON mo.platform = mj.platform AND mo.order_no = mj.order_no
+		WHERE mo.platform = 'shipinhao'
+		  AND mo.account_type = '带货机构'
+		  AND mo.order_status IN ('已发货', '待发货', '已完成', '完成', '部分发货', '待收货')
+		  AND (mo.after_sale_status = '无' OR mo.after_sale_status = '用户取消申请' OR mo.after_sale_status IS NULL OR mo.after_sale_status = '')
+		  AND (mo.talent_id = '' OR mo.talent_id IS NULL OR mo.talent_id = '0')
+		  AND EXISTS (
+			SELECT 1 FROM shipinhao_orders o
+			WHERE o.order_no COLLATE utf8mb4_general_ci = mo.order_no COLLATE utf8mb4_general_ci
+			  AND %s
+		  )`, existsWhere)
+	matchRes, err := g.DB().Exec(ctx, matchSQL, existsArgs...)
+	if err != nil {
+		return result, fmt.Errorf("微信小店订单匹配失败: %w", err)
+	}
+	matched, _ := matchRes.RowsAffected()
+	result.Total = int(matched)
+	g.Log().Infof(ctx, "[OrderMatch] 微信小店匹配结果写入: %d", matched)
+
+	backfillWhere, backfillArgs := buildShipinhaoAutoMatchWhere("t", timeField, startTime, endTime, storeId)
+	backfillSQL := fmt.Sprintf(`
+		UPDATE shipinhao_orders t
+		INNER JOIN match_result mr
+			ON t.order_no COLLATE utf8mb4_general_ci = mr.order_no COLLATE utf8mb4_general_ci
+		SET t.talent_id = mr.talent_id,
+			t.talent_name = mr.talent_name,
+			t.reflow = 1
+		WHERE mr.match_status = 0
+		  AND mr.platform = 'shipinhao'
+		  AND (t.talent_id = '' OR t.talent_id IS NULL OR t.talent_id = '0' OR t.account_type = '带货机构' OR t.flow_source = '带货机构机构推广')
+		  AND %s`, backfillWhere)
+	backfillRes, err := g.DB().Exec(ctx, backfillSQL, backfillArgs...)
+	if err != nil {
+		return result, fmt.Errorf("微信小店订单回填达人失败: %w", err)
+	}
+	backfilled, _ := backfillRes.RowsAffected()
+	result.Matched = int(backfilled)
+	g.Log().Infof(ctx, "[OrderMatch] 微信小店订单回填达人: %d", backfilled)
+
+	markWhere, markArgs := buildShipinhaoAutoMatchWhere("t", timeField, startTime, endTime, storeId)
+	markSQL := fmt.Sprintf(`
+		UPDATE match_result mr
+		SET mr.match_status = 1,
+			mr.matched_table = 'shipinhao_orders'
+		WHERE mr.match_status = 0
+		  AND mr.platform = 'shipinhao'
+		  AND EXISTS (
+			SELECT 1 FROM shipinhao_orders t
+			WHERE t.order_no COLLATE utf8mb4_general_ci = mr.order_no COLLATE utf8mb4_general_ci
+			  AND t.talent_id COLLATE utf8mb4_general_ci = mr.talent_id COLLATE utf8mb4_general_ci
+			  AND t.reflow = 1
+			  AND %s
+		  )`, markWhere)
+	if markRes, err := g.DB().Exec(ctx, markSQL, markArgs...); err != nil {
+		g.Log().Warningf(ctx, "[OrderMatch] 标记微信小店匹配结果失败: %v", err)
+	} else if marked, _ := markRes.RowsAffected(); marked > 0 {
+		g.Log().Infof(ctx, "[OrderMatch] 标记微信小店匹配结果已回填: %d", marked)
+	}
+
+	result.Unmatched = result.Total - result.Matched
+	if result.Unmatched < 0 {
+		result.Unmatched = 0
+	}
+	return result, nil
+}
+
+func buildShipinhaoAutoMatchWhere(alias, timeField, startTime, endTime string, storeId int) (string, []interface{}) {
+	where := fmt.Sprintf(`
+		%s.order_no IS NOT NULL AND %s.order_no != ''
+		AND (%s.account_type = '带货机构' OR %s.flow_source = '带货机构机构推广')
+		AND (
+			%s.wechat_order_status IN (20, 21, 30, 100)
+			OR %s.order_status IN ('已发货', '待发货', '已完成', '完成', '部分发货', '待收货')
+		)
+		AND (%s.after_sale_status IS NULL OR %s.after_sale_status = '' OR %s.after_sale_status IN ('无', '用户取消申请'))
+		AND %s.%s >= ?
+		AND %s.%s < ?`,
+		alias, alias,
+		alias, alias,
+		alias, alias,
+		alias, alias, alias,
+		alias, timeField,
+		alias, timeField,
+	)
+	args := []interface{}{startTime, endTime}
+	if storeId > 0 {
+		where += fmt.Sprintf(`
+		AND EXISTS (
+			SELECT 1 FROM store s
+			WHERE s.id = ? AND s.store_id COLLATE utf8mb4_general_ci = %s.store_id COLLATE utf8mb4_general_ci
+		)`, alias)
+		args = append(args, storeId)
+	}
+	return where, args
 }
 
 // ============================================
