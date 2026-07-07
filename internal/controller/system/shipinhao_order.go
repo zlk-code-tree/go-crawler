@@ -25,11 +25,12 @@ func (c *ShipinhaoOrderController) ShipinhaoOrderList(r *ghttp.Request) {
 	keyword := r.Get("keyword").String()
 	shopName := r.Get("shopName").String()
 	orderStatus := r.Get("orderStatus").String()
+	talentName := r.Get("talentName").String()
 	startTime := r.Get("startTime").String()
 	endTime := r.Get("endTime").String()
 
 	shipinhaoOrderService := service.NewShipinhaoOrderService()
-	orders, total, err := shipinhaoOrderService.List(r.Context(), page, pageSize, keyword, shopName, orderStatus, startTime, endTime)
+	orders, total, err := shipinhaoOrderService.List(r.Context(), page, pageSize, keyword, shopName, orderStatus, talentName, startTime, endTime)
 	if err != nil {
 		g.Log().Error(r.Context(), "视频号订单查询失败:", err)
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})

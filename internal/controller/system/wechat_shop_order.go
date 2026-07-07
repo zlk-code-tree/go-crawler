@@ -50,10 +50,17 @@ func (c *ShipinhaoOrderController) runWechatShopOrderPull(ctx context.Context, p
 		return
 	}
 
-	autoMatchResult, matchErr := service.NewOrderMatchService().AutoMatchShipinhaoPulledOrders(ctx, params.StartTime, params.EndTime, params.StoreId, params.TimeType)
+	matchSvc := service.NewOrderMatchService()
+	accountMatchResult, accountMatchErr := matchSvc.BackfillShipinhaoTalentFromAccounts(ctx, params.StartTime, params.EndTime, params.StoreId, params.TimeType)
+	autoMatchResult, matchErr := matchSvc.AutoMatchShipinhaoPulledOrders(ctx, params.StartTime, params.EndTime, params.StoreId, params.TimeType)
 	resp := g.Map{
-		"pull":      result,
-		"autoMatch": autoMatchResult,
+		"pull":         result,
+		"accountMatch": accountMatchResult,
+		"autoMatch":    autoMatchResult,
+	}
+	if accountMatchErr != nil {
+		g.Log().Warningf(ctx, "[WechatShopOrder] 微信小店订单账号表达人回填失败: %v", accountMatchErr)
+		resp["accountMatchError"] = accountMatchErr.Error()
 	}
 	if matchErr != nil {
 		g.Log().Warningf(ctx, "[WechatShopOrder] 微信小店订单自动达人匹配失败: %v", matchErr)
@@ -64,7 +71,7 @@ func (c *ShipinhaoOrderController) runWechatShopOrderPull(ctx context.Context, p
 		durationMs := int(time.Since(start).Milliseconds())
 		service.TaskLogSuccess(ctx, logId, "", string(respBody), durationMs)
 		level := service.NotifyLevelNormal
-		if result.FailedCount > 0 || matchErr != nil {
+		if result.FailedCount > 0 || accountMatchErr != nil || matchErr != nil {
 			level = service.NotifyLevelImportant
 		}
 		service.CreateNotification(ctx, "微信小店订单拉取完成", string(respBody), "task_result", "wechat_shop_order_pull", logId, level, userId)

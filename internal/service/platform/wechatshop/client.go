@@ -84,6 +84,13 @@ type orderDetailResp struct {
 	Order map[string]interface{} `json:"order"`
 }
 
+type basicsInfoResp struct {
+	wxBaseResp
+	Info struct {
+		Nickname string `json:"nickname"`
+	} `json:"info"`
+}
+
 // EnsureSchema creates the auth table and adds API-specific fields when the SQL
 // migration has not been applied yet.
 func (s *Service) EnsureSchema(ctx context.Context) error {
@@ -208,6 +215,17 @@ func (s *Service) PullOrders(ctx context.Context, params PullParams) (*PullResul
 			result.FailedCount++
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: 获取access_token失败: %v", auth.StoreName, err))
 			continue
+		}
+		if shopName, err := s.getShopName(ctx, token); err != nil {
+			g.Log().Warningf(ctx, "[WechatShop] 获取店铺名称失败: store=%s err=%v", auth.StoreName, err)
+		} else if shopName != "" {
+			if shopName != auth.StoreName {
+				g.Log().Infof(ctx, "[WechatShop] 同步店铺名称: storeId=%s %s -> %s", auth.StoreId, auth.StoreName, shopName)
+			}
+			auth.StoreName = shopName
+			_, _ = g.DB().Model("store").Ctx(ctx).Where("id", auth.StorePk).Data(g.Map{
+				"store_name": shopName,
+			}).Update()
 		}
 
 		storeResult := s.pullStoreOrders(ctx, auth, token, start, end, params.TimeType, params.Concurrency)
@@ -448,6 +466,41 @@ func (s *Service) getOrderDetail(ctx context.Context, token, orderId string) (ma
 	return resp.Order, nil
 }
 
+func (s *Service) getShopName(ctx context.Context, token string) (string, error) {
+	var resp basicsInfoResp
+	url := fmt.Sprintf("%s/channels/ec/basics/info/get?access_token=%s", baseURL, token)
+	if err := s.getJSON(ctx, url, &resp); err != nil {
+		return "", err
+	}
+	if resp.ErrCode != 0 {
+		return "", fmt.Errorf("errcode=%d errmsg=%s", resp.ErrCode, resp.ErrMsg)
+	}
+	return strings.TrimSpace(resp.Info.Nickname), nil
+}
+
+func (s *Service) getJSON(ctx context.Context, url string, out interface{}) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+	if err := json.Unmarshal(respBody, out); err != nil {
+		return fmt.Errorf("解析微信响应失败: %w, body=%s", err, string(respBody))
+	}
+	return nil
+}
+
 func (s *Service) postJSON(ctx context.Context, url string, payload interface{}, out interface{}) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -508,6 +561,7 @@ func (s *Service) saveOrderDetail(ctx context.Context, auth authConfig, order ma
 		skuId := getString(product, "sku_id")
 		source := findBySku(sourceInfos, skuId)
 		commission := findBySku(commissionInfos, skuId)
+		talentId, talentName, accountType := talentFromWechatOrder(source, extInfo)
 		sourceJSON, _ := json.Marshal(source)
 		commissionJSON, _ := json.Marshal(commission)
 		specJSON, _ := json.Marshal(getSlice(product, "sku_attrs"))
@@ -554,9 +608,9 @@ func (s *Service) saveOrderDetail(ctx context.Context, auth authConfig, order ma
 			"wechat_order_status_desc": orderStatusDesc(orderStatus),
 			"promise_send_time":        unixTimeOrNil(getInt64(product, "delivery_deadline")),
 			"order_type":               truncateLocal(orderSceneDesc(getInt64(extInfo, "order_scene")), 50),
-			"talent_id":                truncateLocal(firstString(source, "account_id", "finder_id"), 100),
-			"talent_name":              truncateLocal(getString(source, "account_nickname"), 100),
-			"account_type":             truncateLocal(accountTypeDesc(getInt64(source, "account_type")), 50),
+			"talent_id":                truncateLocal(talentId, 100),
+			"talent_name":              truncateLocal(talentName, 100),
+			"account_type":             truncateLocal(accountType, 50),
 			"store_id":                 truncateLocal(auth.StoreId, 100),
 			"after_sale_status":        truncateLocal(afterSaleStatus(product, aftersaleDetail), 50),
 			"cancel_reason":            truncateLocal(getString(order, "cancel_reason"), 255),
@@ -723,6 +777,21 @@ func findBySku(items []interface{}, skuId string) map[string]interface{} {
 		}
 	}
 	return map[string]interface{}{}
+}
+
+func talentFromWechatOrder(source, extInfo map[string]interface{}) (string, string, string) {
+	accountType := accountTypeDesc(getInt64(source, "account_type"))
+	finderId := getString(extInfo, "finder_id")
+	sourceId := firstString(source, "account_id", "finder_id")
+	sourceName := getString(source, "account_nickname")
+
+	if accountType == "带货机构" {
+		return finderId, "", accountType
+	}
+	if sourceId == "" {
+		sourceId = finderId
+	}
+	return sourceId, sourceName, accountType
 }
 
 func centsToYuan(cents int64) float64 {

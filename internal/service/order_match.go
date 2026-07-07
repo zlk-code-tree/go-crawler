@@ -117,10 +117,14 @@ var jingxuanHeaderPlatform = map[string]map[string]string{
 		"预估佣金": "commission_rate",
 	},
 	"shipinhao": {
-		"订单编号":    "order_no",
-		"推广带货者ID": "talent_id",
-		"推广带货者昵称": "talent_name",
-		"带货者佣金率":  "commission_rate",
+		"订单编号":     "order_no",
+		"推广带货者ID":  "talent_id",
+		"推广带货者昵称":  "talent_name",
+		"视频号昵称":    "talent_name",
+		"带货者视频号昵称": "talent_name",
+		"推广者昵称":    "talent_name",
+		"达人名称":     "talent_name",
+		"带货者佣金率":   "commission_rate",
 	},
 }
 
@@ -713,6 +717,82 @@ func (s *OrderMatchService) AutoMatchShipinhaoPulledOrders(ctx context.Context, 
 	return result, nil
 }
 
+// BackfillShipinhaoTalentFromAccounts 用账号表补齐微信小店订单里的视频号达人信息。
+// 微信小店订单中 source_infos 的 account_type=1000 时是带货机构，不是真实达人；
+// 因此优先用 ext_info.finder_id 匹配 account.uid，再用非机构来源昵称/佣金昵称兜底匹配账号名称。
+func (s *OrderMatchService) BackfillShipinhaoTalentFromAccounts(ctx context.Context, startTime, endTime string, storeId int, timeType string) (*model.OrderMatchResult, error) {
+	result := &model.OrderMatchResult{Errors: make([]string, 0)}
+	timeField := "order_submit_time"
+	if strings.EqualFold(strings.TrimSpace(timeType), "update") {
+		timeField = "order_update_time"
+	}
+
+	candidateWhere, candidateArgs := buildShipinhaoAccountMatchWhere("t", timeField, startTime, endTime, storeId)
+	countSQL := fmt.Sprintf("SELECT COUNT(1) FROM shipinhao_orders t WHERE %s", candidateWhere)
+	if count, err := g.DB().GetValue(ctx, countSQL, candidateArgs...); err == nil {
+		result.Total = count.Int()
+	}
+
+	finderSQL := fmt.Sprintf(`
+		UPDATE shipinhao_orders t
+		INNER JOIN account a
+			ON a.platform = 'shipinhao'
+		   AND a.uid IS NOT NULL
+		   AND a.uid != ''
+		   AND a.uid COLLATE utf8mb4_general_ci = JSON_UNQUOTE(JSON_EXTRACT(t.raw_json, '$.order_detail.ext_info.finder_id')) COLLATE utf8mb4_general_ci
+		SET t.talent_id = a.uid,
+			t.talent_name = COALESCE(NULLIF(a.platform_nickname, ''), a.account_name),
+			t.reflow = 1
+		WHERE %s`, candidateWhere)
+	finderRes, err := g.DB().Exec(ctx, finderSQL, candidateArgs...)
+	if err != nil {
+		return result, fmt.Errorf("按视频号ID匹配微信小店达人失败: %w", err)
+	}
+	finderMatched, _ := finderRes.RowsAffected()
+
+	nicknameWhere := candidateWhere + `
+		AND (t.talent_id IS NULL OR t.talent_id = '' OR t.talent_id = '0' OR t.talent_name IS NULL OR t.talent_name = '')`
+	nicknameArgs := append([]interface{}{}, candidateArgs...)
+	nicknameSQL := fmt.Sprintf(`
+		UPDATE shipinhao_orders t
+		INNER JOIN account a
+			ON a.platform = 'shipinhao'
+		   AND (a.account_name != '' OR a.platform_nickname != '')
+		   AND (
+				COALESCE(NULLIF(a.platform_nickname, ''), a.account_name) COLLATE utf8mb4_general_ci = JSON_UNQUOTE(JSON_EXTRACT(t.commission_info, '$.nickname')) COLLATE utf8mb4_general_ci
+				OR a.account_name COLLATE utf8mb4_general_ci = JSON_UNQUOTE(JSON_EXTRACT(t.commission_info, '$.nickname')) COLLATE utf8mb4_general_ci
+				OR (
+					CAST(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(t.source_info, '$.account_type')), ''), '0') AS UNSIGNED) != 1000
+					AND (
+						COALESCE(NULLIF(a.platform_nickname, ''), a.account_name) COLLATE utf8mb4_general_ci = JSON_UNQUOTE(JSON_EXTRACT(t.source_info, '$.account_nickname')) COLLATE utf8mb4_general_ci
+						OR a.account_name COLLATE utf8mb4_general_ci = JSON_UNQUOTE(JSON_EXTRACT(t.source_info, '$.account_nickname')) COLLATE utf8mb4_general_ci
+					)
+				)
+		   )
+		SET t.talent_id = COALESCE(
+				NULLIF(a.uid, ''),
+				NULLIF(JSON_UNQUOTE(JSON_EXTRACT(t.raw_json, '$.order_detail.ext_info.finder_id')), ''),
+				a.account_name
+			),
+			t.talent_name = COALESCE(NULLIF(a.platform_nickname, ''), a.account_name),
+			t.reflow = 1
+		WHERE %s`, nicknameWhere)
+	nicknameRes, err := g.DB().Exec(ctx, nicknameSQL, nicknameArgs...)
+	if err != nil {
+		return result, fmt.Errorf("按昵称匹配微信小店达人失败: %w", err)
+	}
+	nicknameMatched, _ := nicknameRes.RowsAffected()
+
+	result.Matched = int(finderMatched + nicknameMatched)
+	result.Unmatched = result.Total - result.Matched
+	if result.Unmatched < 0 {
+		result.Unmatched = 0
+	}
+	g.Log().Infof(ctx, "[OrderMatch] 微信小店账号表达人回填: 视频号ID%d, 昵称%d, 候选%d",
+		finderMatched, nicknameMatched, result.Total)
+	return result, nil
+}
+
 func buildShipinhaoAutoMatchWhere(alias, timeField, startTime, endTime string, storeId int) (string, []interface{}) {
 	where := fmt.Sprintf(`
 		%s.order_no IS NOT NULL AND %s.order_no != ''
@@ -736,6 +816,43 @@ func buildShipinhaoAutoMatchWhere(alias, timeField, startTime, endTime string, s
 		alias,
 		alias, alias,
 		alias, alias, alias,
+	)
+	args := make([]interface{}, 0, 3)
+	if strings.TrimSpace(startTime) != "" {
+		where += fmt.Sprintf(`
+		AND %s.%s >= ?`, alias, timeField)
+		args = append(args, startTime)
+	}
+	if strings.TrimSpace(endTime) != "" {
+		where += fmt.Sprintf(`
+		AND %s.%s < ?`, alias, timeField)
+		args = append(args, endTime)
+	}
+	if storeId > 0 {
+		where += fmt.Sprintf(`
+		AND EXISTS (
+			SELECT 1 FROM store s
+			WHERE s.id = ? AND s.store_id COLLATE utf8mb4_general_ci = %s.store_id COLLATE utf8mb4_general_ci
+		)`, alias)
+		args = append(args, storeId)
+	}
+	return where, args
+}
+
+func buildShipinhaoAccountMatchWhere(alias, timeField, startTime, endTime string, storeId int) (string, []interface{}) {
+	where := fmt.Sprintf(`
+		%s.order_no IS NOT NULL AND %s.order_no != ''
+		AND (
+			%s.talent_id IS NULL OR %s.talent_id = '' OR %s.talent_id = '0'
+			OR %s.talent_name IS NULL OR %s.talent_name = ''
+			OR %s.account_type = '带货机构'
+			OR %s.flow_source = '带货机构机构推广'
+		)`,
+		alias, alias,
+		alias, alias, alias,
+		alias, alias,
+		alias,
+		alias,
 	)
 	args := make([]interface{}, 0, 3)
 	if strings.TrimSpace(startTime) != "" {

@@ -21,38 +21,80 @@ func NewShipinhaoOrderService() *ShipinhaoOrderService {
 	return &ShipinhaoOrderService{}
 }
 
+const shipinhaoVideoNicknameExpr = "COALESCE(NULLIF(o.talent_name, ''), NULLIF(mj.talent_name, ''), '')"
+const shipinhaoTalentOwnerExpr = "COALESCE(NULLIF(au.operator, ''), NULLIF(an.operator, ''), NULLIF(au.member_name, ''), NULLIF(an.member_name, ''), '')"
+
 // List 查询视频号订单列表
-func (s *ShipinhaoOrderService) List(ctx context.Context, page, pageSize int, keyword, shopName, orderStatus string, startTime, endTime string) ([]g.Map, int64, error) {
-	query := "SELECT * FROM " + shipinhaoOrdersTable + " WHERE 1=1"
+func (s *ShipinhaoOrderService) List(ctx context.Context, page, pageSize int, keyword, shopName, orderStatus, talentName string, startTime, endTime string) ([]g.Map, int64, error) {
+	fromSQL := `
+		FROM ` + shipinhaoOrdersTable + ` o
+		LEFT JOIN (
+			SELECT order_no, MAX(talent_name) AS talent_name
+			FROM match_jingxuan_orders
+			WHERE platform = 'shipinhao'
+			GROUP BY order_no
+		) mj ON o.order_no COLLATE utf8mb4_general_ci = mj.order_no COLLATE utf8mb4_general_ci
+		LEFT JOIN (
+			SELECT uid,
+				MAX(account_name) AS account_name,
+				MAX(platform_nickname) AS platform_nickname,
+				MAX(member_name) AS member_name,
+				MAX(operator) AS operator
+			FROM account
+			WHERE platform = 'shipinhao' AND status = 1 AND uid IS NOT NULL AND uid != ''
+			GROUP BY uid
+		) au ON o.talent_id COLLATE utf8mb4_general_ci = au.uid COLLATE utf8mb4_general_ci
+		LEFT JOIN (
+			SELECT account_name,
+				MAX(platform_nickname) AS platform_nickname,
+				MAX(member_name) AS member_name,
+				MAX(operator) AS operator
+			FROM account
+			WHERE platform = 'shipinhao' AND status = 1 AND account_name != ''
+			GROUP BY account_name
+		) an ON ` + shipinhaoVideoNicknameExpr + ` COLLATE utf8mb4_general_ci = an.account_name COLLATE utf8mb4_general_ci
+		WHERE 1=1`
+	query := "SELECT o.*, " + shipinhaoVideoNicknameExpr + " AS video_nickname, " + shipinhaoTalentOwnerExpr + " AS talent_owner" + fromSQL
+	whereSQL := ""
 	params := []interface{}{}
 
 	if keyword != "" {
-		query += " AND (order_no LIKE ? OR product_name LIKE ?)"
+		whereSQL += " AND (o.order_no LIKE ? OR o.product_name LIKE ?)"
 		searchKey := "%" + keyword + "%"
 		params = append(params, searchKey, searchKey)
 	}
 
 	if shopName != "" {
-		query += " AND shop_name = ?"
+		whereSQL += " AND o.shop_name = ?"
 		params = append(params, shopName)
 	}
 
 	if orderStatus != "" {
-		query += " AND order_status = ?"
+		whereSQL += " AND o.order_status = ?"
 		params = append(params, orderStatus)
 	}
 
+	if talentName != "" {
+		whereSQL += ` AND (
+			` + shipinhaoVideoNicknameExpr + ` LIKE ?
+			OR ` + shipinhaoTalentOwnerExpr + ` LIKE ?
+		)`
+		searchKey := "%" + talentName + "%"
+		params = append(params, searchKey, searchKey)
+	}
+
 	if startTime != "" {
-		query += " AND pay_finish_time >= ?"
+		whereSQL += " AND o.pay_finish_time >= ?"
 		params = append(params, startTime)
 	}
 	if endTime != "" {
-		query += " AND pay_finish_time <= ?"
+		whereSQL += " AND o.pay_finish_time <= ?"
 		params = append(params, endTime)
 	}
+	query += whereSQL
 
 	// 获取总数
-	totalQuery := strings.Replace(query, "SELECT *", "SELECT COUNT(*) as total", 1)
+	totalQuery := "SELECT COUNT(*) as total" + fromSQL + whereSQL
 	resultTotal, err := g.DB().GetOne(ctx, totalQuery, params...)
 	if err != nil {
 		return nil, 0, err
@@ -93,6 +135,8 @@ func (s *ShipinhaoOrderService) List(ctx context.Context, page, pageSize int, ke
 			"city":            row["city"],
 			"district":        row["district"],
 			"talentName":      row["talent_name"],
+			"videoNickname":   row["video_nickname"],
+			"talent":          row["talent_owner"],
 			"flowSource":      row["flow_source"],
 			"afterSaleStatus": row["after_sale_status"],
 		}
@@ -152,11 +196,9 @@ func (s *ShipinhaoOrderService) ExportToExcel(ctx context.Context, keyword, shop
 		"店铺", "订单号", "选购商品", "商品规格", "商品数量", "商品ID", "商家编码",
 		"商品单价", "订单应付金额", "运费", "优惠总金额", "平台优惠", "商家优惠", "达人优惠",
 		"商家改价", "支付优惠", "红包抵扣", "支付方式", "手续费", "收件人", "收件人手机号",
-		"省", "市", "区", "街道", "详细地址", "是否修改过地址", "地址修改时段", "买家留言",
-		"订单提交时间", "旗帜颜色", "商家备注", "订单完成时间", "支付完成时间", "APP渠道",
+		"省", "市", "区", "街道", "详细地址", "订单提交时间", "订单完成时间", "支付完成时间", "APP渠道",
 		"流量来源", "订单状态", "承诺发货时间", "订单类型", "鲁班落地页ID", "达人ID", "达人昵称",
-		"所属门店ID", "售后状态", "取消原因", "预约发货时间", "仓库ID", "仓库名称", "是否安心购",
-		"广告渠道", "流量类型", "流量体裁", "流量渠道", "发货主体", "发货主体明细", "发货时间",
+		"所属门店ID", "售后状态", "发货主体", "发货主体明细", "发货时间",
 		"降价类优惠", "平台实际承担优惠金额", "商家实际承担优惠金额", "达人实际承担优惠金额", "预计送达时间",
 	}
 
@@ -203,41 +245,27 @@ func (s *ShipinhaoOrderService) ExportToExcel(ctx context.Context, keyword, shop
 		f.SetCellValue(sheetName, fmt.Sprintf("X%d", rowNum), row["district"])
 		f.SetCellValue(sheetName, fmt.Sprintf("Y%d", rowNum), row["street"])
 		f.SetCellValue(sheetName, fmt.Sprintf("Z%d", rowNum), row["address_detail"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AA%d", rowNum), row["is_address_changed"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AB%d", rowNum), row["address_change_time"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AC%d", rowNum), row["buyer_note"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AD%d", rowNum), formatTime(row["order_submit_time"]))
-		f.SetCellValue(sheetName, fmt.Sprintf("AE%d", rowNum), row["flag_color"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AF%d", rowNum), row["seller_note"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AG%d", rowNum), formatTime(row["order_finish_time"]))
-		f.SetCellValue(sheetName, fmt.Sprintf("AH%d", rowNum), formatTime(row["pay_finish_time"]))
-		f.SetCellValue(sheetName, fmt.Sprintf("AI%d", rowNum), row["app_channel"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AJ%d", rowNum), row["flow_source"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AK%d", rowNum), row["order_status"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AL%d", rowNum), formatTime(row["promise_send_time"]))
-		f.SetCellValue(sheetName, fmt.Sprintf("AM%d", rowNum), row["order_type"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AN%d", rowNum), row["luban_page_id"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AO%d", rowNum), row["talent_id"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AP%d", rowNum), row["talent_name"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AQ%d", rowNum), row["store_id"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AR%d", rowNum), row["after_sale_status"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AS%d", rowNum), row["cancel_reason"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AT%d", rowNum), formatTime(row["appoint_send_time"]))
-		f.SetCellValue(sheetName, fmt.Sprintf("AU%d", rowNum), row["warehouse_id"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AV%d", rowNum), row["warehouse_name"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AW%d", rowNum), row["is_safe_buy"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AX%d", rowNum), row["ad_channel"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AY%d", rowNum), row["flow_type"])
-		f.SetCellValue(sheetName, fmt.Sprintf("AZ%d", rowNum), row["flow_format"])
-		f.SetCellValue(sheetName, fmt.Sprintf("BA%d", rowNum), row["flow_channel"])
-		f.SetCellValue(sheetName, fmt.Sprintf("BB%d", rowNum), row["send_user"])
-		f.SetCellValue(sheetName, fmt.Sprintf("BC%d", rowNum), row["send_user_detail"])
-		f.SetCellValue(sheetName, fmt.Sprintf("BD%d", rowNum), formatTime(row["send_time"]))
-		f.SetCellValue(sheetName, fmt.Sprintf("BE%d", rowNum), row["reduce_discount"])
-		f.SetCellValue(sheetName, fmt.Sprintf("BF%d", rowNum), row["platform_real_discount"])
-		f.SetCellValue(sheetName, fmt.Sprintf("BG%d", rowNum), row["seller_real_discount"])
-		f.SetCellValue(sheetName, fmt.Sprintf("BH%d", rowNum), row["talent_real_discount"])
-		f.SetCellValue(sheetName, fmt.Sprintf("BI%d", rowNum), formatTime(row["expect_arrive_time"]))
+		f.SetCellValue(sheetName, fmt.Sprintf("AA%d", rowNum), formatTime(row["order_submit_time"]))
+		f.SetCellValue(sheetName, fmt.Sprintf("AB%d", rowNum), formatTime(row["order_finish_time"]))
+		f.SetCellValue(sheetName, fmt.Sprintf("AC%d", rowNum), formatTime(row["pay_finish_time"]))
+		f.SetCellValue(sheetName, fmt.Sprintf("AD%d", rowNum), row["app_channel"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AE%d", rowNum), row["flow_source"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AF%d", rowNum), row["order_status"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AG%d", rowNum), formatTime(row["promise_send_time"]))
+		f.SetCellValue(sheetName, fmt.Sprintf("AH%d", rowNum), row["order_type"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AI%d", rowNum), row["luban_page_id"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AJ%d", rowNum), row["talent_id"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AK%d", rowNum), row["talent_name"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AL%d", rowNum), row["store_id"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AM%d", rowNum), row["after_sale_status"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AN%d", rowNum), row["send_user"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AO%d", rowNum), row["send_user_detail"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AP%d", rowNum), formatTime(row["send_time"]))
+		f.SetCellValue(sheetName, fmt.Sprintf("AQ%d", rowNum), row["reduce_discount"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AR%d", rowNum), row["platform_real_discount"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AS%d", rowNum), row["seller_real_discount"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AT%d", rowNum), row["talent_real_discount"])
+		f.SetCellValue(sheetName, fmt.Sprintf("AU%d", rowNum), formatTime(row["expect_arrive_time"]))
 	}
 
 	f.SetColWidth(sheetName, "A", "A", 15)
@@ -245,8 +273,8 @@ func (s *ShipinhaoOrderService) ExportToExcel(ctx context.Context, keyword, shop
 	f.SetColWidth(sheetName, "C", "C", 30)
 	f.SetColWidth(sheetName, "D", "G", 15)
 	f.SetColWidth(sheetName, "H", "S", 12)
-	f.SetColWidth(sheetName, "T", "AC", 15)
-	f.SetColWidth(sheetName, "AD", "BI", 18)
+	f.SetColWidth(sheetName, "T", "Z", 15)
+	f.SetColWidth(sheetName, "AA", "AU", 18)
 
 	exportDir := "./exports"
 	os.MkdirAll(exportDir, 0755)
@@ -310,44 +338,44 @@ func (s *ShipinhaoOrderService) ImportFromExcel(ctx context.Context, filePath st
 	// 视频号平台原生表头 → 内部表头映射
 	shipinhaoHeaderMapping := map[string]string{
 		// 订单号
-		"订单号":       "订单号",
-		"赠品订单号":     "订单号",
-		"活动订单编号":    "订单号",
-		"交易单号":      "订单号",
+		"订单号":    "订单号",
+		"赠品订单号":  "订单号",
+		"活动订单编号": "订单号",
+		"交易单号":   "订单号",
 		// 商品
-		"商品名称":        "选购商品",
-		"SKU编码":       "商家编码",
-		"商品编码(平台)":   "商家编码",
-		"商品编码(自定义)":  "商家编码",
-		"商品属性":        "商品规格",
-		"商品规格":        "商品规格",
-		"商品ID":        "商品ID",
-		"成交数量":        "商品数量",
-		"商品数量":        "商品数量",
+		"商品名称":      "选购商品",
+		"SKU编码":     "商家编码",
+		"商品编码(平台)":  "商家编码",
+		"商品编码(自定义)": "商家编码",
+		"商品属性":      "商品规格",
+		"商品规格":      "商品规格",
+		"商品ID":      "商品ID",
+		"成交数量":      "商品数量",
+		"商品数量":      "商品数量",
 		// 金额
-		"商品单价":        "商品单价",
-		"商品价格(单件)":    "商品单价",
-		"商品实际价格(单件)":  "商品单价",
-		"商品实际价格(总共)":  "订单应付金额",
-		"实付款":         "订单应付金额",
-		"订单实际支付金额":    "订单应付金额",
-		"订单实际收款金额":    "订单应付金额",
-		"商品总价":        "订单应付金额",
-		"快递费":         "运费",
+		"商品单价":       "商品单价",
+		"商品价格(单件)":   "商品单价",
+		"商品实际价格(单件)": "商品单价",
+		"商品实际价格(总共)": "订单应付金额",
+		"实付款":        "订单应付金额",
+		"订单实际支付金额":   "订单应付金额",
+		"订单实际收款金额":   "订单应付金额",
+		"商品总价":       "订单应付金额",
+		"快递费":        "运费",
 		// 优惠
-		"混资活动优惠":    "优惠总金额",
-		"店铺优惠":      "商家优惠",
-		"商品优惠":      "商家优惠",
-		"平台补贴":      "平台优惠",
-		"跨店优惠":      "平台优惠",
-		"主播补贴":      "达人优惠",
-		"商品改价":      "商家改价",
-		"积分抵扣":      "红包抵扣",
+		"混资活动优惠": "优惠总金额",
+		"店铺优惠":   "商家优惠",
+		"商品优惠":   "商家优惠",
+		"平台补贴":   "平台优惠",
+		"跨店优惠":   "平台优惠",
+		"主播补贴":   "达人优惠",
+		"商品改价":   "商家改价",
+		"积分抵扣":   "红包抵扣",
 		// 收件人
-		"收货人姓名":   "收件人",
-		"收件人姓名":   "收件人",
-		"收货人电话":   "收件人手机号",
-		"收件人手机":   "收件人手机号",
+		"收货人姓名": "收件人",
+		"收件人姓名": "收件人",
+		"收货人电话": "收件人手机号",
+		"收件人手机": "收件人手机号",
 		// 地址
 		"收货地址-省":  "省",
 		"收货地址-市":  "市",
@@ -356,34 +384,34 @@ func (s *ShipinhaoOrderService) ImportFromExcel(ctx context.Context, filePath st
 		"收货地址":    "详细地址",
 		"收件人地址":   "详细地址",
 		// 时间
-		"订单创建时间":      "订单提交时间",
-		"订单下单时间":      "订单提交时间",
-		"订单支付时间":      "支付完成时间",
-		"支付时间":        "支付完成时间",
-		"订单发货时间":      "发货时间",
-		"发货时间":        "发货时间",
-		"订单确认收货时间":    "订单完成时间",
-		"订单完成结算时间":    "订单完成时间",
-		"预售/承诺发货时间":   "承诺发货时间",
+		"订单创建时间":    "订单提交时间",
+		"订单下单时间":    "订单提交时间",
+		"订单支付时间":    "支付完成时间",
+		"支付时间":      "支付完成时间",
+		"订单发货时间":    "发货时间",
+		"发货时间":      "发货时间",
+		"订单确认收货时间":  "订单完成时间",
+		"订单完成结算时间":  "订单完成时间",
+		"预售/承诺发货时间": "承诺发货时间",
 		// 物流
-		"物流公司":  "发货主体",
-		"快递公司":  "发货主体",
-		"快递单号":  "发货主体明细",
+		"物流公司": "发货主体",
+		"快递公司": "发货主体",
+		"快递单号": "发货主体明细",
 		// 备注/留言
-		"订单备注":  "商家备注",
-		"商家备注":  "商家备注",
-		"买家备注":  "买家留言",
-		"买家留言":  "买家留言",
-		"旗帜颜色":  "旗帜颜色",
+		"订单备注": "商家备注",
+		"商家备注": "商家备注",
+		"买家备注": "买家留言",
+		"买家留言": "买家留言",
+		"旗帜颜色": "旗帜颜色",
 		// 状态
-		"订单状态":  "订单状态",
-		"售后状态":  "售后状态",
-		"发货方式":  "订单类型",
+		"订单状态": "订单状态",
+		"售后状态": "售后状态",
+		"发货方式": "订单类型",
 		// 支付
-		"支付方式":  "支付方式",
+		"支付方式": "支付方式",
 		// 达人/带货
-		"CPS达人ID":   "达人ID",
-		"CPS达人昵称":  "达人昵称",
+		"CPS达人ID": "达人ID",
+		"CPS达人昵称": "达人昵称",
 		"带货账号昵称":  "达人昵称",
 		"带货账号类型":  "account_type",
 		"带货方式":    "流量来源",
