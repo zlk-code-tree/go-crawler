@@ -46,6 +46,7 @@ func (c *QianchuanPollerController) TokenStatus(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
 		"data": g.Map{
+			"hasToken":   hasToken,
 			"authorized": hasToken && !expired,
 			"expired":    expired,
 			"expiresAt":  expiresAt,

@@ -299,7 +299,6 @@ type authorMatchIndex struct {
 }
 
 // pullByDate 执行指定日期范围的数据拉取（并发拉取多个广告主）
-// 每个 goroutine 内含 panic recovery + 单广告主超时，避免单点故障导致整体卡死
 func (p *Poller) pullByDate(ctx context.Context, startDate, endDate string) (*PollerResult, error) {
 	accessToken, advertiserIDs, err := p.getLatestToken(ctx)
 	if err != nil {
@@ -311,7 +310,8 @@ func (p *Poller) pullByDate(ctx context.Context, startDate, endDate string) (*Po
 
 	g.Log().Infof(ctx, "[QianchuanPoller] pullByDate: 开始拉取 %s~%s, 广告主共%d个", startDate, endDate, len(advertiserIDs))
 
-	client := NewClient(accessToken)
+	// 使用指针传递 token，40102 过期时自动续期后所有 goroutine 共享新 token
+	tokenPtr := &accessToken
 	result := &PollerResult{}
 
 	// 并发拉取（最多3个并发，避免触发API限流）
@@ -341,10 +341,9 @@ func (p *Poller) pullByDate(ctx context.Context, startDate, endDate string) (*Po
 						ch <- advResult{err: fmt.Sprintf("广告主%d拉取panic: %v", id, r)}
 					}
 				}()
-				// 单广告主超时，避免 API 卡住永久占用并发槽
 				advCtx, cancel := context.WithTimeout(ctx, perAdvertiserTimeout)
 				defer cancel()
-				r := p.pullOneAdvertiser(advCtx, client, id, startDate, endDate)
+				r := p.pullOneAdvertiser(advCtx, tokenPtr, id, startDate, endDate)
 				ch <- r
 			}(advID)
 		}
@@ -476,8 +475,24 @@ func (p *Poller) cleanInvalidAdvertisers(ctx context.Context, allIDs []int64, er
 }
 
 // pullOneAdvertiser 拉取单个广告主的数据并批量入库
-func (p *Poller) pullOneAdvertiser(ctx context.Context, client *Client, advID int64, startDate, endDate string) advResult {
+func (p *Poller) pullOneAdvertiser(ctx context.Context, tokenPtr *string, advID int64, startDate, endDate string) advResult {
+	client := NewClient(*tokenPtr)
 	pullResult, err := client.PullAllByDate(ctx, advID, startDate, endDate)
+	if err != nil {
+		// 如果是 token 过期（40102），强制续期后重试一次
+		if strings.Contains(err.Error(), "40102") || strings.Contains(err.Error(), "access_token已过期") {
+			g.Log().Warningf(ctx, "[QianchuanPoller] 广告主%d: token过期，尝试强制续期", advID)
+			newToken, _, refreshErr := p.getLatestToken(ctx)
+			if refreshErr == nil && newToken != "" && newToken != *tokenPtr {
+				*tokenPtr = newToken
+				g.Log().Infof(ctx, "[QianchuanPoller] token强制续期成功，重试广告主%d", advID)
+				client = NewClient(newToken)
+				pullResult, err = client.PullAllByDate(ctx, advID, startDate, endDate)
+			} else {
+				g.Log().Errorf(ctx, "[QianchuanPoller] token强制续期失败: %v", refreshErr)
+			}
+		}
+	}
 	if err != nil {
 		errMsg := fmt.Sprintf("广告主%d拉取失败: %v", advID, err)
 		g.Log().Error(ctx, "[QianchuanPoller] "+errMsg)
