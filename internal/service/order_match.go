@@ -528,7 +528,7 @@ func (s *OrderMatchService) MatchOrders(ctx context.Context) (*model.OrderMatchR
 				FROM match_orders mo
 				INNER JOIN match_jingxuan_orders mj ON mo.platform = mj.platform AND mo.order_no = mj.order_no
 				WHERE mo.platform = 'shipinhao'
-				  AND mo.order_status IN ('已发货', '待发货', '已完成')
+				  AND mo.order_status IN ('已发货', '待发货', '已完成', '完成', '部分发货', '待收货')
 				  AND (mo.after_sale_status = '无' OR mo.after_sale_status = '用户取消申请' OR mo.after_sale_status IS NULL OR mo.after_sale_status = '')
 				  AND (mo.talent_id = '' OR mo.talent_id IS NULL OR mo.talent_id = '0')
 				  AND mo.account_type = '带货机构'`
@@ -547,12 +547,16 @@ func (s *OrderMatchService) MatchOrders(ctx context.Context) (*model.OrderMatchR
 
 		// Step 2: 回流到生产订单表（抖音用 main_order_no，快手/视频号用 order_no）
 		// 生产表(order_info等)与match_result的字符集排序规则不同，需要COLLATE
+		backfillTalentCond := "(t.talent_id = '' OR t.talent_id IS NULL OR t.talent_id = '0')"
+		if platform == "shipinhao" {
+			backfillTalentCond = "(t.talent_id = '' OR t.talent_id IS NULL OR t.talent_id = '0' OR t.account_type = '带货机构' OR t.flow_source = '带货机构机构推广')"
+		}
 		sqlBackfill := fmt.Sprintf(`
 			UPDATE %s t
 			INNER JOIN match_result mr ON t.%s COLLATE utf8mb4_general_ci = mr.order_no COLLATE utf8mb4_general_ci
 			SET t.talent_id = mr.talent_id, t.talent_name = mr.talent_name, t.reflow = 1
 			WHERE mr.match_status = 0 AND mr.platform = ?
-			  AND (t.talent_id = '' OR t.talent_id IS NULL OR t.talent_id = '0')`, tableName, updateField)
+			  AND %s`, tableName, updateField, backfillTalentCond)
 		res2, err2 := g.DB().Exec(ctx, sqlBackfill, platform)
 		if err2 != nil {
 			g.Log().Errorf(ctx, "[OrderMatch] Step2 回流失败[%s]: %v", platform, err2)
@@ -597,7 +601,8 @@ func (s *OrderMatchService) MatchOrders(ctx context.Context) (*model.OrderMatchR
 
 // AutoMatchShipinhaoPulledOrders 将微信小店 API 拉取的带货机构订单自动套用视频号匹配规则。
 // 小店接口里带货机构订单的 talent_id 往往是机构账号，不是真正的推广带货者；
-// 因此这里把带货机构订单同步到 match_orders 时置空 talent_id，再用 match_jingxuan_orders 回填真实达人。
+// 也有部分订单只返回预估佣金、不返回来源信息。这里统一同步到 match_orders 并置空 talent_id，
+// 再用 match_jingxuan_orders 回填真实达人。
 func (s *OrderMatchService) AutoMatchShipinhaoPulledOrders(ctx context.Context, startTime, endTime string, storeId int, timeType string) (*model.OrderMatchResult, error) {
 	result := &model.OrderMatchResult{Errors: make([]string, 0)}
 	timeField := "order_submit_time"
@@ -711,22 +716,38 @@ func (s *OrderMatchService) AutoMatchShipinhaoPulledOrders(ctx context.Context, 
 func buildShipinhaoAutoMatchWhere(alias, timeField, startTime, endTime string, storeId int) (string, []interface{}) {
 	where := fmt.Sprintf(`
 		%s.order_no IS NOT NULL AND %s.order_no != ''
-		AND (%s.account_type = '带货机构' OR %s.flow_source = '带货机构机构推广')
+		AND (
+			%s.account_type = '带货机构'
+			OR %s.flow_source = '带货机构机构推广'
+			OR (
+				(%s.talent_id IS NULL OR %s.talent_id = '' OR %s.talent_id = '0')
+				AND CAST(JSON_UNQUOTE(JSON_EXTRACT(%s.raw_json, '$.order_detail.settle_info.predict_commission_fee')) AS DECIMAL(12,2)) > 0
+			)
+		)
 		AND (
 			%s.wechat_order_status IN (20, 21, 30, 100)
 			OR %s.order_status IN ('已发货', '待发货', '已完成', '完成', '部分发货', '待收货')
 		)
-		AND (%s.after_sale_status IS NULL OR %s.after_sale_status = '' OR %s.after_sale_status IN ('无', '用户取消申请'))
-		AND %s.%s >= ?
-		AND %s.%s < ?`,
+		AND (%s.after_sale_status IS NULL OR %s.after_sale_status = '' OR %s.after_sale_status IN ('无', '用户取消申请'))`,
 		alias, alias,
-		alias, alias,
+		alias,
+		alias,
+		alias, alias, alias,
+		alias,
 		alias, alias,
 		alias, alias, alias,
-		alias, timeField,
-		alias, timeField,
 	)
-	args := []interface{}{startTime, endTime}
+	args := make([]interface{}, 0, 3)
+	if strings.TrimSpace(startTime) != "" {
+		where += fmt.Sprintf(`
+		AND %s.%s >= ?`, alias, timeField)
+		args = append(args, startTime)
+	}
+	if strings.TrimSpace(endTime) != "" {
+		where += fmt.Sprintf(`
+		AND %s.%s < ?`, alias, timeField)
+		args = append(args, endTime)
+	}
 	if storeId > 0 {
 		where += fmt.Sprintf(`
 		AND EXISTS (

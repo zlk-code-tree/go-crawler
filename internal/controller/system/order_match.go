@@ -94,11 +94,37 @@ func (c *OrderMatchController) OrderMatchImportJingxuan(r *ghttp.Request) {
 		return
 	}
 
+	data := g.Map{"import": result}
+	msg := fmt.Sprintf("导入完成：成功%d条，跳过%d条，失败%d条", result.SuccessCount, result.SkipCount, result.FailCount)
+	if normalizeOrderMatchPlatform(platform) == "shipinhao" {
+		autoMatch, matchErr := svc.AutoMatchShipinhaoPulledOrders(r.Context(), "", "", 0, "create")
+		data["autoMatch"] = autoMatch
+		if matchErr != nil {
+			data["autoMatchError"] = matchErr.Error()
+			msg += "，视频号自动匹配失败：" + matchErr.Error()
+		} else if autoMatch != nil {
+			msg += fmt.Sprintf("，视频号自动匹配%d条，回填%d条", autoMatch.Total, autoMatch.Matched)
+		}
+	}
+
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
-		"data": result,
-		"msg":  fmt.Sprintf("导入完成：成功%d条，跳过%d条，失败%d条", result.SuccessCount, result.SkipCount, result.FailCount),
+		"data": data,
+		"msg":  msg,
 	})
+}
+
+func normalizeOrderMatchPlatform(platform string) string {
+	switch strings.TrimSpace(platform) {
+	case "视频号", "shipinhao":
+		return "shipinhao"
+	case "快手", "kuaishou":
+		return "kuaishou"
+	case "抖音", "douyin":
+		return "douyin"
+	default:
+		return strings.ToLower(strings.TrimSpace(platform))
+	}
 }
 
 // OrderMatchRun 触发匹配 POST /api/order-match/run
