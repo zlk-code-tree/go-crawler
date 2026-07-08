@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -522,6 +523,9 @@ func (p *Poller) pullOneAdvertiser(ctx context.Context, tokenPtr *string, advID 
 		}
 	}
 
+	// 获取该广告主的千川账户名称；无权限时允许为空，避免用店铺映射名误当账户名。
+	advName := p.lookupAdvertiserName(ctx, advID)
+
 	// 批量入库：将 N 次 INSERT 合并为每批 50 条的批量 INSERT
 	const batchSize = 50
 	saved := 0
@@ -535,11 +539,11 @@ func (p *Poller) pullOneAdvertiser(ctx context.Context, tokenPtr *string, advID 
 		batch := pullResult.Combined[batchStart:batchEnd]
 
 		placeholders := make([]string, 0, len(batch))
-		args := make([]interface{}, 0, len(batch)*34)
+		args := make([]interface{}, 0, len(batch)*35)
 		for _, item := range batch {
-			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 			args = append(args,
-				item.AdvertiserID, item.StatDatetime,
+				item.AdvertiserID, advName, item.StatDatetime,
 				item.StatCost, item.ShowCnt, item.ClickCnt, item.Ctr, item.CpcPlatform, item.CpmPlatform,
 				item.ConvertCnt, item.ConvertCost, item.ConvertRate, item.DeepConvertCnt, item.DeepConvertCost,
 				item.PayOrderAmount, item.PayOrderCount, item.PayOrderCostPerOrder, item.PayOrderCouponAmount,
@@ -553,7 +557,7 @@ func (p *Poller) pullOneAdvertiser(ctx context.Context, tokenPtr *string, advID 
 		}
 
 		sql := fmt.Sprintf(`INSERT INTO qianchuan_advertiser_daily_report
-			(advertiser_id, stat_datetime,
+			(advertiser_id, advertiser_name, stat_datetime,
 			stat_cost, show_cnt, click_cnt, ctr, cpc_platform, cpm_platform,
 			convert_cnt, convert_cost, convert_rate, deep_convert_cnt, deep_convert_cost,
 			pay_order_amount, pay_order_count, pay_order_cost_per_order, pay_order_coupon_amount,
@@ -565,6 +569,7 @@ func (p *Poller) pullOneAdvertiser(ctx context.Context, tokenPtr *string, advID 
 			dy_follow, total_play)
 		VALUES %s
 		ON DUPLICATE KEY UPDATE
+			advertiser_name=VALUES(advertiser_name),
 			stat_cost=VALUES(stat_cost), show_cnt=VALUES(show_cnt), click_cnt=VALUES(click_cnt),
 			ctr=VALUES(ctr), cpc_platform=VALUES(cpc_platform), cpm_platform=VALUES(cpm_platform),
 			convert_cnt=VALUES(convert_cnt), convert_cost=VALUES(convert_cost), convert_rate=VALUES(convert_rate),
@@ -1278,4 +1283,100 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 // SavePlanReports 保存千川计划维度日结报表，供 OAuth 回调和定时拉取复用同一套入库逻辑。
 func SavePlanReports(ctx context.Context, reports []AdPlanDailyReport) (int, int) {
 	return GetPoller().savePlanReports(ctx, reports)
+}
+
+// advertiserNameCache 广告主名称缓存（advertiser_id → name）
+var advertiserNameCache sync.Map
+
+// lookupAdvertiserName 查找千川账户名称（优先实时接口，其次DB回退）
+func (p *Poller) lookupAdvertiserName(ctx context.Context, advID int64) string {
+	// 1. 内存缓存
+	if v, ok := advertiserNameCache.Load(advID); ok {
+		return v.(string)
+	}
+
+	// 2. 调用 advertiser/info API 获取当前广告主ID的真实名称。
+	// 旧表里可能存在按店铺/映射写入的冗余名称，不能优先用于区分多个千川账户。
+	name := fetchAdvertiserNameByAPI(ctx, advID)
+	if name != "" {
+		advertiserNameCache.Store(advID, name)
+		return name
+	}
+
+	// 3. 数据库回退（qianchuan_advertiser_daily_report）
+	row, err := g.DB().Model("qianchuan_advertiser_daily_report").Ctx(ctx).
+		Where("advertiser_id", advID).
+		Where("advertiser_name != ''").
+		Fields("advertiser_name").
+		OrderDesc("stat_datetime").
+		Limit(1).
+		One()
+	if err == nil && !row.IsEmpty() {
+		name := row["advertiser_name"].String()
+		advertiserNameCache.Store(advID, name)
+		return name
+	}
+
+	// 4. 兼容历史计划表
+	row, err = g.DB().Model("qianchuan_ad_report").Ctx(ctx).
+		Where("advertiser_id", advID).
+		Where("advertiser_name != ''").
+		Fields("advertiser_name").
+		Limit(1).
+		One()
+	if err == nil && !row.IsEmpty() {
+		name := row["advertiser_name"].String()
+		advertiserNameCache.Store(advID, name)
+		return name
+	}
+	return ""
+}
+
+// fetchAdvertiserNameByAPI 通过千川 advertiser/type/get API 获取广告主名称
+func fetchAdvertiserNameByAPI(ctx context.Context, advID int64) string {
+	row, err := g.DB().Model("qianchuan_token").Ctx(ctx).OrderDesc("id").Limit(1).One()
+	if err != nil || row.IsEmpty() {
+		return ""
+	}
+	token := row["access_token"].String()
+
+	// 千川专用 API: /open_api/v1.0/qianchuan/advertiser/type/get/
+	url := fmt.Sprintf("https://api.oceanengine.com/open_api/v1.0/qianchuan/advertiser/type/get/?advertiser_ids=%s&access_token=%s",
+		url.QueryEscape(fmt.Sprintf("[%d]", advID)), token)
+
+	client := g.Client()
+	resp, err := client.Get(ctx, url)
+	if err != nil {
+		g.Log().Warningf(ctx, "[lookupName] advID=%d: API请求失败: %v", advID, err)
+		return ""
+	}
+	defer resp.Close()
+	body := resp.ReadAllString()
+
+	var result struct {
+		Code    int64  `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
+			List []struct {
+				AdvertiserId   int64  `json:"advertiser_id"`
+				AdvertiserName string `json:"advertiser_name"`
+			} `json:"list"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(body), &result); err != nil {
+		g.Log().Warningf(ctx, "[lookupName] advID=%d: 解析失败 body=%s", advID, body[:min(len(body), 200)])
+		return ""
+	}
+	if result.Code != 0 {
+		g.Log().Warningf(ctx, "[lookupName] advID=%d: API返回错误 code=%d msg=%s", advID, result.Code, result.Message)
+		return ""
+	}
+	for _, item := range result.Data.List {
+		if item.AdvertiserId == advID && item.AdvertiserName != "" {
+			g.Log().Infof(ctx, "[lookupName] advID=%d → %s", advID, item.AdvertiserName)
+			return item.AdvertiserName
+		}
+	}
+	g.Log().Infof(ctx, "[lookupName] advID=%d: API返回空列表 (code=0, msg=%s)", advID, result.Message)
+	return ""
 }

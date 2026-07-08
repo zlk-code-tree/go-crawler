@@ -8,28 +8,40 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/xuri/excelize/v2"
 
 	"go-crawler/internal/model"
+	"go-crawler/internal/service/platform/wechatshop"
 )
 
 type StoreService struct{}
+
+const wechatShopAuthTable = "wechat_shop_auth"
 
 func NewStoreService() *StoreService {
 	return &StoreService{}
 }
 
+func (s *StoreService) ensureWechatShopSchema(ctx context.Context) error {
+	return wechatshop.NewService().EnsureSchema(ctx)
+}
+
 // List 查询店铺列表
 func (s *StoreService) List(ctx context.Context, page, pageSize int, keyword, platform string) ([]model.Store, int64, error) {
-	m := g.DB().Model("store").Ctx(ctx)
+	if err := s.ensureWechatShopSchema(ctx); err != nil {
+		return nil, 0, err
+	}
+
+	m := g.DB().Model("store s").Ctx(ctx)
 
 	if keyword != "" {
-		m = m.WhereLike("store_name", "%"+keyword+"%")
+		m = m.WhereLike("s.store_name", "%"+keyword+"%")
 	}
 	if platform != "" {
-		m = m.Where("platform", platform)
+		m = m.Where("s.platform", platform)
 	}
 
 	total, err := m.Count()
@@ -37,13 +49,49 @@ func (s *StoreService) List(ctx context.Context, page, pageSize int, keyword, pl
 		return nil, 0, err
 	}
 
-	var stores []model.Store
-	err = m.Order("id DESC").Page(page, pageSize).Scan(&stores)
+	rows, err := m.
+		LeftJoin(wechatShopAuthTable+" a", "a.store_id = s.id").
+		Fields(`
+			s.*,
+			a.appid AS wechat_app_id,
+			IF(a.app_secret IS NULL OR a.app_secret = '', 0, 1) AS has_wechat_app_secret,
+			a.expires_at AS wechat_token_expires_at,
+			a.last_pull_time AS wechat_last_pull_time`).
+		Order("s.id DESC").
+		Page(page, pageSize).
+		All()
 	if err != nil {
 		return nil, 0, err
 	}
-	if stores == nil {
-		stores = []model.Store{}
+
+	stores := make([]model.Store, 0, len(rows))
+	for _, row := range rows {
+		store := model.Store{
+			Id:                    row["id"].Int(),
+			StoreName:             row["store_name"].String(),
+			StoreId:               row["store_id"].String(),
+			Platform:              row["platform"].String(),
+			Status:                row["status"].Int(),
+			Author:                row["author"].Int(),
+			WechatAppId:           row["wechat_app_id"].String(),
+			HasWechatAppSecret:    row["has_wechat_app_secret"].Int(),
+			MaskedWechatAppSecret: maskAppSecret(row["wechat_app_id"].String(), row["has_wechat_app_secret"].Int()),
+			CreatedAt:             row["created_at"].Time(),
+			UpdatedAt:             row["updated_at"].Time(),
+		}
+		if !row["last_poll_time"].IsEmpty() {
+			t := row["last_poll_time"].Time()
+			store.LastPollTime = &t
+		}
+		if !row["wechat_token_expires_at"].IsEmpty() {
+			t := row["wechat_token_expires_at"].Time()
+			store.WechatTokenExpiresAt = &t
+		}
+		if !row["wechat_last_pull_time"].IsEmpty() {
+			t := row["wechat_last_pull_time"].Time()
+			store.WechatLastPullTime = &t
+		}
+		stores = append(stores, store)
 	}
 
 	return stores, int64(total), nil
@@ -55,16 +103,61 @@ func (s *StoreService) Detail(ctx context.Context, id int) (*model.Store, error)
 		return nil, gerror.New("店铺ID不能为空")
 	}
 
-	var store *model.Store
-	err := g.DB().Model("store").Ctx(ctx).Where("id", id).Scan(&store)
+	if err := s.ensureWechatShopSchema(ctx); err != nil {
+		return nil, err
+	}
+
+	row, err := g.DB().Model("store s").Ctx(ctx).
+		LeftJoin(wechatShopAuthTable+" a", "a.store_id = s.id").
+		Where("s.id", id).
+		Fields(`
+			s.*,
+			a.appid AS wechat_app_id,
+			IF(a.app_secret IS NULL OR a.app_secret = '', 0, 1) AS has_wechat_app_secret,
+			a.expires_at AS wechat_token_expires_at,
+			a.last_pull_time AS wechat_last_pull_time`).
+		One()
 	if err != nil {
 		return nil, err
+	}
+	if row.IsEmpty() {
+		return nil, nil
+	}
+
+	store := &model.Store{
+		Id:                    row["id"].Int(),
+		StoreName:             row["store_name"].String(),
+		StoreId:               row["store_id"].String(),
+		Platform:              row["platform"].String(),
+		Status:                row["status"].Int(),
+		Author:                row["author"].Int(),
+		WechatAppId:           row["wechat_app_id"].String(),
+		HasWechatAppSecret:    row["has_wechat_app_secret"].Int(),
+		MaskedWechatAppSecret: maskAppSecret(row["wechat_app_id"].String(), row["has_wechat_app_secret"].Int()),
+		CreatedAt:             row["created_at"].Time(),
+		UpdatedAt:             row["updated_at"].Time(),
+	}
+	if !row["last_poll_time"].IsEmpty() {
+		t := row["last_poll_time"].Time()
+		store.LastPollTime = &t
+	}
+	if !row["wechat_token_expires_at"].IsEmpty() {
+		t := row["wechat_token_expires_at"].Time()
+		store.WechatTokenExpiresAt = &t
+	}
+	if !row["wechat_last_pull_time"].IsEmpty() {
+		t := row["wechat_last_pull_time"].Time()
+		store.WechatLastPullTime = &t
 	}
 	return store, nil
 }
 
 // Save 保存店铺
 func (s *StoreService) Save(ctx context.Context, req *model.StoreSaveReq) (int64, error) {
+	if err := s.ensureWechatShopSchema(ctx); err != nil {
+		return 0, err
+	}
+
 	// 检查同一平台下 store_id 是否已存在
 	count, err := g.DB().Model("store").Ctx(ctx).
 		Where("platform", req.Platform).
@@ -86,16 +179,31 @@ func (s *StoreService) Save(ctx context.Context, req *model.StoreSaveReq) (int64
 		"author":     req.Author,
 	}
 
-	if req.Id > 0 {
-		data["updated_at"] = time.Now()
-		_, err := g.DB().Model("store").Ctx(ctx).Where("id", req.Id).Data(data).Update()
-		return int64(req.Id), err
-	}
+	now := time.Now()
+	var storeID int64
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if req.Id > 0 {
+			storeID = int64(req.Id)
+			data["updated_at"] = now
+			if _, err := tx.Model("store").Ctx(ctx).Where("id", req.Id).Data(data).Update(); err != nil {
+				return err
+			}
+		} else {
+			data["created_at"] = now
+			data["updated_at"] = now
+			id, err := tx.Model("store").Ctx(ctx).Data(data).InsertAndGetId()
+			if err != nil {
+				return err
+			}
+			storeID = id
+		}
 
-	data["created_at"] = time.Now()
-	data["updated_at"] = time.Now()
-	id, err := g.DB().Model("store").Ctx(ctx).Data(data).InsertAndGetId()
-	return id, err
+		return s.syncWechatShopAuth(ctx, tx, storeID, req)
+	})
+	if err != nil {
+		return 0, err
+	}
+	return storeID, nil
 }
 
 // Delete 删除店铺
@@ -103,8 +211,16 @@ func (s *StoreService) Delete(ctx context.Context, id int) error {
 	if id <= 0 {
 		return gerror.New("店铺ID不能为空")
 	}
-	_, err := g.DB().Model("store").Ctx(ctx).Where("id", id).Delete()
-	return err
+	if err := s.ensureWechatShopSchema(ctx); err != nil {
+		return err
+	}
+	return g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, err := tx.Model(wechatShopAuthTable).Ctx(ctx).Where("store_id", id).Delete(); err != nil {
+			return err
+		}
+		_, err := tx.Model("store").Ctx(ctx).Where("id", id).Delete()
+		return err
+	})
 }
 
 // Stats 店铺平台统计
@@ -123,6 +239,61 @@ func (s *StoreService) Stats(ctx context.Context) (g.Map, error) {
 	}
 
 	return stats, nil
+}
+
+func (s *StoreService) syncWechatShopAuth(ctx context.Context, tx gdb.TX, storeID int64, req *model.StoreSaveReq) error {
+	if req.Platform != "shipinhao" {
+		_, err := tx.Model(wechatShopAuthTable).Ctx(ctx).Where("store_id", storeID).Delete()
+		return err
+	}
+
+	existing, err := tx.Model(wechatShopAuthTable).Ctx(ctx).Where("store_id", storeID).One()
+	if err != nil {
+		return err
+	}
+
+	appID := strings.TrimSpace(req.WechatAppId)
+	appSecret := strings.TrimSpace(req.WechatAppSecret)
+	if appID == "" && !existing.IsEmpty() {
+		appID = existing["appid"].String()
+	}
+	if appSecret == "" && !existing.IsEmpty() {
+		appSecret = existing["app_secret"].String()
+	}
+
+	if req.Author == 1 && (appID == "" || appSecret == "") {
+		return gerror.New("视频号已授权店铺需配置微信小店 appid/appsecret")
+	}
+	if appID == "" && appSecret == "" && existing.IsEmpty() {
+		return nil
+	}
+	if appID == "" || appSecret == "" {
+		return gerror.New("视频号店铺的微信小店 appid/appsecret 需要同时填写")
+	}
+
+	data := g.Map{
+		"store_id":   storeID,
+		"appid":      appID,
+		"app_secret": appSecret,
+		"updated_at": time.Now(),
+	}
+	if existing.IsEmpty() {
+		data["created_at"] = time.Now()
+		_, err = tx.Model(wechatShopAuthTable).Ctx(ctx).Data(data).Insert()
+		return err
+	}
+	_, err = tx.Model(wechatShopAuthTable).Ctx(ctx).Where("store_id", storeID).Data(data).Update()
+	return err
+}
+
+func maskAppSecret(appID string, hasSecret int) string {
+	if hasSecret == 0 {
+		return ""
+	}
+	if len(appID) >= 6 {
+		return appID[:3] + strings.Repeat("*", len(appID)-6) + appID[len(appID)-3:]
+	}
+	return "******"
 }
 
 // ExportToExcel 导出店铺数据到Excel

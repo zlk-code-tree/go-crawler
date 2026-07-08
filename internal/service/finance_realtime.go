@@ -499,19 +499,19 @@ func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, star
 
 // QianchuanSubjectCostDetailItem 主体消耗明细（按千川广告主账户维度）
 type QianchuanSubjectCostDetailItem struct {
-	AdvertiserID    int64   `json:"advertiserId"`
-	AdvertiserName  string  `json:"advertiserName"`
-	AccountID       int64   `json:"accountId"`
-	AccountName     string  `json:"accountName"`
-	UID             string  `json:"uid"`
-	TraderName      string  `json:"traderName"`
-	StatCost        float64 `json:"statCost"`
-	PayOrderAmount  float64 `json:"payOrderAmount"`
-	AllOrderPayGmv  float64 `json:"allOrderPayGmv"`
-	ShowCnt         int64   `json:"showCnt"`
-	ClickCnt        int64   `json:"clickCnt"`
-	PayOrderCount   int64   `json:"payOrderCount"`
-	ROI             float64 `json:"roi"`
+	AdvertiserID   int64   `json:"advertiserId"`
+	AdvertiserName string  `json:"advertiserName"`
+	AccountID      int64   `json:"accountId"`
+	AccountName    string  `json:"accountName"`
+	UID            string  `json:"uid"`
+	TraderName     string  `json:"traderName"`
+	StatCost       float64 `json:"statCost"`
+	PayOrderAmount float64 `json:"payOrderAmount"`
+	AllOrderPayGmv float64 `json:"allOrderPayGmv"`
+	ShowCnt        int64   `json:"showCnt"`
+	ClickCnt       int64   `json:"clickCnt"`
+	PayOrderCount  int64   `json:"payOrderCount"`
+	ROI            float64 `json:"roi"`
 }
 
 // GetSubjectCostDetail 查询指定主体下所有千川广告主账户的消耗明细
@@ -569,7 +569,11 @@ func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, sta
 	rows, err := g.DB().GetAll(ctx, `
 		SELECT
 			adv.advertiser_id,
-			COALESCE(NULLIF(MAX(aqm.qianchuan_advertiser_name), ''), CAST(adv.advertiser_id AS CHAR), '') AS advertiser_name,
+			COALESCE(
+				NULLIF(MAX(adv.advertiser_name), ''),
+				NULLIF(MAX(r.advertiser_name), ''),
+				''
+			) AS advertiser_name,
 			COALESCE(NULLIF(MAX(a.platform_nickname), ''), NULLIF(MAX(a.account_name), ''), '') AS account_name,
 			COALESCE(MAX(a.id), 0) AS account_id,
 			COALESCE(NULLIF(MAX(a.uid), ''), '') AS uid,
@@ -583,6 +587,7 @@ func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, sta
 		FROM (
 			SELECT
 				advertiser_id,
+				MAX(NULLIF(advertiser_name, '')) AS advertiser_name,
 				COALESCE(SUM(stat_cost), 0) AS stat_cost,
 				COALESCE(SUM(pay_order_amount), 0) AS pay_order_amount,
 				COALESCE(SUM(all_order_pay_gmv_7days), 0) AS all_order_pay_gmv,
@@ -597,6 +602,11 @@ func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, sta
 		LEFT JOIN account a ON a.id = aqm.account_id
 		LEFT JOIN trader_account_relation tar ON tar.account_id = a.id
 		LEFT JOIN trader t ON t.id = tar.trader_id
+		LEFT JOIN (
+			SELECT advertiser_id, MAX(advertiser_name) AS advertiser_name
+			FROM qianchuan_ad_report
+			GROUP BY advertiser_id
+		) r ON r.advertiser_id = adv.advertiser_id
 		WHERE COALESCE(NULLIF(aqm.company_id, 0), a.company_id, 0) = ?
 		GROUP BY adv.advertiser_id
 		ORDER BY stat_cost DESC
@@ -1036,16 +1046,13 @@ func (s *FinanceCommissionService) ExportSubjectCostDetail(ctx context.Context, 
 		return "", err
 	}
 	return writeExcelFile("主体消耗明细", []string{
-		"排名", "千川广告主ID", "广告主名称", "账号名称", "UID", "投手", "千川消耗(元)", "成交金额(元)", "成交订单数", "展示数", "点击数", "ROI",
-	}, []float64{8, 18, 24, 20, 16, 14, 16, 16, 12, 12, 12, 10}, len(list), func(rowIdx int) []interface{} {
+		"排名", "千川广告主ID", "千川账户", "千川消耗(元)", "成交金额(元)", "成交订单数", "展示数", "点击数", "ROI",
+	}, []float64{8, 18, 24, 16, 16, 12, 12, 12, 10}, len(list), func(rowIdx int) []interface{} {
 		item := list[rowIdx]
 		return []interface{}{
 			rowIdx + 1,
 			fmt.Sprintf("%d", item.AdvertiserID),
 			item.AdvertiserName,
-			item.AccountName,
-			item.UID,
-			item.TraderName,
 			item.StatCost,
 			item.PayOrderAmount,
 			item.PayOrderCount,

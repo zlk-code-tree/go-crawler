@@ -30,6 +30,7 @@ import (
 	"go-crawler/internal/service"
 	douyinSvc "go-crawler/internal/service/platform/douyin"
 	"go-crawler/internal/service/platform/oceanengine"
+	"go-crawler/internal/service/platform/wechatshop"
 	"go-crawler/internal/service/webhook"
 )
 
@@ -96,8 +97,8 @@ var (
 				PRIMARY KEY (id)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`)
 			// 兼容已有表：添加 refresh_token 字段
-			g.DB().Exec(ctx, `ALTER TABLE qianchuan_token ADD COLUMN IF NOT EXISTS refresh_token VARCHAR(512) NOT NULL DEFAULT '' COMMENT 'refresh_token' AFTER access_token`)
-			g.DB().Exec(ctx, `ALTER TABLE qianchuan_token ADD COLUMN IF NOT EXISTS refresh_token_expires_at DATETIME DEFAULT NULL COMMENT 'refresh_token过期时间' AFTER expires_at`)
+			addColumnIfMissing("qianchuan_token", "refresh_token", "refresh_token VARCHAR(512) NOT NULL DEFAULT '' COMMENT 'refresh_token' AFTER access_token")
+			addColumnIfMissing("qianchuan_token", "refresh_token_expires_at", "refresh_token_expires_at DATETIME DEFAULT NULL COMMENT 'refresh_token过期时间' AFTER expires_at")
 
 			// 自动建表：千川广告主日结报表（账户维度）
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS qianchuan_advertiser_daily_report (
@@ -141,6 +142,8 @@ var (
 				UNIQUE KEY uk_adv_date (advertiser_id, stat_datetime),
 				KEY idx_stat_datetime (stat_datetime)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千川广告主日结报表'`)
+			// 兼容已有表：添加 advertiser_name
+			addColumnIfMissing("qianchuan_advertiser_daily_report", "advertiser_name", "advertiser_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '千川账户名称' AFTER advertiser_id")
 
 			// 自动建表：千川计划维度日结报表（含内部组织归属）
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS qianchuan_ad_report (
@@ -606,6 +609,18 @@ var (
 
 			cronMgr.RegisterBuiltin("alliance_order_daily_pull", "0 30 1 * * *", func(ctx context.Context) error {
 				return douyinSvc.NewService().DailyPullAllianceOrders(ctx)
+			})
+
+			cronMgr.RegisterBuiltin("wechat_shop_order_daily_pull", "0 40 1 * * *", func(ctx context.Context) error {
+				startTime := time.Now().AddDate(0, 0, -2).Format("2006-01-02") + " 00:00:00"
+				endTime := time.Now().Format("2006-01-02 15:04:05")
+				_, err := wechatshop.NewService().PullOrders(ctx, wechatshop.PullParams{
+					StartTime:   startTime,
+					EndTime:     endTime,
+					TimeType:    "update",
+					Concurrency: 5,
+				})
+				return err
 			})
 
 			cronMgr.RegisterBuiltin("finance_daily_aggregate", "0 0 2 * * *", func(ctx context.Context) error {

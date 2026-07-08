@@ -3,6 +3,8 @@ package wechatshop
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -129,6 +131,7 @@ CREATE TABLE IF NOT EXISTS wechat_shop_auth (
 		{"commission_info", "`commission_info` JSON DEFAULT NULL COMMENT '分账/佣金信息' AFTER `source_info`"},
 		{"raw_json", "`raw_json` JSON DEFAULT NULL COMMENT '微信小店订单原始详情JSON' AFTER `expect_arrive_time`"},
 		{"api_sync_time", "`api_sync_time` DATETIME DEFAULT NULL COMMENT 'API同步时间' AFTER `raw_json`"},
+		{"order_item_key", "`order_item_key` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '订单明细幂等键' AFTER `order_no`"},
 	}
 	for _, column := range columns {
 		if err := s.ensureColumn(ctx, ordersTable, column.name, column.definition); err != nil {
@@ -144,6 +147,15 @@ CREATE TABLE IF NOT EXISTS wechat_shop_auth (
 		if err := s.ensureIndex(ctx, name, column); err != nil {
 			g.Log().Warningf(ctx, "[WechatShop] 创建索引%s失败: %v", name, err)
 		}
+	}
+	if _, err := g.DB().Exec(ctx, fmt.Sprintf(
+		"UPDATE `%s` SET `order_item_key` = MD5(CONCAT('legacy|', id)) WHERE `order_item_key` = '' OR `order_item_key` IS NULL",
+		ordersTable,
+	)); err != nil {
+		g.Log().Warningf(ctx, "[WechatShop] 回填历史order_item_key失败: %v", err)
+	}
+	if err := s.ensureUniqueIndex(ctx, "uk_order_item_key", "order_item_key"); err != nil {
+		g.Log().Warningf(ctx, "[WechatShop] 创建唯一索引uk_order_item_key失败: %v", err)
 	}
 	return nil
 }
@@ -175,6 +187,21 @@ WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?`, ordersTa
 		return nil
 	}
 	_, err = g.DB().Exec(ctx, fmt.Sprintf("ALTER TABLE `%s` ADD INDEX `%s` (`%s`)", ordersTable, name, column))
+	return err
+}
+
+func (s *Service) ensureUniqueIndex(ctx context.Context, name, column string) error {
+	row, err := g.DB().GetOne(ctx, `
+SELECT COUNT(*) AS cnt
+FROM information_schema.statistics
+WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?`, ordersTable, name)
+	if err != nil {
+		return err
+	}
+	if row["cnt"].Int() > 0 {
+		return nil
+	}
+	_, err = g.DB().Exec(ctx, fmt.Sprintf("ALTER TABLE `%s` ADD UNIQUE INDEX `%s` (`%s`)", ordersTable, name, column))
 	return err
 }
 
@@ -236,6 +263,9 @@ func (s *Service) PullOrders(ctx context.Context, params PullParams) (*PullResul
 		if storeResult.FailedCount == 0 {
 			_, _ = g.DB().Model(authTable).Ctx(ctx).Where("store_id", auth.StorePk).
 				Data(g.Map{"last_pull_time": time.Now().Format("2006-01-02 15:04:05")}).
+				Update()
+			_, _ = g.DB().Model("store").Ctx(ctx).Where("id", auth.StorePk).
+				Data(g.Map{"last_poll_time": time.Now().Format("2006-01-02 15:04:05")}).
 				Update()
 		}
 	}
@@ -331,7 +361,8 @@ func (s *Service) loadAuthConfigs(ctx context.Context, storeId int) ([]authConfi
 
 	m := g.DB().Model("store s").Ctx(ctx).
 		Where("s.status", 1).
-		Where("s.platform", "shipinhao")
+		Where("s.platform", "shipinhao").
+		Where("s.author", 1)
 	if storeId > 0 {
 		m = m.Where("s.id", storeId)
 	}
@@ -553,6 +584,7 @@ func (s *Service) saveOrderDetail(ctx context.Context, auth authConfig, order ma
 	orderStatus := getInt64(order, "status")
 	now := time.Now().Format(time.DateTime)
 	rows := make([]g.Map, 0, len(products))
+	orderItemKeys := make([]string, 0, len(products))
 	for _, productRaw := range products {
 		product, _ := productRaw.(map[string]interface{})
 		if product == nil {
@@ -565,9 +597,11 @@ func (s *Service) saveOrderDetail(ctx context.Context, auth authConfig, order ma
 		sourceJSON, _ := json.Marshal(source)
 		commissionJSON, _ := json.Marshal(commission)
 		specJSON, _ := json.Marshal(getSlice(product, "sku_attrs"))
+		orderItemKey := buildOrderItemKey(auth.StoreId, orderId, getString(product, "product_id"), skuId, getString(product, "sku_code"))
 
 		data := g.Map{
 			"shop_name":                truncateLocal(auth.StoreName, 255),
+			"order_item_key":           orderItemKey,
 			"order_no":                 truncateLocal(orderId, 100),
 			"product_name":             truncateLocal(firstString(product, "title", "product_name"), 500),
 			"product_spec":             truncateLocal(string(specJSON), 255),
@@ -625,15 +659,82 @@ func (s *Service) saveOrderDetail(ctx context.Context, auth authConfig, order ma
 			"create_time":              now,
 		}
 		rows = append(rows, data)
+		orderItemKeys = append(orderItemKeys, orderItemKey)
 	}
 
 	return len(rows), g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		if _, err := tx.Model(ordersTable).Ctx(ctx).Where("order_no", orderId).Delete(); err != nil {
-			return err
+		if len(orderItemKeys) > 0 {
+			if _, err := tx.Model(ordersTable).Ctx(ctx).
+				Where("store_id", auth.StoreId).
+				Where("order_no", orderId).
+				WhereNotIn("order_item_key", orderItemKeys).
+				Delete(); err != nil {
+				return err
+			}
 		}
-		_, err := tx.Model(ordersTable).Ctx(ctx).Data(rows).Insert()
+		_, err := tx.Model(ordersTable).Ctx(ctx).Data(rows).OnDuplicate(
+			"shop_name",
+			"product_name",
+			"product_spec",
+			"product_num",
+			"product_id",
+			"sku_id",
+			"out_product_id",
+			"out_sku_id",
+			"seller_code",
+			"product_price",
+			"order_pay_amount",
+			"shipping_fee",
+			"total_discount",
+			"platform_discount",
+			"seller_discount",
+			"talent_discount",
+			"seller_change_price",
+			"pay_discount",
+			"red_deduction",
+			"pay_type",
+			"receiver_name",
+			"receiver_phone",
+			"openid",
+			"province",
+			"city",
+			"district",
+			"street",
+			"address_detail",
+			"buyer_note",
+			"seller_note",
+			"order_submit_time",
+			"order_update_time",
+			"order_finish_time",
+			"pay_finish_time",
+			"flow_source",
+			"order_status",
+			"wechat_order_status",
+			"wechat_order_status_desc",
+			"promise_send_time",
+			"order_type",
+			"talent_id",
+			"talent_name",
+			"account_type",
+			"store_id",
+			"after_sale_status",
+			"cancel_reason",
+			"send_user",
+			"send_user_detail",
+			"send_time",
+			"expect_arrive_time",
+			"source_info",
+			"commission_info",
+			"raw_json",
+			"api_sync_time",
+		).Insert()
 		return err
 	})
+}
+
+func buildOrderItemKey(storeID, orderID, productID, skuID, sellerCode string) string {
+	sum := md5.Sum([]byte(storeID + "|" + orderID + "|" + productID + "|" + skuID + "|" + sellerCode))
+	return hex.EncodeToString(sum[:])
 }
 
 type timeRange struct {
