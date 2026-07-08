@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"go-crawler/internal/service"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"go-crawler/internal/service"
 
 	"github.com/gogf/gf/v2/frame/g"
 )
