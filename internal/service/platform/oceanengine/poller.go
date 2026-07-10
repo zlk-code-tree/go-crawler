@@ -23,7 +23,12 @@ type Poller struct {
 var (
 	pollerOnce     sync.Once
 	pollerInstance *Poller
+	qianchuanTZ    = time.FixedZone("CST", 8*60*60)
 )
+
+func parseQianchuanTokenTime(value string) (time.Time, error) {
+	return time.ParseInLocation("2006-01-02 15:04:05", value, qianchuanTZ)
+}
 
 // GetPoller 获取千川拉取器单例
 func GetPoller() *Poller {
@@ -107,7 +112,7 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 	// 检查 access_token 是否过期（提前1小时触发续期，避免边界时刻过期）
 	tokenExpired := false
 	if expiresAt != "" {
-		if t, err := time.Parse("2006-01-02 15:04:05", expiresAt); err == nil && time.Now().Add(time.Hour).After(t) {
+		if t, err := parseQianchuanTokenTime(expiresAt); err == nil && time.Now().Add(time.Hour).After(t) {
 			tokenExpired = true
 		}
 	}
@@ -117,7 +122,7 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 		// 检查 refresh_token 是否也过期
 		refreshExpired := false
 		if refreshTokenExpiresAt != "" {
-			if rt, err := time.Parse("2006-01-02 15:04:05", refreshTokenExpiresAt); err == nil && time.Now().After(rt) {
+			if rt, err := parseQianchuanTokenTime(refreshTokenExpiresAt); err == nil && time.Now().After(rt) {
 				refreshExpired = true
 			}
 		}
@@ -139,6 +144,9 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 				fmt.Sprintf(`{"reason":"refresh_token续期失败","detail":%q,"action":"请重新完成巨量千川OAuth授权","authUrl":"/api/qianchuan/auth-url"}`, err.Error()),
 				"system_alert", "qianchuan_token_expired", 0, service.NotifyLevelUrgent, 0)
 			return "", nil, fmt.Errorf("token续期失败: %w，请重新完成巨量千川OAuth授权", err)
+		}
+		if renewResp == nil || renewResp.Data == nil || renewResp.Data.AccessToken == nil || *renewResp.Data.AccessToken == "" {
+			return "", nil, fmt.Errorf("token续期失败: 千川接口未返回新的access_token，请重新完成巨量千川OAuth授权")
 		}
 
 		// 续期成功，更新数据库
@@ -187,6 +195,7 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 			}).Update()
 
 			accessToken = newAccessToken
+			expiresAt = newExpiresAt
 			advertiserIDs = qianchuanIDs
 			g.Log().Infof(ctx, "[QianchuanPoller] token续期成功，新过期时间=%s，广告主数=%d(千川)", newExpiresAt, len(qianchuanIDs))
 		}

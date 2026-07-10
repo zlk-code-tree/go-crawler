@@ -67,6 +67,12 @@ func financeValidOrderCondition(alias string) string {
 	)
 }
 
+// FinanceValidOrderCondition exposes the unified effective-order rule for
+// reports that are assembled outside the finance service package.
+func FinanceValidOrderCondition(alias string) string {
+	return financeValidOrderCondition(alias)
+}
+
 func financeInvalidOrderCondition(alias string) string {
 	return fmt.Sprintf("%s IN ('6','7','11','12','29')", financeOrderColumn(alias, "after_sale_status"))
 }

@@ -70,7 +70,7 @@ func (c *QianchuanPollerController) TokenStatus(r *ghttp.Request) {
 		expiresAt = row["expires_at"].String()
 		refreshExpiresAt = row["refresh_token_expires_at"].String()
 		if expiresAt != "" {
-			if t, err := time.Parse("2006-01-02 15:04:05", expiresAt); err == nil && time.Now().After(t) {
+			if t, err := time.ParseInLocation("2006-01-02 15:04:05", expiresAt, time.FixedZone("CST", 8*60*60)); err == nil && time.Now().After(t) {
 				expired = true
 			}
 		}
@@ -737,34 +737,70 @@ func (c *QianchuanPollerController) PlanReportList(r *ghttp.Request) {
 		startDate = today
 		endDate = today
 	}
+	start, startErr := time.Parse("2006-01-02", startDate)
+	end, endErr := time.Parse("2006-01-02", endDate)
+	if startErr != nil || endErr != nil || end.Before(start) {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "日期格式错误或结束日期早于开始日期"})
+		return
+	}
 
-	query := g.DB().Model("qianchuan_ad_report").Ctx(ctx).
-		Where("LEFT(stat_datetime, 10) >= ?", startDate).
-		Where("LEFT(stat_datetime, 10) <= ?", endDate)
+	query := g.DB().Model("qianchuan_ad_report qar").Ctx(ctx).
+		Where("LEFT(qar.stat_datetime, 10) >= ?", startDate).
+		Where("LEFT(qar.stat_datetime, 10) <= ?", endDate)
 
 	if advertiserId > 0 {
-		query = query.Where("advertiser_id", advertiserId)
+		query = query.Where("qar.advertiser_id", advertiserId)
 	}
 	if productId != "" {
-		query = query.Where("product_id", productId)
+		query = query.Where("qar.product_id", productId)
 	}
 	if keyword != "" {
 		like := "%" + keyword + "%"
-		query = query.Where("(ad_name LIKE ? OR aweme_name LIKE ? OR aweme_show_id LIKE ? OR product_name LIKE ? OR CAST(ad_id AS CHAR) LIKE ?)", like, like, like, like, like)
+		query = query.Where("(qar.ad_name LIKE ? OR qar.aweme_name LIKE ? OR qar.aweme_show_id LIKE ? OR qar.product_name LIKE ? OR CAST(qar.ad_id AS CHAR) LIKE ?)", like, like, like, like, like)
 	}
 
 	totalRow, _ := query.Clone().Fields("COUNT(*) as total").One()
 	total := totalRow["total"].Int64()
 
 	offset := (page - 1) * pageSize
+	// 订单指标以付款日期、千川归属账号和商品 ID 关联。一个商品同日被多个
+	// 计划投放时，订单无法从抖店数据进一步拆分，因此会展示到每个匹配计划中。
+	validCond := service.FinanceValidOrderCondition("o")
+	orderStatsSQL := fmt.Sprintf(`
+		SELECT
+			a.id AS account_id,
+			CAST(o.product_id AS CHAR) AS product_id,
+			LEFT(o.pay_finish_time, 10) AS stat_date,
+			COUNT(DISTINCT CASE WHEN %s THEN o.main_order_no END) AS valid_order_count,
+			COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num ELSE 0 END), 0) AS pay_amount,
+			COALESCE(SUM(CASE WHEN %s THEN COALESCE(gd.base_price, 0) * o.product_num ELSE 0 END), 0) AS cost_amount,
+			COALESCE(SUM(CASE WHEN %s THEN (o.product_price * o.product_num) - (COALESCE(gd.base_price, 0) * o.product_num) - (o.product_price * o.product_num * 0.03) - (o.product_price * o.product_num * 0.02) ELSE 0 END), 0) AS commission
+		FROM order_info o
+		INNER JOIN account a
+			ON a.platform = 'douyin'
+			AND a.status = 1
+			AND a.account_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
+		LEFT JOIN goods gd ON o.seller_code COLLATE utf8mb4_unicode_ci = gd.goods_code COLLATE utf8mb4_unicode_ci
+		WHERE o.pay_finish_time >= '%s 00:00:00'
+			AND o.pay_finish_time < '%s 00:00:00'
+			AND o.product_id IS NOT NULL
+			AND o.product_id != ''
+		GROUP BY a.id, CAST(o.product_id AS CHAR), LEFT(o.pay_finish_time, 10)
+	`, validCond, validCond, validCond, validCond, startDate, end.AddDate(0, 0, 1).Format("2006-01-02"))
+
 	rows, err := query.Clone().
 		Fields(`
-			advertiser_id, advertiser_name, ad_id, ad_name,
-			product_id, product_name, aweme_id, aweme_name, aweme_show_id,
-			stat_cost, pay_order_count, create_order_count, stat_datetime,
-			show_cnt, click_cnt, ctr, convert_cnt, convert_cost
+			qar.advertiser_id, qar.advertiser_name, qar.ad_id, qar.ad_name,
+			qar.product_id, qar.product_name, qar.aweme_id, qar.aweme_name, qar.aweme_show_id,
+			qar.stat_cost, qar.pay_order_count, qar.create_order_count, qar.stat_datetime,
+			qar.show_cnt, qar.click_cnt, qar.ctr, qar.convert_cnt, qar.convert_cost,
+			COALESCE(order_stats.valid_order_count, 0) AS valid_order_count,
+			COALESCE(order_stats.cost_amount, 0) AS cost_amount,
+			COALESCE(order_stats.commission, 0) AS commission,
+			ROUND(COALESCE(order_stats.commission, 0) - qar.stat_cost - COALESCE(order_stats.pay_amount, 0) * 0.005, 2) AS profit
 		`).
-		Order("stat_datetime DESC, stat_cost DESC, ad_id ASC").
+		LeftJoin("("+orderStatsSQL+") order_stats", "order_stats.account_id = qar.account_id AND order_stats.product_id = CAST(qar.product_id AS CHAR) AND order_stats.stat_date = LEFT(qar.stat_datetime, 10)").
+		Order("qar.stat_datetime DESC, qar.stat_cost DESC, qar.ad_id ASC").
 		Limit(pageSize).
 		Offset(offset).
 		All()
@@ -773,14 +809,19 @@ func (c *QianchuanPollerController) PlanReportList(r *ghttp.Request) {
 		return
 	}
 
-	summaryQuery := query.Clone()
+	summaryQuery := query.Clone().
+		LeftJoin("("+orderStatsSQL+") order_stats", "order_stats.account_id = qar.account_id AND order_stats.product_id = CAST(qar.product_id AS CHAR) AND order_stats.stat_date = LEFT(qar.stat_datetime, 10)")
 	summaryRow, _ := summaryQuery.Fields(`
-		COALESCE(SUM(stat_cost),0) AS total_cost,
-		COALESCE(SUM(pay_order_count),0) AS total_pay_order_count,
-		COALESCE(SUM(create_order_count),0) AS total_create_order_count,
-		COUNT(DISTINCT ad_id) AS plan_count,
-		COUNT(DISTINCT product_id) AS product_count,
-		COUNT(DISTINCT aweme_id) AS aweme_count
+		COALESCE(SUM(qar.stat_cost),0) AS total_cost,
+		COALESCE(SUM(qar.pay_order_count),0) AS total_pay_order_count,
+		COALESCE(SUM(qar.create_order_count),0) AS total_create_order_count,
+		COALESCE(SUM(order_stats.valid_order_count),0) AS total_valid_order_count,
+		COALESCE(SUM(order_stats.cost_amount),0) AS total_order_cost,
+		COALESCE(SUM(order_stats.commission),0) AS total_commission,
+		COALESCE(SUM(order_stats.commission - qar.stat_cost - order_stats.pay_amount * 0.005),0) AS total_profit,
+		COUNT(DISTINCT qar.ad_id) AS plan_count,
+		COUNT(DISTINCT qar.product_id) AS product_count,
+		COUNT(DISTINCT qar.aweme_id) AS aweme_count
 	`).One()
 
 	r.Response.WriteJsonExit(g.Map{
