@@ -16,8 +16,9 @@ import (
 
 // Poller 千川数据拉取器
 type Poller struct {
-	mu      sync.Mutex
-	running bool
+	mu             sync.Mutex
+	tokenRefreshMu sync.Mutex
+	running        bool
 }
 
 var (
@@ -26,8 +27,14 @@ var (
 	qianchuanTZ    = time.FixedZone("CST", 8*60*60)
 )
 
+const qianchuanTokenRefreshAhead = 8 * time.Hour
+
 func parseQianchuanTokenTime(value string) (time.Time, error) {
 	return time.ParseInLocation("2006-01-02 15:04:05", value, qianchuanTZ)
+}
+
+func shouldRefreshQianchuanToken(now, expiresAt time.Time) bool {
+	return !now.Add(qianchuanTokenRefreshAhead).Before(expiresAt)
 }
 
 // GetPoller 获取千川拉取器单例
@@ -48,6 +55,12 @@ func GetLatestToken(ctx context.Context) (string, []int64, error) {
 func GetLatestAccessToken(ctx context.Context) (string, error) {
 	accessToken, _, err := GetLatestToken(ctx)
 	return accessToken, err
+}
+
+// MaintainAccessToken 供定时任务主动检查并续期千川 token。
+func MaintainAccessToken(ctx context.Context) error {
+	_, _, err := GetLatestToken(ctx)
+	return err
 }
 
 // Start 启动每日定时拉取
@@ -89,6 +102,20 @@ func (p *Poller) IsRunning() bool {
 // getLatestToken 从数据库获取最新的 access_token 和 advertiser_ids
 // 如果 access_token 已过期但 refresh_token 有效，会自动续期
 func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
+	return p.getLatestTokenWithRefresh(ctx, "")
+}
+
+// refreshLatestToken 强制刷新调用接口判定已失效的 token。
+// 如果其他协程已刷新 staleAccessToken，则直接复用数据库中的新 token。
+func (p *Poller) refreshLatestToken(ctx context.Context, staleAccessToken string) (string, []int64, error) {
+	return p.getLatestTokenWithRefresh(ctx, staleAccessToken)
+}
+
+func (p *Poller) getLatestTokenWithRefresh(ctx context.Context, staleAccessToken string) (string, []int64, error) {
+	// refresh_token 可能会随续期滚动更新，必须串行读取、调用和回写。
+	p.tokenRefreshMu.Lock()
+	defer p.tokenRefreshMu.Unlock()
+
 	row, err := g.DB().Model("qianchuan_token").Ctx(ctx).OrderDesc("id").Limit(1).One()
 	if err != nil {
 		return "", nil, fmt.Errorf("查询token失败: %w", err)
@@ -109,12 +136,17 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 		json.Unmarshal([]byte(idsJSON), &advertiserIDs)
 	}
 
-	// 检查 access_token 是否过期（提前1小时触发续期，避免边界时刻过期）
-	tokenExpired := false
+	// 定时检查会提前续期；接口返回过期时则强制续期。
+	tokenExpired := staleAccessToken != "" && staleAccessToken == accessToken
 	if expiresAt != "" {
-		if t, err := parseQianchuanTokenTime(expiresAt); err == nil && time.Now().Add(time.Hour).After(t) {
+		if t, parseErr := parseQianchuanTokenTime(expiresAt); parseErr == nil {
+			tokenExpired = tokenExpired || shouldRefreshQianchuanToken(time.Now(), t)
+		} else {
+			g.Log().Warningf(ctx, "[QianchuanPoller] token过期时间格式无效(%s)，尝试主动续期: %v", expiresAt, parseErr)
 			tokenExpired = true
 		}
+	} else {
+		tokenExpired = true
 	}
 
 	// 如果 access_token 过期，尝试用 refresh_token 续期
@@ -136,7 +168,7 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 			return "", nil, fmt.Errorf("access_token和refresh_token均已过期，请重新完成巨量千川OAuth授权")
 		}
 
-		g.Log().Infof(ctx, "[QianchuanPoller] access_token已过期，尝试用refresh_token续期")
+		g.Log().Infof(ctx, "[QianchuanPoller] access_token临近过期或已失效，尝试用refresh_token续期")
 		renewResp, err := RefreshAccessToken(ctx, refreshToken)
 		if err != nil {
 			g.Log().Errorf(ctx, "[QianchuanPoller] refresh_token续期失败: %v，请重新授权", err)
@@ -152,10 +184,14 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 		// 续期成功，更新数据库
 		if renewResp.Data != nil && renewResp.Data.AccessToken != nil {
 			newAccessToken := *renewResp.Data.AccessToken
-			newExpiresAt := ""
+			newExpiresIn := row["expires_in"].Int64()
 			if renewResp.Data.ExpiresIn != nil && *renewResp.Data.ExpiresIn > 0 {
-				newExpiresAt = time.Now().Add(time.Duration(*renewResp.Data.ExpiresIn) * time.Second).Format("2006-01-02 15:04:05")
+				newExpiresIn = *renewResp.Data.ExpiresIn
 			}
+			if newExpiresIn <= 0 {
+				return "", nil, fmt.Errorf("token续期失败: 千川接口未返回有效的expires_in")
+			}
+			newExpiresAt := time.Now().Add(time.Duration(newExpiresIn) * time.Second).Format("2006-01-02 15:04:05")
 			newRefreshToken := refreshToken
 			newRefreshTokenExpiresAt := refreshTokenExpiresAt
 			if renewResp.Data.RefreshToken != nil && *renewResp.Data.RefreshToken != "" {
@@ -186,13 +222,17 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 			}
 			idsJSON, _ := json.Marshal(qianchuanIDs)
 
-			g.DB().Model("qianchuan_token").Ctx(ctx).Where("id", tokenId).Data(g.Map{
+			_, updateErr := g.DB().Model("qianchuan_token").Ctx(ctx).Where("id", tokenId).Data(g.Map{
 				"access_token":             newAccessToken,
 				"refresh_token":            newRefreshToken,
+				"expires_in":               newExpiresIn,
 				"expires_at":               newExpiresAt,
 				"refresh_token_expires_at": newRefreshTokenExpiresAt,
 				"advertiser_ids":           string(idsJSON),
 			}).Update()
+			if updateErr != nil {
+				return "", nil, fmt.Errorf("token续期成功但保存数据库失败: %w", updateErr)
+			}
 
 			accessToken = newAccessToken
 			expiresAt = newExpiresAt
@@ -205,7 +245,7 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 		service.CreateNotification(ctx, "千川授权已过期",
 			`{"reason":"access_token已过期且无refresh_token","action":"请重新完成巨量千川OAuth授权","authUrl":"/api/qianchuan/auth-url"}`,
 			"system_alert", "qianchuan_token_expired", 0, service.NotifyLevelUrgent, 0)
-		return "", nil, fmt.Errorf("access_token已于%s过期且无refresh_token，请重新完成巨量千川OAuth授权", expiresAt[:10])
+		return "", nil, fmt.Errorf("access_token已于%s过期且无refresh_token，请重新完成巨量千川OAuth授权", expiresAt)
 	}
 
 	// 如果续期成功，advertiserIDs 已在续期逻辑中赋值；否则从数据库读取
@@ -307,6 +347,23 @@ type advResult struct {
 	err          string
 }
 
+type sharedAccessToken struct {
+	mu    sync.RWMutex
+	value string
+}
+
+func (t *sharedAccessToken) Get() string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.value
+}
+
+func (t *sharedAccessToken) Set(value string) {
+	t.mu.Lock()
+	t.value = value
+	t.mu.Unlock()
+}
+
 type authorOrgInfo struct {
 	AccountID        int
 	CompanyID        int64
@@ -334,8 +391,8 @@ func (p *Poller) pullByDate(ctx context.Context, startDate, endDate string) (*Po
 
 	g.Log().Infof(ctx, "[QianchuanPoller] pullByDate: 开始拉取 %s~%s, 广告主共%d个", startDate, endDate, len(advertiserIDs))
 
-	// 使用指针传递 token，40102 过期时自动续期后所有 goroutine 共享新 token
-	tokenPtr := &accessToken
+	// 40102 触发续期后，所有拉取协程安全共享新 token。
+	tokenState := &sharedAccessToken{value: accessToken}
 	result := &PollerResult{}
 
 	// 并发拉取（最多3个并发，避免触发API限流）
@@ -367,7 +424,7 @@ func (p *Poller) pullByDate(ctx context.Context, startDate, endDate string) (*Po
 				}()
 				advCtx, cancel := context.WithTimeout(ctx, perAdvertiserTimeout)
 				defer cancel()
-				r := p.pullOneAdvertiser(advCtx, tokenPtr, id, startDate, endDate)
+				r := p.pullOneAdvertiser(advCtx, tokenState, id, startDate, endDate)
 				ch <- r
 			}(advID)
 		}
@@ -499,16 +556,17 @@ func (p *Poller) cleanInvalidAdvertisers(ctx context.Context, allIDs []int64, er
 }
 
 // pullOneAdvertiser 拉取单个广告主的数据并批量入库
-func (p *Poller) pullOneAdvertiser(ctx context.Context, tokenPtr *string, advID int64, startDate, endDate string) advResult {
-	client := NewClient(*tokenPtr)
+func (p *Poller) pullOneAdvertiser(ctx context.Context, tokenState *sharedAccessToken, advID int64, startDate, endDate string) advResult {
+	requestToken := tokenState.Get()
+	client := NewClient(requestToken)
 	pullResult, err := client.PullAllByDate(ctx, advID, startDate, endDate)
 	if err != nil {
 		// 如果是 token 过期（40102），强制续期后重试一次
 		if strings.Contains(err.Error(), "40102") || strings.Contains(err.Error(), "access_token已过期") {
 			g.Log().Warningf(ctx, "[QianchuanPoller] 广告主%d: token过期，尝试强制续期", advID)
-			newToken, _, refreshErr := p.getLatestToken(ctx)
-			if refreshErr == nil && newToken != "" && newToken != *tokenPtr {
-				*tokenPtr = newToken
+			newToken, _, refreshErr := p.refreshLatestToken(ctx, requestToken)
+			if refreshErr == nil && newToken != "" {
+				tokenState.Set(newToken)
 				g.Log().Infof(ctx, "[QianchuanPoller] token强制续期成功，重试广告主%d", advID)
 				client = NewClient(newToken)
 				pullResult, err = client.PullAllByDate(ctx, advID, startDate, endDate)
@@ -1244,6 +1302,10 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 		}
 	}
 	orgMappings := p.loadOrgMappings(ctx, advIDs)
+	advertiserNames := make(map[int64]string, len(advIDs))
+	for _, advertiserID := range advIDs {
+		advertiserNames[advertiserID] = p.lookupAdvertiserName(ctx, advertiserID)
+	}
 
 	const batchSize = 100
 	saved := 0
@@ -1267,7 +1329,7 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 			args = append(args,
 				mapping.OrganizationID, mapping.AccountID, mapping.CompanyID, mapping.DepartmentID, mapping.TraderID,
-				item.AdvertiserID, "", item.AdID, item.AdName, item.ProductID, item.ProductName,
+				item.AdvertiserID, advertiserNames[item.AdvertiserID], item.AdID, item.AdName, item.ProductID, item.ProductName,
 				awemeID, item.AwemeName, item.AwemeShowID, item.StatCost, item.StatDatetime,
 				item.ShowCnt, item.ClickCnt, item.Ctr, item.ConvertCnt, item.ConvertCost,
 				item.PayOrderCount, item.CreateOrderCount,

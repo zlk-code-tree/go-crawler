@@ -839,6 +839,24 @@ func (c *QianchuanPollerController) PlanReportList(r *ghttp.Request) {
 	})
 }
 
+// PlanHierarchy 查询店铺 -> 千川账户 -> 投放计划三级汇总。
+func (c *QianchuanPollerController) PlanHierarchy(r *ghttp.Request) {
+	req := service.QianchuanPlanHierarchyRequest{
+		Level:        r.Get("level", service.QianchuanHierarchyLevelStore).String(),
+		StartDate:    r.Get("startDate").String(),
+		EndDate:      r.Get("endDate").String(),
+		Keyword:      r.Get("keyword").String(),
+		AccountID:    r.Get("accountId", int64(0)).Int64(),
+		AdvertiserID: r.Get("advertiserId", int64(0)).Int64(),
+	}
+	result, err := service.NewQianchuanPlanHierarchyService().Query(r.Context(), req)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": "查询层级汇总失败: " + err.Error(), "data": nil})
+		return
+	}
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": result})
+}
+
 // OverallReportList 查询千川乘方日报表 GET /api/qianchuan-poller/overall-report
 func (c *QianchuanPollerController) OverallReportList(r *ghttp.Request) {
 	ctx := r.Context()

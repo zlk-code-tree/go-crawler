@@ -13,6 +13,22 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SELECT COUNT(*) INTO @idx_exists
 FROM information_schema.statistics
+WHERE table_schema = @db AND table_name = 'qianchuan_ad_report' AND index_name = 'idx_account_stat_advertiser';
+SET @sql = IF(@idx_exists = 0,
+  'ALTER TABLE `qianchuan_ad_report` ADD INDEX `idx_account_stat_advertiser` (`account_id`, `stat_datetime`, `advertiser_id`, `ad_id`)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @idx_exists
+FROM information_schema.statistics
+WHERE table_schema = @db AND table_name = 'qianchuan_ad_report' AND index_name = 'idx_advertiser_stat_ad';
+SET @sql = IF(@idx_exists = 0,
+  'ALTER TABLE `qianchuan_ad_report` ADD INDEX `idx_advertiser_stat_ad` (`advertiser_id`, `stat_datetime`, `ad_id`)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @idx_exists
+FROM information_schema.statistics
 WHERE table_schema = @db AND table_name = 'order_info' AND index_name = 'idx_shop_product_pay_time';
 SET @sql = IF(@idx_exists = 0,
   'ALTER TABLE `order_info` ADD INDEX `idx_shop_product_pay_time` (`shop_name`, `product_id`, `pay_finish_time`)',

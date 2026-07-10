@@ -2156,19 +2156,19 @@ func ResolveQianchuanAdvertiserIDs(ctx context.Context, accessToken string, shop
 	return allAdvIDs, nil
 }
 
-// RefreshAccessToken 使用 refresh_token 续期 access_token
-// 调用巨量千川 /open_api/oauth2/renew_token/ 接口
-func RefreshAccessToken(ctx context.Context, refreshToken string) (*models.Oauth2RenewTokenResponse, error) {
+// RefreshAccessToken 使用 refresh_token 换取新的 access_token。
+// renew_token 用于延长 refresh_token，不适用于 access_token 的日常刷新。
+func RefreshAccessToken(ctx context.Context, refreshToken string) (*models.Oauth2RefreshTokenResponse, error) {
 	cfg := g.Cfg()
 	appId := cfg.MustGet(ctx, "platform.qianchuan.appId").Int64()
 	secret := cfg.MustGet(ctx, "platform.qianchuan.appSecret").String()
 
-	g.Log().Infof(ctx, "[Qianchuan] RefreshAccessToken: appId=%d, refreshToken前%d位=%s", appId, min(8, len(refreshToken)), refreshToken[:min(8, len(refreshToken))])
+	g.Log().Infof(ctx, "[Qianchuan] RefreshAccessToken: appId=%d, refreshTokenLength=%d", appId, len(refreshToken))
 
 	sdkClient := ad_open_sdk_go.Init(config.NewConfiguration())
-	resp, _, err := sdkClient.Oauth2RenewTokenApi().Post(ctx).
-		Oauth2RenewTokenRequest(models.Oauth2RenewTokenRequest{
-			AppId:        appId,
+	resp, _, err := sdkClient.Oauth2RefreshTokenApi().Post(ctx).
+		Oauth2RefreshTokenRequest(models.Oauth2RefreshTokenRequest{
+			AppId:        &appId,
 			RefreshToken: refreshToken,
 			Secret:       secret,
 		}).

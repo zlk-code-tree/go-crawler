@@ -623,6 +623,7 @@ var (
 				group.GET("/qianchuan-poller/test-report", qianchuanPollerCtrl.TestReportAPI)
 				group.GET("/qianchuan-poller/daily-report", qianchuanPollerCtrl.DailyReportList)
 				group.GET("/qianchuan-poller/plan-report", qianchuanPollerCtrl.PlanReportList)
+				group.GET("/qianchuan-poller/plan-hierarchy", qianchuanPollerCtrl.PlanHierarchy)
 				group.GET("/qianchuan-poller/overall-report", qianchuanPollerCtrl.OverallReportList)
 				group.GET("/qianchuan-poller/overall-report-detail", qianchuanPollerCtrl.OverallReportDetailList)
 				group.GET("/qianchuan-poller/daily-report-advertisers", qianchuanPollerCtrl.DailyReportAdvertisers)
@@ -695,6 +696,11 @@ var (
 				yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 				_, err := oceanengine.GetPoller().ManualPullByDate(ctx, yesterday, yesterday)
 				return err
+			})
+
+			// 千川 access_token 通常按接口返回有效期生效，每6小时检查并在过期前主动续期。
+			cronMgr.RegisterBuiltinSilent("qianchuan_token_refresh", "0 17 0,6,12,18 * * *", func(ctx context.Context) error {
+				return oceanengine.MaintainAccessToken(ctx)
 			})
 
 			// 盈亏早报推送 (09:00) - 只推 push_morning=1 的配置

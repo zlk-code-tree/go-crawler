@@ -29,8 +29,9 @@ type CronTaskInfo struct {
 }
 
 type builtinTask struct {
-	cronExpr string
-	handler  func(context.Context) error
+	cronExpr      string
+	handler       func(context.Context) error
+	notifySuccess bool
 }
 
 // CronManager 定时任务管理器
@@ -66,6 +67,7 @@ var builtinDisplayNames = map[string]string{
 	"finance_daily_aggregate":      "达人佣金日聚合",
 	"order_daily_aggregate":        "抖音订单日聚合",
 	"qianchuan_daily_pull":         "千川数据每日拉取",
+	"qianchuan_token_refresh":      "千川Token自动续期",
 	"profit_morning_push":          "盈亏早报推送",
 	"profit_evening_push":          "盈亏晚报推送",
 }
@@ -73,9 +75,18 @@ var builtinDisplayNames = map[string]string{
 // RegisterBuiltin 注册内置任务
 // handler 返回 error 时由 CronManager 统一记录失败日志与通知，handler 内部不应再重复记录
 func (m *CronManager) RegisterBuiltin(name, cronExpr string, handler func(context.Context) error) {
+	m.registerBuiltin(name, cronExpr, handler, true)
+}
+
+// RegisterBuiltinSilent 注册成功时不生成系统通知的高频维护任务，失败仍正常告警。
+func (m *CronManager) RegisterBuiltinSilent(name, cronExpr string, handler func(context.Context) error) {
+	m.registerBuiltin(name, cronExpr, handler, false)
+}
+
+func (m *CronManager) registerBuiltin(name, cronExpr string, handler func(context.Context) error, notifySuccess bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.builtin[name] = builtinTask{cronExpr: cronExpr, handler: handler}
+	m.builtin[name] = builtinTask{cronExpr: cronExpr, handler: handler, notifySuccess: notifySuccess}
 }
 
 // StartAll 启动所有任务
@@ -83,7 +94,7 @@ func (m *CronManager) StartAll(ctx context.Context) {
 	registered := 0
 	failed := 0
 	for name, task := range m.builtin {
-		if err := m.startWrapped(ctx, name, task.cronExpr, task.handler); err != nil {
+		if err := m.startWrapped(ctx, name, task.cronExpr, task.handler, task.notifySuccess); err != nil {
 			failed++
 		} else {
 			registered++
@@ -106,9 +117,9 @@ func (m *CronManager) StartAll(ctx context.Context) {
 }
 
 // startWrapped 启动带包装的cron任务
-func (m *CronManager) startWrapped(ctx context.Context, name, pattern string, handler func(context.Context) error) error {
+func (m *CronManager) startWrapped(ctx context.Context, name, pattern string, handler func(context.Context) error, notifySuccess bool) error {
 	_, err := gcron.AddSingleton(ctx, pattern, func(ctx context.Context) {
-		m.runWithLock(ctx, name, handler)
+		m.runWithLock(ctx, name, handler, notifySuccess)
 	}, name)
 	if err != nil {
 		g.Log().Errorf(ctx, "[CronManager] 注册任务失败 name=%s pattern=%s err=%v", name, pattern, err)
@@ -120,7 +131,7 @@ func (m *CronManager) startWrapped(ctx context.Context, name, pattern string, ha
 
 // runWithLock 防重复执行 + 日志记录 + 通知 + 任务链
 // handler 返回 error 时记录失败，否则记录成功；handler 内部不应再重复写任务日志/通知
-func (m *CronManager) runWithLock(ctx context.Context, name string, handler func(context.Context) error) {
+func (m *CronManager) runWithLock(ctx context.Context, name string, handler func(context.Context) error, notifySuccess bool) {
 	m.mu.Lock()
 	if m.running[name] {
 		m.mu.Unlock()
@@ -153,7 +164,9 @@ func (m *CronManager) runWithLock(ctx context.Context, name string, handler func
 	}
 
 	TaskLogSuccess(ctx, logId, "", fmt.Sprintf(`{"durationMs":%d}`, dur), dur)
-	CreateNotification(ctx, name+" 执行完成", fmt.Sprintf(`{"耗时":%d,"任务":"%s"}`, dur, name), "task_result", name, logId, NotifyLevelNormal, 0)
+	if notifySuccess {
+		CreateNotification(ctx, name+" 执行完成", fmt.Sprintf(`{"耗时":%d,"任务":"%s"}`, dur, name), "task_result", name, logId, NotifyLevelNormal, 0)
+	}
 
 	// 任务链
 	if t := m.getDbTask(ctx, name); t != nil && t.NextTask != "" {
@@ -168,7 +181,7 @@ func (m *CronManager) startDbTask(ctx context.Context, t CronTaskInfo) error {
 	}
 	// executeHttpTask 内部已自行处理重试与日志记录，这里返回 nil 不让 CronManager 重复记录
 	handler := func(ctx context.Context) error { m.executeHttpTask(ctx, t); return nil }
-	return m.startWrapped(ctx, t.Name, t.CronExpr, handler)
+	return m.startWrapped(ctx, t.Name, t.CronExpr, handler, true)
 }
 
 // Stop 停止任务
@@ -185,7 +198,7 @@ func (m *CronManager) ResumeTask(ctx context.Context, name string) bool {
 		return false
 	}
 	gcron.Remove(name) // 先移除避免重复注册
-	return m.startWrapped(ctx, name, task.cronExpr, task.handler) == nil
+	return m.startWrapped(ctx, name, task.cronExpr, task.handler, task.notifySuccess) == nil
 }
 
 // Trigger 手动触发
@@ -214,7 +227,7 @@ func (m *CronManager) triggerByName(ctx context.Context, name string) error {
 		m.mu.Unlock()
 
 		if task, ok := m.builtin[name]; ok {
-			m.runWithLock(ctx, name, task.handler)
+			m.runWithLock(ctx, name, task.handler, task.notifySuccess)
 			return
 		}
 		if t := m.getDbTask(ctx, name); t != nil {
