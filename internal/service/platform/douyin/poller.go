@@ -17,11 +17,12 @@ import (
 
 // PollParams 手动触发参数
 type PollParams struct {
-	StartTime   string // 开始时间，为空则用 last_poll_time
-	EndTime     string // 结束时间，为空则用当前时间
-	StartPage   int    // 起始页码，默认0
-	Concurrency int    // 并发数，默认1（串行），最大45
-	RecordLog   bool   // 是否记录任务执行日志（仅定时任务为true）
+	StartTime     string // 开始时间，为空则用 last_poll_time
+	EndTime       string // 结束时间，为空则用当前时间
+	StartPage     int    // 起始页码，默认0
+	Concurrency   int    // 并发数，默认1（串行），最大45
+	RecordLog     bool   // 是否记录任务执行日志（仅定时任务为true）
+	UseUpdateTime bool   // 按订单更新时间查询，用于回补退款、发货等状态变化
 }
 
 // PollResult 拉取结果
@@ -45,6 +46,8 @@ var (
 	pollerInstance *Poller
 	pollerOnce     sync.Once
 )
+
+const douyinValidOrderStatusFilter = "2,3,4,5" // 待发货、已发货、已取消/关闭、已完成
 
 // GetPoller 获取全局轮询器实例
 func GetPoller() *Poller {
@@ -204,12 +207,13 @@ func (p *Poller) tick(ctx context.Context) {
 			p.mu.Unlock()
 
 			reqParams, _ := json.Marshal(map[string]interface{}{
-				"shop_id":    store["store_id"].String(),
-				"store_id":   storeId,
-				"start_time": startTimeToUse.Format("2006-01-02 15:04:05"),
-				"end_time":   endTime.Format("2006-01-02 15:04:05"),
-				"page":       page,
-				"page_size":  100,
+				"shop_id":      store["store_id"].String(),
+				"store_id":     storeId,
+				"start_time":   startTimeToUse.Format("2006-01-02 15:04:05"),
+				"end_time":     endTime.Format("2006-01-02 15:04:05"),
+				"page":         page,
+				"page_size":    100,
+				"order_status": douyinValidOrderStatusFilter,
 			})
 
 			pageStart := time.Now()
@@ -221,12 +225,14 @@ func (p *Poller) tick(ctx context.Context) {
 
 			svc := NewService()
 			result, err := svc.GetOrderList(ctx, model.PlatformOrderListParams{
-				Platform:  "douyin",
-				Page:      page,
-				PageSize:  100,
-				StartTime: startTimeToUse.Format("2006-01-02 15:04:05"),
-				EndTime:   endTime.Format("2006-01-02 15:04:05"),
-				StoreId:   storeId,
+				Platform:      "douyin",
+				Page:          page,
+				PageSize:      100,
+				StartTime:     startTimeToUse.Format("2006-01-02 15:04:05"),
+				EndTime:       endTime.Format("2006-01-02 15:04:05"),
+				StoreId:       storeId,
+				OrderStatus:   douyinValidOrderStatusFilter,
+				UseUpdateTime: true,
 			})
 			dur := int(time.Since(pageStart).Milliseconds())
 
@@ -309,8 +315,8 @@ func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderIte
 		if bp, ok := priceMap[order.Code]; ok && bp > 0 {
 			data["product_cost"] = bp * float64(order.ProductNum)
 		}
-		// 小店服务费 = 应付金额 × 2%
-		data["shop_service_fee"] = order.PayAmount * 0.02
+		// 小店服务费按商品原价总额计算，优惠后的实付金额不参与该口径。
+		data["shop_service_fee"] = order.ProductPrice * float64(order.ProductNum) * service.DouyinShopServiceFeeRate
 
 		count, _ := g.DB().Model("order_info").Ctx(ctx).
 			Where("sub_order_no", order.SubOrderNo).Count()
@@ -323,6 +329,7 @@ func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderIte
 				continue
 			}
 		} else {
+			data["create_time"] = time.Now().Format("2006-01-02 15:04:05")
 			_, err := g.DB().Model("order_info").Ctx(ctx).Data(data).Insert()
 			if err != nil {
 				g.Log().Errorf(ctx, "[DouyinPoller] 插入订单失败 sub_order_no=%s product_name=%s: %v",
@@ -335,6 +342,13 @@ func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderIte
 	return saved
 }
 
+func douyinOrderStatusDesc(order model.PlatformOrderItem) string {
+	if order.OrderStatus == 4 {
+		return "已关闭"
+	}
+	return order.OrderStatusDesc
+}
+
 func (p *Poller) orderToMap(order model.PlatformOrderItem) map[string]interface{} {
 	m := map[string]interface{}{
 		"sub_order_no":        order.SubOrderNo,
@@ -344,7 +358,7 @@ func (p *Poller) orderToMap(order model.PlatformOrderItem) map[string]interface{
 		"product_num":         order.ProductNum,
 		"product_price":       order.ProductPrice,
 		"order_pay_amount":    order.PayAmount,
-		"order_status":        order.OrderStatusDesc,
+		"order_status":        douyinOrderStatusDesc(order),
 		"talent_name":         order.AuthorName,
 		"total_discount":      order.PromotionAmount,
 		"platform_discount":   order.PromotionPlatformAmount,
@@ -364,6 +378,7 @@ func (p *Poller) orderToMap(order model.PlatformOrderItem) map[string]interface{
 	setIf("talent_id", fmt.Sprintf("%d", order.AuthorId))
 	setIf("order_submit_time", order.CreateTime)
 	setIf("order_finish_time", order.FinishTime)
+	setIf("send_time", order.ShipTime)
 	setIf("receiver_name", order.PostReceiver)
 	setIf("receiver_phone", order.PostTel)
 	setIf("province", order.PostProvince)
@@ -376,7 +391,6 @@ func (p *Poller) orderToMap(order model.PlatformOrderItem) map[string]interface{
 	setIf("flow_source", order.BTypeDesc)
 	setIf("after_sale_status", fmt.Sprintf("%d", order.AfterSaleStatus))
 	setIf("cancel_reason", order.CancelReason)
-	m["create_time"] = time.Now().Format("2006-01-02 15:04:05")
 	return m
 }
 
@@ -449,7 +463,8 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (totalOrder
 		firstPage := opt.StartPage
 		firstResult, apiErr := svc.GetOrderList(ctx, model.PlatformOrderListParams{
 			Platform: "douyin", Page: firstPage, PageSize: 100,
-			StartTime: st, EndTime: et, StoreId: storeId,
+			StartTime: st, EndTime: et, StoreId: storeId, OrderStatus: douyinValidOrderStatusFilter,
+			UseUpdateTime: opt.UseUpdateTime,
 		})
 		if apiErr != nil {
 			g.Log().Errorf(ctx, "[DouyinPoller] %s 第%d页失败: %v", storeName, firstPage, apiErr)
@@ -517,7 +532,8 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (totalOrder
 					for retry := 0; retry < 3; retry++ {
 						result, apiErr = svc.GetOrderList(ctx, model.PlatformOrderListParams{
 							Platform: "douyin", Page: page, PageSize: 100,
-							StartTime: st, EndTime: et, StoreId: storeId,
+							StartTime: st, EndTime: et, StoreId: storeId, OrderStatus: douyinValidOrderStatusFilter,
+							UseUpdateTime: opt.UseUpdateTime,
 						})
 						if apiErr == nil {
 							break

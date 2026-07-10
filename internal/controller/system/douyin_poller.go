@@ -58,59 +58,61 @@ func (c *DouyinPollerController) Status(r *ghttp.Request) {
 	})
 }
 
-	// TriggerOrder 手动触发抖店订单拉取 POST /api/douyin-poller/trigger-order
-	func (c *DouyinPollerController) TriggerOrder(r *ghttp.Request) {
-		opt := douyinSvc.PollParams{
-			StartTime:   r.Get("startTime").String(),
-			EndTime:     r.Get("endTime").String(),
-			StartPage:   r.Get("startPage", 0).Int(),
-			Concurrency: r.Get("concurrency", 5).Int(),
-		}
-
-		// 记录任务开始
-		reqParams, _ := json.Marshal(g.Map{
-			"startTime":   opt.StartTime,
-			"endTime":     opt.EndTime,
-			"startPage":   opt.StartPage,
-			"concurrency": opt.Concurrency,
-		})
-		logId, err := service.TaskLogStart(r.Context(), "抖店订单手动拉取", "douyin_order_pull", "/api/douyin-poller/trigger-order", string(reqParams))
-		if err != nil {
-			g.Log().Errorf(r.Context(), "[DouyinPoller] 写入任务日志失败: %v", err)
-		}
-
-		g.Log().Infof(r.Context(), "[DouyinPoller] 收到手动拉取请求: startTime=%s endTime=%s logId=%d",
-			opt.StartTime, opt.EndTime, logId)
-
-		go c.runOrderPull(context.Background(), opt, logId, r.GetCtxVar("userId").Int64())
-
-		r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"logId": logId}, "msg": "任务已启动，后台拉取中"})
+// TriggerOrder 手动触发抖店订单拉取 POST /api/douyin-poller/trigger-order
+func (c *DouyinPollerController) TriggerOrder(r *ghttp.Request) {
+	opt := douyinSvc.PollParams{
+		StartTime:     r.Get("startTime").String(),
+		EndTime:       r.Get("endTime").String(),
+		StartPage:     r.Get("startPage", 0).Int(),
+		Concurrency:   r.Get("concurrency", 5).Int(),
+		UseUpdateTime: r.Get("useUpdateTime", false).Bool(),
 	}
 
-	// runOrderPull 在后台执行抖店订单拉取
-	func (c *DouyinPollerController) runOrderPull(ctx context.Context, opt douyinSvc.PollParams, logId, userId int64) {
-		overallStart := time.Now()
-		result, err := douyinSvc.GetPoller().ManualTrigger(ctx, opt)
-		durationMs := int(time.Since(overallStart).Milliseconds())
+	// 记录任务开始
+	reqParams, _ := json.Marshal(g.Map{
+		"startTime":     opt.StartTime,
+		"endTime":       opt.EndTime,
+		"startPage":     opt.StartPage,
+		"concurrency":   opt.Concurrency,
+		"useUpdateTime": opt.UseUpdateTime,
+	})
+	logId, err := service.TaskLogStart(r.Context(), "抖店订单手动拉取", "douyin_order_pull", "/api/douyin-poller/trigger-order", string(reqParams))
+	if err != nil {
+		g.Log().Errorf(r.Context(), "[DouyinPoller] 写入任务日志失败: %v", err)
+	}
 
-		if err != nil {
-			if logId > 0 {
-				service.TaskLogFailed(ctx, logId, err.Error(), durationMs)
-				service.CreateNotification(ctx, "抖店订单拉取失败", fmt.Sprintf(`{"error":"%s"}`, err.Error()), "task_result", "douyin_order_pull", logId, service.NotifyLevelImportant, userId)
-			}
-			return
-		}
+	g.Log().Infof(r.Context(), "[DouyinPoller] 收到手动拉取请求: startTime=%s endTime=%s logId=%d",
+		opt.StartTime, opt.EndTime, logId)
 
-		respBody, _ := json.Marshal(g.Map{
-			"totalOrders": result.TotalOrders,
-			"totalSaved":  result.TotalSaved,
-			"durationMs":  durationMs,
-		})
+	go c.runOrderPull(context.Background(), opt, logId, r.GetCtxVar("userId").Int64())
+
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"logId": logId}, "msg": "任务已启动，后台拉取中"})
+}
+
+// runOrderPull 在后台执行抖店订单拉取
+func (c *DouyinPollerController) runOrderPull(ctx context.Context, opt douyinSvc.PollParams, logId, userId int64) {
+	overallStart := time.Now()
+	result, err := douyinSvc.GetPoller().ManualTrigger(ctx, opt)
+	durationMs := int(time.Since(overallStart).Milliseconds())
+
+	if err != nil {
 		if logId > 0 {
-			service.TaskLogSuccess(ctx, logId, "", string(respBody), durationMs)
-			service.CreateNotification(ctx, "抖店订单拉取完成", string(respBody), "task_result", "douyin_order_pull", logId, service.NotifyLevelNormal, userId)
+			service.TaskLogFailed(ctx, logId, err.Error(), durationMs)
+			service.CreateNotification(ctx, "抖店订单拉取失败", fmt.Sprintf(`{"error":"%s"}`, err.Error()), "task_result", "douyin_order_pull", logId, service.NotifyLevelImportant, userId)
 		}
+		return
 	}
+
+	respBody, _ := json.Marshal(g.Map{
+		"totalOrders": result.TotalOrders,
+		"totalSaved":  result.TotalSaved,
+		"durationMs":  durationMs,
+	})
+	if logId > 0 {
+		service.TaskLogSuccess(ctx, logId, "", string(respBody), durationMs)
+		service.CreateNotification(ctx, "抖店订单拉取完成", string(respBody), "task_result", "douyin_order_pull", logId, service.NotifyLevelNormal, userId)
+	}
+}
 
 // QueryShopAllianceOrder 透传调用 /buyin/queryShopAllianceOrder GET /api/douyin/query-shop-alliance-order
 func (c *DouyinPollerController) QueryShopAllianceOrder(r *ghttp.Request) {
@@ -389,10 +391,10 @@ func (c *DouyinPollerController) runAlliancePull(ctx context.Context, sTime, eTi
 	}
 
 	var (
-		mu      sync.Mutex
-		dbMu    sync.Mutex  // 数据库写锁，避免并发写入冲突
-		wg      sync.WaitGroup
-		taskCh  = make(chan []string, len(groups))
+		mu          sync.Mutex
+		dbMu        sync.Mutex // 数据库写锁，避免并发写入冲突
+		wg          sync.WaitGroup
+		taskCh      = make(chan []string, len(groups))
 		taskResults []taskResult
 	)
 

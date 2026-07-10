@@ -920,8 +920,8 @@ func (s *OrgStructureService) BindShop(ctx context.Context, accountId int, orgId
 	// 写入关联
 	_, err = g.DB().Model("trader_account_relation").
 		Data(g.Map{
-			"trader_id": realTraderId,
-			"account_id":   accountId,
+			"trader_id":  realTraderId,
+			"account_id": accountId,
 		}).
 		Insert()
 	if err != nil {
@@ -1132,7 +1132,7 @@ func (s *OrgStructureService) calcShopStats(ctx context.Context, accountIds []in
 				o1.main_order_no,
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0)) AS pay_amount,
 				SUM(COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0)) AS cost_amount,
-				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
+				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.03) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
 			LEFT JOIN account a ON o1.talent_id = a.uid
@@ -1240,7 +1240,7 @@ func (s *OrgStructureService) GetCommissionStats(ctx context.Context, orgId int6
 					SUM(COALESCE(o1.product_num, 0)) AS product_num,
 					SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0)) AS pay_amount,
 					SUM(COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0)) AS cost_amount,
-					SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
+					SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.03) AS reserve_amount
 				FROM order_info o1
 				LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
 				LEFT JOIN account a ON o1.talent_id = a.uid

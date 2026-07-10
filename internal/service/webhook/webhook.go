@@ -35,6 +35,7 @@ type PeriodProfit struct {
 	AdCost           float64 `json:"adCost"`           // 广告消耗
 	UnassignedAdCost float64 `json:"unassignedAdCost"` // 广告主总消耗中未归属到达人/节点的差额
 	Commission       float64 `json:"commission"`       // 佣金
+	RefundCost       float64 `json:"refundCost"`       // 发货后退款成本
 	NetProfit        float64 `json:"netProfit"`        // 净利润
 	OrderCount       int64   `json:"orderCount"`       // 有效订单数
 }
@@ -339,6 +340,7 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 			AdCost:           result.AdCost,
 			UnassignedAdCost: s.queryUnassignedAdCost(ctx, startDate, endDate),
 			Commission:       result.Commission,
+			RefundCost:       result.RefundCost,
 			NetProfit:        result.NetProfit,
 			OrderCount:       result.OrderCount,
 		}, nil
@@ -349,7 +351,7 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 	endTime := endDate + " 23:59:59"
 
 	validCond := "((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
-	refundCond := "o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'"
+	refundCond := "o.after_sale_status = '12' AND o.send_time IS NOT NULL"
 
 	platforms := []struct {
 		table      string
@@ -367,7 +369,7 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 				COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS order_count,
 				COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num ELSE 0 END), 0) AS pay_amount,
 				COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS cost_amount,
-				COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS refund_cost
+					COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS refund_cost
 			FROM %s o
 			LEFT JOIN goods g ON o.seller_code COLLATE utf8mb4_unicode_ci = g.goods_code COLLATE utf8mb4_unicode_ci
 			WHERE o.pay_finish_time >= ? AND o.pay_finish_time <= ?
@@ -390,13 +392,14 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 		payAmount := r["pay_amount"].Float64()
 		profit.Revenue += payAmount
 		profit.Cost += r["cost_amount"].Float64()
+		profit.RefundCost += r["refund_cost"].Float64()
 		if p.isDouyin {
-			profit.Commission -= payAmount * 0.02
+			profit.Commission -= financeService.CalculateDouyinShopServiceFee(payAmount)
 		}
 	}
 
 	// 留底3%和佣金
-	reserveTotal := profit.Revenue * 0.03
+	reserveTotal := financeService.CalculateReserveAmount(profit.Revenue)
 	shopServiceFee := -profit.Commission
 	profit.Commission = profit.Revenue - reserveTotal - profit.Cost - shopServiceFee
 	if profit.Commission < 0 {
@@ -408,11 +411,12 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 
 	// 净利润
 	commissionDeduction := profit.Revenue * 0.005
-	profit.NetProfit = profit.Revenue - profit.Cost - reserveTotal - shopServiceFee - commissionDeduction - profit.AdCost
+	profit.NetProfit = financeService.CalculateOrderProfit(profit.Revenue, profit.Cost, reserveTotal, profit.RefundCost, shopServiceFee, commissionDeduction, 0, profit.AdCost)
 
 	profit.Revenue = round2(profit.Revenue)
 	profit.Cost = round2(profit.Cost)
 	profit.Commission = round2(profit.Commission)
+	profit.RefundCost = round2(profit.RefundCost)
 	profit.AdCost = round2(profit.AdCost)
 	profit.UnassignedAdCost = round2(profit.UnassignedAdCost)
 	profit.NetProfit = round2(profit.NetProfit)

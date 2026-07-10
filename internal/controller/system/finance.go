@@ -368,13 +368,16 @@ func (c *FinanceController) OverallDetailExport(r *ghttp.Request) {
 		return
 	}
 
-	// 读取最新token
-	tokenRow, err := g.DB().Model("qianchuan_token").Ctx(ctx).OrderDesc("id").Limit(1).One()
-	if err != nil || tokenRow.IsEmpty() {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "未找到有效token，请先完成千川授权"})
+	token, err := oceanengine.GetLatestAccessToken(ctx)
+	if err != nil {
+		if isQianchuanReauthError(err) {
+			writeQianchuanReauthResponse(r, err.Error())
+			return
+		}
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "获取有效token失败: " + err.Error()})
 		return
 	}
-	client := oceanengine.NewClient(tokenRow["access_token"].String())
+	client := oceanengine.NewClient(token)
 
 	// 翻页拉取全量明细
 	var exportList []service.OverallDetailExportItem

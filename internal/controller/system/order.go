@@ -3,11 +3,13 @@ package system
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go-crawler/internal/service"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
@@ -22,13 +24,20 @@ func NewOrderController() *OrderController {
 
 // OrderStats 订单统计接口 GET /api/order-stats
 func (c *OrderController) OrderStats(r *ghttp.Request) {
+	keyword := r.Get("keyword").String()
 	shopName := r.Get("shopName").String()
+	orderStatus := r.Get("orderStatus").String()
+	talentId := r.Get("talentId").String()
 	startTime := r.Get("startTime").String()
 	endTime := r.Get("endTime").String()
 
 	orderService := service.NewOrderService()
-	stats, err := orderService.Stats(r.Context(), shopName, startTime, endTime)
+	stats, err := orderService.Stats(r.Context(), keyword, shopName, orderStatus, talentId, startTime, endTime)
 	if err != nil {
+		if isOrderRequestCanceled(err) {
+			g.Log().Debug(r.Context(), "订单统计请求已取消:", err)
+			return
+		}
 		g.Log().Error(r.Context(), "订单统计查询失败:", err)
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "统计查询失败: " + err.Error()})
 		return
@@ -55,6 +64,10 @@ func (c *OrderController) OrderList(r *ghttp.Request) {
 	orderService := service.NewOrderService()
 	orders, total, err := orderService.List(r.Context(), page, pageSize, keyword, shopName, orderStatus, talentId, startTime, endTime)
 	if err != nil {
+		if isOrderRequestCanceled(err) {
+			g.Log().Debug(r.Context(), "订单列表请求已取消:", err)
+			return
+		}
 		g.Log().Error(r.Context(), "订单查询失败:", err)
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})
 		return
@@ -80,6 +93,10 @@ func (c *OrderController) OrderExport(r *ghttp.Request) {
 	orderService := service.NewOrderService()
 	filename, err := orderService.ExportToExcel(r.Context(), keyword, shopName, orderStatus, talentId, startTime, endTime)
 	if err != nil {
+		if isOrderRequestCanceled(err) {
+			g.Log().Debug(r.Context(), "订单导出请求已取消:", err)
+			return
+		}
 		g.Log().Error(r.Context(), "订单导出失败:", err)
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return
@@ -245,4 +262,15 @@ func (c *OrderController) OrderStatsBackfill(r *ghttp.Request) {
 			successCount, totalDays, len(failDates), durationMs)
 	}()
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"logId": logId}, "msg": "任务已启动，后台回填中"})
+}
+
+func isOrderRequestCanceled(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "context canceled") || strings.Contains(lower, "deadline exceeded")
 }

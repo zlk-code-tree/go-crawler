@@ -3,7 +3,6 @@ package system
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"go-crawler/internal/service"
@@ -44,8 +43,13 @@ func (c *ShipinhaoOrderController) runWechatShopOrderPull(ctx context.Context, p
 	if err != nil {
 		durationMs := int(time.Since(start).Milliseconds())
 		if logId > 0 {
+			errorPayload := g.Map{"error": err.Error()}
+			if result != nil && len(result.Errors) > 0 {
+				errorPayload["details"] = result.Errors
+			}
+			errorBody, _ := json.Marshal(errorPayload)
 			service.TaskLogFailed(ctx, logId, err.Error(), durationMs)
-			service.CreateNotification(ctx, "微信小店订单拉取失败", fmt.Sprintf(`{"error":"%s"}`, err.Error()), "task_result", "wechat_shop_order_pull", logId, service.NotifyLevelImportant, userId)
+			service.CreateNotification(ctx, "微信小店订单拉取失败", string(errorBody), "task_result", "wechat_shop_order_pull", logId, service.NotifyLevelImportant, userId)
 		}
 		return
 	}

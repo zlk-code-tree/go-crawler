@@ -45,14 +45,7 @@ type RealtimeProfitResult struct {
 
 // getValidCond 返回有效/无效订单条件SQL
 func getValidCond(alias string) (validCond, invalidCond, refundCond string) {
-	prefix := ""
-	if alias != "" {
-		prefix = alias + "."
-	}
-	validCond = fmt.Sprintf("((%sorder_status IN ('已发货','待发货','已完成') AND %safter_sale_status NOT IN ('6','7','11','12','29')) OR (%sorder_status = '已关闭' AND %safter_sale_status IN ('27','28','51')))", prefix, prefix, prefix, prefix)
-	invalidCond = fmt.Sprintf("%safter_sale_status IN ('6','7','11','12','29')", prefix)
-	refundCond = fmt.Sprintf("%safter_sale_status IN ('6','7','11','12','29') AND %sorder_status = '已发货'", prefix, prefix)
-	return
+	return financeValidOrderCondition(alias), financeInvalidOrderCondition(alias), financeRefundOrderCondition(alias)
 }
 
 // GetRealtimeProfit 查询实时盈亏（含千川消耗），支持按投手/部门/公司维度
@@ -114,6 +107,20 @@ func (s *FinanceCommissionService) GetRealtimeProfit(ctx context.Context, req *R
 	} else {
 		validCond, invalidCond, refundCond := getValidCond("o")
 		s.orderStatsByAccounts(ctx, accountIds, startTime, endTime, validCond, invalidCond, refundCond, result)
+		if req.CompanyId > 0 {
+			if selfSaleStats, selfSaleErr := s.statsSelfSaleByAccountIds(ctx, accountIds, startDate, endDate); selfSaleErr != nil {
+				g.Log().Warningf(ctx, "[RealtimeProfit] 查询公司自营销售额失败: companyId=%d, err=%v", req.CompanyId, selfSaleErr)
+			} else {
+				result.OrderCount += int64(selfSaleStats.OrderCount)
+				result.PayAmount = roundFloatFinance(result.PayAmount+selfSaleStats.PayAmount, 2)
+				result.CostAmount = roundFloatFinance(result.CostAmount+selfSaleStats.CostAmount, 2)
+				result.ReserveAmount = roundFloatFinance(result.ReserveAmount+selfSaleStats.ReserveAmount, 2)
+				result.ShopServiceFee = roundFloatFinance(result.ShopServiceFee+selfSaleStats.ShopServiceFee, 2)
+				result.Commission = roundFloatFinance(result.Commission+selfSaleStats.Commission, 2)
+				result.RefundCost = roundFloatFinance(result.RefundCost+selfSaleStats.RefundCostAmount, 2)
+				result.RefundCount += int64(selfSaleStats.RefundOrderCount)
+			}
+		}
 	}
 
 	// 3. 查询千川广告消耗（按日期范围）
@@ -121,7 +128,7 @@ func (s *FinanceCommissionService) GetRealtimeProfit(ctx context.Context, req *R
 
 	// 4. 计算净利润
 	commissionDeduction := result.PayAmount * 0.005
-	result.NetProfit = result.PayAmount - result.CostAmount - result.ReserveAmount - result.RefundCost - result.ShopServiceFee - commissionDeduction - result.AdCost
+	result.NetProfit = CalculateOrderProfit(result.PayAmount, result.CostAmount, result.ReserveAmount, result.RefundCost, result.ShopServiceFee, commissionDeduction, 0, result.AdCost)
 	result.NetProfit = roundFloatFinance(result.NetProfit, 2)
 	result.AdCost = roundFloatFinance(result.AdCost, 2)
 
@@ -235,7 +242,7 @@ func (s *FinanceCommissionService) orderStatsByAccounts(ctx context.Context, acc
 				COUNT(DISTINCT o.%s) AS order_count,
 				COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num ELSE 0 END), 0) AS pay_amount,
 				COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS cost_amount,
-				COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS refund_cost,
+					COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS refund_cost,
 				COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_count
 			FROM %s o
 			LEFT JOIN goods g ON o.seller_code COLLATE utf8mb4_unicode_ci = g.goods_code COLLATE utf8mb4_unicode_ci
@@ -266,11 +273,11 @@ func (s *FinanceCommissionService) orderStatsByAccounts(ctx context.Context, acc
 		result.RefundCost += row["refund_cost"].Float64()
 		result.RefundCount += row["refund_count"].Int64()
 
-		result.ReserveAmount += payAmount * 0.03
 		if p.isDouyin {
-			result.ShopServiceFee += payAmount * 0.02
+			result.ShopServiceFee += CalculateDouyinShopServiceFee(payAmount)
 		}
 	}
+	result.ReserveAmount = CalculateReserveAmount(result.PayAmount)
 
 	result.Commission = result.PayAmount - result.ReserveAmount - result.CostAmount - result.ShopServiceFee
 	if result.Commission < 0 {

@@ -12,10 +12,10 @@ import (
 	"go-crawler/internal/service/platform"
 
 	allianceReq "doudian.com/open/sdk_golang/api/alliance_getOrderList/request"
+	buyinReq "doudian.com/open/sdk_golang/api/buyin_queryShopAllianceOrder/request"
 	orderDetailReq "doudian.com/open/sdk_golang/api/order_orderDetail/request"
 	orderSearchReq "doudian.com/open/sdk_golang/api/order_searchList/request"
 	orderSearchResp "doudian.com/open/sdk_golang/api/order_searchList/response"
-	buyinReq "doudian.com/open/sdk_golang/api/buyin_queryShopAllianceOrder/request"
 	doudian "doudian.com/open/sdk_golang/core"
 
 	"github.com/gogf/gf/v2/frame/g"
@@ -143,7 +143,11 @@ func (s *Service) GetOrderList(ctx context.Context, params model.PlatformOrderLi
 			return nil, fmt.Errorf("开始时间格式错误: %w", err)
 		}
 		ts := t.Unix()
-		req.GetParams().CreateTimeStart = &ts
+		if params.UseUpdateTime {
+			req.GetParams().UpdateTimeStart = &ts
+		} else {
+			req.GetParams().CreateTimeStart = &ts
+		}
 	}
 	if params.EndTime != "" {
 		t, err := time.ParseInLocation("2006-01-02 15:04:05", params.EndTime, cst)
@@ -151,7 +155,17 @@ func (s *Service) GetOrderList(ctx context.Context, params model.PlatformOrderLi
 			return nil, fmt.Errorf("结束时间格式错误: %w", err)
 		}
 		ts := t.Unix()
-		req.GetParams().CreateTimeEnd = &ts
+		if params.UseUpdateTime {
+			req.GetParams().UpdateTimeEnd = &ts
+		} else {
+			req.GetParams().CreateTimeEnd = &ts
+		}
+	}
+	if params.UseUpdateTime {
+		orderBy := "update_time"
+		orderAsc := true
+		req.GetParams().OrderBy = &orderBy
+		req.GetParams().OrderAsc = &orderAsc
 	}
 
 	if params.OrderStatus != "" {
@@ -652,21 +666,32 @@ func (s *Service) DailyPullAllianceOrders(ctx context.Context) error {
 
 func getStrVal(m map[string]interface{}, key string) string {
 	v, ok := m[key]
-	if !ok || v == nil { return "" }
+	if !ok || v == nil {
+		return ""
+	}
 	switch s := v.(type) {
-	case string: return s
-	case float64: return fmt.Sprintf("%.0f", s)
-	default: return fmt.Sprint(s)
+	case string:
+		return s
+	case float64:
+		return fmt.Sprintf("%.0f", s)
+	default:
+		return fmt.Sprint(s)
 	}
 }
 
 func getIntVal(m map[string]interface{}, key string) int {
 	v, ok := m[key]
-	if !ok || v == nil { return 0 }
+	if !ok || v == nil {
+		return 0
+	}
 	switch n := v.(type) {
-	case float64: return int(n)
-	case int: return n
-	case string: return 0
-	default: return 0
+	case float64:
+		return int(n)
+	case int:
+		return n
+	case string:
+		return 0
+	default:
+		return 0
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/util/gconv"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -74,164 +75,145 @@ func (s *OrderAnalysisService) GetTimeRange(timeType string) (startDate, endDate
 // GetValidOrderFilter 获取有效订单的筛选条件SQL片段
 // 注意：此方法用于子查询内部，订单表别名为 o1
 func (s *OrderAnalysisService) GetValidOrderFilter() string {
-	return " " +
-		"AND o1.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货') " +
-		"AND o1.order_status != '已关闭' "
+	return " AND " + financeValidOrderCondition("o1") + " "
 }
 
 // GroupStats 小组维度统计
 func (s *OrderAnalysisService) GroupStats(ctx context.Context, startDate, endDate string) ([]model.GroupStatItem, error) {
-	// 构建统计SQL - 先按 main_order_no 聚合，避免 JOIN 导致重复计算
-	// 使用特殊归属规则：优先 shop_account_attribution，兜底 account.operator
-	attributionSQL := `COALESCE(
-		(SELECT saa.target_value
-		 FROM shop_account_attribution saa
-		 WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
-		   AND saa.source_account_uid = o.talent_id
-		   AND saa.status = 1
-		 LIMIT 1),
-		a.operator
-	)`
-
-	sql := `
-		SELECT
-			COALESCE(` + attributionSQL + `, '未分配小组') AS group_name,
-			COUNT(DISTINCT o.main_order_no) AS order_count,
-			COALESCE(SUM(o.product_num), 0) AS product_num,
-			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
-			COALESCE(SUM(o.cost_amount), 0) AS cost_amount,
-			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
-		FROM (
-			SELECT
-				o1.main_order_no,
-				o1.shop_name,
-				o1.talent_id,
-				SUM(o1.product_num) AS product_num,
-				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0)) AS pay_amount,
-				SUM(COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0)) AS cost_amount,
-				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
-			FROM order_info o1
-			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
-			WHERE o1.order_submit_time >= ?
-			  AND o1.order_submit_time < ?
-			  AND o1.main_order_no IS NOT NULL
-			  AND o1.main_order_no != ''
-			  ` + s.GetValidOrderFilter() + `
-			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
-		) o
-		LEFT JOIN account a ON o.talent_id = a.uid
-		GROUP BY ` + attributionSQL + `
-		ORDER BY group_name
-	`
-
-	result, err := g.DB().GetAll(ctx, sql, startDate, endDate)
+	orders, err := s.attributedValidOrders(ctx, startDate, endDate)
 	if err != nil {
-		return nil, fmt.Errorf("查询失败: %v", err)
+		return nil, err
 	}
 
-	// 转换结果为结构体
-	stats := make([]model.GroupStatItem, 0, len(result))
-	for _, row := range result {
-		productTotal := row["pay_amount"].Float64()
-		costAmount := row["cost_amount"].Float64()
-		reserveAmount := row["reserve_amount"].Float64()
-
-		stats = append(stats, model.GroupStatItem{
-			GroupName:     row["group_name"].String(),
-			OrderCount:    row["order_count"].Int(),
-			ProductNum:    row["product_num"].Int(),
-			PayAmount:     roundFloat(productTotal, 2),
-			CostAmount:    roundFloat(costAmount, 2),
-			ReserveAmount: roundFloat(reserveAmount, 2),
-			Commission:    roundFloat(productTotal-reserveAmount-costAmount, 2),
-		})
+	type groupAggregate struct {
+		item   model.GroupStatItem
+		orders map[string]struct{}
+	}
+	grouped := make(map[string]*groupAggregate)
+	for _, order := range orders {
+		groupName := orderListFirstNonEmpty(gconv.String(order["teamOwner"]), "未分配小组")
+		aggregate := grouped[groupName]
+		if aggregate == nil {
+			aggregate = &groupAggregate{item: model.GroupStatItem{GroupName: groupName}, orders: make(map[string]struct{})}
+			grouped[groupName] = aggregate
+		}
+		orderNo := orderListFirstNonEmpty(gconv.String(order["mainOrderNo"]), gconv.String(order["subOrderNo"]), gconv.String(order["id"]))
+		aggregate.orders[orderNo] = struct{}{}
+		productNum := gconv.Int(order["productNum"])
+		payAmount := gconv.Float64(order["productPrice"]) * float64(productNum)
+		aggregate.item.ProductNum += productNum
+		aggregate.item.PayAmount += payAmount
+		aggregate.item.CostAmount += gconv.Float64(order["productCost"])
 	}
 
+	stats := make([]model.GroupStatItem, 0, len(grouped))
+	for _, aggregate := range grouped {
+		aggregate.item.OrderCount = len(aggregate.orders)
+		aggregate.item.PayAmount = roundFloat(aggregate.item.PayAmount, 2)
+		aggregate.item.CostAmount = roundFloat(aggregate.item.CostAmount, 2)
+		aggregate.item.ReserveAmount = CalculateReserveAmount(aggregate.item.PayAmount)
+		aggregate.item.Commission = roundFloat(aggregate.item.PayAmount-aggregate.item.ReserveAmount-aggregate.item.CostAmount, 2)
+		stats = append(stats, aggregate.item)
+	}
+	sort.Slice(stats, func(i, j int) bool { return stats[i].GroupName < stats[j].GroupName })
 	return stats, nil
 }
 
 // ShopStats 账号维度统计
 func (s *OrderAnalysisService) ShopStats(ctx context.Context, startDate, endDate string, groupId int) ([]model.ShopStatItem, error) {
-	// 构建账号筛选条件
-	shopFilter := ""
-	params := []interface{}{startDate, endDate}
-	if groupId > 0 {
-		shopFilter = " AND a.id = ?"
-		params = append(params, groupId)
-	}
-
-	// 使用特殊归属规则
-	attributionSQL := `COALESCE(
-		(SELECT saa.target_value
-		 FROM shop_account_attribution saa
-		 WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
-		   AND saa.source_account_uid = o.talent_id
-		   AND saa.status = 1
-		 LIMIT 1),
-		a.operator
-	)`
-
-	// 构建统计SQL
-	sql := `
-		SELECT
-			a.id AS account_id,
-			o.shop_name AS shop_name,
-			COALESCE(` + attributionSQL + `, '未分配小组') AS group_name,
-			COUNT(DISTINCT o.main_order_no) AS order_count,
-			COALESCE(SUM(o.product_num), 0) AS product_num,
-			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
-			COALESCE(SUM(o.cost_amount), 0) AS cost_amount,
-			COALESCE(SUM(o.reserve_amount), 0) AS reserve_amount
-		FROM (
-			SELECT
-				o1.main_order_no,
-				o1.shop_name,
-				o1.talent_id,
-				SUM(o1.product_num) AS product_num,
-				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0)) AS pay_amount,
-				SUM(COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0)) AS cost_amount,
-				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
-			FROM order_info o1
-			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
-			WHERE o1.order_submit_time >= ?
-			  AND o1.order_submit_time < ?
-			  AND o1.main_order_no IS NOT NULL
-			  AND o1.main_order_no != ''
-			  ` + s.GetValidOrderFilter() + `
-			GROUP BY o1.main_order_no, o1.shop_name, o1.talent_id
-		) o
-		LEFT JOIN account a ON o.talent_id = a.uid
-		WHERE 1=1 ` + shopFilter + `
-		GROUP BY a.id, o.shop_name, ` + attributionSQL + `
-		ORDER BY o.shop_name
-	`
-
-	result, err := g.DB().GetAll(ctx, sql, params...)
+	orders, err := s.attributedValidOrders(ctx, startDate, endDate)
 	if err != nil {
-		return nil, fmt.Errorf("查询失败: %v", err)
+		return nil, err
 	}
 
-	// 转换结果为结构体
-	stats := make([]model.ShopStatItem, 0, len(result))
-	for _, row := range result {
-		productTotal := row["pay_amount"].Float64()
-		costAmount := row["cost_amount"].Float64()
-		reserveAmount := row["reserve_amount"].Float64()
-
-		stats = append(stats, model.ShopStatItem{
-			AccountId:        row["account_id"].Int(),
-			ShopName:      row["shop_name"].String(),
-			GroupName:     row["group_name"].String(),
-			OrderCount:    row["order_count"].Int(),
-			ProductNum:    row["product_num"].Int(),
-			PayAmount:     roundFloat(productTotal, 2),
-			CostAmount:    roundFloat(costAmount, 2),
-			ReserveAmount: roundFloat(reserveAmount, 2),
-			Commission:    roundFloat(productTotal-reserveAmount-costAmount, 2),
-		})
+	uids := make([]string, 0)
+	uidSeen := make(map[string]struct{})
+	for _, order := range orders {
+		uid := orderListNormalizedTalentID(gconv.String(order["talentId"]))
+		if uid != "" {
+			if _, ok := uidSeen[uid]; !ok {
+				uidSeen[uid] = struct{}{}
+				uids = append(uids, uid)
+			}
+		}
+	}
+	accountByUID := make(map[string]int)
+	if len(uids) > 0 {
+		rows, accountErr := g.DB().Model("account").WhereIn("uid", uids).Where("platform", "douyin").Where("status", 1).Fields("uid, MAX(id) AS id").Group("uid").All()
+		if accountErr != nil {
+			return nil, accountErr
+		}
+		for _, row := range rows {
+			accountByUID[row["uid"].String()] = row["id"].Int()
+		}
 	}
 
+	type shopAggregate struct {
+		item   model.ShopStatItem
+		orders map[string]struct{}
+	}
+	grouped := make(map[string]*shopAggregate)
+	for _, order := range orders {
+		uid := orderListNormalizedTalentID(gconv.String(order["talentId"]))
+		accountID := accountByUID[uid]
+		if groupId > 0 && accountID != groupId {
+			continue
+		}
+		shopName := gconv.String(order["shopName"])
+		groupName := orderListFirstNonEmpty(gconv.String(order["teamOwner"]), "未分配小组")
+		key := fmt.Sprintf("%d\x00%s\x00%s", accountID, shopName, groupName)
+		aggregate := grouped[key]
+		if aggregate == nil {
+			aggregate = &shopAggregate{item: model.ShopStatItem{AccountId: accountID, ShopName: shopName, GroupName: groupName}, orders: make(map[string]struct{})}
+			grouped[key] = aggregate
+		}
+		orderNo := orderListFirstNonEmpty(gconv.String(order["mainOrderNo"]), gconv.String(order["subOrderNo"]), gconv.String(order["id"]))
+		aggregate.orders[orderNo] = struct{}{}
+		productNum := gconv.Int(order["productNum"])
+		payAmount := gconv.Float64(order["productPrice"]) * float64(productNum)
+		aggregate.item.ProductNum += productNum
+		aggregate.item.PayAmount += payAmount
+		aggregate.item.CostAmount += gconv.Float64(order["productCost"])
+	}
+
+	stats := make([]model.ShopStatItem, 0, len(grouped))
+	for _, aggregate := range grouped {
+		aggregate.item.OrderCount = len(aggregate.orders)
+		aggregate.item.PayAmount = roundFloat(aggregate.item.PayAmount, 2)
+		aggregate.item.CostAmount = roundFloat(aggregate.item.CostAmount, 2)
+		aggregate.item.ReserveAmount = CalculateReserveAmount(aggregate.item.PayAmount)
+		aggregate.item.Commission = roundFloat(aggregate.item.PayAmount-aggregate.item.ReserveAmount-aggregate.item.CostAmount, 2)
+		stats = append(stats, aggregate.item)
+	}
+	sort.Slice(stats, func(i, j int) bool {
+		if stats[i].ShopName == stats[j].ShopName {
+			return stats[i].GroupName < stats[j].GroupName
+		}
+		return stats[i].ShopName < stats[j].ShopName
+	})
 	return stats, nil
+}
+
+func (s *OrderAnalysisService) attributedValidOrders(ctx context.Context, startDate, endDate string) ([]g.Map, error) {
+	timeExpr := orderListStatTimeExpr("o")
+	sql := `SELECT o.*, COALESCE(g.base_price, 0) AS base_price
+		FROM order_info o
+		LEFT JOIN goods g ON o.seller_code = g.goods_code
+		WHERE ` + timeExpr + ` >= ?
+		  AND ` + timeExpr + ` < ?
+		  AND o.main_order_no IS NOT NULL
+		  AND o.main_order_no != ''
+		  AND ` + financeValidOrderCondition("o") + `
+		ORDER BY o.id DESC`
+	rows, err := g.DB().GetAll(ctx, sql, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("查询有效订单失败: %v", err)
+	}
+	orders, err := NewOrderService().enrichDouyinOrderRows(ctx, rows)
+	if err != nil {
+		return nil, fmt.Errorf("计算订单归属失败: %v", err)
+	}
+	return orders, nil
 }
 
 // GetAllGroups 获取所有小组列表（用于下拉筛选）
@@ -274,7 +256,7 @@ func (s *OrderAnalysisService) GetAllShops(ctx context.Context) ([]map[string]in
 	shops := make([]map[string]interface{}, 0, len(result))
 	for _, row := range result {
 		shops = append(shops, map[string]interface{}{
-			"accountId":    row["id"].Int(),
+			"accountId": row["id"].Int(),
 			"shopName":  row["account_name"],
 			"groupName": row["group_name"],
 		})
@@ -339,7 +321,7 @@ func (s *OrderAnalysisService) buildBaseQuery(startDate, endDate, extraWhere str
 				o1.main_order_no,
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0)) AS pay_amount,
 				SUM(COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0)) AS cost_amount,
-				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
+				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.03) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
 			WHERE o1.pay_finish_time >= ?
@@ -389,7 +371,7 @@ func (s *OrderAnalysisService) Overview(ctx context.Context, startDate, endDate 
 			  AND o1.pay_finish_time < ?
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
-			  AND o1.after_sale_status IN ('退款成功', '已全额退款')
+				  AND ` + financeInvalidOrderCondition("o1") + `
 			GROUP BY o1.main_order_no
 		) o
 	`
@@ -488,7 +470,7 @@ func (s *OrderAnalysisService) queryDailyStats(ctx context.Context, startDate, e
 				o1.pay_finish_time,
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0)) AS pay_amount,
 				SUM(COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0)) AS cost_amount,
-				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
+				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.03) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
 			WHERE o1.pay_finish_time >= ?
@@ -572,7 +554,7 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 				SUM(o1.product_num) AS product_num,
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0)) AS pay_amount,
 				SUM(COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0)) AS cost_amount,
-				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
+				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.03) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
 			WHERE o1.order_submit_time >= ?
@@ -631,7 +613,7 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 				SUM(o1.product_num) AS product_num,
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0)) AS pay_amount,
 				SUM(COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0)) AS cost_amount,
-				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05) AS reserve_amount
+				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.03) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
 			WHERE o1.order_submit_time >= ?
@@ -655,7 +637,7 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 
 	// 在内存中聚合：shopName -> { totals, talents[] }
 	type shopAggregate struct {
-		accountId     int
+		accountId  int
 		groupName  string
 		orderCount int
 		goodsCount int
@@ -697,7 +679,7 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 			agg.talents = append(agg.talents, talentItem)
 		} else {
 			shopMap[shopName] = &shopAggregate{
-				accountId:     accountId,
+				accountId:  accountId,
 				groupName:  groupName,
 				orderCount: talentItem.OrderCount,
 				goodsCount: talentItem.GoodsCount,
@@ -722,7 +704,7 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 			Rank:       i + 1,
 			Name:       name,
 			GroupName:  agg.groupName,
-			AccountId:     agg.accountId,
+			AccountId:  agg.accountId,
 			OrderCount: agg.orderCount,
 			GoodsCount: agg.goodsCount,
 			PayAmount:  roundFloat(agg.payAmount, 2),
@@ -777,7 +759,7 @@ func (s *OrderAnalysisService) GetShopList(ctx context.Context, groupName string
 	shops := make([]model.ShopInfo, 0, len(result))
 	for _, row := range result {
 		shops = append(shops, model.ShopInfo{
-			AccountId:    row["id"].Int(),
+			AccountId: row["id"].Int(),
 			ShopName:  row["shop_name"].String(),
 			GroupName: row["group_name"].String(),
 		})
@@ -826,8 +808,7 @@ func (s *OrderAnalysisService) queryOrderDetailsByFilter(ctx context.Context, fi
 			WHERE ` + attributionSQL + ` = ?
 			  AND o.order_submit_time >= ?
 			  AND o.order_submit_time <= ?
-			  AND o.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
-			  AND o.order_status != '已关闭'
+				  AND ` + financeValidOrderCondition("o") + `
 			  AND o.main_order_no IS NOT NULL
 			  AND o.main_order_no != ''
 			ORDER BY o.order_submit_time DESC
@@ -840,8 +821,7 @@ func (s *OrderAnalysisService) queryOrderDetailsByFilter(ctx context.Context, fi
 			WHERE o.shop_name = ?
 			  AND o.pay_finish_time >= ?
 			  AND o.pay_finish_time <= ?
-			  AND o.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
-			  AND o.order_status != '已关闭'
+				  AND ` + financeValidOrderCondition("o") + `
 			  AND o.main_order_no IS NOT NULL
 			  AND o.main_order_no != ''
 			ORDER BY o.pay_finish_time DESC
@@ -866,7 +846,7 @@ func (s *OrderAnalysisService) ExportGroupDetails(ctx context.Context, groupName
 
 // GetShopTalentStats 获取账号下的达人订单统计明细
 func (s *OrderAnalysisService) GetShopTalentStats(ctx context.Context, shopName, startDate, endDate string) ([]model.ShopTalentStatItem, error) {
-		sql := `
+	sql := `
 		SELECT
 			o.talent_id,
 			COALESCE(MAX(a.account_name), '未知达人') AS talent_name,
@@ -883,7 +863,7 @@ func (s *OrderAnalysisService) GetShopTalentStats(ctx context.Context, shopName,
 				o1.product_num,
 				COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) AS pay_amount,
 				COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0) AS cost_amount,
-				COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.05 AS reserve_amount
+					COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.03 AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
 			WHERE o1.shop_name = ?
@@ -891,8 +871,7 @@ func (s *OrderAnalysisService) GetShopTalentStats(ctx context.Context, shopName,
 			  AND o1.pay_finish_time < ?
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
-			  AND o1.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
-			  AND o1.order_status != '已关闭'
+				  AND ` + financeValidOrderCondition("o1") + `
 		) o
 		LEFT JOIN account a ON o.talent_id = a.uid
 		GROUP BY o.talent_id
@@ -973,11 +952,11 @@ func (s *OrderAnalysisService) ExportOrderDetails(ctx context.Context, exportTyp
 	// 标准化时间类型
 	normalizedTimeType := normalizeTimeType(timeType)
 	startDate, endDate = s.ParseTimeRange(normalizedTimeType, startDate, endDate)
-	
+
 	var result gdb.Result
 	var err error
 	var targetName string
-	
+
 	if exportType == "group" {
 		// 使用统一的查询方法
 		result, err = s.queryOrderDetailsByFilter(ctx, "group", key, startDate, endDate)
@@ -997,15 +976,15 @@ func (s *OrderAnalysisService) ExportOrderDetails(ctx context.Context, exportTyp
 	} else {
 		return "", gerror.New("不支持的导出类型")
 	}
-	
+
 	if err != nil {
 		return "", fmt.Errorf("查询订单详情失败: %v", err)
 	}
-	
+
 	if len(result) == 0 {
 		return "", gerror.New("没有数据可导出")
 	}
-	
+
 	// 使用中文表头（与数据库字段顺序对应）
 	headers := []string{
 		"店铺", "主订单编号", "子订单编号", "选购商品", "商品规格", "商品数量", "商品ID", "商家编码",
@@ -1018,73 +997,73 @@ func (s *OrderAnalysisService) ExportOrderDetails(ctx context.Context, exportTyp
 		"广告渠道", "流量类型", "流量体裁", "流量渠道", "发货主体", "发货主体明细", "发货时间",
 		"降价类优惠", "平台实际承担优惠金额", "商家实际承担优惠金额", "达人实际承担优惠金额", "预计送达时间",
 	}
-	
+
 	// 字段映射关系（数据库字段名 -> 表头索引）
 	fieldMapping := map[string]int{
-		"shop_name":                0,  // 店铺
-		"main_order_no":            1,  // 主订单编号
-		"sub_order_no":             2,  // 子订单编号
-		"product_name":             3,  // 选购商品
-		"product_spec":             4,  // 商品规格
-		"product_num":              5,  // 商品数量
-		"product_id":               6,  // 商品ID
-		"seller_code":              7,  // 商家编码
-		"product_price":            8,  // 商品单价
-		"order_pay_amount":         9,  // 订单应付金额
-		"shipping_fee":             10, // 运费
-		"total_discount":           11, // 优惠总金额
-		"platform_discount":        12, // 平台优惠
-		"seller_discount":          13, // 商家优惠
-		"talent_discount":          14, // 达人优惠
-		"seller_change_price":      15, // 商家改价
-		"pay_discount":             16, // 支付优惠
-		"red_deduction":            17, // 红包抵扣
-		"pay_type":                 18, // 支付方式
-		"service_fee":              19, // 手续费
-		"receiver_name":            20, // 收件人
-		"receiver_phone":           21, // 收件人手机号
-		"province":                 22, // 省
-		"city":                     23, // 市
-		"district":                 24, // 区
-		"street":                   25, // 街道
-		"address_detail":           26, // 详细地址
-		"is_address_changed":       27, // 是否修改过地址
-		"address_change_time":      28, // 地址修改时段
-		"buyer_note":               29, // 买家留言
-		"order_submit_time":        30, // 订单提交时间
-		"flag_color":               31, // 旗帜颜色
-		"seller_note":              32, // 商家备注
-		"order_finish_time":        33, // 订单完成时间
-		"pay_finish_time":          34, // 支付完成时间
-		"app_channel":              35, // APP渠道
-		"flow_source":              36, // 流量来源
-		"order_status":             37, // 订单状态
-		"promise_send_time":        38, // 承诺发货时间
-		"order_type":               39, // 订单类型
-		"luban_page_id":            40, // 鲁班落地页ID
-		"talent_id":                41, // 达人ID
-		"talent_name":              42, // 达人昵称
-		"store_id":                 43, // 所属门店ID
-		"after_sale_status":        44, // 售后状态
-		"cancel_reason":            45, // 取消原因
-		"appoint_send_time":        46, // 预约发货时间
-		"warehouse_id":             47, // 仓库ID
-		"warehouse_name":           48, // 仓库名称
-		"is_safe_buy":              49, // 是否安心购
-		"ad_channel":               50, // 广告渠道
-		"flow_type":                51, // 流量类型
-		"flow_format":              52, // 流量体裁
-		"flow_channel":             53, // 流量渠道
-		"send_user":                54, // 发货主体
-		"send_user_detail":         55, // 发货主体明细
-		"send_time":                56, // 发货时间
-		"reduce_discount":          57, // 降价类优惠
-		"platform_real_discount":   58, // 平台实际承担优惠金额
-		"seller_real_discount":     59, // 商家实际承担优惠金额
-		"talent_real_discount":     60, // 达人实际承担优惠金额
-		"expect_arrive_time":       61, // 预计送达时间
+		"shop_name":              0,  // 店铺
+		"main_order_no":          1,  // 主订单编号
+		"sub_order_no":           2,  // 子订单编号
+		"product_name":           3,  // 选购商品
+		"product_spec":           4,  // 商品规格
+		"product_num":            5,  // 商品数量
+		"product_id":             6,  // 商品ID
+		"seller_code":            7,  // 商家编码
+		"product_price":          8,  // 商品单价
+		"order_pay_amount":       9,  // 订单应付金额
+		"shipping_fee":           10, // 运费
+		"total_discount":         11, // 优惠总金额
+		"platform_discount":      12, // 平台优惠
+		"seller_discount":        13, // 商家优惠
+		"talent_discount":        14, // 达人优惠
+		"seller_change_price":    15, // 商家改价
+		"pay_discount":           16, // 支付优惠
+		"red_deduction":          17, // 红包抵扣
+		"pay_type":               18, // 支付方式
+		"service_fee":            19, // 手续费
+		"receiver_name":          20, // 收件人
+		"receiver_phone":         21, // 收件人手机号
+		"province":               22, // 省
+		"city":                   23, // 市
+		"district":               24, // 区
+		"street":                 25, // 街道
+		"address_detail":         26, // 详细地址
+		"is_address_changed":     27, // 是否修改过地址
+		"address_change_time":    28, // 地址修改时段
+		"buyer_note":             29, // 买家留言
+		"order_submit_time":      30, // 订单提交时间
+		"flag_color":             31, // 旗帜颜色
+		"seller_note":            32, // 商家备注
+		"order_finish_time":      33, // 订单完成时间
+		"pay_finish_time":        34, // 支付完成时间
+		"app_channel":            35, // APP渠道
+		"flow_source":            36, // 流量来源
+		"order_status":           37, // 订单状态
+		"promise_send_time":      38, // 承诺发货时间
+		"order_type":             39, // 订单类型
+		"luban_page_id":          40, // 鲁班落地页ID
+		"talent_id":              41, // 达人ID
+		"talent_name":            42, // 达人昵称
+		"store_id":               43, // 所属门店ID
+		"after_sale_status":      44, // 售后状态
+		"cancel_reason":          45, // 取消原因
+		"appoint_send_time":      46, // 预约发货时间
+		"warehouse_id":           47, // 仓库ID
+		"warehouse_name":         48, // 仓库名称
+		"is_safe_buy":            49, // 是否安心购
+		"ad_channel":             50, // 广告渠道
+		"flow_type":              51, // 流量类型
+		"flow_format":            52, // 流量体裁
+		"flow_channel":           53, // 流量渠道
+		"send_user":              54, // 发货主体
+		"send_user_detail":       55, // 发货主体明细
+		"send_time":              56, // 发货时间
+		"reduce_discount":        57, // 降价类优惠
+		"platform_real_discount": 58, // 平台实际承担优惠金额
+		"seller_real_discount":   59, // 商家实际承担优惠金额
+		"talent_real_discount":   60, // 达人实际承担优惠金额
+		"expect_arrive_time":     61, // 预计送达时间
 	}
-	
+
 	// 列宽配置
 	colWidths := map[string]float64{
 		"A": 15, "B": 20, "C": 20, "D": 30, "E": 15, "F": 12, "G": 15, "H": 15,
@@ -1097,7 +1076,7 @@ func (s *OrderAnalysisService) ExportOrderDetails(ctx context.Context, exportTyp
 		"BA": 12, "BB": 12, "BC": 12, "BD": 15, "BE": 18, "BF": 12, "BG": 12,
 		"BH": 12, "BI": 12, "BJ": 18,
 	}
-	
+
 	// 生成文件名
 	timeStr := time.Now().Format("200601021504")
 	timeLabel := getTimeLabel(normalizedTimeType)
@@ -1109,34 +1088,30 @@ func (s *OrderAnalysisService) ExportOrderDetails(ctx context.Context, exportTyp
 	} else {
 		fileName = fmt.Sprintf("账号订单详情_%s_%s_%s.xlsx", safeTargetName, timeLabel, timeStr)
 	}
-	
+
 	// 生成Excel文件
 	return generateExcelFile(result, headers, fieldMapping, "订单详情", fileName, colWidths)
 }
-
-
-
-
 
 // generateExcelFile 通用Excel文件生成函数
 func generateExcelFile(result gdb.Result, headers []string, fieldMapping map[string]int, sheetName, fileName string, colWidths map[string]float64) (string, error) {
 	if len(result) == 0 {
 		return "", gerror.New("没有数据可导出")
 	}
-	
+
 	// 创建Excel文件
 	f := excelize.NewFile()
 	defer f.Close()
-	
+
 	index, _ := f.NewSheet(sheetName)
 	f.SetActiveSheet(index)
-	
+
 	// 写入表头
 	for i, header := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheetName, cell, header)
 	}
-	
+
 	// 设置表头样式
 	style, _ := f.NewStyle(&excelize.Style{
 		Font:      &excelize.Font{Bold: true},
@@ -1147,7 +1122,7 @@ func generateExcelFile(result gdb.Result, headers []string, fieldMapping map[str
 		cell, _ := excelize.CoordinatesToCellName(i, 1)
 		f.SetCellStyle(sheetName, cell, cell, style)
 	}
-	
+
 	// 写入数据
 	if fieldMapping != nil {
 		// 使用字段映射
@@ -1158,15 +1133,15 @@ func generateExcelFile(result gdb.Result, headers []string, fieldMapping map[str
 				cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowNum)
 				f.SetCellValue(sheetName, cell, "")
 			}
-			
+
 			// 根据字段映射填充数据
 			for dbField, colIdx := range fieldMapping {
 				if value, ok := row[dbField]; ok {
 					cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowNum)
 					// 特殊处理时间字段
-					if strings.HasSuffix(dbField, "_time") || dbField == "order_submit_time" || dbField == "pay_finish_time" || 
-					   dbField == "order_finish_time" || dbField == "promise_send_time" || dbField == "appoint_send_time" ||
-					   dbField == "send_time" || dbField == "expect_arrive_time" {
+					if strings.HasSuffix(dbField, "_time") || dbField == "order_submit_time" || dbField == "pay_finish_time" ||
+						dbField == "order_finish_time" || dbField == "promise_send_time" || dbField == "appoint_send_time" ||
+						dbField == "send_time" || dbField == "expect_arrive_time" {
 						f.SetCellValue(sheetName, cell, formatTime(value))
 					} else {
 						f.SetCellValue(sheetName, cell, value)
@@ -1185,7 +1160,7 @@ func generateExcelFile(result gdb.Result, headers []string, fieldMapping map[str
 			}
 		}
 	}
-	
+
 	// 设置列宽
 	if colWidths != nil {
 		for col, width := range colWidths {
@@ -1198,7 +1173,7 @@ func generateExcelFile(result gdb.Result, headers []string, fieldMapping map[str
 			f.SetColWidth(sheetName, colName, colName, 15)
 		}
 	}
-	
+
 	// 保存文件
 	exportDir := "./exports"
 	os.MkdirAll(exportDir, 0755)
@@ -1206,7 +1181,7 @@ func generateExcelFile(result gdb.Result, headers []string, fieldMapping map[str
 	if err := f.SaveAs(filePath); err != nil {
 		return "", fmt.Errorf("保存Excel文件失败：%w", err)
 	}
-	
+
 	return filePath, nil
 }
 
@@ -1230,24 +1205,24 @@ func exportRankToExcel(rankItems []model.RankItem, rankType, timeLabel string) (
 	if len(rankItems) == 0 {
 		return "", gerror.New("没有排名数据可导出")
 	}
-	
+
 	// 创建Excel文件
 	f := excelize.NewFile()
 	defer f.Close()
-	
+
 	sheetName := rankType + "排名"
 	index, _ := f.NewSheet(sheetName)
 	f.SetActiveSheet(index)
-	
+
 	// 定义表头
 	headers := []string{"排名", "名称", "所属小组", "订单数", "商品数", "销售额", "佣金"}
-	
+
 	// 写入表头
 	for i, header := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheetName, cell, header)
 	}
-	
+
 	// 设置表头样式
 	style, _ := f.NewStyle(&excelize.Style{
 		Font:      &excelize.Font{Bold: true},
@@ -1258,7 +1233,7 @@ func exportRankToExcel(rankItems []model.RankItem, rankType, timeLabel string) (
 		cell, _ := excelize.CoordinatesToCellName(i, 1)
 		f.SetCellStyle(sheetName, cell, cell, style)
 	}
-	
+
 	// 写入数据
 	for rowIdx, item := range rankItems {
 		rowNum := rowIdx + 2
@@ -1284,7 +1259,7 @@ func exportRankToExcel(rankItems []model.RankItem, rankType, timeLabel string) (
 		cell, _ = excelize.CoordinatesToCellName(7, rowNum)
 		f.SetCellValue(sheetName, cell, item.Commission)
 	}
-	
+
 	// 设置列宽
 	colWidths := map[string]float64{
 		"A": 8,  // 排名
@@ -1298,7 +1273,7 @@ func exportRankToExcel(rankItems []model.RankItem, rankType, timeLabel string) (
 	for col, width := range colWidths {
 		f.SetColWidth(sheetName, col, col, width)
 	}
-	
+
 	// 保存文件
 	exportDir := "./exports"
 	os.MkdirAll(exportDir, 0755)
@@ -1308,7 +1283,7 @@ func exportRankToExcel(rankItems []model.RankItem, rankType, timeLabel string) (
 	if err := f.SaveAs(filePath); err != nil {
 		return "", fmt.Errorf("保存Excel文件失败：%w", err)
 	}
-	
+
 	return filePath, nil
 }
 
@@ -1319,7 +1294,7 @@ func (s *OrderAnalysisService) ExportGroupRank(ctx context.Context, timeType str
 	if err != nil {
 		return "", fmt.Errorf("获取小组排名失败: %v", err)
 	}
-	
+
 	timeLabel := getTimeLabel(timeType)
 	return exportRankToExcel(groupRank, "小组", timeLabel)
 }

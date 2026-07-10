@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"go-crawler/internal/service"
@@ -17,8 +19,44 @@ import (
 // QianchuanPollerController 千川数据拉取控制器
 type QianchuanPollerController struct{}
 
+const qianchuanNeedReauthCode = 46001
+
 func NewQianchuanPollerController() *QianchuanPollerController {
 	return &QianchuanPollerController{}
+}
+
+func buildQianchuanAuthData(ctx context.Context) g.Map {
+	appId := g.Cfg().MustGet(ctx, "platform.qianchuan.appId").String()
+	rid := g.Cfg().MustGet(ctx, "platform.qianchuan.rid").String()
+	materialAuth := g.Cfg().MustGet(ctx, "platform.qianchuan.materialAuth", 1).String()
+	authUrl := fmt.Sprintf("https://qianchuan.jinritemai.com/openapi/qc/audit/oauth.html?app_id=%s&state=from_system&material_auth=%s&rid=%s",
+		appId, materialAuth, rid)
+	return g.Map{
+		"needReauth":   true,
+		"popup":        true,
+		"authUrl":      authUrl,
+		"authRoute":    "/api/qianchuan/auth-url?redirect=1",
+		"callbackPath": "/api/douyin/callback",
+	}
+}
+
+func isQianchuanReauthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "请重新完成巨量千川OAuth授权") ||
+		strings.Contains(msg, "app is not allowed to be renewed") ||
+		strings.Contains(msg, "access_token和refresh_token均已过期") ||
+		strings.Contains(msg, "access_token已过期且无refresh_token")
+}
+
+func writeQianchuanReauthResponse(r *ghttp.Request, msg string) {
+	r.Response.WriteStatusExit(http.StatusConflict, g.Map{
+		"code": qianchuanNeedReauthCode,
+		"data": buildQianchuanAuthData(r.Context()),
+		"msg":  msg,
+	})
 }
 
 // TokenStatus 检查千川授权状态 GET /api/qianchuan/token-status
@@ -27,8 +65,10 @@ func (c *QianchuanPollerController) TokenStatus(r *ghttp.Request) {
 	hasToken := !row.IsEmpty()
 	expired := false
 	expiresAt := ""
+	refreshExpiresAt := ""
 	if hasToken {
 		expiresAt = row["expires_at"].String()
+		refreshExpiresAt = row["refresh_token_expires_at"].String()
 		if expiresAt != "" {
 			if t, err := time.Parse("2006-01-02 15:04:05", expiresAt); err == nil && time.Now().After(t) {
 				expired = true
@@ -43,16 +83,34 @@ func (c *QianchuanPollerController) TokenStatus(r *ghttp.Request) {
 	authUrl := fmt.Sprintf("https://qianchuan.jinritemai.com/openapi/qc/audit/oauth.html?app_id=%s&state=from_system&material_auth=%s&rid=%s",
 		appId, materialAuth, rid)
 
+	data := g.Map{
+		"hasToken":         hasToken,
+		"authorized":       hasToken && !expired,
+		"expired":          expired,
+		"expiresAt":        expiresAt,
+		"refreshExpiresAt": refreshExpiresAt,
+		"authUrl":          authUrl,
+	}
+	if !hasToken || expired {
+		for k, v := range buildQianchuanAuthData(r.Context()) {
+			data[k] = v
+		}
+		msg := "千川授权已失效，请重新授权"
+		if !hasToken {
+			msg = "未找到千川授权信息，请先授权"
+		}
+		r.Response.WriteStatusExit(http.StatusConflict, g.Map{
+			"code": qianchuanNeedReauthCode,
+			"data": data,
+			"msg":  msg,
+		})
+		return
+	}
+
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
-		"data": g.Map{
-			"hasToken":   hasToken,
-			"authorized": hasToken && !expired,
-			"expired":    expired,
-			"expiresAt":  expiresAt,
-			"authUrl":    authUrl,
-		},
-		"msg": "ok",
+		"data": data,
+		"msg":  "ok",
 	})
 }
 
@@ -63,6 +121,10 @@ func (c *QianchuanPollerController) AuthUrl(r *ghttp.Request) {
 	materialAuth := g.Cfg().MustGet(r.Context(), "platform.qianchuan.materialAuth", 1).String()
 	authUrl := fmt.Sprintf("https://qianchuan.jinritemai.com/openapi/qc/audit/oauth.html?app_id=%s&state=from_system&material_auth=%s&rid=%s",
 		appId, materialAuth, rid)
+	if r.Get("redirect").Int() == 1 {
+		r.Response.RedirectTo(authUrl)
+		return
+	}
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
 		"data": g.Map{
@@ -78,14 +140,23 @@ func (c *QianchuanPollerController) AuthUrl(r *ghttp.Request) {
 func (c *QianchuanPollerController) SyncAdvertisers(r *ghttp.Request) {
 	ctx := r.Context()
 
-	// 获取最新 token
+	// 获取最新可用 token（必要时自动续期）
+	token, _, err := oceanengine.GetLatestToken(ctx)
+	if err != nil {
+		if isQianchuanReauthError(err) {
+			writeQianchuanReauthResponse(r, err.Error())
+			return
+		}
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "获取有效token失败: " + err.Error()})
+		return
+	}
+
+	// 重新读取最新记录，用于回写 advertiser_ids
 	row, err := g.DB().Model("qianchuan_token").Ctx(ctx).OrderDesc("id").Limit(1).One()
 	if err != nil || row.IsEmpty() {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "未找到token，请先完成OAuth授权"})
 		return
 	}
-
-	token := row["access_token"].String()
 	tokenId := row["id"].Int64()
 
 	// Step1: 调用 oauth2/advertiser/get 获取授权的店铺账户列表
@@ -333,16 +404,18 @@ func (c *QianchuanPollerController) TestReportAPI(r *ghttp.Request) {
 	startDate := r.Get("startDate", "2026-06-20").String()
 	endDate := r.Get("endDate", "2026-06-25").String()
 
-	// 获取token
-	row, _ := g.DB().Model("qianchuan_token").Ctx(ctx).OrderDesc("id").Limit(1).One()
-	if row.IsEmpty() {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": "无token"})
+	token, err := oceanengine.GetLatestAccessToken(ctx)
+	if err != nil {
+		if isQianchuanReauthError(err) {
+			writeQianchuanReauthResponse(r, err.Error())
+			return
+		}
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": "获取有效token失败: " + err.Error()})
 		return
 	}
-	token := row["access_token"].String()
 
 	// 直接用 HTTP 调用千川报表API，打印原始响应
-	fieldsJSON, _ := json.Marshal([]string{"stat_cost"})
+	fieldsJSON, _ := json.Marshal([]string{"stat_cost", "pay_order_count", "create_order_count"})
 	filteringJSON, _ := json.Marshal(map[string]string{"marketing_goal": "ALL"})
 	apiURL := fmt.Sprintf("https://api.oceanengine.com/open_api/v1.0/qianchuan/report/ad/get/?advertiser_id=%d&start_date=%s&end_date=%s&time_granularity=TIME_GRANULARITY_DAILY&page=1&page_size=10&fields=%s&filtering=%s",
 		advID, startDate, endDate, url.QueryEscape(string(fieldsJSON)), url.QueryEscape(string(filteringJSON)))
@@ -375,20 +448,11 @@ func (c *QianchuanPollerController) ManualTrigger(r *ghttp.Request) {
 	endDate := r.Get("endDate").String()
 	userId := r.GetCtxVar("userId").Int64()
 
-	reqParams, _ := json.Marshal(g.Map{"startDate": startDate, "endDate": endDate, "days": r.Get("days").String()})
-	logId, err := service.TaskLogStart(r.Context(), "千川数据手动拉取", "qianchuan_pull", "/api/qianchuan-poller/trigger", string(reqParams))
-	if err != nil {
-		g.Log().Errorf(r.Context(), "[QianchuanPoller] 写入任务日志失败: %v", err)
-	}
-
 	if startDate != "" && endDate != "" {
 		start, startErr := time.Parse("2006-01-02", startDate)
 		end, endErr := time.Parse("2006-01-02", endDate)
 		if startErr != nil || endErr != nil || end.Before(start) {
 			msg := "日期格式错误或结束日期早于开始日期"
-			if logId > 0 {
-				service.TaskLogFailed(r.Context(), logId, msg, 0)
-			}
 			r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": msg})
 			return
 		}
@@ -396,22 +460,14 @@ func (c *QianchuanPollerController) ManualTrigger(r *ghttp.Request) {
 		todayDate, _ := time.Parse("2006-01-02", today)
 		if start.After(todayDate) || end.After(todayDate) {
 			msg := fmt.Sprintf("千川数据暂不支持拉取未来日期。当前服务器日期是 %s，请检查前端传参", today)
-			if logId > 0 {
-				service.TaskLogFailed(r.Context(), logId, msg, 0)
-			}
 			r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": msg})
 			return
 		}
 		if int(end.Sub(start).Hours()/24)+1 > 30 {
 			msg := "千川日维度单次拉取不能超过30个自然日，请缩小日期范围"
-			if logId > 0 {
-				service.TaskLogFailed(r.Context(), logId, msg, 0)
-			}
 			r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": msg})
 			return
 		}
-		g.Log().Infof(r.Context(), "[QianchuanPoller] 收到异步拉取请求: %s~%s, logId=%d, userId=%d", startDate, endDate, logId, userId)
-		go c.runQianchuanPullByDate(context.Background(), startDate, endDate, logId, userId)
 	} else {
 		days := r.Get("days", 7).Int()
 		if days <= 0 {
@@ -419,11 +475,33 @@ func (c *QianchuanPollerController) ManualTrigger(r *ghttp.Request) {
 		}
 		if days > 30 {
 			msg := "千川日维度单次拉取不能超过30天"
-			if logId > 0 {
-				service.TaskLogFailed(r.Context(), logId, msg, 0)
-			}
 			r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": msg})
 			return
+		}
+	}
+
+	if _, err := oceanengine.GetLatestAccessToken(r.Context()); err != nil {
+		if isQianchuanReauthError(err) {
+			writeQianchuanReauthResponse(r, err.Error())
+			return
+		}
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "获取有效token失败: " + err.Error()})
+		return
+	}
+
+	reqParams, _ := json.Marshal(g.Map{"startDate": startDate, "endDate": endDate, "days": r.Get("days").String()})
+	logId, err := service.TaskLogStart(r.Context(), "千川数据手动拉取", "qianchuan_pull", "/api/qianchuan-poller/trigger", string(reqParams))
+	if err != nil {
+		g.Log().Errorf(r.Context(), "[QianchuanPoller] 写入任务日志失败: %v", err)
+	}
+
+	if startDate != "" && endDate != "" {
+		g.Log().Infof(r.Context(), "[QianchuanPoller] 收到异步拉取请求: %s~%s, logId=%d, userId=%d", startDate, endDate, logId, userId)
+		go c.runQianchuanPullByDate(context.Background(), startDate, endDate, logId, userId)
+	} else {
+		days := r.Get("days", 7).Int()
+		if days <= 0 {
+			days = 1
 		}
 		g.Log().Infof(r.Context(), "[QianchuanPoller] 收到异步拉取请求: days=%d, logId=%d, userId=%d", days, logId, userId)
 		go c.runQianchuanPullByDays(context.Background(), days, logId, userId)
@@ -448,6 +526,15 @@ func (c *QianchuanPollerController) ManualTriggerOverall(r *ghttp.Request) {
 	end, endErr := time.Parse("2006-01-02", endDate)
 	if startErr != nil || endErr != nil || end.Before(start) {
 		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "日期格式错误或结束日期早于开始日期"})
+		return
+	}
+
+	if _, err := oceanengine.GetLatestAccessToken(r.Context()); err != nil {
+		if isQianchuanReauthError(err) {
+			writeQianchuanReauthResponse(r, err.Error())
+			return
+		}
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "获取有效token失败: " + err.Error()})
 		return
 	}
 
@@ -628,6 +715,89 @@ func (c *QianchuanPollerController) DailyReportList(r *ghttp.Request) {
 	})
 }
 
+// PlanReportList 查询千川计划维度报表 GET /api/qianchuan-poller/plan-report
+func (c *QianchuanPollerController) PlanReportList(r *ghttp.Request) {
+	ctx := r.Context()
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	advertiserId := r.Get("advertiserId", int64(0)).Int64()
+	keyword := strings.TrimSpace(r.Get("keyword").String())
+	productId := strings.TrimSpace(r.Get("productId").String())
+	page := r.Get("page", 1).Int()
+	pageSize := r.Get("pageSize", 20).Int()
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
+
+	if startDate == "" || endDate == "" {
+		today := time.Now().Format("2006-01-02")
+		startDate = today
+		endDate = today
+	}
+
+	query := g.DB().Model("qianchuan_ad_report").Ctx(ctx).
+		Where("LEFT(stat_datetime, 10) >= ?", startDate).
+		Where("LEFT(stat_datetime, 10) <= ?", endDate)
+
+	if advertiserId > 0 {
+		query = query.Where("advertiser_id", advertiserId)
+	}
+	if productId != "" {
+		query = query.Where("product_id", productId)
+	}
+	if keyword != "" {
+		like := "%" + keyword + "%"
+		query = query.Where("(ad_name LIKE ? OR aweme_name LIKE ? OR aweme_show_id LIKE ? OR product_name LIKE ? OR CAST(ad_id AS CHAR) LIKE ?)", like, like, like, like, like)
+	}
+
+	totalRow, _ := query.Clone().Fields("COUNT(*) as total").One()
+	total := totalRow["total"].Int64()
+
+	offset := (page - 1) * pageSize
+	rows, err := query.Clone().
+		Fields(`
+			advertiser_id, advertiser_name, ad_id, ad_name,
+			product_id, product_name, aweme_id, aweme_name, aweme_show_id,
+			stat_cost, pay_order_count, create_order_count, stat_datetime,
+			show_cnt, click_cnt, ctr, convert_cnt, convert_cost
+		`).
+		Order("stat_datetime DESC, stat_cost DESC, ad_id ASC").
+		Limit(pageSize).
+		Offset(offset).
+		All()
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": "查询失败: " + err.Error()})
+		return
+	}
+
+	summaryQuery := query.Clone()
+	summaryRow, _ := summaryQuery.Fields(`
+		COALESCE(SUM(stat_cost),0) AS total_cost,
+		COALESCE(SUM(pay_order_count),0) AS total_pay_order_count,
+		COALESCE(SUM(create_order_count),0) AS total_create_order_count,
+		COUNT(DISTINCT ad_id) AS plan_count,
+		COUNT(DISTINCT product_id) AS product_count,
+		COUNT(DISTINCT aweme_id) AS aweme_count
+	`).One()
+
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"data": g.Map{
+			"list":      rows,
+			"total":     total,
+			"page":      page,
+			"pageSize":  pageSize,
+			"summary":   summaryRow,
+			"startDate": startDate,
+			"endDate":   endDate,
+		},
+		"msg": "ok",
+	})
+}
+
 // OverallReportList 查询千川乘方日报表 GET /api/qianchuan-poller/overall-report
 func (c *QianchuanPollerController) OverallReportList(r *ghttp.Request) {
 	ctx := r.Context()
@@ -730,13 +900,17 @@ func (c *QianchuanPollerController) OverallReportDetailList(r *ghttp.Request) {
 		endDate = today
 	}
 
-	row, err := g.DB().Model("qianchuan_token").Ctx(ctx).OrderDesc("id").Limit(1).One()
-	if err != nil || row.IsEmpty() {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "未找到有效token，请先完成千川授权"})
+	token, err := oceanengine.GetLatestAccessToken(ctx)
+	if err != nil {
+		if isQianchuanReauthError(err) {
+			writeQianchuanReauthResponse(r, err.Error())
+			return
+		}
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "获取有效token失败: " + err.Error()})
 		return
 	}
 
-	client := oceanengine.NewClient(row["access_token"].String())
+	client := oceanengine.NewClient(token)
 	result, err := client.GetOverallProductAwemeReport(ctx, advertiserId, startDate, endDate, page, pageSize, anchorShowId)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询乘方抖音号明细失败: " + err.Error()})

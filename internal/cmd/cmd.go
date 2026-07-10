@@ -169,6 +169,8 @@ var (
 				ctr DECIMAL(10,4) NOT NULL DEFAULT 0.0000 COMMENT '点击率',
 				convert_cnt BIGINT(20) NOT NULL DEFAULT 0 COMMENT '转化数',
 				convert_cost DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '转化成本',
+				pay_order_count BIGINT(20) NOT NULL DEFAULT 0 COMMENT '成交订单数',
+				create_order_count BIGINT(20) NOT NULL DEFAULT 0 COMMENT '下单数',
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
 				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
 				PRIMARY KEY (id),
@@ -265,6 +267,8 @@ var (
 			addColumnIfMissing("qianchuan_ad_report", "company_id", "company_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '公司ID' AFTER `account_id`")
 			addColumnIfMissing("qianchuan_ad_report", "department_id", "department_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '部门ID' AFTER `company_id`")
 			addColumnIfMissing("qianchuan_ad_report", "trader_id", "trader_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '投手/运营ID' AFTER `department_id`")
+			addColumnIfMissing("qianchuan_ad_report", "pay_order_count", "pay_order_count BIGINT(20) NOT NULL DEFAULT 0 COMMENT '成交订单数' AFTER `convert_cost`")
+			addColumnIfMissing("qianchuan_ad_report", "create_order_count", "create_order_count BIGINT(20) NOT NULL DEFAULT 0 COMMENT '下单数' AFTER `pay_order_count`")
 
 			// account 表：status 字段，用于支持软删除
 			addColumnIfMissing("account", "status", "status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0=已删除 1=正常'")
@@ -275,6 +279,9 @@ var (
 			// account 表：唯一索引，防止重复导入
 			addIndexIfMissing("account", "uk_platform_account_name", "UNIQUE KEY `uk_platform_account_name` (`platform`, `account_name`) COMMENT '平台+账号名称唯一'")
 			addIndexIfMissing("account", "idx_bind_status", "KEY `idx_bind_status` (`bind_status`)")
+			addIndexIfMissing("account", "idx_platform_uid", "KEY `idx_platform_uid` (`platform`, `uid`)")
+			addIndexIfMissing("account", "idx_platform_nickname", "KEY `idx_platform_nickname` (`platform`, `platform_nickname`)")
+			addIndexIfMissing("alliance_orders", "idx_platform_short_id", "KEY `idx_platform_short_id` (`platform`, `short_id`)")
 
 			// 自动建表：系统消息通知
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS system_notification (
@@ -327,6 +334,43 @@ var (
 			INDEX idx_status (status)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='店铺借用账号归属规则表'`)
 
+			// 外部达人台账表
+			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS external_talent_registry (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			team_name VARCHAR(100) NOT NULL DEFAULT '' COMMENT '团队名称',
+			platform_type VARCHAR(30) NOT NULL DEFAULT '' COMMENT '平台类型：douyin/kuaishou/shipinhao/xiaohongshu/wechat 等',
+			shop_name VARCHAR(200) NOT NULL DEFAULT '' COMMENT '店铺名称',
+			platform_shop_label VARCHAR(255) NOT NULL DEFAULT '' COMMENT '原始平台列文本，如 抖音-利云文化官方旗舰店',
+			uid VARCHAR(100) DEFAULT NULL COMMENT '达人UID',
+			account_name VARCHAR(200) DEFAULT '' COMMENT '账号名称原值',
+			show_id VARCHAR(200) DEFAULT '' COMMENT '抖音号/展示号原值',
+			link_code VARCHAR(255) DEFAULT '' COMMENT '链接/渠道码原值',
+			talent_name VARCHAR(200) DEFAULT '' COMMENT '标准达人名称，导入时可取账号名称或抖音号',
+			talent_type VARCHAR(20) NOT NULL DEFAULT 'external' COMMENT '达人类型：external',
+			product_id VARCHAR(100) DEFAULT '' COMMENT '商品ID',
+			goods_code VARCHAR(100) DEFAULT '' COMMENT '商品编码/书号/SKU',
+			customer_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '客单价',
+			online_commission_rate DECIMAL(10,4) NOT NULL DEFAULT 0.0000 COMMENT '线上佣金率',
+			offline_commission_rate DECIMAL(10,4) NOT NULL DEFAULT 0.0000 COMMENT '线下佣金率',
+			retain_rate DECIMAL(10,4) NOT NULL DEFAULT 0.0000 COMMENT '留存比例',
+			remark VARCHAR(500) DEFAULT '' COMMENT '备注',
+			status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0=禁用 1=启用',
+			source_file VARCHAR(255) DEFAULT '' COMMENT '来源文件名',
+			source_sheet VARCHAR(100) DEFAULT '' COMMENT '来源工作表',
+			source_row_no INT NOT NULL DEFAULT 0 COMMENT '来源行号',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			INDEX idx_team_name (team_name),
+			INDEX idx_platform_shop (platform_type, shop_name),
+			INDEX idx_uid (uid),
+			INDEX idx_show_id (show_id),
+			INDEX idx_account_name (account_name),
+			INDEX idx_product_id (product_id),
+			INDEX idx_goods_code (goods_code),
+			INDEX idx_status (status)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='外部达人台账表'`)
+
 			// 千川广告主映射表
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS account_qianchuan_mapping (
 			id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -366,11 +410,15 @@ var (
 			go func() {
 				bgCtx := context.Background()
 				time.Sleep(3 * time.Second)
+				token, _, err := oceanengine.GetLatestToken(bgCtx)
+				if err != nil {
+					g.Log().Warningf(bgCtx, "[Qianchuan] 启动同步广告主前获取有效token失败: %v", err)
+					return
+				}
 				row, _ := g.DB().Model("qianchuan_token").Ctx(bgCtx).OrderDesc("id").Limit(1).One()
 				if row.IsEmpty() {
 					return
 				}
-				token := row["access_token"].String()
 				if len(token) < 8 {
 					return
 				}
@@ -499,6 +547,14 @@ var (
 				group.GET("/shop-account-attribution/operators", saaCtrl.Operators)
 				group.GET("/shop-account-attribution/search-accounts", saaCtrl.SearchAccounts)
 
+				// 外部达人台账 CRUD
+				externalTalentCtrl := system.NewExternalTalentController()
+				group.GET("/external-talent/stats", externalTalentCtrl.Stats)
+				group.GET("/external-talent/list", externalTalentCtrl.List)
+				group.GET("/external-talent/detail", externalTalentCtrl.Detail)
+				group.POST("/external-talent/save", externalTalentCtrl.Save)
+				group.POST("/external-talent/delete", externalTalentCtrl.Delete)
+
 				// 千川广告主映射管理
 				accountCtrl := system.NewAccountController()
 				group.GET("/qianchuan-mapping/list", accountCtrl.QianchuanMappingList)
@@ -566,6 +622,7 @@ var (
 				group.POST("/qianchuan-poller/sync-advertisers", qianchuanPollerCtrl.SyncAdvertisers)
 				group.GET("/qianchuan-poller/test-report", qianchuanPollerCtrl.TestReportAPI)
 				group.GET("/qianchuan-poller/daily-report", qianchuanPollerCtrl.DailyReportList)
+				group.GET("/qianchuan-poller/plan-report", qianchuanPollerCtrl.PlanReportList)
 				group.GET("/qianchuan-poller/overall-report", qianchuanPollerCtrl.OverallReportList)
 				group.GET("/qianchuan-poller/overall-report-detail", qianchuanPollerCtrl.OverallReportDetailList)
 				group.GET("/qianchuan-poller/daily-report-advertisers", qianchuanPollerCtrl.DailyReportAdvertisers)

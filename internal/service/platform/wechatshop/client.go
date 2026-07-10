@@ -239,6 +239,7 @@ func (s *Service) PullOrders(ctx context.Context, params PullParams) (*PullResul
 	for _, auth := range auths {
 		token, err := s.getAccessToken(ctx, auth)
 		if err != nil {
+			g.Log().Errorf(ctx, "[WechatShop] 获取access_token失败: store=%s appid=%s err=%v", auth.StoreName, auth.AppId, err)
 			result.FailedCount++
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: 获取access_token失败: %v", auth.StoreName, err))
 			continue
@@ -271,7 +272,7 @@ func (s *Service) PullOrders(ctx context.Context, params PullParams) (*PullResul
 	}
 
 	if result.FailedCount > 0 && result.TotalSaved == 0 {
-		return result, fmt.Errorf("微信小店订单拉取失败，失败数: %d", result.FailedCount)
+		return result, fmt.Errorf("微信小店订单拉取失败，失败数: %d，明细: %s", result.FailedCount, summarizeWechatErrors(result.Errors, 3))
 	}
 	return result, nil
 }
@@ -283,6 +284,7 @@ func (s *Service) pullStoreOrders(ctx context.Context, auth authConfig, token st
 		for {
 			ids, newNextKey, hasMore, err := s.getOrderIdList(ctx, token, tr.Start, tr.End, timeType, nextKey)
 			if err != nil {
+				g.Log().Errorf(ctx, "[WechatShop] 拉取订单列表失败: store=%s start=%s end=%s err=%v", auth.StoreName, tr.Start.Format(time.DateTime), tr.End.Format(time.DateTime), err)
 				result.FailedCount++
 				result.Errors = append(result.Errors, fmt.Sprintf("%s %s~%s: 拉取订单列表失败: %v", auth.StoreName, tr.Start.Format(time.DateTime), tr.End.Format(time.DateTime), err))
 				break
@@ -321,6 +323,7 @@ func (s *Service) fetchAndSaveDetails(ctx context.Context, auth authConfig, toke
 				if err != nil {
 					mu.Lock()
 					failed++
+					g.Log().Errorf(ctx, "[WechatShop] 订单详情失败: store=%s orderId=%s err=%v", auth.StoreName, orderId, err)
 					errors = append(errors, fmt.Sprintf("%s: 订单%s详情失败: %v", auth.StoreName, orderId, err))
 					mu.Unlock()
 					continue
@@ -329,6 +332,7 @@ func (s *Service) fetchAndSaveDetails(ctx context.Context, auth authConfig, toke
 				mu.Lock()
 				if err != nil {
 					failed++
+					g.Log().Errorf(ctx, "[WechatShop] 订单入库失败: store=%s orderId=%s err=%v", auth.StoreName, orderId, err)
 					errors = append(errors, fmt.Sprintf("%s: 订单%s入库失败: %v", auth.StoreName, orderId, err))
 				} else {
 					saved += count
@@ -735,6 +739,16 @@ func (s *Service) saveOrderDetail(ctx context.Context, auth authConfig, order ma
 func buildOrderItemKey(storeID, orderID, productID, skuID, sellerCode string) string {
 	sum := md5.Sum([]byte(storeID + "|" + orderID + "|" + productID + "|" + skuID + "|" + sellerCode))
 	return hex.EncodeToString(sum[:])
+}
+
+func summarizeWechatErrors(errors []string, limit int) string {
+	if len(errors) == 0 {
+		return ""
+	}
+	if limit <= 0 || len(errors) <= limit {
+		return strings.Join(errors, " | ")
+	}
+	return strings.Join(errors[:limit], " | ") + fmt.Sprintf(" | 其余%d条省略", len(errors)-limit)
 }
 
 type timeRange struct {

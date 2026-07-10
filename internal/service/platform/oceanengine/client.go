@@ -499,15 +499,212 @@ func (r OverallPromotionDailyReport) ToAdReport() AdReport {
 
 // AdPlanReport 广告计划日结报表（计划维度，来自 report/ad/get API）
 type AdPlanReport struct {
-	AdvertiserID int64
-	AdID         int64
-	StatDatetime string
-	StatCost     float64
-	ShowCnt      int64
-	ClickCnt     int64
-	Ctr          float64
-	ConvertCnt   int64
-	ConvertCost  float64
+	AdvertiserID     int64
+	AdID             int64
+	StatDatetime     string
+	StatCost         float64
+	ShowCnt          int64
+	ClickCnt         int64
+	Ctr              float64
+	ConvertCnt       int64
+	ConvertCost      float64
+	PayOrderCount    int64
+	CreateOrderCount int64
+}
+
+// GetUniPromotionPlanReport 获取全域计划报表（千川 v1.0/qianchuan/uni_promotion/list/）。
+// 该接口返回计划基础信息和 stats_info 指标；为了保持本地日报表语义，这里按天逐日拉取。
+func (c *Client) GetUniPromotionPlanReport(ctx context.Context, advertiserID int64, startDate, endDate string) ([]AdPlanDailyReport, error) {
+	sdkClient := ad_open_sdk_go.Init(c.cfg)
+	type sceneConfig struct {
+		scene      models.QianchuanUniPromotionListV10AdlabScene
+		costPicker func(*models.QianchuanUniPromotionListV10ResponseDataAdListInnerStatsInfo) float64
+	}
+
+	scenes := []sceneConfig{
+		{
+			scene: models.UNI_PROJECT_QianchuanUniPromotionListV10AdlabScene,
+			costPicker: func(stats *models.QianchuanUniPromotionListV10ResponseDataAdListInnerStatsInfo) float64 {
+				if stats == nil || stats.StatCost == nil {
+					return 0
+				}
+				return *stats.StatCost
+			},
+		},
+	}
+	goals := []models.QianchuanUniPromotionListV10MarketingGoal{
+		models.LIVE_PROM_GOODS_QianchuanUniPromotionListV10MarketingGoal,
+		models.VIDEO_PROM_GOODS_QianchuanUniPromotionListV10MarketingGoal,
+	}
+	fields := []*models.QianchuanUniPromotionListV10Fields{
+		models.STAT_COST_QianchuanUniPromotionListV10Fields.Ptr(),
+		models.TOTAL_PAY_ORDER_COUNT_FOR_ROI2_QianchuanUniPromotionListV10Fields.Ptr(),
+	}
+
+	reportMap := make(map[string]AdPlanDailyReport)
+	order := make([]string, 0)
+	for _, statDate := range dateRange(startDate, endDate) {
+		startTime, endTime := dayTimeRange(statDate)
+		for _, scene := range scenes {
+			for _, goal := range goals {
+				page := int32(1)
+				for {
+					rateLimitRetries := 0
+					g.Log().Infof(ctx, "[Qianchuan] 调用全域计划列表API advID=%d date=%s scene=%s goal=%s page=%d",
+						advertiserID, statDate, scene.scene, goal, page)
+
+					var resp *models.QianchuanUniPromotionListV10Response
+					var rawResp *http.Response
+					for {
+						err := retryWithBackoff(ctx, fmt.Sprintf("全域计划列表API(advID=%d,scene=%s,goal=%s,date=%s)", advertiserID, scene.scene, goal, statDate), func() error {
+							var e error
+							req := sdkClient.QianchuanUniPromotionListV10Api().Get(ctx).
+								AdvertiserId(advertiserID).
+								StartTime(startTime).
+								EndTime(endTime).
+								MarketingGoal(goal).
+								Fields(fields).
+								AdlabScene(scene.scene).
+								Page(page).
+								PageSize(models.Enum_100_QianchuanUniPromotionListV10PageSize).
+								AccessToken(c.accessToken)
+							resp, rawResp, e = req.Execute()
+							return e
+						})
+						if err != nil {
+							return nil, fmt.Errorf("获取全域计划列表失败(advertiserID=%d, scene=%s, goal=%s): %w", advertiserID, scene.scene, goal, err)
+						}
+
+						codeVal := int64(0)
+						msgVal := ""
+						if resp.Code != nil {
+							codeVal = *resp.Code
+						}
+						if resp.Message != nil {
+							msgVal = *resp.Message
+						}
+						listLen := 0
+						if resp.Data != nil {
+							listLen = len(resp.Data.AdList)
+						}
+						httpStatus := 0
+						if rawResp != nil {
+							httpStatus = rawResp.StatusCode
+						}
+						g.Log().Infof(ctx, "[Qianchuan] 全域计划列表API: advID=%d, HTTP=%d, code=%d, msg=%s, list=%d",
+							advertiserID, httpStatus, codeVal, msgVal, listLen)
+
+						if codeVal == 40100 && rateLimitRetries < 4 {
+							backoff := time.Duration(rateLimitRetries+1) * 3 * time.Second
+							rateLimitRetries++
+							g.Log().Warningf(ctx, "[Qianchuan] 全域计划列表触发限流，等待重试 advID=%d scene=%s goal=%s page=%d retry=%d backoff=%v",
+								advertiserID, scene.scene, goal, page, rateLimitRetries, backoff)
+							select {
+							case <-ctx.Done():
+								return nil, ctx.Err()
+							case <-time.After(backoff):
+							}
+							continue
+						}
+						if codeVal != 0 {
+							if codeVal == 40000 {
+								g.Log().Warningf(ctx, "[Qianchuan] 全域计划列表组合不支持，跳过 advID=%d scene=%s goal=%s date=%s: %s",
+									advertiserID, scene.scene, goal, statDate, msgVal)
+								break
+							}
+							return nil, fmt.Errorf("全域计划列表返回错误: code=%d, msg=%s", codeVal, msgVal)
+						}
+						break
+					}
+
+					if resp.Data != nil {
+						for _, item := range resp.Data.AdList {
+							report, ok := uniPromotionPlanToDailyReport(advertiserID, statDate, item, scene.costPicker)
+							if !ok {
+								continue
+							}
+							key := planReportKey(report.AdID, report.StatDatetime)
+							if existing, exists := reportMap[key]; exists {
+								report.StatCost += existing.StatCost
+								report.PayOrderCount += existing.PayOrderCount
+								report.CreateOrderCount += existing.CreateOrderCount
+								if report.AdName == "" {
+									report.AdName = existing.AdName
+								}
+								if report.ProductID == 0 {
+									report.ProductID = existing.ProductID
+									report.ProductName = existing.ProductName
+								}
+								if report.AwemeID == "" {
+									report.AwemeID = existing.AwemeID
+									report.AwemeName = existing.AwemeName
+									report.AwemeShowID = existing.AwemeShowID
+								}
+							} else {
+								order = append(order, key)
+							}
+							reportMap[key] = report
+						}
+					}
+
+					if resp.Data == nil || resp.Data.PageInfo == nil || resp.Data.PageInfo.TotalPage == nil || int64(page) >= *resp.Data.PageInfo.TotalPage {
+						break
+					}
+					page++
+				}
+			}
+		}
+	}
+
+	reports := make([]AdPlanDailyReport, 0, len(reportMap))
+	for _, key := range order {
+		reports = append(reports, reportMap[key])
+	}
+	g.Log().Infof(ctx, "[Qianchuan] 全域计划报表汇总(advID=%d): 共%d条(%s~%s)", advertiserID, len(reports), startDate, endDate)
+	return reports, nil
+}
+
+func uniPromotionPlanToDailyReport(
+	advertiserID int64,
+	statDate string,
+	item *models.QianchuanUniPromotionListV10ResponseDataAdListInner,
+	costPicker func(*models.QianchuanUniPromotionListV10ResponseDataAdListInnerStatsInfo) float64,
+) (AdPlanDailyReport, bool) {
+	if item == nil || item.AdInfo == nil || item.AdInfo.Id == nil || *item.AdInfo.Id == 0 {
+		return AdPlanDailyReport{}, false
+	}
+
+	report := AdPlanDailyReport{
+		AdvertiserID: advertiserID,
+		AdID:         *item.AdInfo.Id,
+		StatDatetime: normalizeStatDate(statDate),
+	}
+	if item.AdInfo.Name != nil {
+		report.AdName = *item.AdInfo.Name
+	}
+	if len(item.ProductInfo) > 0 && item.ProductInfo[0] != nil {
+		if item.ProductInfo[0].ProductId != nil {
+			report.ProductID = *item.ProductInfo[0].ProductId
+		}
+		if item.ProductInfo[0].ProductName != nil {
+			report.ProductName = *item.ProductInfo[0].ProductName
+		}
+	}
+	if len(item.RoomInfo) > 0 && item.RoomInfo[0] != nil {
+		if item.RoomInfo[0].AnchorId != nil {
+			report.AwemeID = *item.RoomInfo[0].AnchorId
+			report.AwemeShowID = *item.RoomInfo[0].AnchorId
+		}
+		if item.RoomInfo[0].AnchorName != nil {
+			report.AwemeName = *item.RoomInfo[0].AnchorName
+		}
+	}
+	if item.StatsInfo != nil {
+		// 全域计划列表接口的 stat_cost 返回为 1/100000 元，入库统一换算成元。
+		report.StatCost = costPicker(item.StatsInfo) / 100000
+		report.PayOrderCount = floatToInt64(item.StatsInfo.TotalPayOrderCountForRoi2)
+	}
+	return report, true
 }
 
 // GetAdReport 获取广告主日结报表（千川 v1.0/qianchuan/report/advertiser/get/）
@@ -1205,6 +1402,7 @@ func (c *Client) GetAdPlanReport(ctx context.Context, advertiserID int64, startD
 
 	reportFields := []string{
 		"stat_cost", "show_cnt", "click_cnt", "ctr", "convert_cnt", "convert_cost",
+		"pay_order_count", "create_order_count",
 	}
 
 	sdkClient := ad_open_sdk_go.Init(c.cfg)
@@ -1288,6 +1486,12 @@ func (c *Client) GetAdPlanReport(ctx context.Context, advertiserID int64, startD
 				if item.ConvertCost != nil {
 					r.ConvertCost = *item.ConvertCost
 				}
+				if item.PayOrderCount != nil {
+					r.PayOrderCount = int64(*item.PayOrderCount)
+				}
+				if item.CreateOrderCount != nil {
+					r.CreateOrderCount = int64(*item.CreateOrderCount)
+				}
 				allReports = append(allReports, r)
 			}
 		}
@@ -1360,21 +1564,23 @@ type CombinedReport struct {
 
 // AdPlanDailyReport 计划维度日结报表，含计划基础信息和消耗指标。
 type AdPlanDailyReport struct {
-	AdvertiserID int64   `json:"advertiser_id"`
-	AdID         int64   `json:"ad_id"`
-	AdName       string  `json:"ad_name"`
-	ProductID    int64   `json:"product_id"`
-	ProductName  string  `json:"product_name"`
-	AwemeID      string  `json:"aweme_id"`
-	AwemeName    string  `json:"aweme_name"`
-	AwemeShowID  string  `json:"aweme_show_id"`
-	StatDatetime string  `json:"stat_datetime"`
-	StatCost     float64 `json:"stat_cost"`
-	ShowCnt      int64   `json:"show_cnt"`
-	ClickCnt     int64   `json:"click_cnt"`
-	Ctr          float64 `json:"ctr"`
-	ConvertCnt   int64   `json:"convert_cnt"`
-	ConvertCost  float64 `json:"convert_cost"`
+	AdvertiserID     int64   `json:"advertiser_id"`
+	AdID             int64   `json:"ad_id"`
+	AdName           string  `json:"ad_name"`
+	ProductID        int64   `json:"product_id"`
+	ProductName      string  `json:"product_name"`
+	AwemeID          string  `json:"aweme_id"`
+	AwemeName        string  `json:"aweme_name"`
+	AwemeShowID      string  `json:"aweme_show_id"`
+	StatDatetime     string  `json:"stat_datetime"`
+	StatCost         float64 `json:"stat_cost"`
+	ShowCnt          int64   `json:"show_cnt"`
+	ClickCnt         int64   `json:"click_cnt"`
+	Ctr              float64 `json:"ctr"`
+	ConvertCnt       int64   `json:"convert_cnt"`
+	ConvertCost      float64 `json:"convert_cost"`
+	PayOrderCount    int64   `json:"pay_order_count"`
+	CreateOrderCount int64   `json:"create_order_count"`
 }
 
 // PullAll 拉取指定广告主的全量数据（计划列表 + 报表）
@@ -1599,15 +1805,25 @@ func (c *Client) PullAllByDate(ctx context.Context, advertiserID int64, startDat
 	}
 	result.TotalCombined = len(result.Combined)
 
-	planReports, planReportErr := c.GetAdPlanReport(ctx, advertiserID, startDate, endDate)
-	if planReportErr != nil {
-		g.Log().Warningf(ctx, "[Qianchuan] 获取计划报表失败(advID=%d): %v", advertiserID, planReportErr)
-	} else {
-		var totalPlans int
-		result.PlanReports, totalPlans = c.combinePlanReports(ctx, advertiserID, planReports)
-		result.TotalPlanReports = len(result.PlanReports)
-		result.TotalPlans = totalPlans
+	uniPlanReports, uniPlanErr := c.GetUniPromotionPlanReport(ctx, advertiserID, startDate, endDate)
+	if uniPlanErr != nil {
+		g.Log().Warningf(ctx, "[Qianchuan] 获取全域计划报表失败(advID=%d): %v，将尝试标准计划报表兜底", advertiserID, uniPlanErr)
 	}
+
+	var legacyDailyReports []AdPlanDailyReport
+	if len(uniPlanReports) > 0 {
+		g.Log().Infof(ctx, "[Qianchuan] 已获取全域计划报表(advID=%d) %d条，跳过标准计划报表兜底", advertiserID, len(uniPlanReports))
+	} else {
+		planReports, planReportErr := c.GetAdPlanReport(ctx, advertiserID, startDate, endDate)
+		if planReportErr != nil {
+			g.Log().Warningf(ctx, "[Qianchuan] 获取标准计划报表失败(advID=%d): %v", advertiserID, planReportErr)
+		} else {
+			legacyDailyReports, _ = c.combinePlanReports(ctx, advertiserID, startDate, endDate, planReports)
+		}
+	}
+	result.PlanReports = mergePlanDailyReports(uniPlanReports, legacyDailyReports)
+	result.TotalPlanReports = len(result.PlanReports)
+	result.TotalPlans = countPlanDailyReports(result.PlanReports)
 
 	g.Log().Infof(ctx, "[Qianchuan] PullAll结果: reports=%d, overallReports=%d, planReports=%d, combined=%d(%s~%s)",
 		result.TotalReports, result.TotalOverallReports, result.TotalPlanReports, result.TotalCombined, startDate, endDate)
@@ -1649,7 +1865,87 @@ func mergeAdReports(standardReports, uniReports []AdReport) []AdReport {
 	return merged
 }
 
-func (c *Client) combinePlanReports(ctx context.Context, advertiserID int64, reports []AdPlanReport) ([]AdPlanDailyReport, int) {
+func mergePlanDailyReports(primary, fallback []AdPlanDailyReport) []AdPlanDailyReport {
+	reportMap := make(map[string]AdPlanDailyReport, len(primary)+len(fallback))
+	order := make([]string, 0, len(primary)+len(fallback))
+	includeFallbackMissing := len(primary) == 0
+
+	for _, r := range primary {
+		r.StatDatetime = normalizeStatDate(r.StatDatetime)
+		if r.AdID == 0 || r.StatDatetime == "" {
+			continue
+		}
+		key := planReportKey(r.AdID, r.StatDatetime)
+		if _, ok := reportMap[key]; !ok {
+			order = append(order, key)
+		}
+		reportMap[key] = r
+	}
+
+	for _, r := range fallback {
+		r.StatDatetime = normalizeStatDate(r.StatDatetime)
+		if r.AdID == 0 || r.StatDatetime == "" {
+			continue
+		}
+		key := planReportKey(r.AdID, r.StatDatetime)
+		existing, ok := reportMap[key]
+		if !ok {
+			if !includeFallbackMissing {
+				continue
+			}
+			order = append(order, key)
+			reportMap[key] = r
+			continue
+		}
+		// 全域接口是主数据源；旧标准接口只补齐全域接口没有返回的字段/指标。
+		if existing.AdName == "" {
+			existing.AdName = r.AdName
+		}
+		if existing.ProductID == 0 {
+			existing.ProductID = r.ProductID
+			existing.ProductName = r.ProductName
+		}
+		if existing.AwemeID == "" {
+			existing.AwemeID = r.AwemeID
+			existing.AwemeName = r.AwemeName
+			existing.AwemeShowID = r.AwemeShowID
+		}
+		if existing.StatCost == 0 && existing.PayOrderCount == 0 && existing.CreateOrderCount == 0 {
+			applyPlanReportFields(&existing, r)
+		}
+		reportMap[key] = existing
+	}
+
+	merged := make([]AdPlanDailyReport, 0, len(order))
+	for _, key := range order {
+		merged = append(merged, reportMap[key])
+	}
+	return merged
+}
+
+func applyPlanReportFields(dst *AdPlanDailyReport, src AdPlanDailyReport) {
+	dst.StatCost = src.StatCost
+	dst.ShowCnt = src.ShowCnt
+	dst.ClickCnt = src.ClickCnt
+	dst.Ctr = src.Ctr
+	dst.ConvertCnt = src.ConvertCnt
+	dst.ConvertCost = src.ConvertCost
+	dst.PayOrderCount = src.PayOrderCount
+	dst.CreateOrderCount = src.CreateOrderCount
+}
+
+func countPlanDailyReports(reports []AdPlanDailyReport) int {
+	seen := make(map[int64]struct{}, len(reports))
+	for _, r := range reports {
+		if r.AdID == 0 {
+			continue
+		}
+		seen[r.AdID] = struct{}{}
+	}
+	return len(seen)
+}
+
+func (c *Client) combinePlanReports(ctx context.Context, advertiserID int64, startDate, endDate string, reports []AdPlanReport) ([]AdPlanDailyReport, int) {
 	plans, err := c.GetAllAdPlans(ctx, advertiserID)
 	if err != nil {
 		g.Log().Warningf(ctx, "[Qianchuan] 获取计划基础信息失败(advID=%d): %v，计划明细将只保留ad_id和消耗", advertiserID, err)
@@ -1660,19 +1956,55 @@ func (c *Client) combinePlanReports(ctx context.Context, advertiserID int64, rep
 		planMap[p.AdID] = p
 	}
 
-	result := make([]AdPlanDailyReport, 0, len(reports))
+	reportMap := make(map[string]AdPlanReport, len(reports))
 	for _, r := range reports {
+		r.StatDatetime = normalizeStatDate(r.StatDatetime)
+		if r.StatDatetime == "" || r.AdID == 0 {
+			continue
+		}
+		reportMap[planReportKey(r.AdID, r.StatDatetime)] = r
+	}
+
+	dates := dateRange(startDate, endDate)
+	result := make([]AdPlanDailyReport, 0, len(plans)*len(dates)+len(reports))
+	seen := make(map[string]struct{}, len(plans)*len(dates)+len(reports))
+
+	for _, statDate := range dates {
+		for _, p := range plans {
+			key := planReportKey(p.AdID, statDate)
+			r, ok := reportMap[key]
+			if !ok {
+				continue
+			}
+			item := AdPlanDailyReport{
+				AdvertiserID: advertiserID,
+				AdID:         p.AdID,
+				AdName:       p.AdName,
+				ProductID:    p.ProductID,
+				ProductName:  p.ProductName,
+				AwemeID:      p.AwemeID,
+				AwemeName:    p.AwemeName,
+				AwemeShowID:  p.AwemeShowID,
+				StatDatetime: statDate,
+			}
+			applyPlanReportMetrics(&item, r)
+			result = append(result, item)
+			seen[key] = struct{}{}
+		}
+	}
+
+	for _, r := range reports {
+		r.StatDatetime = normalizeStatDate(r.StatDatetime)
+		key := planReportKey(r.AdID, r.StatDatetime)
+		if _, ok := seen[key]; ok || r.AdID == 0 || r.StatDatetime == "" {
+			continue
+		}
 		item := AdPlanDailyReport{
 			AdvertiserID: r.AdvertiserID,
 			AdID:         r.AdID,
 			StatDatetime: r.StatDatetime,
-			StatCost:     r.StatCost,
-			ShowCnt:      r.ShowCnt,
-			ClickCnt:     r.ClickCnt,
-			Ctr:          r.Ctr,
-			ConvertCnt:   r.ConvertCnt,
-			ConvertCost:  r.ConvertCost,
 		}
+		applyPlanReportMetrics(&item, r)
 		if p, ok := planMap[r.AdID]; ok {
 			item.AdName = p.AdName
 			item.ProductID = p.ProductID
@@ -1684,6 +2016,45 @@ func (c *Client) combinePlanReports(ctx context.Context, advertiserID int64, rep
 		result = append(result, item)
 	}
 	return result, len(plans)
+}
+
+func planReportKey(adID int64, statDate string) string {
+	return fmt.Sprintf("%d:%s", adID, normalizeStatDate(statDate))
+}
+
+func applyPlanReportMetrics(item *AdPlanDailyReport, report AdPlanReport) {
+	if report.AdvertiserID != 0 {
+		item.AdvertiserID = report.AdvertiserID
+	}
+	item.StatCost = report.StatCost
+	item.ShowCnt = report.ShowCnt
+	item.ClickCnt = report.ClickCnt
+	item.Ctr = report.Ctr
+	item.ConvertCnt = report.ConvertCnt
+	item.ConvertCost = report.ConvertCost
+	item.PayOrderCount = report.PayOrderCount
+	item.CreateOrderCount = report.CreateOrderCount
+}
+
+func dateRange(startDate, endDate string) []string {
+	start, startErr := time.Parse("2006-01-02", startDate)
+	end, endErr := time.Parse("2006-01-02", endDate)
+	if startErr != nil || endErr != nil || end.Before(start) {
+		return []string{normalizeStatDate(endDate)}
+	}
+	days := make([]string, 0, int(end.Sub(start).Hours()/24)+1)
+	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+		days = append(days, d.Format("2006-01-02"))
+	}
+	return days
+}
+
+func dayTimeRange(statDate string) (string, string) {
+	date := normalizeStatDate(statDate)
+	if date == "" {
+		date = time.Now().Format("2006-01-02")
+	}
+	return date + " 00:00:00", date + " 23:59:59"
 }
 
 // ==================== Token 管理 ====================

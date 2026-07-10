@@ -152,11 +152,11 @@ func (s *FinanceAggregateService) getAllValidOrders(ctx context.Context, date st
 	endTime := date + " 23:59:59"
 
 	// 有效订单条件
-	validCond := "(o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51'))"
+	validCond := financeValidOrderCondition("o")
 	// 无效订单条件
-	invalidCond := "o.after_sale_status IN ('6','7','11','12','29')"
+	invalidCond := financeInvalidOrderCondition("o")
 	// 退款成本条件：无效 且 已发货
-	refundCond := "o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'"
+	refundCond := financeRefundOrderCondition("o")
 
 	// 抖音订单
 	allOrders = append(allOrders, s.queryPlatformOrders(ctx, "order_info", "douyin", "main_order_no", "", validCond, invalidCond, refundCond, startTime, endTime)...)
@@ -186,7 +186,7 @@ func (s *FinanceAggregateService) queryPlatformOrders(ctx context.Context, table
 			COALESCE(SUM(CASE WHEN %s THEN o.product_num ELSE 0 END), 0) AS product_num,
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price, 0) * o.product_num ELSE 0 END), 0) AS pay_amount,
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS cost_amount,
-			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS refund_cost_amount,
+			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS refund_cost_amount,
 			COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_order_count,
 			COUNT(DISTINCT CASE WHEN %s AND g.base_price > 0 THEN o.%s END) AS valid_order_cost_match
 		FROM %s o
@@ -218,17 +218,17 @@ func (s *FinanceAggregateService) queryPlatformOrders(ctx context.Context, table
 func newOrderStatItem(row gdb.Record, talentId, platform string) OrderStatItem {
 	payAmount := row["pay_amount"].Float64()
 	costAmount := row["cost_amount"].Float64()
-	reserveAmount := payAmount * 0.03
+	reserveAmount := CalculateReserveAmount(payAmount)
 	orderCount := row["order_count"].Int()
 	refundCostAmount := row["refund_cost_amount"].Float64()
 	shopServiceFee := 0.0
 	if platform == "douyin" {
-		shopServiceFee = payAmount * 0.02
+		shopServiceFee = CalculateDouyinShopServiceFee(payAmount)
 	}
 	// 佣金 = 定价总额 - 留底 - 货款 - 小店服务费
 	commission := payAmount - costAmount - reserveAmount
 	commissionDeduction := payAmount * 0.005
-	realtimeProfit := payAmount - costAmount - reserveAmount - refundCostAmount - shopServiceFee - commissionDeduction
+	realtimeProfit := CalculateOrderProfit(payAmount, costAmount, reserveAmount, refundCostAmount, shopServiceFee, commissionDeduction, 0, 0)
 
 	return OrderStatItem{
 		TalentId:             talentId,
@@ -296,7 +296,7 @@ func (s *FinanceAggregateService) aggregateByShop(orders []OrderStatItem) map[in
 		v.ShopServiceFee = roundFloat(v.ShopServiceFee, 2)
 		v.AdCostAmount = roundFloat(v.AdCostAmount, 2)
 		// 净利润 = 定价总额 - 货款 - 留底 - 退款成本 - 小店服务费 - 佣金扣除 - 广告消耗
-		v.RealtimeProfit = roundFloat(v.PayAmount-v.CostAmount-v.ReserveAmount-v.RefundCostAmount-v.ShopServiceFee-v.PayAmount*0.005-v.AdCostAmount, 2)
+		v.RealtimeProfit = roundFloat(CalculateOrderProfit(v.PayAmount, v.CostAmount, v.ReserveAmount, v.RefundCostAmount, v.ShopServiceFee, v.PayAmount*0.005, 0, v.AdCostAmount), 2)
 		shopMap[k] = v
 	}
 
@@ -424,9 +424,9 @@ func (s *FinanceAggregateService) OrderDailyAggregateJob(ctx context.Context, da
 	startTime := date + " 00:00:00"
 	endTime := date + " 23:59:59"
 
-	validCond := "(o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51'))"
-	invalidCond := "o.after_sale_status IN ('6','7','11','12','29')"
-	refundCond := "o.after_sale_status IN ('6','7','11','12','29') AND o.order_status = '已发货'"
+	validCond := financeValidOrderCondition("o")
+	invalidCond := financeInvalidOrderCondition("o")
+	refundCond := financeRefundOrderCondition("o")
 
 	sql := fmt.Sprintf(`
 		SELECT
@@ -437,7 +437,7 @@ func (s *FinanceAggregateService) OrderDailyAggregateJob(ctx context.Context, da
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price,0)*o.product_num ELSE 0 END),0) AS valid_pay_amount,
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price,0)*o.product_num ELSE 0 END),0) AS product_cost_amount,
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(o.product_price,0)*o.product_num*0.03 ELSE 0 END),0) AS reserve_amount,
-			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price,o.product_price)*o.product_num ELSE 0 END),0) AS refund_cost_amount,
+			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price,0)*o.product_num ELSE 0 END),0) AS refund_cost_amount,
 			COUNT(DISTINCT CASE WHEN %s THEN o.main_order_no END) AS refund_order_count,
 			COUNT(DISTINCT CASE WHEN %s AND g.base_price>0 THEN o.main_order_no END) AS valid_order_cost_match
 		FROM order_info o
@@ -463,7 +463,8 @@ func (s *FinanceAggregateService) OrderDailyAggregateJob(ctx context.Context, da
 		payAmount := row["valid_pay_amount"].Float64()
 		costAmount := row["product_cost_amount"].Float64()
 		reserveAmount := row["reserve_amount"].Float64()
-		shopServiceFee := roundFloat(payAmount*0.02, 2)
+		reserveAmount = CalculateReserveAmount(payAmount)
+		shopServiceFee := CalculateDouyinShopServiceFee(payAmount)
 		commission := roundFloat(payAmount-costAmount-reserveAmount-shopServiceFee, 2)
 
 		g.DB().Model("daily_order_stats").Data(g.Map{

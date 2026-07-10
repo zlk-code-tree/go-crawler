@@ -33,6 +33,18 @@ func GetPoller() *Poller {
 	return pollerInstance
 }
 
+// GetLatestToken 获取当前可用的千川 access_token 和 advertiser_ids。
+// 当 access_token 过期且 refresh_token 仍有效时，会自动尝试续期。
+func GetLatestToken(ctx context.Context) (string, []int64, error) {
+	return GetPoller().getLatestToken(ctx)
+}
+
+// GetLatestAccessToken 获取当前可用的千川 access_token。
+func GetLatestAccessToken(ctx context.Context) (string, error) {
+	accessToken, _, err := GetLatestToken(ctx)
+	return accessToken, err
+}
+
 // Start 启动每日定时拉取
 // 定时调度统一由 CronManager 管理（cmd.go 注册 builtin 任务 qianchuan_daily_pull），
 // 这里仅通过 CronManager.ResumeTask 恢复被 Stop 暂停的任务，避免重复注册 gcron 导致冲突
@@ -123,6 +135,9 @@ func (p *Poller) getLatestToken(ctx context.Context) (string, []int64, error) {
 		renewResp, err := RefreshAccessToken(ctx, refreshToken)
 		if err != nil {
 			g.Log().Errorf(ctx, "[QianchuanPoller] refresh_token续期失败: %v，请重新授权", err)
+			service.CreateNotification(ctx, "千川授权续期失败",
+				fmt.Sprintf(`{"reason":"refresh_token续期失败","detail":%q,"action":"请重新完成巨量千川OAuth授权","authUrl":"/api/qianchuan/auth-url"}`, err.Error()),
+				"system_alert", "qianchuan_token_expired", 0, service.NotifyLevelUrgent, 0)
 			return "", nil, fmt.Errorf("token续期失败: %w，请重新完成巨量千川OAuth授权", err)
 		}
 
@@ -1232,7 +1247,7 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 		batch := reports[batchStart:batchEnd]
 
 		placeholders := make([]string, 0, len(batch))
-		args := make([]interface{}, 0, len(batch)*21)
+		args := make([]interface{}, 0, len(batch)*23)
 		for _, item := range batch {
 			if item.AdID == 0 {
 				failed++
@@ -1240,12 +1255,13 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 			}
 			mapping := orgMappings[item.AdvertiserID]
 			awemeID, _ := strconv.ParseInt(item.AwemeID, 10, 64)
-			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 			args = append(args,
 				mapping.OrganizationID, mapping.AccountID, mapping.CompanyID, mapping.DepartmentID, mapping.TraderID,
 				item.AdvertiserID, "", item.AdID, item.AdName, item.ProductID, item.ProductName,
 				awemeID, item.AwemeName, item.AwemeShowID, item.StatCost, item.StatDatetime,
 				item.ShowCnt, item.ClickCnt, item.Ctr, item.ConvertCnt, item.ConvertCost,
+				item.PayOrderCount, item.CreateOrderCount,
 			)
 		}
 		if len(placeholders) == 0 {
@@ -1256,7 +1272,7 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 			(organization_id, account_id, company_id, department_id, trader_id,
 			advertiser_id, advertiser_name, ad_id, ad_name, product_id, product_name,
 			aweme_id, aweme_name, aweme_show_id, stat_cost, stat_datetime,
-			show_cnt, click_cnt, ctr, convert_cnt, convert_cost)
+			show_cnt, click_cnt, ctr, convert_cnt, convert_cost, pay_order_count, create_order_count)
 		VALUES %s
 		ON DUPLICATE KEY UPDATE
 			organization_id=VALUES(organization_id), account_id=VALUES(account_id),
@@ -1265,7 +1281,8 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 			product_id=VALUES(product_id), product_name=VALUES(product_name),
 			aweme_id=VALUES(aweme_id), aweme_name=VALUES(aweme_name), aweme_show_id=VALUES(aweme_show_id),
 			stat_cost=VALUES(stat_cost), show_cnt=VALUES(show_cnt), click_cnt=VALUES(click_cnt),
-			ctr=VALUES(ctr), convert_cnt=VALUES(convert_cnt), convert_cost=VALUES(convert_cost)`,
+			ctr=VALUES(ctr), convert_cnt=VALUES(convert_cnt), convert_cost=VALUES(convert_cost),
+			pay_order_count=VALUES(pay_order_count), create_order_count=VALUES(create_order_count)`,
 			strings.Join(placeholders, ","))
 
 		if _, err := g.DB().Ctx(ctx).Exec(ctx, sql, args...); err != nil {
