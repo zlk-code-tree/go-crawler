@@ -22,6 +22,7 @@ type QianchuanPlanHierarchyRequest struct {
 	StartDate    string
 	EndDate      string
 	Keyword      string
+	StoreID      int64
 	AccountID    int64
 	AdvertiserID int64
 }
@@ -31,6 +32,7 @@ type QianchuanPlanHierarchyNode struct {
 	NodeType         string  `json:"nodeType"`
 	Name             string  `json:"name"`
 	SecondaryName    string  `json:"secondaryName"`
+	StoreID          int64   `json:"storeId"`
 	AccountID        int64   `json:"accountId"`
 	AdvertiserID     int64   `json:"advertiserId"`
 	AdID             int64   `json:"adId"`
@@ -84,6 +86,9 @@ func NewQianchuanPlanHierarchyService() *QianchuanPlanHierarchyService {
 }
 
 func (s *QianchuanPlanHierarchyService) Query(ctx context.Context, req QianchuanPlanHierarchyRequest) (*QianchuanPlanHierarchyResult, error) {
+	if err := NewQianchuanStoreMappingService().EnsureSchema(ctx); err != nil {
+		return nil, err
+	}
 	startDate, endDate, endExclusive, err := normalizeQianchuanHierarchyDates(req.StartDate, req.EndDate)
 	if err != nil {
 		return nil, err
@@ -148,16 +153,21 @@ func qianchuanHierarchyKeyword(alias, keyword string) (string, []interface{}) {
 		CAST(%s.advertiser_id AS CHAR) LIKE ? OR EXISTS (
 			SELECT 1 FROM account keyword_account
 			WHERE keyword_account.id = %s.account_id AND keyword_account.account_name LIKE ?
+		) OR EXISTS (
+			SELECT 1 FROM store_qianchuan_mapping keyword_mapping
+			JOIN store keyword_store ON keyword_store.id = keyword_mapping.store_id
+			WHERE keyword_mapping.qianchuan_advertiser_id = %s.advertiser_id
+				AND keyword_store.store_name LIKE ?
 		)
-	)`, alias, alias, alias, alias, alias, alias, alias, alias)
-	return clause, []interface{}{like, like, like, like, like, like, like, like}
+	)`, alias, alias, alias, alias, alias, alias, alias, alias, alias)
+	return clause, []interface{}{like, like, like, like, like, like, like, like, like}
 }
 
 func qianchuanOrderStatsCTE(validCondition string) string {
 	return fmt.Sprintf(`
 	order_stats AS (
 		SELECT
-			a.id AS account_id,
+			s.id AS store_id,
 			CAST(o.product_id AS CHAR) AS product_id,
 			LEFT(o.pay_finish_time, 10) AS stat_date,
 			COUNT(DISTINCT CASE WHEN %s THEN o.main_order_no END) AS valid_order_count,
@@ -170,18 +180,18 @@ func qianchuanOrderStatsCTE(validCondition string) string {
 				- (o.product_price * o.product_num * 0.02)
 			ELSE 0 END), 0) AS commission
 		FROM order_info o
-		INNER JOIN account a
-			ON a.platform = 'douyin'
-			AND a.status = 1
-			AND a.account_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
+		INNER JOIN store s
+			ON s.platform = 'douyin'
+			AND s.status = 1
+			AND s.store_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
 		INNER JOIN q_keys qk
-			ON qk.account_id = a.id
+			ON qk.store_id = s.id
 			AND qk.product_id = CAST(o.product_id AS CHAR)
 			AND qk.stat_date = LEFT(o.pay_finish_time, 10)
 		LEFT JOIN goods gd
 			ON o.seller_code COLLATE utf8mb4_unicode_ci = gd.goods_code COLLATE utf8mb4_unicode_ci
 		WHERE o.pay_finish_time >= ? AND o.pay_finish_time < ?
-		GROUP BY a.id, CAST(o.product_id AS CHAR), LEFT(o.pay_finish_time, 10)
+		GROUP BY s.id, CAST(o.product_id AS CHAR), LEFT(o.pay_finish_time, 10)
 	)`, validCondition, validCondition, validCondition, validCondition)
 }
 
@@ -191,17 +201,21 @@ func (s *QianchuanPlanHierarchyService) queryStores(ctx context.Context, req Qia
 	sql := fmt.Sprintf(`WITH
 	q AS (
 		SELECT
+			COALESCE(sqm.store_id, 0) AS store_id,
 			qar.account_id, qar.advertiser_id, qar.ad_id,
 			CAST(qar.product_id AS CHAR) AS product_id,
 			LEFT(qar.stat_datetime, 10) AS stat_date,
 			qar.stat_cost, qar.pay_order_count, qar.create_order_count,
 			qar.show_cnt, qar.click_cnt, qar.convert_cnt
 		FROM qianchuan_ad_report qar
+		LEFT JOIN store_qianchuan_mapping sqm
+			ON sqm.qianchuan_advertiser_id = qar.advertiser_id
 		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?%s
 	),
 	q_agg AS (
 		SELECT
-			account_id,
+			store_id,
+			MAX(account_id) AS account_id,
 			COUNT(DISTINCT advertiser_id) AS advertiser_count,
 			COUNT(DISTINCT ad_id) AS plan_count,
 			COUNT(DISTINCT product_id) AS product_count,
@@ -212,26 +226,26 @@ func (s *QianchuanPlanHierarchyService) queryStores(ctx context.Context, req Qia
 			COALESCE(SUM(click_cnt), 0) AS click_cnt,
 			COALESCE(SUM(convert_cnt), 0) AS convert_cnt
 		FROM q
-		GROUP BY account_id
+		GROUP BY store_id
 	),
 	q_keys AS (
-		SELECT DISTINCT account_id, product_id, stat_date
+		SELECT DISTINCT store_id, product_id, stat_date
 		FROM q
-		WHERE account_id > 0 AND product_id != '' AND product_id != '0'
+		WHERE store_id > 0 AND product_id != '' AND product_id != '0'
 	),%s,
-	order_by_account AS (
+	order_by_store AS (
 		SELECT
-			account_id,
+			store_id,
 			COALESCE(SUM(valid_order_count), 0) AS valid_order_count,
 			COALESCE(SUM(pay_amount), 0) AS pay_amount,
 			COALESCE(SUM(cost_amount), 0) AS cost_amount,
 			COALESCE(SUM(commission), 0) AS commission
 		FROM order_stats
-		GROUP BY account_id
+		GROUP BY store_id
 	)
 	SELECT
-		q.account_id,
-		COALESCE(NULLIF(a.account_name, ''), '未匹配店铺') AS account_name,
+		q.store_id, q.account_id,
+		COALESCE(NULLIF(st.store_name, ''), '未匹配店铺') AS store_name,
 		q.advertiser_count, q.plan_count, q.product_count,
 		q.stat_cost, q.pay_order_count, q.create_order_count,
 		q.show_cnt, q.click_cnt, q.convert_cnt,
@@ -240,9 +254,9 @@ func (s *QianchuanPlanHierarchyService) queryStores(ctx context.Context, req Qia
 		COALESCE(o.cost_amount, 0) AS cost_amount,
 		COALESCE(o.commission, 0) AS commission
 	FROM q_agg q
-	LEFT JOIN account a ON a.id = q.account_id
-	LEFT JOIN order_by_account o ON o.account_id = q.account_id
-	ORDER BY (q.account_id = 0) ASC, q.stat_cost DESC, q.account_id ASC`, keywordSQL, qianchuanOrderStatsCTE(validCondition))
+	LEFT JOIN store st ON st.id = q.store_id
+	LEFT JOIN order_by_store o ON o.store_id = q.store_id
+	ORDER BY (q.store_id = 0) ASC, q.stat_cost DESC, q.store_id ASC`, keywordSQL, qianchuanOrderStatsCTE(validCondition))
 
 	args := []interface{}{req.StartDate, endExclusive}
 	args = append(args, keywordArgs...)
@@ -254,6 +268,7 @@ func (s *QianchuanPlanHierarchyService) queryStores(ctx context.Context, req Qia
 
 	list := make([]QianchuanPlanHierarchyNode, 0, len(rows))
 	for _, row := range rows {
+		storeID := row["store_id"].Int64()
 		accountID := row["account_id"].Int64()
 		statCost := row["stat_cost"].Float64()
 		commission := row["commission"].Float64()
@@ -262,13 +277,14 @@ func (s *QianchuanPlanHierarchyService) queryStores(ctx context.Context, req Qia
 		clickCnt := row["click_cnt"].Int64()
 		convertCnt := row["convert_cnt"].Int64()
 		list = append(list, QianchuanPlanHierarchyNode{
-			NodeKey:          fmt.Sprintf("store:%d", accountID),
+			NodeKey:          fmt.Sprintf("store:%d", storeID),
 			NodeType:         QianchuanHierarchyLevelStore,
-			Name:             row["account_name"].String(),
-			SecondaryName:    storeHierarchySecondaryName(accountID, row["advertiser_count"].Int64(), row["plan_count"].Int64()),
+			Name:             row["store_name"].String(),
+			SecondaryName:    storeHierarchySecondaryName(storeID, row["advertiser_count"].Int64(), row["plan_count"].Int64()),
+			StoreID:          storeID,
 			AccountID:        accountID,
 			HasChildren:      row["advertiser_count"].Int64() > 0,
-			Matched:          accountID > 0,
+			Matched:          storeID > 0,
 			AdvertiserCount:  row["advertiser_count"].Int64(),
 			PlanCount:        row["plan_count"].Int64(),
 			ProductCount:     row["product_count"].Int64(),
@@ -295,46 +311,56 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 	sql := fmt.Sprintf(`WITH
 	all_q AS (
 		SELECT
+			COALESCE(sqm.store_id, 0) AS store_id,
 			qar.account_id, qar.advertiser_id, qar.ad_id,
 			CAST(qar.product_id AS CHAR) AS product_id,
 			LEFT(qar.stat_datetime, 10) AS stat_date,
 			qar.stat_cost
 		FROM qianchuan_ad_report qar
-		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ? AND qar.account_id = ?
+		LEFT JOIN store_qianchuan_mapping sqm
+			ON sqm.qianchuan_advertiser_id = qar.advertiser_id
+		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?
+			AND COALESCE(sqm.store_id, 0) = ?
 	),
 	q AS (
 		SELECT
-			qar.account_id, qar.advertiser_id, qar.advertiser_name, qar.ad_id,
+			COALESCE(sqm.store_id, 0) AS store_id,
+			qar.account_id, qar.advertiser_id,
+			COALESCE(NULLIF(qar.advertiser_name, ''), NULLIF(sqm.qianchuan_advertiser_name, ''), '') AS advertiser_name,
+			qar.ad_id,
 			CAST(qar.product_id AS CHAR) AS product_id,
 			LEFT(qar.stat_datetime, 10) AS stat_date,
 			qar.stat_cost, qar.pay_order_count, qar.create_order_count,
 			qar.show_cnt, qar.click_cnt, qar.convert_cnt
 		FROM qianchuan_ad_report qar
-		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ? AND qar.account_id = ?%s
+		LEFT JOIN store_qianchuan_mapping sqm
+			ON sqm.qianchuan_advertiser_id = qar.advertiser_id
+		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?
+			AND COALESCE(sqm.store_id, 0) = ?%s
 	),
 	q_totals AS (
-		SELECT account_id, product_id, stat_date,
+		SELECT store_id, product_id, stat_date,
 			COALESCE(SUM(stat_cost), 0) AS total_cost,
 			COUNT(DISTINCT ad_id) AS total_plan_count
 		FROM all_q
-		GROUP BY account_id, product_id, stat_date
+		GROUP BY store_id, product_id, stat_date
 	),
 	q_advertiser_keys AS (
 		SELECT
-			account_id, advertiser_id, product_id, stat_date,
+			store_id, advertiser_id, product_id, stat_date,
 			COALESCE(SUM(stat_cost), 0) AS key_cost,
 			COUNT(DISTINCT ad_id) AS key_plan_count
 		FROM q
-		GROUP BY account_id, advertiser_id, product_id, stat_date
+		GROUP BY store_id, advertiser_id, product_id, stat_date
 	),
 	q_keys AS (
-		SELECT DISTINCT account_id, product_id, stat_date
+		SELECT DISTINCT store_id, product_id, stat_date
 		FROM q
-		WHERE account_id > 0 AND product_id != '' AND product_id != '0'
+		WHERE store_id > 0 AND product_id != '' AND product_id != '0'
 	),%s,
 	allocated AS (
 		SELECT
-			k.account_id, k.advertiser_id,
+			k.store_id, k.advertiser_id,
 			CASE WHEN t.total_cost > 0 THEN k.key_cost / t.total_cost
 				 WHEN t.total_plan_count > 0 THEN k.key_plan_count / t.total_plan_count ELSE 0 END AS allocation_rate,
 			COALESCE(o.valid_order_count, 0) AS valid_order_count,
@@ -342,21 +368,22 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 			COALESCE(o.cost_amount, 0) AS cost_amount,
 			COALESCE(o.commission, 0) AS commission
 		FROM q_advertiser_keys k
-		JOIN q_totals t ON t.account_id = k.account_id AND t.product_id = k.product_id AND t.stat_date = k.stat_date
-		LEFT JOIN order_stats o ON o.account_id = k.account_id AND o.product_id = k.product_id AND o.stat_date = k.stat_date
+		JOIN q_totals t ON t.store_id = k.store_id AND t.product_id = k.product_id AND t.stat_date = k.stat_date
+		LEFT JOIN order_stats o ON o.store_id = k.store_id AND o.product_id = k.product_id AND o.stat_date = k.stat_date
 	),
 	allocated_by_advertiser AS (
-		SELECT account_id, advertiser_id,
+		SELECT store_id, advertiser_id,
 			SUM(valid_order_count * allocation_rate) AS valid_order_count,
 			SUM(pay_amount * allocation_rate) AS pay_amount,
 			SUM(cost_amount * allocation_rate) AS cost_amount,
 			SUM(commission * allocation_rate) AS commission
 		FROM allocated
-		GROUP BY account_id, advertiser_id
+		GROUP BY store_id, advertiser_id
 	),
 	q_agg AS (
 		SELECT
-			account_id, advertiser_id,
+			store_id, advertiser_id,
+			MAX(account_id) AS account_id,
 			MAX(NULLIF(advertiser_name, '')) AS advertiser_name,
 			COUNT(DISTINCT ad_id) AS plan_count,
 			COUNT(DISTINCT product_id) AS product_count,
@@ -367,17 +394,17 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 			SUM(click_cnt) AS click_cnt,
 			SUM(convert_cnt) AS convert_cnt
 		FROM q
-		GROUP BY account_id, advertiser_id
+		GROUP BY store_id, advertiser_id
 	)
 	SELECT q.*, COALESCE(a.valid_order_count, 0) AS valid_order_count,
 		COALESCE(a.pay_amount, 0) AS pay_amount,
 		COALESCE(a.cost_amount, 0) AS cost_amount,
 		COALESCE(a.commission, 0) AS commission
 	FROM q_agg q
-	LEFT JOIN allocated_by_advertiser a ON a.account_id = q.account_id AND a.advertiser_id = q.advertiser_id
+	LEFT JOIN allocated_by_advertiser a ON a.store_id = q.store_id AND a.advertiser_id = q.advertiser_id
 	ORDER BY q.stat_cost DESC, q.advertiser_id ASC`, keywordSQL, qianchuanOrderStatsCTE(validCondition))
 
-	args := []interface{}{req.StartDate, endExclusive, req.AccountID, req.StartDate, endExclusive, req.AccountID}
+	args := []interface{}{req.StartDate, endExclusive, req.StoreID, req.StartDate, endExclusive, req.StoreID}
 	args = append(args, keywordArgs...)
 	args = append(args, req.StartDate, endExclusive)
 	rows, err := g.DB().GetAll(ctx, sql, args...)
@@ -403,10 +430,11 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 			NodeType:         QianchuanHierarchyLevelAdvertiser,
 			Name:             name,
 			SecondaryName:    fmt.Sprintf("ID %d · %d 个计划", advertiserID, row["plan_count"].Int64()),
+			StoreID:          row["store_id"].Int64(),
 			AccountID:        row["account_id"].Int64(),
 			AdvertiserID:     advertiserID,
 			HasChildren:      row["plan_count"].Int64() > 0,
-			Matched:          row["account_id"].Int64() > 0,
+			Matched:          row["store_id"].Int64() > 0,
 			PlanCount:        row["plan_count"].Int64(),
 			ProductCount:     row["product_count"].Int64(),
 			StatCost:         roundQianchuanHierarchy(statCost),
@@ -431,20 +459,23 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 	sql := fmt.Sprintf(`SELECT daily.*
 	FROM (
 		SELECT
+			COALESCE(sqm.store_id, 0) AS store_id,
 			qar.account_id, qar.advertiser_id, qar.ad_id, qar.ad_name,
-			qar.advertiser_name,
+			COALESCE(NULLIF(qar.advertiser_name, ''), NULLIF(sqm.qianchuan_advertiser_name, ''), '') AS advertiser_name,
 			CAST(qar.product_id AS CHAR) AS product_id, qar.product_name,
 			qar.aweme_name, qar.aweme_show_id,
 			LEFT(qar.stat_datetime, 10) AS stat_date,
 			qar.stat_cost, qar.pay_order_count, qar.create_order_count,
 			qar.show_cnt, qar.click_cnt, qar.convert_cnt,
 			SUM(qar.stat_cost) OVER (
-				PARTITION BY qar.account_id, qar.product_id, LEFT(qar.stat_datetime, 10)
+				PARTITION BY COALESCE(sqm.store_id, 0), qar.product_id, LEFT(qar.stat_datetime, 10)
 			) AS total_cost,
 			COUNT(*) OVER (
-				PARTITION BY qar.account_id, qar.product_id, LEFT(qar.stat_datetime, 10)
+				PARTITION BY COALESCE(sqm.store_id, 0), qar.product_id, LEFT(qar.stat_datetime, 10)
 			) AS total_plan_count
 		FROM qianchuan_ad_report qar
+		LEFT JOIN store_qianchuan_mapping sqm
+			ON sqm.qianchuan_advertiser_id = qar.advertiser_id
 		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?
 	) daily
 	WHERE daily.advertiser_id = ?%s
@@ -460,19 +491,19 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 		return []QianchuanPlanHierarchyNode{}, nil
 	}
 
-	productsByAccount := make(map[int64]map[string]struct{})
+	productsByStore := make(map[int64]map[string]struct{})
 	for _, row := range rows {
-		accountID := row["account_id"].Int64()
+		storeID := row["store_id"].Int64()
 		productID := row["product_id"].String()
-		if accountID <= 0 || productID == "" || productID == "0" {
+		if storeID <= 0 || productID == "" || productID == "0" {
 			continue
 		}
-		if productsByAccount[accountID] == nil {
-			productsByAccount[accountID] = make(map[string]struct{})
+		if productsByStore[storeID] == nil {
+			productsByStore[storeID] = make(map[string]struct{})
 		}
-		productsByAccount[accountID][productID] = struct{}{}
+		productsByStore[storeID][productID] = struct{}{}
 	}
-	orderStats, err := loadQianchuanPlanOrderStats(ctx, productsByAccount, req.StartDate, endExclusive)
+	orderStats, err := loadQianchuanPlanOrderStats(ctx, productsByStore, req.StartDate, endExclusive)
 	if err != nil {
 		return nil, err
 	}
@@ -491,6 +522,7 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 				NodeKey:      fmt.Sprintf("plan:%d", adID),
 				NodeType:     QianchuanHierarchyLevelPlan,
 				Name:         name,
+				StoreID:      row["store_id"].Int64(),
 				AccountID:    row["account_id"].Int64(),
 				AdvertiserID: row["advertiser_id"].Int64(),
 				AdID:         adID,
@@ -498,7 +530,7 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 				ProductName:  row["product_name"].String(),
 				AwemeName:    row["aweme_name"].String(),
 				AwemeShowID:  row["aweme_show_id"].String(),
-				Matched:      row["account_id"].Int64() > 0,
+				Matched:      row["store_id"].Int64() > 0,
 				PlanCount:    1,
 			}
 			nodeMap[adID] = node
@@ -520,7 +552,7 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 		} else if totalPlanCount > 0 {
 			allocationRate = 1 / totalPlanCount
 		}
-		orderStat := orderStats[qianchuanOrderStatKey(row["account_id"].Int64(), row["product_id"].String(), row["stat_date"].String())]
+		orderStat := orderStats[qianchuanOrderStatKey(row["store_id"].Int64(), row["product_id"].String(), row["stat_date"].String())]
 		node.ValidOrderCount += orderStat.ValidOrderCount * allocationRate
 		node.CostAmount += orderStat.CostAmount * allocationRate
 		node.Commission += orderStat.Commission * allocationRate
@@ -557,15 +589,15 @@ type qianchuanPlanOrderStat struct {
 	Commission      float64
 }
 
-func loadQianchuanPlanOrderStats(ctx context.Context, productsByAccount map[int64]map[string]struct{}, startDate, endExclusive string) (map[string]qianchuanPlanOrderStat, error) {
+func loadQianchuanPlanOrderStats(ctx context.Context, productsByStore map[int64]map[string]struct{}, startDate, endExclusive string) (map[string]qianchuanPlanOrderStat, error) {
 	result := make(map[string]qianchuanPlanOrderStat)
 	validCondition := FinanceValidOrderCondition("o")
-	for accountID, productSet := range productsByAccount {
-		account, err := g.DB().Model("account").Ctx(ctx).Where("id", accountID).Fields("account_name").One()
+	for storeID, productSet := range productsByStore {
+		store, err := g.DB().Model("store").Ctx(ctx).Where("id", storeID).Fields("store_name").One()
 		if err != nil {
 			return nil, err
 		}
-		if account.IsEmpty() || len(productSet) == 0 {
+		if store.IsEmpty() || len(productSet) == 0 {
 			continue
 		}
 
@@ -597,7 +629,7 @@ func loadQianchuanPlanOrderStats(ctx context.Context, productsByAccount map[int6
 			AND o.product_id IN (%s)
 		GROUP BY o.product_id, LEFT(o.pay_finish_time, 10)`, validCondition, validCondition, validCondition, validCondition, strings.Join(placeholders, ","))
 
-		args := []interface{}{account["account_name"].String(), startDate, endExclusive}
+		args := []interface{}{store["store_name"].String(), startDate, endExclusive}
 		for _, productID := range products {
 			args = append(args, productID)
 		}
@@ -606,7 +638,7 @@ func loadQianchuanPlanOrderStats(ctx context.Context, productsByAccount map[int6
 			return nil, err
 		}
 		for _, row := range rows {
-			result[qianchuanOrderStatKey(accountID, row["product_id"].String(), row["stat_date"].String())] = qianchuanPlanOrderStat{
+			result[qianchuanOrderStatKey(storeID, row["product_id"].String(), row["stat_date"].String())] = qianchuanPlanOrderStat{
 				ValidOrderCount: row["valid_order_count"].Float64(),
 				PayAmount:       row["pay_amount"].Float64(),
 				CostAmount:      row["cost_amount"].Float64(),
@@ -617,14 +649,14 @@ func loadQianchuanPlanOrderStats(ctx context.Context, productsByAccount map[int6
 	return result, nil
 }
 
-func qianchuanOrderStatKey(accountID int64, productID, statDate string) string {
-	return fmt.Sprintf("%d|%s|%s", accountID, productID, statDate)
+func qianchuanOrderStatKey(storeID int64, productID, statDate string) string {
+	return fmt.Sprintf("%d|%s|%s", storeID, productID, statDate)
 }
 
 func summarizeQianchuanStoreNodes(list []QianchuanPlanHierarchyNode) QianchuanPlanHierarchySummary {
 	var summary QianchuanPlanHierarchySummary
 	for _, item := range list {
-		if item.AccountID > 0 {
+		if item.StoreID > 0 {
 			summary.StoreCount++
 		}
 		summary.AdvertiserCount += item.AdvertiserCount
@@ -644,8 +676,8 @@ func summarizeQianchuanStoreNodes(list []QianchuanPlanHierarchyNode) QianchuanPl
 	return summary
 }
 
-func storeHierarchySecondaryName(accountID, advertiserCount, planCount int64) string {
-	if accountID == 0 {
+func storeHierarchySecondaryName(storeID, advertiserCount, planCount int64) string {
+	if storeID == 0 {
 		return fmt.Sprintf("%d 个千川账户待绑定 · %d 个计划", advertiserCount, planCount)
 	}
 	return fmt.Sprintf("%d 个千川账户 · %d 个计划", advertiserCount, planCount)

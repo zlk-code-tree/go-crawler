@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -2091,13 +2092,27 @@ func GetShopIDs(ctx context.Context, accessToken string) ([]int64, error) {
 // ResolveQianchuanAdvertiserIDs 将巨量引擎广告主ID（shop_id）解析为千川广告主ID
 // 通过 qianchuan/shop/advertiser/list/ 接口查询每个 shop 下的千川广告主
 func ResolveQianchuanAdvertiserIDs(ctx context.Context, accessToken string, shopIDs []int64) ([]int64, error) {
+	relations, err := ResolveQianchuanAdvertiserStoreIDs(ctx, accessToken, shopIDs)
+	if err != nil {
+		return nil, err
+	}
+	allAdvIDs := make([]int64, 0, len(relations))
+	for advID := range relations {
+		allAdvIDs = append(allAdvIDs, advID)
+	}
+	sort.Slice(allAdvIDs, func(i, j int) bool { return allAdvIDs[i] < allAdvIDs[j] })
+	g.Log().Infof(ctx, "[Qianchuan] 广告主解析完成: 共%d个千川广告主", len(allAdvIDs))
+	return allAdvIDs, nil
+}
+
+// ResolveQianchuanAdvertiserStoreIDs 返回千川广告主与平台店铺的官方归属关系。
+func ResolveQianchuanAdvertiserStoreIDs(ctx context.Context, accessToken string, shopIDs []int64) (map[int64]int64, error) {
 	if len(shopIDs) == 0 {
-		return nil, nil
+		return map[int64]int64{}, nil
 	}
 
 	client := g.Client()
-	var allAdvIDs []int64
-	uniqueMap := make(map[int64]bool)
+	relations := make(map[int64]int64)
 
 	for _, shopId := range shopIDs {
 		g.Log().Infof(ctx, "[Qianchuan] 解析店铺%d下的千川广告主", shopId)
@@ -2138,10 +2153,10 @@ func ResolveQianchuanAdvertiserIDs(ctx context.Context, accessToken string, shop
 			}
 
 			for _, advId := range listResp.Data.List {
-				if !uniqueMap[advId] {
-					uniqueMap[advId] = true
-					allAdvIDs = append(allAdvIDs, advId)
+				if existingShopID, exists := relations[advId]; exists && existingShopID != shopId {
+					return nil, fmt.Errorf("千川广告主%d同时归属于平台店铺%d和%d", advId, existingShopID, shopId)
 				}
+				relations[advId] = shopId
 			}
 			g.Log().Infof(ctx, "[Qianchuan] 店铺%d 第%d页: 找到%d个千川广告主", shopId, page, len(listResp.Data.List))
 
@@ -2152,8 +2167,8 @@ func ResolveQianchuanAdvertiserIDs(ctx context.Context, accessToken string, shop
 		}
 	}
 
-	g.Log().Infof(ctx, "[Qianchuan] 广告主解析完成: 共%d个千川广告主", len(allAdvIDs))
-	return allAdvIDs, nil
+	g.Log().Infof(ctx, "[Qianchuan] 店铺归属解析完成: 共%d个千川广告主", len(relations))
+	return relations, nil
 }
 
 // RefreshAccessToken 使用 refresh_token 换取新的 access_token。

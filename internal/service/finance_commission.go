@@ -28,6 +28,11 @@ func NewFinanceCommissionService() *FinanceCommissionService {
 
 // ParseTimeRange 解析时间范围
 func (s *FinanceCommissionService) ParseTimeRange(timeType, startDate, endDate string) (start, end string) {
+	// 显式传入日期时优先使用
+	if startDate != "" && endDate != "" {
+		return startDate, endDate
+	}
+
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
@@ -1228,7 +1233,7 @@ func (s *FinanceCommissionService) attributionExcludeSQL(currentTraderName strin
 		NOT EXISTS (
 			SELECT 1 FROM shop_account_attribution saa
 			WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
-			  AND saa.source_account_uid = o.talent_id
+			  AND saa.source_account_uid COLLATE utf8mb4_unicode_ci = o.talent_id COLLATE utf8mb4_unicode_ci
 			  AND saa.status = 1
 			  AND saa.target_value != '%s'
 		)`, currentTraderName)
@@ -1241,7 +1246,7 @@ func (s *FinanceCommissionService) attributionRedirectedSQL(currentTraderName st
 		EXISTS (
 			SELECT 1 FROM shop_account_attribution saa
 			WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
-			  AND saa.source_account_uid = o.talent_id
+			  AND saa.source_account_uid COLLATE utf8mb4_unicode_ci = o.talent_id COLLATE utf8mb4_unicode_ci
 			  AND saa.status = 1
 			  AND saa.target_value = '%s'
 		)`, currentTraderName)
@@ -1555,12 +1560,21 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 
 	// 按平台分别统计对应订单表
 	totalStats := &model.FinanceStatsSummary{}
+	var err error
 	for platform, uids := range platformUids {
 		tableName, ok := platformTableMap[platform]
 		if !ok {
 			continue
 		}
-		stats, _ := s.statsOrderTable(ctx, tableName, uids, startDate, endDate, attributionExclude)
+		var stats *model.FinanceStatsSummary
+		if platform == "douyin" && traderName != "" {
+			stats, err = NewOrderService().statsDouyinOrdersByOwner(ctx, accountIds, traderName, startDate, endDate)
+		} else {
+			stats, err = s.statsOrderTable(ctx, tableName, uids, startDate, endDate, attributionExclude)
+		}
+		if err != nil {
+			return nil, err
+		}
 		if stats != nil {
 			// 小店服务费 = 定价总额(payAmount) × 2%（仅抖音、仅有效订单）
 			if platform == "douyin" {
@@ -1637,6 +1651,10 @@ func (s *FinanceCommissionService) statsRedirectedOrders(ctx context.Context, tr
 	totalStats := &model.FinanceStatsSummary{}
 
 	for _, tableName := range platformTableMap {
+		// 抖音订单已由动态归属汇总处理，避免人工重定向订单重复计入。
+		if tableName == "order_info" {
+			continue
+		}
 		stats, _ := s.statsOrderTable(ctx, tableName, nil, startDate, endDate, redirectedCond)
 		if stats != nil {
 			totalStats.TotalOrderCount += stats.TotalOrderCount

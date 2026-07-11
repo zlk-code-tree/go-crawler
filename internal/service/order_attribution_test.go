@@ -5,7 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"testing"
+	"time"
+
+	"github.com/gogf/gf/v2/frame/g"
 )
 
 func TestEnrichDouyinOrderRowsStopsBeforeQueriesWhenCanceled(t *testing.T) {
@@ -16,6 +20,56 @@ func TestEnrichDouyinOrderRowsStopsBeforeQueriesWhenCanceled(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("enrichDouyinOrderRows() error = %v, want context.Canceled", err)
 	}
+}
+
+func TestOrderTypeStatsSurviveInitialRequestCancellationIntegration(t *testing.T) {
+	if os.Getenv("ORDER_TYPE_STATS_DB_INTEGRATION") != "1" {
+		t.Skip("set ORDER_TYPE_STATS_DB_INTEGRATION=1 to run against the configured database")
+	}
+
+	startDate := os.Getenv("ORDER_TYPE_STATS_TEST_START_DATE")
+	endDate := os.Getenv("ORDER_TYPE_STATS_TEST_END_DATE")
+	if startDate == "" || endDate == "" {
+		t.Fatal("ORDER_TYPE_STATS_TEST_START_DATE and ORDER_TYPE_STATS_TEST_END_DATE are required")
+	}
+
+	cacheKey := startDate + "\x00" + endDate
+	enrichedDouyinOrderCache.Delete(cacheKey)
+
+	service := NewOrderService()
+	canceledCtx, cancelInitial := context.WithCancel(context.Background())
+	initialDone := make(chan error, 1)
+	go func() {
+		_, err := service.Stats(canceledCtx, "", "", "", "", "talent", startDate+" 00:00:00", endDate+" 23:59:59")
+		initialDone <- err
+	}()
+	time.Sleep(5 * time.Millisecond)
+	cancelInitial()
+
+	ctx, cancel := context.WithTimeout(context.Background(), enrichedDouyinOrderBuildTimeout+10*time.Second)
+	defer cancel()
+	stats, err := service.Stats(ctx, "", "", "", "", "self_sale", startDate+" 00:00:00", endDate+" 23:59:59")
+	if err != nil {
+		t.Fatalf("self-sale stats failed after initial request cancellation: %v", err)
+	}
+	if stats.TotalOrderCount == 0 {
+		t.Fatal("self-sale stats returned no orders")
+	}
+	refundStats, err := service.Stats(ctx, "", "", "", "", "refund_after_sale", startDate+" 00:00:00", endDate+" 23:59:59")
+	if err != nil {
+		t.Fatalf("refund after-sale stats failed: %v", err)
+	}
+	if refundStats.TotalOrderCount == 0 {
+		t.Fatal("refund after-sale stats returned no orders")
+	}
+
+	select {
+	case <-initialDone:
+	case <-time.After(time.Second):
+		t.Fatal("canceled initial request did not return promptly")
+	}
+	t.Logf("self-sale orders=%d valid=%d pay=%.2f profit=%.2f", stats.TotalOrderCount, stats.ValidOrderCount, stats.ValidPayAmount, stats.RealtimeProfit)
+	t.Logf("refund after-sale orders=%d invalid=%d refund=%d refundCost=%.2f", refundStats.TotalOrderCount, refundStats.InvalidOrderCount, refundStats.RefundOrderCount, refundStats.RefundCostAmount)
 }
 
 func TestIsValidOrderForStats(t *testing.T) {
@@ -69,6 +123,48 @@ func TestOrderListWeightedIndexIsStableAndProportional(t *testing.T) {
 func TestOrderListWeightedIndexRejectsZeroWeights(t *testing.T) {
 	if got := orderListWeightedIndex("order-1", []float64{0, 0}); got != -1 {
 		t.Fatalf("zero weights returned index %d, want -1", got)
+	}
+}
+
+func TestOrderListFilterByTypePartitionsOrders(t *testing.T) {
+	orders := []g.Map{
+		{"id": 1, "orderOwnershipCode": "internal", "isShopSelfSale": false},
+		{"id": 2, "orderOwnershipCode": "external", "isShopSelfSale": 0},
+		{"id": 3, "orderOwnershipCode": "self_sale", "isShopSelfSale": true},
+		{"id": 4, "orderOwnershipCode": "internal", "isShopSelfSale": "1"},
+	}
+	talentOrders := orderListFilterByType(orders, "talent")
+	selfSaleOrders := orderListFilterByType(orders, "self_sale")
+	if len(talentOrders) != 2 || len(selfSaleOrders) != 2 {
+		t.Fatalf("partition mismatch: talent=%d selfSale=%d", len(talentOrders), len(selfSaleOrders))
+	}
+	if len(talentOrders)+len(selfSaleOrders) != len(orders) {
+		t.Fatalf("partition lost or duplicated orders: all=%d talent=%d selfSale=%d", len(orders), len(talentOrders), len(selfSaleOrders))
+	}
+	if got := orderListFilterByType(orders, "unknown"); len(got) != len(orders) {
+		t.Fatalf("unknown order type filtered rows: got=%d want=%d", len(got), len(orders))
+	}
+}
+
+func TestOrderListFilterByTypeRefundAfterSale(t *testing.T) {
+	orders := []g.Map{
+		{"id": 1, "afterSaleStatus": ""},
+		{"id": 2, "afterSaleStatus": "0"},
+		{"id": 3, "afterSaleStatus": "6"},
+		{"id": 4, "afterSaleStatus": "12"},
+		{"id": 5, "afterSaleStatus": "27"},
+		{"id": 6, "afterSaleStatus": "退款关闭"},
+		{"id": 7, "afterSaleStatus": "无"},
+	}
+
+	filtered := orderListFilterByType(orders, "refund_after_sale")
+	if len(filtered) != 4 {
+		t.Fatalf("refund after-sale count = %d, want 4", len(filtered))
+	}
+	for _, order := range filtered {
+		if !orderListHasRefundAfterSale(order) {
+			t.Fatalf("non-after-sale order was included: %v", order)
+		}
 	}
 }
 

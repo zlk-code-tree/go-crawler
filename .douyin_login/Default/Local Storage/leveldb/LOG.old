@@ -1,6 +1,0 @@
-2026/03/28-11:47:37.290 3703 Reusing MANIFEST /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/.douyin_login/Default/Local Storage/leveldb/MANIFEST-000001
-2026/03/28-11:47:37.293 3703 Recovering log #3
-2026/03/28-11:47:37.294 3703 Reusing old log /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler/.douyin_login/Default/Local Storage/leveldb/000003.log 
-2026/03/28-11:47:53.474 5003 Level-0 table #5: started
-2026/03/28-11:47:53.476 5003 Level-0 table #5: 40789 bytes OK
-2026/03/28-11:47:53.476 5003 Delete type=0 #3

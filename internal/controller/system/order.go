@@ -28,11 +28,12 @@ func (c *OrderController) OrderStats(r *ghttp.Request) {
 	shopName := r.Get("shopName").String()
 	orderStatus := r.Get("orderStatus").String()
 	talentId := r.Get("talentId").String()
+	orderType := r.Get("orderType").String()
 	startTime := r.Get("startTime").String()
 	endTime := r.Get("endTime").String()
 
 	orderService := service.NewOrderService()
-	stats, err := orderService.Stats(r.Context(), keyword, shopName, orderStatus, talentId, startTime, endTime)
+	stats, err := orderService.Stats(r.Context(), keyword, shopName, orderStatus, talentId, orderType, startTime, endTime)
 	if err != nil {
 		if isOrderRequestCanceled(err) {
 			g.Log().Debug(r.Context(), "订单统计请求已取消:", err)
@@ -58,11 +59,12 @@ func (c *OrderController) OrderList(r *ghttp.Request) {
 	shopName := r.Get("shopName").String()
 	orderStatus := r.Get("orderStatus").String()
 	talentId := r.Get("talentId").String()
+	orderType := r.Get("orderType").String()
 	startTime := r.Get("startTime").String()
 	endTime := r.Get("endTime").String()
 
 	orderService := service.NewOrderService()
-	orders, total, err := orderService.List(r.Context(), page, pageSize, keyword, shopName, orderStatus, talentId, startTime, endTime)
+	orders, total, err := orderService.List(r.Context(), page, pageSize, keyword, shopName, orderStatus, talentId, orderType, startTime, endTime)
 	if err != nil {
 		if isOrderRequestCanceled(err) {
 			g.Log().Debug(r.Context(), "订单列表请求已取消:", err)
@@ -87,11 +89,12 @@ func (c *OrderController) OrderExport(r *ghttp.Request) {
 	shopName := r.Get("shopName").String()
 	orderStatus := r.Get("orderStatus").String()
 	talentId := r.Get("talentId").String()
+	orderType := r.Get("orderType").String()
 	startTime := r.Get("startTime").String()
 	endTime := r.Get("endTime").String()
 
 	orderService := service.NewOrderService()
-	filename, err := orderService.ExportToExcel(r.Context(), keyword, shopName, orderStatus, talentId, startTime, endTime)
+	filename, err := orderService.ExportToExcel(r.Context(), keyword, shopName, orderStatus, talentId, orderType, startTime, endTime)
 	if err != nil {
 		if isOrderRequestCanceled(err) {
 			g.Log().Debug(r.Context(), "订单导出请求已取消:", err)

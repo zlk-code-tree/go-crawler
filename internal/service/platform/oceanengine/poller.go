@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-crawler/internal/service"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -61,6 +60,19 @@ func GetLatestAccessToken(ctx context.Context) (string, error) {
 func MaintainAccessToken(ctx context.Context) error {
 	_, _, err := GetLatestToken(ctx)
 	return err
+}
+
+// SyncQianchuanStoreMappings 按千川官方店铺关系同步账户归属。
+func SyncQianchuanStoreMappings(ctx context.Context, accessToken string, dryRun bool) (*service.QianchuanOfficialMappingResult, error) {
+	shopIDs, err := GetShopIDs(ctx, accessToken)
+	if err != nil {
+		return nil, err
+	}
+	relations, err := ResolveQianchuanAdvertiserStoreIDs(ctx, accessToken, shopIDs)
+	if err != nil {
+		return nil, err
+	}
+	return service.NewQianchuanStoreMappingService().SyncOfficialRelations(ctx, relations, dryRun)
 }
 
 // Start 启动每日定时拉取
@@ -387,6 +399,12 @@ func (p *Poller) pullByDate(ctx context.Context, startDate, endDate string) (*Po
 	}
 	if len(advertiserIDs) == 0 {
 		return nil, fmt.Errorf("千川广告主列表为空，请先调用 /api/qianchuan-poller/sync-advertisers 同步广告主")
+	}
+	if syncResult, syncErr := SyncQianchuanStoreMappings(ctx, accessToken, false); syncErr != nil {
+		g.Log().Warningf(ctx, "[QianchuanPoller] 自动同步店铺归属失败，不阻断数据拉取: %v", syncErr)
+	} else {
+		g.Log().Infof(ctx, "[QianchuanPoller] 店铺归属同步完成: 新增%d, 已存在%d, 未匹配%d, 冲突%d",
+			syncResult.ImportedCount, syncResult.UnchangedCount, syncResult.UnmatchedCount, syncResult.ConflictCount)
 	}
 
 	g.Log().Infof(ctx, "[QianchuanPoller] pullByDate: 开始拉取 %s~%s, 广告主共%d个", startDate, endDate, len(advertiserIDs))
@@ -1375,23 +1393,27 @@ func SavePlanReports(ctx context.Context, reports []AdPlanDailyReport) (int, int
 // advertiserNameCache 广告主名称缓存（advertiser_id → name）
 var advertiserNameCache sync.Map
 
-// lookupAdvertiserName 查找千川账户名称（优先实时接口，其次DB回退）
+// lookupAdvertiserName 查找千川账户名称（优先维护的映射名称，其次历史报表）。
 func (p *Poller) lookupAdvertiserName(ctx context.Context, advID int64) string {
 	// 1. 内存缓存
 	if v, ok := advertiserNameCache.Load(advID); ok {
 		return v.(string)
 	}
 
-	// 2. 调用 advertiser/info API 获取当前广告主ID的真实名称。
-	// 旧表里可能存在按店铺/映射写入的冗余名称，不能优先用于区分多个千川账户。
-	name := fetchAdvertiserNameByAPI(ctx, advID)
-	if name != "" {
+	// 2. 优先使用Excel或人工维护的账户名称。
+	row, err := g.DB().Model("store_qianchuan_mapping").Ctx(ctx).
+		Where("qianchuan_advertiser_id", advID).
+		Where("qianchuan_advertiser_name != ''").
+		Fields("qianchuan_advertiser_name AS advertiser_name").
+		Limit(1).One()
+	if err == nil && !row.IsEmpty() {
+		name := row["advertiser_name"].String()
 		advertiserNameCache.Store(advID, name)
 		return name
 	}
 
-	// 3. 数据库回退（qianchuan_advertiser_daily_report）
-	row, err := g.DB().Model("qianchuan_advertiser_daily_report").Ctx(ctx).
+	// 3. 历史账户报表回退。
+	row, err = g.DB().Model("qianchuan_advertiser_daily_report").Ctx(ctx).
 		Where("advertiser_id", advID).
 		Where("advertiser_name != ''").
 		Fields("advertiser_name").
@@ -1416,54 +1438,5 @@ func (p *Poller) lookupAdvertiserName(ctx context.Context, advID int64) string {
 		advertiserNameCache.Store(advID, name)
 		return name
 	}
-	return ""
-}
-
-// fetchAdvertiserNameByAPI 通过千川 advertiser/type/get API 获取广告主名称
-func fetchAdvertiserNameByAPI(ctx context.Context, advID int64) string {
-	row, err := g.DB().Model("qianchuan_token").Ctx(ctx).OrderDesc("id").Limit(1).One()
-	if err != nil || row.IsEmpty() {
-		return ""
-	}
-	token := row["access_token"].String()
-
-	// 千川专用 API: /open_api/v1.0/qianchuan/advertiser/type/get/
-	url := fmt.Sprintf("https://api.oceanengine.com/open_api/v1.0/qianchuan/advertiser/type/get/?advertiser_ids=%s&access_token=%s",
-		url.QueryEscape(fmt.Sprintf("[%d]", advID)), token)
-
-	client := g.Client()
-	resp, err := client.Get(ctx, url)
-	if err != nil {
-		g.Log().Warningf(ctx, "[lookupName] advID=%d: API请求失败: %v", advID, err)
-		return ""
-	}
-	defer resp.Close()
-	body := resp.ReadAllString()
-
-	var result struct {
-		Code    int64  `json:"code"`
-		Message string `json:"message"`
-		Data    struct {
-			List []struct {
-				AdvertiserId   int64  `json:"advertiser_id"`
-				AdvertiserName string `json:"advertiser_name"`
-			} `json:"list"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal([]byte(body), &result); err != nil {
-		g.Log().Warningf(ctx, "[lookupName] advID=%d: 解析失败 body=%s", advID, body[:min(len(body), 200)])
-		return ""
-	}
-	if result.Code != 0 {
-		g.Log().Warningf(ctx, "[lookupName] advID=%d: API返回错误 code=%d msg=%s", advID, result.Code, result.Message)
-		return ""
-	}
-	for _, item := range result.Data.List {
-		if item.AdvertiserId == advID && item.AdvertiserName != "" {
-			g.Log().Infof(ctx, "[lookupName] advID=%d → %s", advID, item.AdvertiserName)
-			return item.AdvertiserName
-		}
-	}
-	g.Log().Infof(ctx, "[lookupName] advID=%d: API返回空列表 (code=0, msg=%s)", advID, result.Message)
 	return ""
 }

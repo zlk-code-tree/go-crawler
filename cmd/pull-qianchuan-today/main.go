@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -14,11 +15,15 @@ import (
 )
 
 func main() {
+	today := time.Now().Format("2006-01-02")
+	startDate := flag.String("start", today, "开始日期，格式 2006-01-02")
+	endDate := flag.String("end", today, "结束日期，格式 2006-01-02")
+	flag.Parse()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
-	today := time.Now().Format("2006-01-02")
-	result, err := oceanengine.GetPoller().ManualPullByDate(ctx, today, today)
+	result, err := oceanengine.GetPoller().ManualPullByDate(ctx, *startDate, *endDate)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

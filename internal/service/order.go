@@ -10,9 +10,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"go-crawler/internal/model"
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -23,10 +26,109 @@ import (
 
 type OrderService struct{}
 
+type enrichedDouyinOrderCacheEntry struct {
+	expiresAt time.Time
+	orders    []g.Map
+}
+
+type enrichedDouyinOrderLoad struct {
+	done   chan struct{}
+	orders []g.Map
+	err    error
+}
+
+var enrichedDouyinOrderCache sync.Map
+var enrichedDouyinOrderLoadMu sync.Mutex
+var enrichedDouyinOrderLoads = make(map[string]*enrichedDouyinOrderLoad)
+
+const (
+	enrichedDouyinOrderCacheTTL     = time.Minute
+	enrichedDouyinOrderBuildTimeout = 2 * time.Minute
+)
+
 const orderListInternalCommissionRate = 0.05
 
 func NewOrderService() *OrderService {
 	return &OrderService{}
+}
+
+func (s *OrderService) loadEnrichedDouyinOrders(ctx context.Context, startDate, endDate string) ([]g.Map, error) {
+	cacheKey := startDate + "\x00" + endDate
+	if orders, ok := getCachedEnrichedDouyinOrders(cacheKey); ok {
+		return orders, nil
+	}
+
+	enrichedDouyinOrderLoadMu.Lock()
+	if orders, ok := getCachedEnrichedDouyinOrders(cacheKey); ok {
+		enrichedDouyinOrderLoadMu.Unlock()
+		return orders, nil
+	}
+	load, loading := enrichedDouyinOrderLoads[cacheKey]
+	if !loading {
+		load = &enrichedDouyinOrderLoad{done: make(chan struct{})}
+		enrichedDouyinOrderLoads[cacheKey] = load
+		go s.buildEnrichedDouyinOrderCache(context.WithoutCancel(ctx), cacheKey, startDate, endDate, load)
+	}
+	enrichedDouyinOrderLoadMu.Unlock()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-load.done:
+		return load.orders, load.err
+	}
+}
+
+func getCachedEnrichedDouyinOrders(cacheKey string) ([]g.Map, bool) {
+	cached, ok := enrichedDouyinOrderCache.Load(cacheKey)
+	if !ok {
+		return nil, false
+	}
+	entry := cached.(enrichedDouyinOrderCacheEntry)
+	if time.Now().Before(entry.expiresAt) {
+		return entry.orders, true
+	}
+	enrichedDouyinOrderCache.Delete(cacheKey)
+	return nil, false
+}
+
+func (s *OrderService) buildEnrichedDouyinOrderCache(parent context.Context, cacheKey, startDate, endDate string, load *enrichedDouyinOrderLoad) {
+	buildCtx, cancel := context.WithTimeout(parent, enrichedDouyinOrderBuildTimeout)
+	defer cancel()
+
+	load.orders, load.err = s.queryEnrichedDouyinOrders(buildCtx, startDate, endDate)
+	if load.err == nil {
+		enrichedDouyinOrderCache.Store(cacheKey, enrichedDouyinOrderCacheEntry{
+			expiresAt: time.Now().Add(enrichedDouyinOrderCacheTTL),
+			orders:    load.orders,
+		})
+	}
+
+	enrichedDouyinOrderLoadMu.Lock()
+	delete(enrichedDouyinOrderLoads, cacheKey)
+	close(load.done)
+	enrichedDouyinOrderLoadMu.Unlock()
+}
+
+func (s *OrderService) queryEnrichedDouyinOrders(ctx context.Context, startDate, endDate string) ([]g.Map, error) {
+	rows, err := g.DB().GetAll(ctx, `
+		SELECT o.*, COALESCE(g.base_price, 0) AS base_price
+		FROM order_info o
+		LEFT JOIN (SELECT goods_code, MAX(base_price) AS base_price FROM goods GROUP BY goods_code) g ON o.seller_code = g.goods_code
+		WHERE o.pay_finish_time >= ?
+		  AND o.pay_finish_time < ?
+		  AND o.main_order_no IS NOT NULL
+		  AND o.main_order_no != ''
+		ORDER BY o.id ASC
+	`, startDate+" 00:00:00", CalcEndDateNext(endDate)+" 00:00:00")
+	if err != nil {
+		return nil, err
+	}
+	orders, err := s.enrichDouyinOrderRows(ctx, rows)
+	if err != nil {
+		return nil, err
+	}
+	return orders, nil
 }
 
 func orderListTalentUIDExpr(alias string) string {
@@ -136,19 +238,25 @@ func orderListCountTalentCondition(alias string) string {
 			AND EXISTS (
 				SELECT 1
 				FROM qianchuan_ad_report qar
-				INNER JOIN account shop ON shop.id = qar.account_id
+				LEFT JOIN account legacy_shop ON legacy_shop.id = qar.account_id
+				LEFT JOIN (
+					SELECT sqm.qianchuan_advertiser_id, MAX(s.store_name) AS shop_name
+					FROM store_qianchuan_mapping sqm
+					INNER JOIN store s ON s.id = sqm.store_id
+					GROUP BY sqm.qianchuan_advertiser_id
+				) mapped_shop ON mapped_shop.qianchuan_advertiser_id = qar.advertiser_id
 				LEFT JOIN account target_account
 					ON target_account.platform = 'douyin'
 					AND target_account.status = 1
 					AND target_account.uid = ?
 					AND target_account.platform_nickname COLLATE utf8mb4_unicode_ci = qar.aweme_show_id COLLATE utf8mb4_unicode_ci
-				WHERE shop.account_name COLLATE utf8mb4_unicode_ci = %s.shop_name COLLATE utf8mb4_unicode_ci
+				WHERE COALESCE(mapped_shop.shop_name, legacy_shop.account_name) COLLATE utf8mb4_unicode_ci = %s.shop_name COLLATE utf8mb4_unicode_ci
 				  AND CAST(qar.product_id AS CHAR) COLLATE utf8mb4_unicode_ci = CAST(%s.product_id AS CHAR) COLLATE utf8mb4_unicode_ci
 				  AND LEFT(qar.stat_datetime, 10) = LEFT(COALESCE(%s.pay_finish_time, %s.order_submit_time), 10)
 				  AND qar.aweme_show_id IS NOT NULL
 				  AND qar.aweme_show_id != ''
 				  AND (qar.stat_cost > 0 OR qar.pay_order_count > 0 OR qar.create_order_count > 0)
-				GROUP BY LEFT(qar.stat_datetime, 10), shop.account_name, CAST(qar.product_id AS CHAR)
+				GROUP BY LEFT(qar.stat_datetime, 10), COALESCE(mapped_shop.shop_name, legacy_shop.account_name), CAST(qar.product_id AS CHAR)
 				HAVING COUNT(DISTINCT target_account.id) > 0
 			)
 		)
@@ -158,7 +266,7 @@ func orderListCountTalentCondition(alias string) string {
 func orderListFromSQL() string {
 	return `
 		FROM order_info o
-		LEFT JOIN goods g ON o.seller_code = g.goods_code
+		LEFT JOIN (SELECT goods_code, MAX(base_price) AS base_price FROM goods GROUP BY goods_code) g ON o.seller_code = g.goods_code
 		LEFT JOIN alliance_orders ao ON ao.platform = 'douyin' AND ao.order_id = o.sub_order_no
 		LEFT JOIN (
 			SELECT
@@ -493,6 +601,103 @@ func orderListFilterByTalent(orders []g.Map, talentID string) []g.Map {
 		}
 	}
 	return filtered
+}
+
+func normalizeOrderListType(orderType string) string {
+	switch strings.ToLower(strings.TrimSpace(orderType)) {
+	case "self_sale":
+		return "self_sale"
+	case "talent":
+		return "talent"
+	case "refund_after_sale":
+		return "refund_after_sale"
+	default:
+		return ""
+	}
+}
+
+func orderListIsSelfSale(order g.Map) bool {
+	return gconv.Bool(order["isShopSelfSale"]) || gconv.String(order["orderOwnershipCode"]) == "self_sale"
+}
+
+func orderListHasRefundAfterSale(order g.Map) bool {
+	status := strings.ToLower(strings.TrimSpace(gconv.String(order["afterSaleStatus"])))
+	switch status {
+	case "", "0", "none", "null", "无", "未申请", "未发起":
+		return false
+	default:
+		return true
+	}
+}
+
+func orderListFilterByType(orders []g.Map, orderType string) []g.Map {
+	orderType = normalizeOrderListType(orderType)
+	if orderType == "" {
+		return orders
+	}
+	filtered := make([]g.Map, 0, len(orders))
+	for _, order := range orders {
+		if orderType == "refund_after_sale" {
+			if orderListHasRefundAfterSale(order) {
+				filtered = append(filtered, order)
+			}
+			continue
+		}
+		isSelfSale := orderListIsSelfSale(order)
+		if (orderType == "self_sale" && isSelfSale) || (orderType == "talent" && !isSelfSale) {
+			filtered = append(filtered, order)
+		}
+	}
+	return filtered
+}
+
+func orderListQueryDateRange(startTime, endTime string) (string, string) {
+	today := time.Now().Format("2006-01-02")
+	startDate, endDate := today, today
+	if len(startTime) >= 10 {
+		startDate = startTime[:10]
+	}
+	if len(endTime) >= 10 {
+		endDate = endTime[:10]
+	} else if len(startTime) >= 10 {
+		endDate = startDate
+	}
+	return startDate, endDate
+}
+
+func orderListFilterEnriched(orders []g.Map, keyword, shopName, orderStatus, talentID, orderType, startTime, endTime string) []g.Map {
+	keyword = strings.ToLower(strings.TrimSpace(keyword))
+	filtered := make([]g.Map, 0, len(orders))
+	for _, order := range orders {
+		if shopName != "" && gconv.String(order["shopName"]) != shopName {
+			continue
+		}
+		if orderStatus != "" && gconv.String(order["rawOrderStatus"]) != orderStatus && gconv.String(order["orderStatus"]) != orderStatus {
+			continue
+		}
+		if keyword != "" {
+			matched := false
+			for _, field := range []string{"subOrderNo", "mainOrderNo", "productName", "talentName", "douyinAccount", "talentId"} {
+				if strings.Contains(strings.ToLower(gconv.String(order[field])), keyword) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+		payTime := formatTime(order["payFinishTime"])
+		if startTime != "" && payTime < startTime {
+			continue
+		}
+		if endTime != "" && payTime > endTime {
+			continue
+		}
+		filtered = append(filtered, order)
+	}
+	filtered = orderListFilterByTalent(filtered, talentID)
+	return orderListFilterByType(filtered, orderType)
 }
 
 func orderListPage(orders []g.Map, page, pageSize int) []g.Map {
@@ -870,13 +1075,20 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 		if len(matches) == 0 {
 			return matches
 		}
+		var totalPayOrders int64
 		var totalCost float64
 		for _, match := range matches {
+			totalPayOrders += match.payOrderCount
 			totalCost += match.statCost
 		}
 		for i := range matches {
-			matches[i].allocationRatio = orderListWeightedRatio(totalCost, matches[i].statCost)
-			matches[i].allocationBasis = "stat_cost"
+			if totalPayOrders > 0 {
+				matches[i].allocationRatio = orderListWeightedRatio(float64(totalPayOrders), float64(matches[i].payOrderCount))
+				matches[i].allocationBasis = "pay_order_count"
+			} else {
+				matches[i].allocationRatio = orderListWeightedRatio(totalCost, matches[i].statCost)
+				matches[i].allocationBasis = "stat_cost"
+			}
 		}
 		return matches
 	}
@@ -934,7 +1146,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			conds := make([]string, 0, len(batch))
 			params := make([]interface{}, 0, len(batch)*3)
 			for _, req := range batch {
-				conds = append(conds, "(LEFT(qar.stat_datetime, 10) = ? AND shop.account_name COLLATE utf8mb4_unicode_ci = CAST(? AS CHAR) COLLATE utf8mb4_unicode_ci AND CAST(qar.product_id AS CHAR) COLLATE utf8mb4_unicode_ci = CAST(? AS CHAR) COLLATE utf8mb4_unicode_ci)")
+				conds = append(conds, "(LEFT(qar.stat_datetime, 10) = ? AND COALESCE(mapped_shop.shop_name, legacy_shop.account_name) COLLATE utf8mb4_unicode_ci = CAST(? AS CHAR) COLLATE utf8mb4_unicode_ci AND CAST(qar.product_id AS CHAR) COLLATE utf8mb4_unicode_ci = CAST(? AS CHAR) COLLATE utf8mb4_unicode_ci)")
 				params = append(params, req.statDate, req.shopName, req.productID)
 			}
 
@@ -956,7 +1168,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				FROM (
 					SELECT
 							LEFT(qar.stat_datetime, 10) AS stat_date,
-							shop.account_name AS shop_name,
+							COALESCE(mapped_shop.shop_name, legacy_shop.account_name) AS shop_name,
 							CAST(qar.product_id AS CHAR) AS product_id,
 							qar.ad_id AS ad_id,
 							MAX(qar.ad_name) AS ad_name,
@@ -964,14 +1176,21 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 							COALESCE(SUM(qar.pay_order_count), 0) AS pay_order_count,
 							COALESCE(SUM(qar.stat_cost), 0) AS stat_cost
 					FROM qianchuan_ad_report qar
-					INNER JOIN account shop ON shop.id = qar.account_id
+					LEFT JOIN account legacy_shop ON legacy_shop.id = qar.account_id
+					LEFT JOIN (
+						SELECT sqm.qianchuan_advertiser_id, MAX(s.store_name) AS shop_name
+						FROM store_qianchuan_mapping sqm
+						INNER JOIN store s ON s.id = sqm.store_id
+						GROUP BY sqm.qianchuan_advertiser_id
+					) mapped_shop ON mapped_shop.qianchuan_advertiser_id = qar.advertiser_id
 					WHERE qar.product_id IS NOT NULL
 					  AND qar.product_id != ''
 					  AND qar.aweme_show_id IS NOT NULL
 						  AND qar.aweme_show_id != ''
 						  AND qar.stat_cost > 0
+						  AND COALESCE(mapped_shop.shop_name, legacy_shop.account_name) IS NOT NULL
 						  AND (%s)
-					GROUP BY LEFT(qar.stat_datetime, 10), shop.account_name, CAST(qar.product_id AS CHAR), qar.ad_id, qar.aweme_show_id
+					GROUP BY LEFT(qar.stat_datetime, 10), COALESCE(mapped_shop.shop_name, legacy_shop.account_name), CAST(qar.product_id AS CHAR), qar.ad_id, qar.aweme_show_id
 				) q
 				LEFT JOIN (
 					SELECT
@@ -1291,17 +1510,28 @@ type OrderStats struct {
 }
 
 // Stats 查询订单统计
-func (s *OrderService) Stats(ctx context.Context, keyword, shopName, orderStatus, talentId, startTime, endTime string) (*OrderStats, error) {
+func (s *OrderService) Stats(ctx context.Context, keyword, shopName, orderStatus, talentId, orderType, startTime, endTime string) (*OrderStats, error) {
 	stats := &OrderStats{
 		SyncDate: time.Now().Format("2006-01-02"),
 	}
 
-	// 纯历史数据 → 优先从预聚合表读取
-	today := time.Now().Format("2006-01-02")
-	if keyword == "" && orderStatus == "" && talentId == "" && endTime != "" && endTime < today {
-		if result := s.getOrderStatsFromTable(ctx, shopName, startTime, endTime); result != nil {
-			return result, nil
+	if normalizeOrderListType(orderType) != "" {
+		startDate, endDate := orderListQueryDateRange(startTime, endTime)
+		orders, err := s.loadEnrichedDouyinOrders(ctx, startDate, endDate)
+		if err != nil {
+			return nil, err
 		}
+		allTypeOrders := orderListFilterEnriched(orders, keyword, shopName, orderStatus, talentId, "", startTime, endTime)
+		filteredOrders := orderListFilterByType(allTypeOrders, orderType)
+		allTypeStats := s.statsFromEnrichedOrders(ctx, allTypeOrders, talentId, shopName, startTime, endTime)
+		stats := s.statsFromEnrichedOrders(ctx, filteredOrders, talentId, shopName, startTime, endTime)
+		stats.AdCostAmount = 0
+		if allTypeStats.ValidPayAmount > 0 {
+			stats.AdCostAmount = roundFloatOrder(allTypeStats.AdCostAmount*stats.ValidPayAmount/allTypeStats.ValidPayAmount, 2)
+		}
+		commissionDeduction := stats.ValidPayAmount * 0.005
+		stats.RealtimeProfit = roundFloatOrder(CalculateOrderProfit(stats.ValidPayAmount, stats.ProductCostAmount, stats.ReserveAmount, stats.RefundCostAmount, stats.ShopServiceFee, commissionDeduction, 0, stats.AdCostAmount), 2)
+		return stats, nil
 	}
 
 	// 统计与千川归属统一使用支付完成时间。
@@ -1341,7 +1571,7 @@ func (s *OrderService) Stats(ctx context.Context, keyword, shopName, orderStatus
 
 	// 千川归属是稳定加权的整单结果。达人筛选必须先完成归属，再统计最终命中的订单。
 	if talentId != "" {
-		detailQuery := "SELECT o.*, COALESCE(g.base_price, 0) AS base_price FROM order_info o LEFT JOIN goods g ON o.seller_code = g.goods_code WHERE " + strings.Join(whereClauses, " AND ") + " ORDER BY o.id DESC"
+		detailQuery := "SELECT o.*, COALESCE(g.base_price, 0) AS base_price FROM order_info o LEFT JOIN (SELECT goods_code, MAX(base_price) AS base_price FROM goods GROUP BY goods_code) g ON o.seller_code = g.goods_code WHERE " + strings.Join(whereClauses, " AND ") + " ORDER BY o.id DESC"
 		rows, detailErr := g.DB().GetAll(ctx, detailQuery, whereParams...)
 		if detailErr != nil {
 			return nil, detailErr
@@ -1366,7 +1596,7 @@ func (s *OrderService) Stats(ctx context.Context, keyword, shopName, orderStatus
 			COALESCE(SUM(CASE WHEN ` + refundJoinClause + ` THEN 1 ELSE 0 END), 0) AS refund_order_count,
 			COALESCE(SUM(CASE WHEN ` + validJoinClause + ` AND COALESCE(g.base_price, 0) > 0 THEN 1 ELSE 0 END), 0) AS valid_order_cost_match
 		FROM order_info o
-		LEFT JOIN goods g ON o.seller_code = g.goods_code
+		LEFT JOIN (SELECT goods_code, MAX(base_price) AS base_price FROM goods GROUP BY goods_code) g ON o.seller_code = g.goods_code
 		WHERE ` + strings.Join(whereClauses, " AND ")
 
 	row, err := g.DB().GetOne(ctx, aggregateQuery, whereParams...)
@@ -1419,7 +1649,7 @@ func (s *OrderService) Stats(ctx context.Context, keyword, shopName, orderStatus
 	// 13. 实时利润 = 总商品金额 - 货款 - 留底 - 退款成本 - 小店服务费 - 佣金扣除 - 广告费
 	// 佣金扣除 = 定价总额 × 0.5%（即 5% × 0.1）
 	commissionDeduction := totalProductAmount * 0.005
-	stats.RealtimeProfit = CalculateOrderProfit(totalProductAmount, stats.ProductCostAmount, stats.ReserveAmount, stats.RefundCostAmount, stats.ShopServiceFee, commissionDeduction, 0, stats.AdCostAmount)
+	stats.RealtimeProfit = roundFloatOrder(CalculateOrderProfit(totalProductAmount, stats.ProductCostAmount, stats.ReserveAmount, stats.RefundCostAmount, stats.ShopServiceFee, commissionDeduction, 0, stats.AdCostAmount), 2)
 
 	return stats, nil
 }
@@ -1465,10 +1695,122 @@ func (s *OrderService) statsFromEnrichedOrders(ctx context.Context, orders []g.M
 	if stats.OnlineCommission < 0 {
 		stats.OnlineCommission = 0
 	}
-	stats.AdCostAmount = s.getAdCostByTalent(ctx, talentID, shopName, startTime, endTime)
+	if orderListNormalizedTalentID(talentID) == "" {
+		stats.AdCostAmount = s.getAdCost(ctx, shopName, startTime, endTime)
+	} else {
+		stats.AdCostAmount = s.getAdCostByTalent(ctx, talentID, shopName, startTime, endTime)
+	}
 	commissionDeduction := stats.ValidPayAmount * 0.005
 	stats.RealtimeProfit = roundFloatOrder(CalculateOrderProfit(stats.ValidPayAmount, stats.ProductCostAmount, stats.ReserveAmount, stats.RefundCostAmount, stats.ShopServiceFee, commissionDeduction, 0, stats.AdCostAmount), 2)
 	return stats
+}
+
+// statsDouyinOrdersByOwner 在汇总投手抖音订单前复用订单列表的联盟/千川归属规则。
+func (s *OrderService) statsDouyinOrdersByOwner(ctx context.Context, accountIDs []int, traderName, startDate, endDate string) (*model.FinanceStatsSummary, error) {
+	if len(accountIDs) == 0 || strings.TrimSpace(traderName) == "" {
+		return &model.FinanceStatsSummary{}, nil
+	}
+
+	uidRows, err := g.DB().Model("account").Ctx(ctx).
+		WhereIn("id", accountIDs).
+		Where("platform", "douyin").
+		Where("status", 1).
+		Fields("uid").All()
+	if err != nil {
+		return nil, err
+	}
+	selectedUIDs := make(map[string]struct{}, len(uidRows))
+	for _, row := range uidRows {
+		if uid := orderListNormalizedTalentID(row["uid"].String()); uid != "" {
+			selectedUIDs[uid] = struct{}{}
+		}
+	}
+	if len(selectedUIDs) == 0 {
+		return &model.FinanceStatsSummary{}, nil
+	}
+
+	enriched, err := s.loadEnrichedDouyinOrders(ctx, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+
+	stats := &model.FinanceStatsSummary{}
+	totalOrders := make(map[string]struct{})
+	validOrders := make(map[string]struct{})
+	invalidOrders := make(map[string]struct{})
+	refundOrders := make(map[string]struct{})
+	validCostOrders := make(map[string]struct{})
+	commissionOrders := make(map[string]struct{})
+	for _, order := range enriched {
+		talentUID := orderListNormalizedTalentID(gconv.String(order["talentId"]))
+		owner := strings.TrimSpace(gconv.String(order["teamOwner"]))
+		_, selected := selectedUIDs[talentUID]
+		if owner != traderName && !(owner == "" && selected) {
+			continue
+		}
+
+		orderKey := orderListFirstNonEmpty(
+			gconv.String(order["mainOrderNo"]),
+			gconv.String(order["subOrderNo"]),
+			gconv.String(order["allocationRowId"]),
+		)
+		if orderKey == "" {
+			continue
+		}
+		totalOrders[orderKey] = struct{}{}
+
+		orderStatus := gconv.String(order["rawOrderStatus"])
+		afterSaleStatus := gconv.String(order["afterSaleStatus"])
+		if !IsValidOrderForStats(orderStatus, afterSaleStatus) {
+			if IsInvalidOrderForStats(afterSaleStatus) {
+				invalidOrders[orderKey] = struct{}{}
+			}
+			if IsRefundCostOrderForStats(afterSaleStatus, gconv.String(order["sendTime"])) {
+				refundOrders[orderKey] = struct{}{}
+				stats.RefundCostAmount += gconv.Float64(order["productCost"])
+			}
+			continue
+		}
+
+		validOrders[orderKey] = struct{}{}
+		productNum := gconv.Int(order["productNum"])
+		productCost := gconv.Float64(order["productCost"])
+		stats.ProductNum += productNum
+		stats.PayAmount += gconv.Float64(order["productPrice"]) * float64(productNum)
+		stats.CostAmount += productCost
+		if productCost > 0 {
+			validCostOrders[orderKey] = struct{}{}
+		}
+		if gconv.Float64(order["commission"]) != 0 {
+			commissionOrders[orderKey] = struct{}{}
+		}
+	}
+
+	stats.TotalOrderCount = len(totalOrders)
+	stats.OrderCount = len(validOrders)
+	stats.InvalidOrderCount = len(invalidOrders)
+	stats.RefundOrderCount = len(refundOrders)
+	stats.ValidOrderCostMatch = len(validCostOrders)
+	stats.CommissionOrderCount = len(commissionOrders)
+	stats.PayAmount = roundFloatFinance(stats.PayAmount, 2)
+	stats.CostAmount = roundFloatFinance(stats.CostAmount, 2)
+	stats.ReserveAmount = CalculateReserveAmount(stats.PayAmount)
+	stats.RefundCostAmount = roundFloatFinance(stats.RefundCostAmount, 2)
+	stats.ShopServiceFee = CalculateDouyinShopServiceFee(stats.PayAmount)
+	// 与 statsOrderTable 保持返回契约一致，平台服务费由上层合并时统一扣除。
+	stats.Commission = roundFloatFinance(stats.PayAmount-stats.ReserveAmount-stats.CostAmount, 2)
+	commissionDeduction := roundFloatFinance(stats.PayAmount*0.005, 2)
+	stats.RealtimeProfit = roundFloatFinance(CalculateOrderProfit(
+		stats.PayAmount,
+		stats.CostAmount,
+		stats.ReserveAmount,
+		stats.RefundCostAmount,
+		stats.ShopServiceFee,
+		commissionDeduction,
+		0,
+		0,
+	), 2)
+	return stats, nil
 }
 
 func (s *OrderService) getAdCostByTalent(ctx context.Context, talentID, shopName, startTime, endTime string) float64 {
@@ -1485,11 +1827,17 @@ func (s *OrderService) getAdCostByTalent(ctx context.Context, talentID, shopName
 			  AND platform_nickname IS NOT NULL AND platform_nickname != ''
 			GROUP BY platform_nickname
 		) target ON target.platform_nickname COLLATE utf8mb4_unicode_ci = qar.aweme_show_id COLLATE utf8mb4_unicode_ci
-		INNER JOIN account shop ON shop.id = qar.account_id
+		LEFT JOIN account legacy_shop ON legacy_shop.id = qar.account_id
+		LEFT JOIN (
+			SELECT sqm.qianchuan_advertiser_id, MAX(s.store_name) AS shop_name
+			FROM store_qianchuan_mapping sqm
+			INNER JOIN store s ON s.id = sqm.store_id
+			GROUP BY sqm.qianchuan_advertiser_id
+		) mapped_shop ON mapped_shop.qianchuan_advertiser_id = qar.advertiser_id
 		WHERE target.uid = ?`
 	params := []interface{}{talentID}
 	if shopName != "" {
-		query += " AND shop.account_name = ?"
+		query += " AND COALESCE(mapped_shop.shop_name, legacy_shop.account_name) = ?"
 		params = append(params, shopName)
 	}
 	if len(startTime) >= 10 {
@@ -1557,8 +1905,17 @@ func (s *OrderService) getAdCost(ctx context.Context, shopName string, startTime
 }
 
 // List 查询订单列表
-func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, shopName, orderStatus, talentId string, startTime, endTime string) ([]g.Map, int64, error) {
-	query := "SELECT o.*, COALESCE(g.base_price, 0) AS base_price FROM order_info o LEFT JOIN goods g ON o.seller_code = g.goods_code WHERE 1=1"
+func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, shopName, orderStatus, talentId, orderType string, startTime, endTime string) ([]g.Map, int64, error) {
+	if normalizeOrderListType(orderType) != "" {
+		startDate, endDate := orderListQueryDateRange(startTime, endTime)
+		orders, err := s.loadEnrichedDouyinOrders(ctx, startDate, endDate)
+		if err != nil {
+			return nil, 0, err
+		}
+		orders = orderListFilterEnriched(orders, keyword, shopName, orderStatus, talentId, orderType, startTime, endTime)
+		return orderListPage(orders, page, pageSize), int64(len(orders)), nil
+	}
+	query := "SELECT o.*, COALESCE(g.base_price, 0) AS base_price FROM order_info o LEFT JOIN (SELECT goods_code, MAX(base_price) AS base_price FROM goods GROUP BY goods_code) g ON o.seller_code = g.goods_code WHERE 1=1"
 	params := []interface{}{}
 	countQuery := "SELECT COUNT(*) as total FROM order_info o WHERE 1=1"
 	countParams := []interface{}{}
@@ -1621,6 +1978,7 @@ func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, sh
 			return nil, 0, err
 		}
 		orders = orderListFilterByTalent(orders, talentId)
+		orders = orderListFilterByType(orders, orderType)
 		return orderListPage(orders, page, pageSize), int64(len(orders)), nil
 	}
 
@@ -1649,8 +2007,13 @@ func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, sh
 }
 
 // ExportToExcel 导出订单数据到Excel
-func (s *OrderService) ExportToExcel(ctx context.Context, keyword, shopName, orderStatus, talentId string, startTime, endTime string) (string, error) {
-	query := "SELECT o.*, COALESCE(g.base_price, 0) AS base_price FROM order_info o LEFT JOIN goods g ON o.seller_code = g.goods_code WHERE 1=1"
+func (s *OrderService) ExportToExcel(ctx context.Context, keyword, shopName, orderStatus, talentId, orderType string, startTime, endTime string) (string, error) {
+	if normalizeOrderListType(orderType) != "" && startTime == "" && endTime == "" {
+		startDate, _ := orderListQueryDateRange(startTime, endTime)
+		startTime = startDate + " 00:00:00"
+		endTime = startDate + " 23:59:59"
+	}
+	query := "SELECT o.*, COALESCE(g.base_price, 0) AS base_price FROM order_info o LEFT JOIN (SELECT goods_code, MAX(base_price) AS base_price FROM goods GROUP BY goods_code) g ON o.seller_code = g.goods_code WHERE 1=1"
 	params := []interface{}{}
 
 	if keyword != "" {
@@ -1697,6 +2060,7 @@ func (s *OrderService) ExportToExcel(ctx context.Context, keyword, shopName, ord
 		return "", err
 	}
 	orders = orderListFilterByTalent(orders, talentId)
+	orders = orderListFilterByType(orders, orderType)
 	if len(orders) == 0 {
 		return "", gerror.New("没有数据可导出")
 	}

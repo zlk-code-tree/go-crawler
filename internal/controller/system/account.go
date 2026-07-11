@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
@@ -332,6 +333,73 @@ func (c *AccountController) QianchuanMappingAutoBind(r *ghttp.Request) {
 			"dryRun":   dryRun,
 		},
 		"msg": fmt.Sprintf("%s完成：共%d个广告主，新绑定%d个", mode, total, newBound),
+	})
+}
+
+// QianchuanStoreMappingImport 预览或导入店铺与千川账户归属。
+// POST /api/qianchuan-mapping/import?dryRun=true
+func (c *AccountController) QianchuanStoreMappingImport(r *ghttp.Request) {
+	r.SetCtxVar("timeout", 600)
+	dryRun := r.Get("dryRun", true).Bool()
+	file := r.GetUploadFile("file")
+	if file == nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "请上传千川账户Excel"})
+		return
+	}
+	if !strings.EqualFold(filepath.Ext(file.Filename), ".xlsx") {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "只支持.xlsx格式的Excel文件"})
+		return
+	}
+	if file.Size > 10*1024*1024 {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "文件大小不能超过10MB"})
+		return
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "打开上传文件失败: " + err.Error()})
+		return
+	}
+	defer src.Close()
+
+	uploadDir := filepath.Join(os.TempDir(), "go-crawler-qianchuan-import")
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "创建临时目录失败: " + err.Error()})
+		return
+	}
+	tempFile := filepath.Join(uploadDir, fmt.Sprintf("qianchuan_%d_%d.xlsx", r.GetCtxVar("userId").Int64(), time.Now().UnixNano()))
+	dst, err := os.Create(tempFile)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "创建临时文件失败: " + err.Error()})
+		return
+	}
+	if _, err = io.Copy(dst, src); err != nil {
+		dst.Close()
+		os.Remove(tempFile)
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "保存上传文件失败: " + err.Error()})
+		return
+	}
+	if err = dst.Close(); err != nil {
+		os.Remove(tempFile)
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "关闭临时文件失败: " + err.Error()})
+		return
+	}
+	defer os.Remove(tempFile)
+
+	result, err := service.NewQianchuanStoreMappingService().ImportExcel(r.Context(), tempFile, dryRun)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "处理千川账户归属失败: " + err.Error()})
+		return
+	}
+	mode := "预览"
+	if !dryRun {
+		mode = "导入"
+	}
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"data": result,
+		"msg": fmt.Sprintf("%s完成：共%d条，可绑定%d条，已绑定%d条，未匹配%d条，冲突%d条",
+			mode, result.TotalCount, result.ReadyCount, result.ImportedCount, result.UnmatchedCount, result.ConflictCount),
 	})
 }
 

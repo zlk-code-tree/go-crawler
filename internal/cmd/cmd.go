@@ -562,12 +562,15 @@ var (
 				group.POST("/qianchuan-mapping/unbind", accountCtrl.QianchuanMappingUnbind)
 				group.GET("/qianchuan-mapping/advertisers", accountCtrl.QianchuanAdvertisers)
 				group.POST("/qianchuan-mapping/auto-bind", accountCtrl.QianchuanMappingAutoBind)
+				group.POST("/qianchuan-mapping/import", accountCtrl.QianchuanStoreMappingImport)
 				group.POST("/account/sync-org-attribution", accountCtrl.SyncOrgAttribution)
 				group.POST("/account/sync-trader-relations", accountCtrl.SyncTraderRelations)
 
 				// 实时盈亏查询（含千川消耗）
 				group.GET("/finance/today-cost", system.NewFinanceController().TodayCost)
 				group.GET("/finance/cost-ranking", system.NewFinanceController().CostRanking)
+				group.GET("/finance/store-cost-stats", system.NewFinanceController().StoreCostStats)
+				group.GET("/finance/store-cost-detail", system.NewFinanceController().StoreCostDetail)
 				group.GET("/finance/subject-cost-stats", system.NewFinanceController().SubjectCostStats)
 				group.GET("/finance/subject-cost-detail", system.NewFinanceController().SubjectCostDetail)
 				group.GET("/finance/author-cost-ranking", system.NewFinanceController().AuthorCostRanking)
@@ -599,6 +602,7 @@ var (
 				group.GET("/finance/cost-ranking-export", financeCtrl.CostRankingExport)
 				group.GET("/finance/author-cost-ranking-export", financeCtrl.AuthorCostRankingExport)
 				group.GET("/finance/cost-detail-export", financeCtrl.CostDetailExport)
+				group.GET("/finance/store-cost-detail-export", financeCtrl.StoreCostDetailExport)
 				group.GET("/finance/subject-cost-detail-export", financeCtrl.SubjectCostDetailExport)
 				group.GET("/finance/overall-detail-export", financeCtrl.OverallDetailExport)
 				// 抖店轮询器控制

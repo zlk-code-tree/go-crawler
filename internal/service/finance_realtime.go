@@ -93,7 +93,10 @@ func (s *FinanceCommissionService) GetRealtimeProfit(ctx context.Context, req *R
 		traderName, _ := s.getTraderName(ctx, req.TraderId)
 		if traderName != "" {
 			stats, err := s.statsOrdersByAccountIds(ctx, accountIds, startDate, endDate, traderName)
-			if err == nil && stats != nil {
+			if err != nil {
+				return nil, fmt.Errorf("查询投手订单归属失败: %w", err)
+			}
+			if stats != nil {
 				result.OrderCount = int64(stats.OrderCount)
 				result.PayAmount = stats.PayAmount
 				result.CostAmount = stats.CostAmount
@@ -363,8 +366,13 @@ type QianchuanCostDetailItem struct {
 	OrderCount     int64   `json:"orderCount"`
 }
 
-// QianchuanSubjectCostItem 账户主体消耗统计
-type QianchuanSubjectCostItem struct {
+// QianchuanStoreCostItem 店铺消耗统计。
+type QianchuanStoreCostItem struct {
+	StoreID      int64  `json:"storeId"`
+	StoreName    string `json:"storeName"`
+	StoreStatus  int    `json:"storeStatus"`
+	MatchedStore bool   `json:"matchedStore"`
+	// 以下主体字段保留一段时间，兼容旧接口调用方。
 	SubjectID       int64   `json:"subjectId"`
 	AdvertiserID    int64   `json:"advertiserId"`
 	AdvertiserName  string  `json:"advertiserName"`
@@ -382,8 +390,8 @@ type QianchuanSubjectCostItem struct {
 	MatchedSubject  bool    `json:"matchedSubject"`
 }
 
-// GetSubjectCostStats 查询账户主体消耗统计
-func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, startDate, endDate string, limit int) ([]QianchuanSubjectCostItem, error) {
+// GetStoreCostStats 按店铺汇总千川广告主账户消耗。
+func (s *FinanceCommissionService) GetStoreCostStats(ctx context.Context, startDate, endDate string, limit int) ([]QianchuanStoreCostItem, error) {
 	if startDate == "" && endDate == "" {
 		today := time.Now().Format("2006-01-02")
 		startDate, endDate = today, today
@@ -410,14 +418,15 @@ func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, star
 
 	rows, err := g.DB().GetAll(ctx, `
 		SELECT
-			COALESCE(map.subject_id, 0) AS subject_id,
-			COALESCE(NULLIF(map.subject_name, ''), '未匹配主体') AS subject_name,
+			COALESCE(st.id, 0) AS store_id,
+			COALESCE(NULLIF(st.store_name, ''), '未绑定店铺') AS store_name,
+			COALESCE(st.status, 0) AS store_status,
 			COUNT(DISTINCT adv.advertiser_id) AS advertiser_count,
 			COALESCE(SUM(adv.stat_cost), 0) AS stat_cost,
 			COALESCE(SUM(adv.pay_order_amount), 0) AS pay_order_amount,
 			COALESCE(SUM(adv.all_order_pay_gmv), 0) AS all_order_pay_gmv,
-			COALESCE(SUM(map.mapping_count), 0) AS mapping_count,
-			MAX(COALESCE(map.matched_subject, 0)) AS matched_subject
+			COUNT(DISTINCT CASE WHEN st.id IS NOT NULL THEN adv.advertiser_id END) AS mapping_count,
+			MAX(CASE WHEN st.id IS NOT NULL THEN 1 ELSE 0 END) AS matched_store
 		FROM (
 			SELECT
 				advertiser_id,
@@ -429,19 +438,10 @@ func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, star
 			  AND LEFT(stat_datetime, 10) <= ?
 			GROUP BY advertiser_id
 		) adv
-		LEFT JOIN (
-			SELECT
-				aqm.qianchuan_advertiser_id,
-				MAX(COALESCE(NULLIF(aqm.company_id, 0), a.company_id, 0)) AS subject_id,
-				MAX(NULLIF(c.name, '')) AS subject_name,
-				COUNT(DISTINCT aqm.account_id) AS mapping_count,
-				MAX(CASE WHEN COALESCE(NULLIF(aqm.company_id, 0), a.company_id, 0) > 0 THEN 1 ELSE 0 END) AS matched_subject
-			FROM account_qianchuan_mapping aqm
-			LEFT JOIN account a ON a.id = aqm.account_id
-			LEFT JOIN sys_company c ON c.id = COALESCE(NULLIF(aqm.company_id, 0), a.company_id)
-			GROUP BY aqm.qianchuan_advertiser_id
-		) map ON map.qianchuan_advertiser_id = adv.advertiser_id
-		GROUP BY COALESCE(map.subject_id, 0), COALESCE(NULLIF(map.subject_name, ''), '未匹配主体')
+		LEFT JOIN store_qianchuan_mapping sqm
+			ON sqm.qianchuan_advertiser_id = adv.advertiser_id
+		LEFT JOIN store st ON st.id = sqm.store_id
+		GROUP BY COALESCE(st.id, 0), COALESCE(NULLIF(st.store_name, ''), '未绑定店铺'), COALESCE(st.status, 0)
 		ORDER BY stat_cost DESC
 		LIMIT ?
 	`, startDate, endDate, limit)
@@ -449,7 +449,7 @@ func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, star
 		return nil, err
 	}
 
-	result := make([]QianchuanSubjectCostItem, len(rows))
+	result := make([]QianchuanStoreCostItem, len(rows))
 	maxCost := 0.0
 	for _, row := range rows {
 		if cost := row["stat_cost"].Float64(); cost > maxCost {
@@ -470,12 +470,14 @@ func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, star
 			roi = roiAmount / statCost
 		}
 
-		matchedSubject := row["matched_subject"].Int() > 0
-		status := "待识别组织"
+		matchedStore := row["matched_store"].Int() > 0
+		status := "待绑定店铺"
 		statusType := "warning"
-		if matchedSubject {
-			status = "known"
+		if matchedStore && row["store_status"].Int() == 1 {
+			status = "已归属"
 			statusType = "known"
+		} else if matchedStore {
+			status = "店铺已停用"
 		}
 
 		percent := 0.0
@@ -483,11 +485,17 @@ func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, star
 			percent = statCost / maxCost * 100
 		}
 
-		result[i] = QianchuanSubjectCostItem{
-			SubjectID:       row["subject_id"].Int64(),
-			AdvertiserID:    row["subject_id"].Int64(),
-			AdvertiserName:  row["subject_name"].String(),
-			SubjectName:     row["subject_name"].String(),
+		storeID := row["store_id"].Int64()
+		storeName := row["store_name"].String()
+		result[i] = QianchuanStoreCostItem{
+			StoreID:         storeID,
+			StoreName:       storeName,
+			StoreStatus:     row["store_status"].Int(),
+			MatchedStore:    matchedStore,
+			SubjectID:       storeID,
+			AdvertiserID:    storeID,
+			AdvertiserName:  storeName,
+			SubjectName:     storeName,
 			AccountName:     fmt.Sprintf("%d 个千川账户", row["advertiser_count"].Int64()),
 			Status:          status,
 			StatusType:      statusType,
@@ -498,14 +506,19 @@ func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, star
 			Percent:         roundFloatFinance(percent, 2),
 			MappingCount:    row["mapping_count"].Int64(),
 			AdvertiserCount: row["advertiser_count"].Int64(),
-			MatchedSubject:  matchedSubject,
+			MatchedSubject:  matchedStore,
 		}
 	}
 	return result, nil
 }
 
-// QianchuanSubjectCostDetailItem 主体消耗明细（按千川广告主账户维度）
-type QianchuanSubjectCostDetailItem struct {
+// GetSubjectCostStats 兼容旧主体消耗接口，数据已统一为店铺口径。
+func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, startDate, endDate string, limit int) ([]QianchuanStoreCostItem, error) {
+	return s.GetStoreCostStats(ctx, startDate, endDate, limit)
+}
+
+// QianchuanStoreCostDetailItem 店铺消耗明细（按千川广告主账户维度）。
+type QianchuanStoreCostDetailItem struct {
 	AdvertiserID   int64   `json:"advertiserId"`
 	AdvertiserName string  `json:"advertiserName"`
 	AccountID      int64   `json:"accountId"`
@@ -521,9 +534,9 @@ type QianchuanSubjectCostDetailItem struct {
 	ROI            float64 `json:"roi"`
 }
 
-// GetSubjectCostDetail 查询指定主体下所有千川广告主账户的消耗明细
-// subjectId 为公司ID（sys_company.id），0 表示未匹配主体的账户
-func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, startDate, endDate string, subjectId int64, page, pageSize int) ([]QianchuanSubjectCostDetailItem, int64, error) {
+// GetStoreCostDetail 查询指定店铺下所有千川广告主账户的消耗明细。
+// storeId 为 store.id，0 表示未绑定到有效店铺的账户。
+func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, startDate, endDate string, storeId int64, page, pageSize int) ([]QianchuanStoreCostDetailItem, int64, error) {
 	if startDate == "" && endDate == "" {
 		today := time.Now().Format("2006-01-02")
 		startDate, endDate = today, today
@@ -562,12 +575,12 @@ func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, sta
 				WHERE LEFT(stat_datetime, 10) >= ? AND LEFT(stat_datetime, 10) <= ?
 				GROUP BY advertiser_id
 			) adv
-			LEFT JOIN account_qianchuan_mapping aqm ON aqm.qianchuan_advertiser_id = adv.advertiser_id
-			LEFT JOIN account a ON a.id = aqm.account_id
-			WHERE COALESCE(NULLIF(aqm.company_id, 0), a.company_id, 0) = ?
+			LEFT JOIN store_qianchuan_mapping sqm ON sqm.qianchuan_advertiser_id = adv.advertiser_id
+			LEFT JOIN store st ON st.id = sqm.store_id
+			WHERE COALESCE(st.id, 0) = ?
 			GROUP BY adv.advertiser_id
 		) t
-	`, startDate, endDate, subjectId)
+	`, startDate, endDate, storeId)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -578,8 +591,9 @@ func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, sta
 			adv.advertiser_id,
 			COALESCE(
 				NULLIF(MAX(adv.advertiser_name), ''),
+				NULLIF(MAX(sqm.qianchuan_advertiser_name), ''),
 				NULLIF(MAX(r.advertiser_name), ''),
-				''
+				CONCAT('千川账户 ', adv.advertiser_id)
 			) AS advertiser_name,
 			COALESCE(NULLIF(MAX(a.platform_nickname), ''), NULLIF(MAX(a.account_name), ''), '') AS account_name,
 			COALESCE(MAX(a.id), 0) AS account_id,
@@ -605,6 +619,8 @@ func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, sta
 			WHERE LEFT(stat_datetime, 10) >= ? AND LEFT(stat_datetime, 10) <= ?
 			GROUP BY advertiser_id
 		) adv
+		LEFT JOIN store_qianchuan_mapping sqm ON sqm.qianchuan_advertiser_id = adv.advertiser_id
+		LEFT JOIN store st ON st.id = sqm.store_id
 		LEFT JOIN account_qianchuan_mapping aqm ON aqm.qianchuan_advertiser_id = adv.advertiser_id
 		LEFT JOIN account a ON a.id = aqm.account_id
 		LEFT JOIN trader_account_relation tar ON tar.account_id = a.id
@@ -614,16 +630,16 @@ func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, sta
 			FROM qianchuan_ad_report
 			GROUP BY advertiser_id
 		) r ON r.advertiser_id = adv.advertiser_id
-		WHERE COALESCE(NULLIF(aqm.company_id, 0), a.company_id, 0) = ?
+		WHERE COALESCE(st.id, 0) = ?
 		GROUP BY adv.advertiser_id
 		ORDER BY stat_cost DESC
 		LIMIT ?, ?
-	`, startDate, endDate, subjectId, offset, pageSize)
+	`, startDate, endDate, storeId, offset, pageSize)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	result := make([]QianchuanSubjectCostDetailItem, len(rows))
+	result := make([]QianchuanStoreCostDetailItem, len(rows))
 	for i, row := range rows {
 		statCost := row["stat_cost"].Float64()
 		payOrderAmount := row["pay_order_amount"].Float64()
@@ -637,7 +653,7 @@ func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, sta
 			roi = roiAmount / statCost
 		}
 
-		result[i] = QianchuanSubjectCostDetailItem{
+		result[i] = QianchuanStoreCostDetailItem{
 			AdvertiserID:   row["advertiser_id"].Int64(),
 			AdvertiserName: row["advertiser_name"].String(),
 			AccountID:      row["account_id"].Int64(),
@@ -654,6 +670,11 @@ func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, sta
 		}
 	}
 	return result, total, nil
+}
+
+// GetSubjectCostDetail 兼容旧主体明细接口，subjectId 参数按 storeId 解释。
+func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, startDate, endDate string, subjectId int64, page, pageSize int) ([]QianchuanStoreCostDetailItem, int64, error) {
+	return s.GetStoreCostDetail(ctx, startDate, endDate, subjectId, page, pageSize)
 }
 
 // GetAuthorCostRanking 查询达人维度消耗统计
@@ -1046,13 +1067,13 @@ func (s *FinanceCommissionService) ExportCostDetails(ctx context.Context, startD
 	})
 }
 
-// ExportSubjectCostDetail 导出主体消耗明细（按千川广告主账户维度，全量数据）
-func (s *FinanceCommissionService) ExportSubjectCostDetail(ctx context.Context, startDate, endDate string, subjectId int64) (string, error) {
-	list, _, err := s.GetSubjectCostDetail(ctx, startDate, endDate, subjectId, 1, 1000000)
+// ExportStoreCostDetail 导出店铺消耗明细（按千川广告主账户维度，全量数据）。
+func (s *FinanceCommissionService) ExportStoreCostDetail(ctx context.Context, startDate, endDate string, storeId int64) (string, error) {
+	list, _, err := s.GetStoreCostDetail(ctx, startDate, endDate, storeId, 1, 1000000)
 	if err != nil {
 		return "", err
 	}
-	return writeExcelFile("主体消耗明细", []string{
+	return writeExcelFile("店铺消耗明细", []string{
 		"排名", "千川广告主ID", "千川账户", "千川消耗(元)", "成交金额(元)", "成交订单数", "展示数", "点击数", "ROI",
 	}, []float64{8, 18, 24, 16, 16, 12, 12, 12, 10}, len(list), func(rowIdx int) []interface{} {
 		item := list[rowIdx]
@@ -1068,6 +1089,11 @@ func (s *FinanceCommissionService) ExportSubjectCostDetail(ctx context.Context, 
 			item.ROI,
 		}
 	})
+}
+
+// ExportSubjectCostDetail 兼容旧主体明细导出接口，subjectId 参数按 storeId 解释。
+func (s *FinanceCommissionService) ExportSubjectCostDetail(ctx context.Context, startDate, endDate string, subjectId int64) (string, error) {
+	return s.ExportStoreCostDetail(ctx, startDate, endDate, subjectId)
 }
 
 // OverallDetailExportItem 乘方明细导出项（供 controller 层填充）

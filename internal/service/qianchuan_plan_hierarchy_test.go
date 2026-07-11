@@ -19,7 +19,7 @@ func TestNormalizeQianchuanHierarchyDates(t *testing.T) {
 func TestSummarizeQianchuanStoreNodes(t *testing.T) {
 	summary := summarizeQianchuanStoreNodes([]QianchuanPlanHierarchyNode{
 		{
-			AccountID:       4,
+			StoreID:         4,
 			AdvertiserCount: 2,
 			PlanCount:       5,
 			ProductCount:    3,
@@ -30,7 +30,7 @@ func TestSummarizeQianchuanStoreNodes(t *testing.T) {
 			Profit:          75,
 		},
 		{
-			AccountID:       0,
+			StoreID:         0,
 			AdvertiserCount: 1,
 			PlanCount:       2,
 			ProductCount:    1,
@@ -44,6 +44,12 @@ func TestSummarizeQianchuanStoreNodes(t *testing.T) {
 	}
 	if summary.TotalCost != 120 || summary.TotalProfit != 55 {
 		t.Fatalf("unexpected hierarchy totals: %+v", summary)
+	}
+}
+
+func TestNormalizeQianchuanStoreName(t *testing.T) {
+	if got := normalizeQianchuanStoreName("  利云文化 图书旗舰店\t"); got != "利云文化图书旗舰店" {
+		t.Fatalf("unexpected normalized store name: %s", got)
 	}
 }
 

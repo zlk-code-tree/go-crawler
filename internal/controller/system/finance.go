@@ -330,7 +330,27 @@ func (c *FinanceController) CostDetailExport(r *ghttp.Request) {
 	defer os.Remove(filename)
 }
 
-// SubjectCostDetailExport 导出主体消耗明细 GET /api/finance/subject-cost-detail-export
+// StoreCostDetailExport 导出店铺消耗明细 GET /api/finance/store-cost-detail-export
+func (c *FinanceController) StoreCostDetailExport(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
+	storeId := r.Get("storeId", 0).Int64()
+
+	filename, err := service.NewFinanceCommissionService().ExportStoreCostDetail(r.Context(), startDate, endDate, storeId)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
+		return
+	}
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+	defer os.Remove(filename)
+}
+
+// SubjectCostDetailExport 兼容旧主体消耗明细导出 GET /api/finance/subject-cost-detail-export
 func (c *FinanceController) SubjectCostDetailExport(r *ghttp.Request) {
 	startDate := r.Get("startDate").String()
 	endDate := r.Get("endDate").String()
@@ -473,7 +493,54 @@ func (c *FinanceController) CostRanking(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": result, "msg": "ok"})
 }
 
-// SubjectCostStats 账户主体消耗统计 GET /api/finance/subject-cost-stats
+// StoreCostStats 店铺消耗统计 GET /api/finance/store-cost-stats
+func (c *FinanceController) StoreCostStats(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
+	limit := r.Get("limit", 100).Int()
+
+	result, err := service.NewFinanceCommissionService().GetStoreCostStats(r.Context(), startDate, endDate, limit)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
+		return
+	}
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": result, "msg": "ok"})
+}
+
+// StoreCostDetail 店铺下千川账户消耗明细 GET /api/finance/store-cost-detail
+func (c *FinanceController) StoreCostDetail(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
+	storeId := r.Get("storeId", 0).Int64()
+	page := r.Get("page", 1).Int()
+	pageSize := r.Get("pageSize", r.Get("limit", 20).Int()).Int()
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 500 {
+		pageSize = 500
+	}
+
+	list, total, err := service.NewFinanceCommissionService().GetStoreCostDetail(r.Context(), startDate, endDate, storeId, page, pageSize)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
+		return
+	}
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{
+		"list": list, "total": total, "page": page, "pageSize": pageSize,
+	}, "msg": "ok"})
+}
+
+// SubjectCostStats 兼容旧账户主体消耗统计 GET /api/finance/subject-cost-stats
 func (c *FinanceController) SubjectCostStats(r *ghttp.Request) {
 	startDate := r.Get("startDate").String()
 	endDate := r.Get("endDate").String()
@@ -492,7 +559,7 @@ func (c *FinanceController) SubjectCostStats(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": result, "msg": "ok"})
 }
 
-// SubjectCostDetail 主体消耗明细（按千川广告主账户维度）GET /api/finance/subject-cost-detail
+// SubjectCostDetail 兼容旧主体消耗明细 GET /api/finance/subject-cost-detail
 func (c *FinanceController) SubjectCostDetail(r *ghttp.Request) {
 	startDate := r.Get("startDate").String()
 	endDate := r.Get("endDate").String()
