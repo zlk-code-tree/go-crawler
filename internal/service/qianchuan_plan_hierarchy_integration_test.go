@@ -28,6 +28,48 @@ func TestQianchuanPlanHierarchyDatabaseIntegration(t *testing.T) {
 	}
 	t.Logf("store nodes=%d summary=%+v", len(result.List), result.Summary)
 
+	awemes, err := NewQianchuanPlanHierarchyService().Query(ctx, QianchuanPlanHierarchyRequest{
+		Level:     QianchuanHierarchyLevelAweme,
+		StartDate: result.StartDate,
+		EndDate:   result.EndDate,
+	})
+	if err != nil {
+		t.Fatalf("query aweme hierarchy failed: %v", err)
+	}
+	if len(awemes.List) > 0 {
+		aweme := awemes.List[0]
+		advertisers, queryErr := NewQianchuanPlanHierarchyService().Query(ctx, QianchuanPlanHierarchyRequest{
+			Level:       QianchuanHierarchyLevelAdvertiser,
+			StartDate:   result.StartDate,
+			EndDate:     result.EndDate,
+			AwemeID:     aweme.AwemeID,
+			AwemeShowID: aweme.AwemeShowID,
+		})
+		if queryErr != nil {
+			t.Fatalf("query advertisers for aweme %s failed: %v", aweme.NodeKey, queryErr)
+		}
+		if aweme.HasChildren && len(advertisers.List) == 0 {
+			t.Fatalf("expected advertisers for aweme %s", aweme.NodeKey)
+		}
+		if len(advertisers.List) > 0 {
+			advertiser := advertisers.List[0]
+			plans, planErr := NewQianchuanPlanHierarchyService().Query(ctx, QianchuanPlanHierarchyRequest{
+				Level:        QianchuanHierarchyLevelPlan,
+				StartDate:    result.StartDate,
+				EndDate:      result.EndDate,
+				AdvertiserID: advertiser.AdvertiserID,
+				AwemeID:      advertiser.AwemeID,
+				AwemeShowID:  advertiser.AwemeShowID,
+			})
+			if planErr != nil {
+				t.Fatalf("query plans for aweme advertiser %d failed: %v", advertiser.AdvertiserID, planErr)
+			}
+			if advertiser.HasChildren && len(plans.List) == 0 {
+				t.Fatalf("expected plans for aweme advertiser %d", advertiser.AdvertiserID)
+			}
+		}
+	}
+
 	for _, store := range result.List {
 		if !store.HasChildren {
 			continue

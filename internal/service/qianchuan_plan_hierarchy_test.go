@@ -60,4 +60,24 @@ func TestQianchuanHierarchyLabels(t *testing.T) {
 	if got := storeHierarchySecondaryName(4, 3, 9); got != "3 个千川账户 · 9 个计划" {
 		t.Fatalf("unexpected store label: %s", got)
 	}
+	if got := awemeHierarchyFallbackName(123, ""); got != "抖音号 UID 123" {
+		t.Fatalf("unexpected aweme fallback name: %s", got)
+	}
+	if got := awemeHierarchySecondaryName("douyin001", 2, 7); got != "抖音号 douyin001 · 2 个千川账户 · 7 个计划" {
+		t.Fatalf("unexpected aweme label: %s", got)
+	}
+}
+
+func TestSummarizeQianchuanAwemeNodes(t *testing.T) {
+	summary := summarizeQianchuanHierarchyNodes([]QianchuanPlanHierarchyNode{
+		{StoreCount: 2, AccountCount: 3, AdvertiserCount: 3, PlanCount: 5, ProductCount: 2, StatCost: 80, Profit: 20},
+		{StoreCount: 1, AccountCount: 1, AdvertiserCount: 1, PlanCount: 2, ProductCount: 1, StatCost: 30, Profit: -5},
+	}, QianchuanHierarchyLevelAweme)
+
+	if summary.AwemeCount != 2 || summary.StoreCount != 3 || summary.AccountCount != 4 || summary.PlanCount != 7 {
+		t.Fatalf("unexpected aweme counts: %+v", summary)
+	}
+	if summary.TotalCost != 110 || summary.TotalProfit != 15 {
+		t.Fatalf("unexpected aweme totals: %+v", summary)
+	}
 }

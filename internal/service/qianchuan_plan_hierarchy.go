@@ -13,6 +13,7 @@ import (
 
 const (
 	QianchuanHierarchyLevelStore      = "store"
+	QianchuanHierarchyLevelAweme      = "aweme"
 	QianchuanHierarchyLevelAdvertiser = "advertiser"
 	QianchuanHierarchyLevelPlan       = "plan"
 )
@@ -25,6 +26,8 @@ type QianchuanPlanHierarchyRequest struct {
 	StoreID      int64
 	AccountID    int64
 	AdvertiserID int64
+	AwemeID      int64
+	AwemeShowID  string
 }
 
 type QianchuanPlanHierarchyNode struct {
@@ -35,6 +38,7 @@ type QianchuanPlanHierarchyNode struct {
 	StoreID          int64   `json:"storeId"`
 	AccountID        int64   `json:"accountId"`
 	AdvertiserID     int64   `json:"advertiserId"`
+	AwemeID          int64   `json:"awemeId"`
 	AdID             int64   `json:"adId"`
 	ProductID        string  `json:"productId"`
 	ProductName      string  `json:"productName"`
@@ -43,6 +47,8 @@ type QianchuanPlanHierarchyNode struct {
 	HasChildren      bool    `json:"hasChildren"`
 	Matched          bool    `json:"matched"`
 	AdvertiserCount  int64   `json:"advertiserCount"`
+	AccountCount     int64   `json:"accountCount"`
+	StoreCount       int64   `json:"storeCount"`
 	PlanCount        int64   `json:"planCount"`
 	ProductCount     int64   `json:"productCount"`
 	StatCost         float64 `json:"statCost"`
@@ -61,6 +67,8 @@ type QianchuanPlanHierarchyNode struct {
 
 type QianchuanPlanHierarchySummary struct {
 	StoreCount           int64   `json:"storeCount"`
+	AwemeCount           int64   `json:"awemeCount"`
+	AccountCount         int64   `json:"accountCount"`
 	AdvertiserCount      int64   `json:"advertiserCount"`
 	PlanCount            int64   `json:"planCount"`
 	ProductCount         int64   `json:"productCount"`
@@ -96,6 +104,7 @@ func (s *QianchuanPlanHierarchyService) Query(ctx context.Context, req Qianchuan
 	req.StartDate = startDate
 	req.EndDate = endDate
 	req.Keyword = strings.TrimSpace(req.Keyword)
+	req.AwemeShowID = strings.TrimSpace(req.AwemeShowID)
 
 	level := req.Level
 	if level == "" {
@@ -106,6 +115,8 @@ func (s *QianchuanPlanHierarchyService) Query(ctx context.Context, req Qianchuan
 	switch level {
 	case QianchuanHierarchyLevelStore:
 		list, err = s.queryStores(ctx, req, endExclusive)
+	case QianchuanHierarchyLevelAweme:
+		list, err = s.queryAwemes(ctx, req, endExclusive)
 	case QianchuanHierarchyLevelAdvertiser:
 		list, err = s.queryAdvertisers(ctx, req, endExclusive)
 	case QianchuanHierarchyLevelPlan:
@@ -123,9 +134,7 @@ func (s *QianchuanPlanHierarchyService) Query(ctx context.Context, req Qianchuan
 		StartDate: startDate,
 		EndDate:   endDate,
 	}
-	if level == QianchuanHierarchyLevelStore {
-		result.Summary = summarizeQianchuanStoreNodes(list)
-	}
+	result.Summary = summarizeQianchuanHierarchyNodes(list, level)
 	return result, nil
 }
 
@@ -149,7 +158,7 @@ func qianchuanHierarchyKeyword(alias, keyword string) (string, []interface{}) {
 	like := "%" + keyword + "%"
 	clause := fmt.Sprintf(` AND (
 		%s.advertiser_name LIKE ? OR %s.ad_name LIKE ? OR %s.product_name LIKE ? OR %s.aweme_name LIKE ? OR
-		%s.aweme_show_id LIKE ? OR CAST(%s.ad_id AS CHAR) LIKE ? OR
+		%s.aweme_show_id LIKE ? OR CAST(%s.aweme_id AS CHAR) LIKE ? OR CAST(%s.ad_id AS CHAR) LIKE ? OR
 		CAST(%s.advertiser_id AS CHAR) LIKE ? OR EXISTS (
 			SELECT 1 FROM account keyword_account
 			WHERE keyword_account.id = %s.account_id AND keyword_account.account_name LIKE ?
@@ -159,8 +168,8 @@ func qianchuanHierarchyKeyword(alias, keyword string) (string, []interface{}) {
 			WHERE keyword_mapping.qianchuan_advertiser_id = %s.advertiser_id
 				AND keyword_store.store_name LIKE ?
 		)
-	)`, alias, alias, alias, alias, alias, alias, alias, alias, alias)
-	return clause, []interface{}{like, like, like, like, like, like, like, like, like}
+	)`, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias)
+	return clause, []interface{}{like, like, like, like, like, like, like, like, like, like}
 }
 
 func qianchuanOrderStatsCTE(validCondition string) string {
@@ -305,8 +314,200 @@ func (s *QianchuanPlanHierarchyService) queryStores(ctx context.Context, req Qia
 	return list, nil
 }
 
+func (s *QianchuanPlanHierarchyService) queryAwemes(ctx context.Context, req QianchuanPlanHierarchyRequest, endExclusive string) ([]QianchuanPlanHierarchyNode, error) {
+	keywordSQL, keywordArgs := qianchuanHierarchyKeyword("qar", req.Keyword)
+	storeSQL := ""
+	if req.StoreID > 0 {
+		storeSQL = " AND COALESCE(sqm.store_id, 0) = ?"
+	}
+	validCondition := FinanceValidOrderCondition("o")
+	awemeKeySQL := `COALESCE(
+		NULLIF(CAST(qar.aweme_id AS CHAR), '0'),
+		NULLIF(qar.aweme_show_id, ''),
+		CONCAT('unknown:', qar.advertiser_id)
+	)`
+	sql := fmt.Sprintf(`WITH
+	all_q AS (
+		SELECT
+			COALESCE(sqm.store_id, 0) AS store_id,
+			%s AS aweme_key,
+			qar.ad_id, CAST(qar.product_id AS CHAR) AS product_id,
+			LEFT(qar.stat_datetime, 10) AS stat_date, qar.stat_cost
+		FROM qianchuan_ad_report qar
+		LEFT JOIN store_qianchuan_mapping sqm
+			ON sqm.qianchuan_advertiser_id = qar.advertiser_id
+		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?%s
+	),
+	q AS (
+		SELECT
+			COALESCE(sqm.store_id, 0) AS store_id,
+			%s AS aweme_key,
+			qar.aweme_id, qar.aweme_name, qar.aweme_show_id,
+			qar.account_id, qar.advertiser_id, qar.ad_id,
+			CAST(qar.product_id AS CHAR) AS product_id,
+			LEFT(qar.stat_datetime, 10) AS stat_date,
+			qar.stat_cost, qar.pay_order_count, qar.create_order_count,
+			qar.show_cnt, qar.click_cnt, qar.convert_cnt
+		FROM qianchuan_ad_report qar
+		LEFT JOIN store_qianchuan_mapping sqm
+			ON sqm.qianchuan_advertiser_id = qar.advertiser_id
+		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?%s%s
+	),
+	q_totals AS (
+		SELECT store_id, product_id, stat_date,
+			COALESCE(SUM(stat_cost), 0) AS total_cost,
+			COUNT(DISTINCT ad_id) AS total_plan_count
+		FROM all_q
+		GROUP BY store_id, product_id, stat_date
+	),
+	q_aweme_keys AS (
+		SELECT store_id, aweme_key, product_id, stat_date,
+			COALESCE(SUM(stat_cost), 0) AS key_cost,
+			COUNT(DISTINCT ad_id) AS key_plan_count
+		FROM q
+		GROUP BY store_id, aweme_key, product_id, stat_date
+	),
+	q_keys AS (
+		SELECT DISTINCT store_id, product_id, stat_date
+		FROM q
+		WHERE store_id > 0 AND product_id != '' AND product_id != '0'
+	),%s,
+	allocated AS (
+		SELECT k.aweme_key,
+			CASE WHEN t.total_cost > 0 THEN k.key_cost / t.total_cost
+				 WHEN t.total_plan_count > 0 THEN k.key_plan_count / t.total_plan_count ELSE 0 END AS allocation_rate,
+			COALESCE(o.valid_order_count, 0) AS valid_order_count,
+			COALESCE(o.pay_amount, 0) AS pay_amount,
+			COALESCE(o.cost_amount, 0) AS cost_amount,
+			COALESCE(o.commission, 0) AS commission
+		FROM q_aweme_keys k
+		JOIN q_totals t ON t.store_id = k.store_id AND t.product_id = k.product_id AND t.stat_date = k.stat_date
+		LEFT JOIN order_stats o ON o.store_id = k.store_id AND o.product_id = k.product_id AND o.stat_date = k.stat_date
+	),
+	allocated_by_aweme AS (
+		SELECT aweme_key,
+			SUM(valid_order_count * allocation_rate) AS valid_order_count,
+			SUM(pay_amount * allocation_rate) AS pay_amount,
+			SUM(cost_amount * allocation_rate) AS cost_amount,
+			SUM(commission * allocation_rate) AS commission
+		FROM allocated
+		GROUP BY aweme_key
+	),
+	q_agg AS (
+		SELECT aweme_key,
+			MAX(aweme_id) AS aweme_id,
+			MAX(NULLIF(aweme_name, '')) AS aweme_name,
+			MAX(NULLIF(aweme_show_id, '')) AS aweme_show_id,
+			CASE WHEN COUNT(DISTINCT NULLIF(store_id, 0)) = 1 THEN MAX(store_id) ELSE 0 END AS store_id,
+			CASE WHEN COUNT(DISTINCT NULLIF(account_id, 0)) = 1 THEN MAX(account_id) ELSE 0 END AS account_id,
+			COUNT(DISTINCT NULLIF(store_id, 0)) AS store_count,
+			COUNT(DISTINCT NULLIF(account_id, 0)) AS account_count,
+			COUNT(DISTINCT advertiser_id) AS advertiser_count,
+			COUNT(DISTINCT ad_id) AS plan_count,
+			COUNT(DISTINCT product_id) AS product_count,
+			COALESCE(SUM(stat_cost), 0) AS stat_cost,
+			COALESCE(SUM(pay_order_count), 0) AS pay_order_count,
+			COALESCE(SUM(create_order_count), 0) AS create_order_count,
+			COALESCE(SUM(show_cnt), 0) AS show_cnt,
+			COALESCE(SUM(click_cnt), 0) AS click_cnt,
+			COALESCE(SUM(convert_cnt), 0) AS convert_cnt
+		FROM q
+		GROUP BY aweme_key
+	)
+	SELECT q.*, COALESCE(a.valid_order_count, 0) AS valid_order_count,
+		COALESCE(a.pay_amount, 0) AS pay_amount,
+		COALESCE(a.cost_amount, 0) AS cost_amount,
+		COALESCE(a.commission, 0) AS commission
+	FROM q_agg q
+	LEFT JOIN allocated_by_aweme a ON a.aweme_key = q.aweme_key
+	ORDER BY q.stat_cost DESC, q.aweme_key ASC`, awemeKeySQL, storeSQL, awemeKeySQL, storeSQL, keywordSQL, qianchuanOrderStatsCTE(validCondition))
+
+	args := []interface{}{req.StartDate, endExclusive}
+	if req.StoreID > 0 {
+		args = append(args, req.StoreID)
+	}
+	args = append(args, req.StartDate, endExclusive)
+	if req.StoreID > 0 {
+		args = append(args, req.StoreID)
+	}
+	args = append(args, keywordArgs...)
+	args = append(args, req.StartDate, endExclusive)
+	rows, err := g.DB().GetAll(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	list := make([]QianchuanPlanHierarchyNode, 0, len(rows))
+	for _, row := range rows {
+		awemeID := row["aweme_id"].Int64()
+		awemeShowID := row["aweme_show_id"].String()
+		name := row["aweme_name"].String()
+		if name == "" {
+			name = awemeHierarchyFallbackName(awemeID, awemeShowID)
+		}
+		statCost := row["stat_cost"].Float64()
+		commission := row["commission"].Float64()
+		payAmount := row["pay_amount"].Float64()
+		showCnt := row["show_cnt"].Int64()
+		clickCnt := row["click_cnt"].Int64()
+		convertCnt := row["convert_cnt"].Int64()
+		list = append(list, QianchuanPlanHierarchyNode{
+			NodeKey:          "aweme:" + row["aweme_key"].String(),
+			NodeType:         QianchuanHierarchyLevelAweme,
+			Name:             name,
+			SecondaryName:    awemeHierarchySecondaryName(awemeShowID, row["advertiser_count"].Int64(), row["plan_count"].Int64()),
+			StoreID:          row["store_id"].Int64(),
+			AccountID:        row["account_id"].Int64(),
+			AwemeID:          awemeID,
+			AwemeName:        row["aweme_name"].String(),
+			AwemeShowID:      awemeShowID,
+			HasChildren:      row["plan_count"].Int64() > 0 && (awemeID > 0 || awemeShowID != ""),
+			Matched:          awemeID > 0 || awemeShowID != "",
+			StoreCount:       row["store_count"].Int64(),
+			AccountCount:     row["account_count"].Int64(),
+			AdvertiserCount:  row["advertiser_count"].Int64(),
+			PlanCount:        row["plan_count"].Int64(),
+			ProductCount:     row["product_count"].Int64(),
+			StatCost:         roundQianchuanHierarchy(statCost),
+			Commission:       roundQianchuanHierarchy(commission),
+			ValidOrderCount:  roundQianchuanHierarchy(row["valid_order_count"].Float64()),
+			CostAmount:       roundQianchuanHierarchy(row["cost_amount"].Float64()),
+			Profit:           roundQianchuanHierarchy(commission - statCost - payAmount*0.005),
+			PayOrderCount:    roundQianchuanHierarchy(row["pay_order_count"].Float64()),
+			CreateOrderCount: roundQianchuanHierarchy(row["create_order_count"].Float64()),
+			ShowCnt:          showCnt,
+			ClickCnt:         clickCnt,
+			Ctr:              ratioQianchuanHierarchy(float64(clickCnt), float64(showCnt)),
+			ConvertCnt:       convertCnt,
+			ConvertCost:      ratioQianchuanHierarchy(statCost, float64(convertCnt)),
+		})
+	}
+	return list, nil
+}
+
 func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, req QianchuanPlanHierarchyRequest, endExclusive string) ([]QianchuanPlanHierarchyNode, error) {
 	keywordSQL, keywordArgs := qianchuanHierarchyKeyword("qar", req.Keyword)
+	allScopeSQL := ""
+	qScopeSQL := ""
+	allScopeArgs := make([]interface{}, 0, 1)
+	qScopeArgs := make([]interface{}, 0, 2)
+	hasAwemeScope := req.AwemeID > 0 || req.AwemeShowID != ""
+	if req.StoreID > 0 {
+		allScopeSQL += " AND COALESCE(sqm.store_id, 0) = ?"
+		qScopeSQL += " AND COALESCE(sqm.store_id, 0) = ?"
+		allScopeArgs = append(allScopeArgs, req.StoreID)
+		qScopeArgs = append(qScopeArgs, req.StoreID)
+	} else if !hasAwemeScope {
+		allScopeSQL += " AND COALESCE(sqm.store_id, 0) = 0"
+		qScopeSQL += " AND COALESCE(sqm.store_id, 0) = 0"
+	}
+	if req.AwemeID > 0 {
+		qScopeSQL += " AND qar.aweme_id = ?"
+		qScopeArgs = append(qScopeArgs, req.AwemeID)
+	} else if req.AwemeShowID != "" {
+		qScopeSQL += " AND qar.aweme_show_id = ?"
+		qScopeArgs = append(qScopeArgs, req.AwemeShowID)
+	}
 	validCondition := FinanceValidOrderCondition("o")
 	sql := fmt.Sprintf(`WITH
 	all_q AS (
@@ -319,13 +520,13 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 		FROM qianchuan_ad_report qar
 		LEFT JOIN store_qianchuan_mapping sqm
 			ON sqm.qianchuan_advertiser_id = qar.advertiser_id
-		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?
-			AND COALESCE(sqm.store_id, 0) = ?
+		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?%s
 	),
 	q AS (
 		SELECT
 			COALESCE(sqm.store_id, 0) AS store_id,
 			qar.account_id, qar.advertiser_id,
+			qar.aweme_id, qar.aweme_name, qar.aweme_show_id,
 			COALESCE(NULLIF(qar.advertiser_name, ''), NULLIF(sqm.qianchuan_advertiser_name, ''), '') AS advertiser_name,
 			qar.ad_id,
 			CAST(qar.product_id AS CHAR) AS product_id,
@@ -335,8 +536,7 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 		FROM qianchuan_ad_report qar
 		LEFT JOIN store_qianchuan_mapping sqm
 			ON sqm.qianchuan_advertiser_id = qar.advertiser_id
-		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?
-			AND COALESCE(sqm.store_id, 0) = ?%s
+		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?%s%s
 	),
 	q_totals AS (
 		SELECT store_id, product_id, stat_date,
@@ -384,6 +584,9 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 		SELECT
 			store_id, advertiser_id,
 			MAX(account_id) AS account_id,
+			MAX(aweme_id) AS aweme_id,
+			MAX(NULLIF(aweme_name, '')) AS aweme_name,
+			MAX(NULLIF(aweme_show_id, '')) AS aweme_show_id,
 			MAX(NULLIF(advertiser_name, '')) AS advertiser_name,
 			COUNT(DISTINCT ad_id) AS plan_count,
 			COUNT(DISTINCT product_id) AS product_count,
@@ -402,9 +605,12 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 		COALESCE(a.commission, 0) AS commission
 	FROM q_agg q
 	LEFT JOIN allocated_by_advertiser a ON a.store_id = q.store_id AND a.advertiser_id = q.advertiser_id
-	ORDER BY q.stat_cost DESC, q.advertiser_id ASC`, keywordSQL, qianchuanOrderStatsCTE(validCondition))
+	ORDER BY q.stat_cost DESC, q.advertiser_id ASC`, allScopeSQL, qScopeSQL, keywordSQL, qianchuanOrderStatsCTE(validCondition))
 
-	args := []interface{}{req.StartDate, endExclusive, req.StoreID, req.StartDate, endExclusive, req.StoreID}
+	args := []interface{}{req.StartDate, endExclusive}
+	args = append(args, allScopeArgs...)
+	args = append(args, req.StartDate, endExclusive)
+	args = append(args, qScopeArgs...)
 	args = append(args, keywordArgs...)
 	args = append(args, req.StartDate, endExclusive)
 	rows, err := g.DB().GetAll(ctx, sql, args...)
@@ -425,14 +631,23 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 		showCnt := row["show_cnt"].Int64()
 		clickCnt := row["click_cnt"].Int64()
 		convertCnt := row["convert_cnt"].Int64()
+		nodeKey := fmt.Sprintf("advertiser:%d", advertiserID)
+		if req.AwemeID > 0 {
+			nodeKey += fmt.Sprintf(":aweme:%d", req.AwemeID)
+		} else if req.AwemeShowID != "" {
+			nodeKey += ":aweme-show:" + req.AwemeShowID
+		}
 		list = append(list, QianchuanPlanHierarchyNode{
-			NodeKey:          fmt.Sprintf("advertiser:%d", advertiserID),
+			NodeKey:          nodeKey,
 			NodeType:         QianchuanHierarchyLevelAdvertiser,
 			Name:             name,
 			SecondaryName:    fmt.Sprintf("ID %d · %d 个计划", advertiserID, row["plan_count"].Int64()),
 			StoreID:          row["store_id"].Int64(),
 			AccountID:        row["account_id"].Int64(),
 			AdvertiserID:     advertiserID,
+			AwemeID:          row["aweme_id"].Int64(),
+			AwemeName:        row["aweme_name"].String(),
+			AwemeShowID:      row["aweme_show_id"].String(),
 			HasChildren:      row["plan_count"].Int64() > 0,
 			Matched:          row["store_id"].Int64() > 0,
 			PlanCount:        row["plan_count"].Int64(),
@@ -456,6 +671,27 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 
 func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req QianchuanPlanHierarchyRequest, endExclusive string) ([]QianchuanPlanHierarchyNode, error) {
 	keywordSQL, keywordArgs := qianchuanHierarchyKeyword("daily", req.Keyword)
+	filterSQL := ""
+	filterArgs := make([]interface{}, 0, 5)
+	if req.AdvertiserID > 0 {
+		filterSQL += " AND daily.advertiser_id = ?"
+		filterArgs = append(filterArgs, req.AdvertiserID)
+	}
+	if req.AwemeID > 0 {
+		filterSQL += " AND daily.aweme_id = ?"
+		filterArgs = append(filterArgs, req.AwemeID)
+	} else if req.AwemeShowID != "" {
+		filterSQL += " AND daily.aweme_show_id = ?"
+		filterArgs = append(filterArgs, req.AwemeShowID)
+	}
+	if req.StoreID > 0 {
+		filterSQL += " AND daily.store_id = ?"
+		filterArgs = append(filterArgs, req.StoreID)
+	}
+	if req.AccountID > 0 {
+		filterSQL += " AND daily.account_id = ?"
+		filterArgs = append(filterArgs, req.AccountID)
+	}
 	sql := fmt.Sprintf(`SELECT daily.*
 	FROM (
 		SELECT
@@ -463,7 +699,7 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 			qar.account_id, qar.advertiser_id, qar.ad_id, qar.ad_name,
 			COALESCE(NULLIF(qar.advertiser_name, ''), NULLIF(sqm.qianchuan_advertiser_name, ''), '') AS advertiser_name,
 			CAST(qar.product_id AS CHAR) AS product_id, qar.product_name,
-			qar.aweme_name, qar.aweme_show_id,
+			qar.aweme_id, qar.aweme_name, qar.aweme_show_id,
 			LEFT(qar.stat_datetime, 10) AS stat_date,
 			qar.stat_cost, qar.pay_order_count, qar.create_order_count,
 			qar.show_cnt, qar.click_cnt, qar.convert_cnt,
@@ -478,10 +714,11 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 			ON sqm.qianchuan_advertiser_id = qar.advertiser_id
 		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?
 	) daily
-	WHERE daily.advertiser_id = ?%s
-	ORDER BY daily.stat_date DESC, daily.ad_id ASC`, keywordSQL)
+	WHERE 1 = 1%s%s
+	ORDER BY daily.stat_date DESC, daily.ad_id ASC`, filterSQL, keywordSQL)
 
-	args := []interface{}{req.StartDate, endExclusive, req.AdvertiserID}
+	args := []interface{}{req.StartDate, endExclusive}
+	args = append(args, filterArgs...)
 	args = append(args, keywordArgs...)
 	rows, err := g.DB().GetAll(ctx, sql, args...)
 	if err != nil {
@@ -525,6 +762,7 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 				StoreID:      row["store_id"].Int64(),
 				AccountID:    row["account_id"].Int64(),
 				AdvertiserID: row["advertiser_id"].Int64(),
+				AwemeID:      row["aweme_id"].Int64(),
 				AdID:         adID,
 				ProductID:    row["product_id"].String(),
 				ProductName:  row["product_name"].String(),
@@ -653,11 +891,16 @@ func qianchuanOrderStatKey(storeID int64, productID, statDate string) string {
 	return fmt.Sprintf("%d|%s|%s", storeID, productID, statDate)
 }
 
-func summarizeQianchuanStoreNodes(list []QianchuanPlanHierarchyNode) QianchuanPlanHierarchySummary {
+func summarizeQianchuanHierarchyNodes(list []QianchuanPlanHierarchyNode, level string) QianchuanPlanHierarchySummary {
 	var summary QianchuanPlanHierarchySummary
 	for _, item := range list {
-		if item.StoreID > 0 {
+		if level == QianchuanHierarchyLevelStore && item.StoreID > 0 {
 			summary.StoreCount++
+		}
+		if level == QianchuanHierarchyLevelAweme {
+			summary.AwemeCount++
+			summary.StoreCount += item.StoreCount
+			summary.AccountCount += item.AccountCount
 		}
 		summary.AdvertiserCount += item.AdvertiserCount
 		summary.PlanCount += item.PlanCount
@@ -676,11 +919,33 @@ func summarizeQianchuanStoreNodes(list []QianchuanPlanHierarchyNode) QianchuanPl
 	return summary
 }
 
+func summarizeQianchuanStoreNodes(list []QianchuanPlanHierarchyNode) QianchuanPlanHierarchySummary {
+	return summarizeQianchuanHierarchyNodes(list, QianchuanHierarchyLevelStore)
+}
+
 func storeHierarchySecondaryName(storeID, advertiserCount, planCount int64) string {
 	if storeID == 0 {
 		return fmt.Sprintf("%d 个千川账户待绑定 · %d 个计划", advertiserCount, planCount)
 	}
 	return fmt.Sprintf("%d 个千川账户 · %d 个计划", advertiserCount, planCount)
+}
+
+func awemeHierarchyFallbackName(awemeID int64, awemeShowID string) string {
+	if awemeShowID != "" {
+		return "抖音号 " + awemeShowID
+	}
+	if awemeID > 0 {
+		return fmt.Sprintf("抖音号 UID %d", awemeID)
+	}
+	return "未识别抖音号"
+}
+
+func awemeHierarchySecondaryName(awemeShowID string, advertiserCount, planCount int64) string {
+	prefix := "未获取抖音号"
+	if awemeShowID != "" {
+		prefix = "抖音号 " + awemeShowID
+	}
+	return fmt.Sprintf("%s · %d 个千川账户 · %d 个计划", prefix, advertiserCount, planCount)
 }
 
 func planHierarchySecondaryName(productName, productID string, adID int64) string {

@@ -839,7 +839,7 @@ func (c *QianchuanPollerController) PlanReportList(r *ghttp.Request) {
 	})
 }
 
-// PlanHierarchy 查询店铺 -> 千川账户 -> 投放计划三级汇总。
+// PlanHierarchy 查询店铺、抖音号、千川账户和投放计划汇总。
 func (c *QianchuanPollerController) PlanHierarchy(r *ghttp.Request) {
 	req := service.QianchuanPlanHierarchyRequest{
 		Level:        r.Get("level", service.QianchuanHierarchyLevelStore).String(),
@@ -849,6 +849,8 @@ func (c *QianchuanPollerController) PlanHierarchy(r *ghttp.Request) {
 		StoreID:      r.Get("storeId", int64(0)).Int64(),
 		AccountID:    r.Get("accountId", int64(0)).Int64(),
 		AdvertiserID: r.Get("advertiserId", int64(0)).Int64(),
+		AwemeID:      r.Get("awemeId", int64(0)).Int64(),
+		AwemeShowID:  r.Get("awemeShowId").String(),
 	}
 	result, err := service.NewQianchuanPlanHierarchyService().Query(r.Context(), req)
 	if err != nil {
