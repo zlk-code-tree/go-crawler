@@ -23,11 +23,13 @@ type QianchuanPlanHierarchyRequest struct {
 	StartDate    string
 	EndDate      string
 	Keyword      string
+	ProductID    string
 	StoreID      int64
 	AccountID    int64
 	AdvertiserID int64
 	AwemeID      int64
 	AwemeShowID  string
+	GroupByDate  bool
 }
 
 type QianchuanPlanHierarchyNode struct {
@@ -35,6 +37,8 @@ type QianchuanPlanHierarchyNode struct {
 	NodeType         string  `json:"nodeType"`
 	Name             string  `json:"name"`
 	SecondaryName    string  `json:"secondaryName"`
+	StatDate         string  `json:"statDate"`
+	AdvertiserName   string  `json:"advertiserName"`
 	StoreID          int64   `json:"storeId"`
 	AccountID        int64   `json:"accountId"`
 	AdvertiserID     int64   `json:"advertiserId"`
@@ -51,6 +55,8 @@ type QianchuanPlanHierarchyNode struct {
 	StoreCount       int64   `json:"storeCount"`
 	PlanCount        int64   `json:"planCount"`
 	ProductCount     int64   `json:"productCount"`
+	ProductQuantity  float64 `json:"productQuantity"`
+	PayAmount        float64 `json:"payAmount"`
 	StatCost         float64 `json:"statCost"`
 	Commission       float64 `json:"commission"`
 	ValidOrderCount  float64 `json:"validOrderCount"`
@@ -72,11 +78,19 @@ type QianchuanPlanHierarchySummary struct {
 	AdvertiserCount      int64   `json:"advertiserCount"`
 	PlanCount            int64   `json:"planCount"`
 	ProductCount         int64   `json:"productCount"`
+	ProductQuantity      int64   `json:"productQuantity"`
+	TotalOrderCount      int64   `json:"totalOrderCount"`
+	TotalPayAmount       float64 `json:"totalPayAmount"`
 	TotalCost            float64 `json:"totalCost"`
 	TotalCommission      float64 `json:"totalCommission"`
 	TotalValidOrderCount float64 `json:"totalValidOrderCount"`
 	TotalOrderCost       float64 `json:"totalOrderCost"`
+	TotalRefundCost      float64 `json:"totalRefundCost"`
+	ReserveAmount        float64 `json:"reserveAmount"`
+	ShopServiceFee       float64 `json:"shopServiceFee"`
+	CommissionDeduction  float64 `json:"commissionDeduction"`
 	TotalProfit          float64 `json:"totalProfit"`
+	FinancialScope       string  `json:"financialScope"`
 }
 
 type QianchuanPlanHierarchyResult struct {
@@ -104,6 +118,7 @@ func (s *QianchuanPlanHierarchyService) Query(ctx context.Context, req Qianchuan
 	req.StartDate = startDate
 	req.EndDate = endDate
 	req.Keyword = strings.TrimSpace(req.Keyword)
+	req.ProductID = strings.TrimSpace(req.ProductID)
 	req.AwemeShowID = strings.TrimSpace(req.AwemeShowID)
 
 	level := req.Level
@@ -135,7 +150,38 @@ func (s *QianchuanPlanHierarchyService) Query(ctx context.Context, req Qianchuan
 		EndDate:   endDate,
 	}
 	result.Summary = summarizeQianchuanHierarchyNodes(list, level)
+	if isUnfilteredQianchuanProfitRequest(req) {
+		snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
+		if snapshotErr != nil {
+			return nil, snapshotErr
+		}
+		applyDouyinProfitSnapshot(&result.Summary, snapshot)
+	}
 	return result, nil
+}
+
+func isUnfilteredQianchuanProfitRequest(req QianchuanPlanHierarchyRequest) bool {
+	return req.Keyword == "" && req.ProductID == "" && req.StoreID == 0 && req.AccountID == 0 &&
+		req.AdvertiserID == 0 && req.AwemeID == 0 && req.AwemeShowID == ""
+}
+
+func applyDouyinProfitSnapshot(summary *QianchuanPlanHierarchySummary, snapshot *DouyinProfitSnapshot) {
+	if summary == nil || snapshot == nil {
+		return
+	}
+	summary.TotalOrderCount = snapshot.TotalOrderCount
+	summary.TotalValidOrderCount = float64(snapshot.ValidOrderCount)
+	summary.ProductQuantity = snapshot.ProductQuantity
+	summary.TotalPayAmount = snapshot.SalesAmount
+	summary.TotalOrderCost = snapshot.CostAmount
+	summary.TotalRefundCost = snapshot.RefundCostAmount
+	summary.ReserveAmount = snapshot.ReserveAmount
+	summary.ShopServiceFee = snapshot.ShopServiceFee
+	summary.TotalCommission = snapshot.Commission
+	summary.CommissionDeduction = snapshot.CommissionDeduction
+	summary.TotalCost = snapshot.AdCostAmount
+	summary.TotalProfit = snapshot.Profit
+	summary.FinancialScope = "douyin_order_snapshot"
 }
 
 func normalizeQianchuanHierarchyDates(startDate, endDate string) (string, string, string, error) {
@@ -179,7 +225,8 @@ func qianchuanOrderStatsCTE(validCondition string) string {
 			s.id AS store_id,
 			CAST(o.product_id AS CHAR) AS product_id,
 			LEFT(o.pay_finish_time, 10) AS stat_date,
-			COUNT(DISTINCT CASE WHEN %s THEN o.main_order_no END) AS valid_order_count,
+			COALESCE(SUM(CASE WHEN %s THEN 1 ELSE 0 END), 0) AS valid_order_count,
+			COALESCE(SUM(CASE WHEN %s THEN o.product_num ELSE 0 END), 0) AS product_quantity,
 			COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num ELSE 0 END), 0) AS pay_amount,
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(gd.base_price, 0) * o.product_num ELSE 0 END), 0) AS cost_amount,
 			COALESCE(SUM(CASE WHEN %s THEN
@@ -197,11 +244,11 @@ func qianchuanOrderStatsCTE(validCondition string) string {
 			ON qk.store_id = s.id
 			AND qk.product_id = CAST(o.product_id AS CHAR)
 			AND qk.stat_date = LEFT(o.pay_finish_time, 10)
-		LEFT JOIN goods gd
+		LEFT JOIN (SELECT goods_code, MAX(base_price) AS base_price FROM goods GROUP BY goods_code) gd
 			ON o.seller_code COLLATE utf8mb4_unicode_ci = gd.goods_code COLLATE utf8mb4_unicode_ci
 		WHERE o.pay_finish_time >= ? AND o.pay_finish_time < ?
 		GROUP BY s.id, CAST(o.product_id AS CHAR), LEFT(o.pay_finish_time, 10)
-	)`, validCondition, validCondition, validCondition, validCondition)
+	)`, validCondition, validCondition, validCondition, validCondition, validCondition)
 }
 
 func (s *QianchuanPlanHierarchyService) queryStores(ctx context.Context, req QianchuanPlanHierarchyRequest, endExclusive string) ([]QianchuanPlanHierarchyNode, error) {
@@ -246,6 +293,7 @@ func (s *QianchuanPlanHierarchyService) queryStores(ctx context.Context, req Qia
 		SELECT
 			store_id,
 			COALESCE(SUM(valid_order_count), 0) AS valid_order_count,
+			COALESCE(SUM(product_quantity), 0) AS product_quantity,
 			COALESCE(SUM(pay_amount), 0) AS pay_amount,
 			COALESCE(SUM(cost_amount), 0) AS cost_amount,
 			COALESCE(SUM(commission), 0) AS commission
@@ -259,6 +307,7 @@ func (s *QianchuanPlanHierarchyService) queryStores(ctx context.Context, req Qia
 		q.stat_cost, q.pay_order_count, q.create_order_count,
 		q.show_cnt, q.click_cnt, q.convert_cnt,
 		COALESCE(o.valid_order_count, 0) AS valid_order_count,
+		COALESCE(o.product_quantity, 0) AS product_quantity,
 		COALESCE(o.pay_amount, 0) AS pay_amount,
 		COALESCE(o.cost_amount, 0) AS cost_amount,
 		COALESCE(o.commission, 0) AS commission
@@ -297,6 +346,8 @@ func (s *QianchuanPlanHierarchyService) queryStores(ctx context.Context, req Qia
 			AdvertiserCount:  row["advertiser_count"].Int64(),
 			PlanCount:        row["plan_count"].Int64(),
 			ProductCount:     row["product_count"].Int64(),
+			ProductQuantity:  roundQianchuanHierarchy(row["product_quantity"].Float64()),
+			PayAmount:        roundQianchuanHierarchy(payAmount),
 			StatCost:         roundQianchuanHierarchy(statCost),
 			Commission:       roundQianchuanHierarchy(commission),
 			ValidOrderCount:  roundQianchuanHierarchy(row["valid_order_count"].Float64()),
@@ -377,6 +428,7 @@ func (s *QianchuanPlanHierarchyService) queryAwemes(ctx context.Context, req Qia
 			CASE WHEN t.total_cost > 0 THEN k.key_cost / t.total_cost
 				 WHEN t.total_plan_count > 0 THEN k.key_plan_count / t.total_plan_count ELSE 0 END AS allocation_rate,
 			COALESCE(o.valid_order_count, 0) AS valid_order_count,
+			COALESCE(o.product_quantity, 0) AS product_quantity,
 			COALESCE(o.pay_amount, 0) AS pay_amount,
 			COALESCE(o.cost_amount, 0) AS cost_amount,
 			COALESCE(o.commission, 0) AS commission
@@ -387,6 +439,7 @@ func (s *QianchuanPlanHierarchyService) queryAwemes(ctx context.Context, req Qia
 	allocated_by_aweme AS (
 		SELECT aweme_key,
 			SUM(valid_order_count * allocation_rate) AS valid_order_count,
+			SUM(product_quantity * allocation_rate) AS product_quantity,
 			SUM(pay_amount * allocation_rate) AS pay_amount,
 			SUM(cost_amount * allocation_rate) AS cost_amount,
 			SUM(commission * allocation_rate) AS commission
@@ -415,6 +468,7 @@ func (s *QianchuanPlanHierarchyService) queryAwemes(ctx context.Context, req Qia
 		GROUP BY aweme_key
 	)
 	SELECT q.*, COALESCE(a.valid_order_count, 0) AS valid_order_count,
+		COALESCE(a.product_quantity, 0) AS product_quantity,
 		COALESCE(a.pay_amount, 0) AS pay_amount,
 		COALESCE(a.cost_amount, 0) AS cost_amount,
 		COALESCE(a.commission, 0) AS commission
@@ -468,6 +522,8 @@ func (s *QianchuanPlanHierarchyService) queryAwemes(ctx context.Context, req Qia
 			AdvertiserCount:  row["advertiser_count"].Int64(),
 			PlanCount:        row["plan_count"].Int64(),
 			ProductCount:     row["product_count"].Int64(),
+			ProductQuantity:  roundQianchuanHierarchy(row["product_quantity"].Float64()),
+			PayAmount:        roundQianchuanHierarchy(payAmount),
 			StatCost:         roundQianchuanHierarchy(statCost),
 			Commission:       roundQianchuanHierarchy(commission),
 			ValidOrderCount:  roundQianchuanHierarchy(row["valid_order_count"].Float64()),
@@ -564,6 +620,7 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 			CASE WHEN t.total_cost > 0 THEN k.key_cost / t.total_cost
 				 WHEN t.total_plan_count > 0 THEN k.key_plan_count / t.total_plan_count ELSE 0 END AS allocation_rate,
 			COALESCE(o.valid_order_count, 0) AS valid_order_count,
+			COALESCE(o.product_quantity, 0) AS product_quantity,
 			COALESCE(o.pay_amount, 0) AS pay_amount,
 			COALESCE(o.cost_amount, 0) AS cost_amount,
 			COALESCE(o.commission, 0) AS commission
@@ -574,6 +631,7 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 	allocated_by_advertiser AS (
 		SELECT store_id, advertiser_id,
 			SUM(valid_order_count * allocation_rate) AS valid_order_count,
+			SUM(product_quantity * allocation_rate) AS product_quantity,
 			SUM(pay_amount * allocation_rate) AS pay_amount,
 			SUM(cost_amount * allocation_rate) AS cost_amount,
 			SUM(commission * allocation_rate) AS commission
@@ -600,6 +658,7 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 		GROUP BY store_id, advertiser_id
 	)
 	SELECT q.*, COALESCE(a.valid_order_count, 0) AS valid_order_count,
+		COALESCE(a.product_quantity, 0) AS product_quantity,
 		COALESCE(a.pay_amount, 0) AS pay_amount,
 		COALESCE(a.cost_amount, 0) AS cost_amount,
 		COALESCE(a.commission, 0) AS commission
@@ -652,6 +711,8 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 			Matched:          row["store_id"].Int64() > 0,
 			PlanCount:        row["plan_count"].Int64(),
 			ProductCount:     row["product_count"].Int64(),
+			ProductQuantity:  roundQianchuanHierarchy(row["product_quantity"].Float64()),
+			PayAmount:        roundQianchuanHierarchy(payAmount),
 			StatCost:         roundQianchuanHierarchy(statCost),
 			Commission:       roundQianchuanHierarchy(commission),
 			ValidOrderCount:  roundQianchuanHierarchy(row["valid_order_count"].Float64()),
@@ -672,7 +733,7 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req QianchuanPlanHierarchyRequest, endExclusive string) ([]QianchuanPlanHierarchyNode, error) {
 	keywordSQL, keywordArgs := qianchuanHierarchyKeyword("daily", req.Keyword)
 	filterSQL := ""
-	filterArgs := make([]interface{}, 0, 5)
+	filterArgs := make([]interface{}, 0, 6)
 	if req.AdvertiserID > 0 {
 		filterSQL += " AND daily.advertiser_id = ?"
 		filterArgs = append(filterArgs, req.AdvertiserID)
@@ -691,6 +752,10 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 	if req.AccountID > 0 {
 		filterSQL += " AND daily.account_id = ?"
 		filterArgs = append(filterArgs, req.AccountID)
+	}
+	if req.ProductID != "" {
+		filterSQL += " AND daily.product_id = ?"
+		filterArgs = append(filterArgs, req.ProductID)
 	}
 	sql := fmt.Sprintf(`SELECT daily.*
 	FROM (
@@ -745,33 +810,47 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 		return nil, err
 	}
 
-	nodeMap := make(map[int64]*QianchuanPlanHierarchyNode)
-	payAmountMap := make(map[int64]float64)
+	nodeMap := make(map[string]*QianchuanPlanHierarchyNode)
+	payAmountMap := make(map[string]float64)
 	for _, row := range rows {
 		adID := row["ad_id"].Int64()
-		node := nodeMap[adID]
+		statDate := row["stat_date"].String()
+		mapKey := fmt.Sprintf("%d", adID)
+		if req.GroupByDate {
+			mapKey += "|" + statDate
+		}
+		node := nodeMap[mapKey]
 		if node == nil {
 			name := row["ad_name"].String()
 			if name == "" {
 				name = fmt.Sprintf("计划 %d", adID)
 			}
-			node = &QianchuanPlanHierarchyNode{
-				NodeKey:      fmt.Sprintf("plan:%d", adID),
-				NodeType:     QianchuanHierarchyLevelPlan,
-				Name:         name,
-				StoreID:      row["store_id"].Int64(),
-				AccountID:    row["account_id"].Int64(),
-				AdvertiserID: row["advertiser_id"].Int64(),
-				AwemeID:      row["aweme_id"].Int64(),
-				AdID:         adID,
-				ProductID:    row["product_id"].String(),
-				ProductName:  row["product_name"].String(),
-				AwemeName:    row["aweme_name"].String(),
-				AwemeShowID:  row["aweme_show_id"].String(),
-				Matched:      row["store_id"].Int64() > 0,
-				PlanCount:    1,
+			nodeKey := fmt.Sprintf("plan:%d", adID)
+			if req.GroupByDate {
+				nodeKey += ":" + statDate
 			}
-			nodeMap[adID] = node
+			node = &QianchuanPlanHierarchyNode{
+				NodeKey:        nodeKey,
+				NodeType:       QianchuanHierarchyLevelPlan,
+				Name:           name,
+				StatDate:       statDate,
+				AdvertiserName: row["advertiser_name"].String(),
+				StoreID:        row["store_id"].Int64(),
+				AccountID:      row["account_id"].Int64(),
+				AdvertiserID:   row["advertiser_id"].Int64(),
+				AwemeID:        row["aweme_id"].Int64(),
+				AdID:           adID,
+				ProductID:      row["product_id"].String(),
+				ProductName:    row["product_name"].String(),
+				AwemeName:      row["aweme_name"].String(),
+				AwemeShowID:    row["aweme_show_id"].String(),
+				Matched:        row["store_id"].Int64() > 0,
+				PlanCount:      1,
+			}
+			if node.ProductID != "" && node.ProductID != "0" {
+				node.ProductCount = 1
+			}
+			nodeMap[mapKey] = node
 		}
 
 		statCost := row["stat_cost"].Float64()
@@ -792,19 +871,24 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 		}
 		orderStat := orderStats[qianchuanOrderStatKey(row["store_id"].Int64(), row["product_id"].String(), row["stat_date"].String())]
 		node.ValidOrderCount += orderStat.ValidOrderCount * allocationRate
+		node.ProductQuantity += orderStat.ProductQuantity * allocationRate
+		node.PayAmount += orderStat.PayAmount * allocationRate
 		node.CostAmount += orderStat.CostAmount * allocationRate
 		node.Commission += orderStat.Commission * allocationRate
-		payAmountMap[adID] += orderStat.PayAmount * allocationRate
+		payAmountMap[mapKey] += orderStat.PayAmount * allocationRate
 	}
 
 	list := make([]QianchuanPlanHierarchyNode, 0, len(nodeMap))
-	for adID, node := range nodeMap {
+	for mapKey, node := range nodeMap {
+		adID := node.AdID
 		node.SecondaryName = planHierarchySecondaryName(node.ProductName, node.ProductID, adID)
 		node.StatCost = roundQianchuanHierarchy(node.StatCost)
 		node.Commission = roundQianchuanHierarchy(node.Commission)
 		node.ValidOrderCount = roundQianchuanHierarchy(node.ValidOrderCount)
+		node.ProductQuantity = roundQianchuanHierarchy(node.ProductQuantity)
+		node.PayAmount = roundQianchuanHierarchy(node.PayAmount)
 		node.CostAmount = roundQianchuanHierarchy(node.CostAmount)
-		node.Profit = roundQianchuanHierarchy(node.Commission - node.StatCost - payAmountMap[adID]*0.005)
+		node.Profit = roundQianchuanHierarchy(node.Commission - node.StatCost - payAmountMap[mapKey]*0.005)
 		node.PayOrderCount = roundQianchuanHierarchy(node.PayOrderCount)
 		node.CreateOrderCount = roundQianchuanHierarchy(node.CreateOrderCount)
 		node.Ctr = ratioQianchuanHierarchy(float64(node.ClickCnt), float64(node.ShowCnt))
@@ -812,6 +896,9 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 		list = append(list, *node)
 	}
 	sort.Slice(list, func(i, j int) bool {
+		if list[i].StatDate != list[j].StatDate {
+			return list[i].StatDate > list[j].StatDate
+		}
 		if list[i].StatCost == list[j].StatCost {
 			return list[i].AdID < list[j].AdID
 		}
@@ -822,6 +909,7 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 
 type qianchuanPlanOrderStat struct {
 	ValidOrderCount float64
+	ProductQuantity float64
 	PayAmount       float64
 	CostAmount      float64
 	Commission      float64
@@ -850,7 +938,8 @@ func loadQianchuanPlanOrderStats(ctx context.Context, productsByStore map[int64]
 		sql := fmt.Sprintf(`SELECT
 			o.product_id,
 			LEFT(o.pay_finish_time, 10) AS stat_date,
-			COUNT(DISTINCT CASE WHEN %s THEN o.main_order_no END) AS valid_order_count,
+			COALESCE(SUM(CASE WHEN %s THEN 1 ELSE 0 END), 0) AS valid_order_count,
+			COALESCE(SUM(CASE WHEN %s THEN o.product_num ELSE 0 END), 0) AS product_quantity,
 			COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num ELSE 0 END), 0) AS pay_amount,
 			COALESCE(SUM(CASE WHEN %s THEN COALESCE(gd.base_price, 0) * o.product_num ELSE 0 END), 0) AS cost_amount,
 			COALESCE(SUM(CASE WHEN %s THEN
@@ -860,12 +949,12 @@ func loadQianchuanPlanOrderStats(ctx context.Context, productsByStore map[int64]
 				- (o.product_price * o.product_num * 0.02)
 			ELSE 0 END), 0) AS commission
 		FROM order_info o
-		LEFT JOIN goods gd
+		LEFT JOIN (SELECT goods_code, MAX(base_price) AS base_price FROM goods GROUP BY goods_code) gd
 			ON o.seller_code COLLATE utf8mb4_unicode_ci = gd.goods_code COLLATE utf8mb4_unicode_ci
 		WHERE o.shop_name = ?
 			AND o.pay_finish_time >= ? AND o.pay_finish_time < ?
 			AND o.product_id IN (%s)
-		GROUP BY o.product_id, LEFT(o.pay_finish_time, 10)`, validCondition, validCondition, validCondition, validCondition, strings.Join(placeholders, ","))
+		GROUP BY o.product_id, LEFT(o.pay_finish_time, 10)`, validCondition, validCondition, validCondition, validCondition, validCondition, strings.Join(placeholders, ","))
 
 		args := []interface{}{store["store_name"].String(), startDate, endExclusive}
 		for _, productID := range products {
@@ -878,6 +967,7 @@ func loadQianchuanPlanOrderStats(ctx context.Context, productsByStore map[int64]
 		for _, row := range rows {
 			result[qianchuanOrderStatKey(storeID, row["product_id"].String(), row["stat_date"].String())] = qianchuanPlanOrderStat{
 				ValidOrderCount: row["valid_order_count"].Float64(),
+				ProductQuantity: row["product_quantity"].Float64(),
 				PayAmount:       row["pay_amount"].Float64(),
 				CostAmount:      row["cost_amount"].Float64(),
 				Commission:      row["commission"].Float64(),
@@ -905,6 +995,8 @@ func summarizeQianchuanHierarchyNodes(list []QianchuanPlanHierarchyNode, level s
 		summary.AdvertiserCount += item.AdvertiserCount
 		summary.PlanCount += item.PlanCount
 		summary.ProductCount += item.ProductCount
+		summary.ProductQuantity += int64(math.Round(item.ProductQuantity))
+		summary.TotalPayAmount += item.PayAmount
 		summary.TotalCost += item.StatCost
 		summary.TotalCommission += item.Commission
 		summary.TotalValidOrderCount += item.ValidOrderCount
@@ -912,10 +1004,15 @@ func summarizeQianchuanHierarchyNodes(list []QianchuanPlanHierarchyNode, level s
 		summary.TotalProfit += item.Profit
 	}
 	summary.TotalCost = roundQianchuanHierarchy(summary.TotalCost)
+	summary.TotalPayAmount = roundQianchuanHierarchy(summary.TotalPayAmount)
 	summary.TotalCommission = roundQianchuanHierarchy(summary.TotalCommission)
 	summary.TotalValidOrderCount = roundQianchuanHierarchy(summary.TotalValidOrderCount)
 	summary.TotalOrderCost = roundQianchuanHierarchy(summary.TotalOrderCost)
+	summary.ReserveAmount = CalculateReserveAmount(summary.TotalPayAmount)
+	summary.ShopServiceFee = CalculateDouyinShopServiceFee(summary.TotalPayAmount)
+	summary.CommissionDeduction = roundQianchuanHierarchy(summary.TotalPayAmount * 0.005)
 	summary.TotalProfit = roundQianchuanHierarchy(summary.TotalProfit)
+	summary.FinancialScope = "allocated_plan_orders"
 	return summary
 }
 

@@ -98,3 +98,32 @@ func TestQianchuanPlanHierarchyDatabaseIntegration(t *testing.T) {
 		break
 	}
 }
+
+func TestQianchuanPlanDetailDatabaseIntegration(t *testing.T) {
+	if os.Getenv("QIANCHUAN_DB_INTEGRATION") != "1" {
+		t.Skip("set QIANCHUAN_DB_INTEGRATION=1 to run against the configured database")
+	}
+	statDate := os.Getenv("QIANCHUAN_INTEGRATION_DATE")
+	if statDate == "" {
+		t.Skip("set QIANCHUAN_INTEGRATION_DATE to verify a specific plan report date")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	result, err := NewQianchuanPlanHierarchyService().Query(ctx, QianchuanPlanHierarchyRequest{
+		Level:       QianchuanHierarchyLevelPlan,
+		StartDate:   statDate,
+		EndDate:     statDate,
+		GroupByDate: true,
+	})
+	if err != nil {
+		t.Fatalf("query plan detail failed: %v", err)
+	}
+	if result.Summary.FinancialScope != "douyin_order_snapshot" {
+		t.Fatalf("unexpected financial scope: %+v", result.Summary)
+	}
+	if result.Summary.TotalValidOrderCount <= 0 || result.Summary.TotalPayAmount <= 0 {
+		t.Fatalf("expected canonical order totals: %+v", result.Summary)
+	}
+	t.Logf("plan detail rows=%d summary=%+v", len(result.List), result.Summary)
+}

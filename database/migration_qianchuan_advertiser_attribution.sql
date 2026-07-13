@@ -36,8 +36,16 @@ FROM (
   UNION ALL SELECT 1711882704612356, '利云文化进口图书-主账户'
   UNION ALL SELECT 1722203379291139, '闻道清北图书旗舰店主户'
 ) seed
-JOIN trader source ON source.id = (SELECT MIN(id) FROM trader WHERE name = '李百川' AND status = 1)
-JOIN trader target ON target.id = (SELECT MIN(id) FROM trader WHERE name = '王梅雪' AND status = 1)
+JOIN trader source ON source.id = (
+  SELECT id FROM trader
+  WHERE name IN ('李百川', '李百川组') AND status = 1
+  ORDER BY (name = '李百川') DESC, id ASC LIMIT 1
+)
+JOIN trader target ON target.id = (
+  SELECT id FROM trader
+  WHERE name IN ('王梅雪', '王梅雪组') AND status = 1
+  ORDER BY (name = '王梅雪') DESC, id ASC LIMIT 1
+)
 WHERE NOT EXISTS (
   SELECT 1 FROM qianchuan_advertiser_attribution_rule existing
   WHERE existing.advertiser_id = seed.advertiser_id

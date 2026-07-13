@@ -301,8 +301,16 @@ var (
 				UNION ALL SELECT 1711882704612356, '利云文化进口图书-主账户'
 				UNION ALL SELECT 1722203379291139, '闻道清北图书旗舰店主户'
 			) seed
-			JOIN trader source ON source.id = (SELECT MIN(id) FROM trader WHERE name = '李百川' AND status = 1)
-			JOIN trader target ON target.id = (SELECT MIN(id) FROM trader WHERE name = '王梅雪' AND status = 1)
+			JOIN trader source ON source.id = (
+				SELECT id FROM trader
+				WHERE name IN ('李百川', '李百川组') AND status = 1
+				ORDER BY (name = '李百川') DESC, id ASC LIMIT 1
+			)
+			JOIN trader target ON target.id = (
+				SELECT id FROM trader
+				WHERE name IN ('王梅雪', '王梅雪组') AND status = 1
+				ORDER BY (name = '王梅雪') DESC, id ASC LIMIT 1
+			)
 			WHERE NOT EXISTS (
 				SELECT 1 FROM qianchuan_advertiser_attribution_rule existing
 				WHERE existing.advertiser_id = seed.advertiser_id
@@ -311,7 +319,7 @@ var (
 				FROM qianchuan_advertiser_attribution_rule
 				WHERE advertiser_id IN (1700642741413895, 1774391159738372, 1711882704612356, 1722203379291139)`)
 			if seedErr != nil || seedCount["cnt"].Int() != 4 {
-				g.Log().Warningf(ctx, "[DBInit] 千川临时归属初始化未完成，需确认李百川、王梅雪均为启用人员: count=%d err=%v", seedCount["cnt"].Int(), seedErr)
+				g.Log().Warningf(ctx, "[DBInit] 千川临时归属初始化未完成，需确认李百川（组）、王梅雪（组）均为启用人员: count=%d err=%v", seedCount["cnt"].Int(), seedErr)
 			}
 
 			addColumnIfMissing("qianchuan_ad_report", "organization_id", "organization_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '组织ID（默认公司ID）' AFTER `id`")

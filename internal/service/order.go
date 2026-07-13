@@ -520,6 +520,19 @@ func orderListOfflineCommissionAmount(order g.Map) float64 {
 	return roundFloatOrder(amount, 2)
 }
 
+// orderListApplyCommissionScope applies the order-type card semantics. Online
+// commission represents the talent-order margin and is therefore shown only
+// for the combined talent view. The external-talent view shows its separately
+// configured offline commission only.
+func orderListApplyCommissionScope(stats *OrderStats, orderType string) {
+	if stats == nil {
+		return
+	}
+	if normalizeOrderListType(orderType) != "talent" {
+		stats.OnlineCommission = 0
+	}
+}
+
 func orderListAfterSaleStatusLabel(status string) string {
 	switch strings.TrimSpace(status) {
 	case "6":
@@ -747,6 +760,28 @@ func orderListQueryDateRange(startTime, endTime string) (string, string) {
 		endDate = startDate
 	}
 	return startDate, endDate
+}
+
+// orderAdCostDateRange converts an order time range to the inclusive dates used
+// by Qianchuan daily reports. A midnight end is exclusive for the ending day.
+func orderAdCostDateRange(startTime, endTime string) (string, string) {
+	startDate, endDate := orderListQueryDateRange(startTime, endTime)
+	if len(endTime) < len("2006-01-02 15:04:05") || endTime[10:] != " 00:00:00" {
+		return startDate, endDate
+	}
+
+	end, err := time.ParseInLocation("2006-01-02 15:04:05", endTime, time.Local)
+	if err != nil {
+		return startDate, endDate
+	}
+	if len(startTime) >= 10 {
+		start, startErr := time.ParseInLocation("2006-01-02 15:04:05", startTime, time.Local)
+		if startErr == nil && !end.After(start) {
+			return startDate, endDate
+		}
+	}
+
+	return startDate, end.AddDate(0, 0, -1).Format("2006-01-02")
 }
 
 func orderListFilterEnriched(orders []g.Map, keyword, shopName, orderStatus, talentID, orderType, startTime, endTime string) []g.Map {
@@ -1598,6 +1633,7 @@ func (s *OrderService) Stats(ctx context.Context, keyword, shopName, orderStatus
 		filteredOrders := orderListFilterByType(allTypeOrders, orderType)
 		allTypeStats := s.statsFromEnrichedOrders(ctx, allTypeOrders, talentId, shopName, startTime, endTime)
 		stats := s.statsFromEnrichedOrders(ctx, filteredOrders, talentId, shopName, startTime, endTime)
+		orderListApplyCommissionScope(stats, orderType)
 		stats.AdCostAmount = 0
 		if allTypeStats.ValidPayAmount > 0 {
 			stats.AdCostAmount = roundFloatOrder(allTypeStats.AdCostAmount*stats.ValidPayAmount/allTypeStats.ValidPayAmount, 2)
@@ -1930,13 +1966,14 @@ func (s *OrderService) getAdCostByTalent(ctx context.Context, talentID, shopName
 		query += " AND COALESCE(mapped_shop.shop_name, legacy_shop.account_name) = ?"
 		params = append(params, shopName)
 	}
-	if len(startTime) >= 10 {
+	qStart, qEnd := orderAdCostDateRange(startTime, endTime)
+	if qStart != "" {
 		query += " AND LEFT(qar.stat_datetime, 10) >= ?"
-		params = append(params, startTime[:10])
+		params = append(params, qStart)
 	}
-	if len(endTime) >= 10 {
+	if qEnd != "" {
 		query += " AND LEFT(qar.stat_datetime, 10) <= ?"
-		params = append(params, endTime[:10])
+		params = append(params, qEnd)
 	}
 	row, err := g.DB().GetOne(ctx, query, params...)
 	if err != nil {
@@ -1949,15 +1986,8 @@ func (s *OrderService) getAdCostByTalent(ctx context.Context, talentID, shopName
 // getAdCost 从千川广告报表获取指定时间段内的广告费消耗
 // 当 shopName 非空时，通过 account_qianchuan_mapping 关联到具体账号的广告主ID
 func (s *OrderService) getAdCost(ctx context.Context, shopName string, startTime, endTime string) float64 {
-	// 提取日期部分（stat_datetime 存的是日期字符串 2026-06-01）
-	qStart := ""
-	qEnd := ""
-	if startTime != "" && len(startTime) >= 10 {
-		qStart = startTime[:10]
-	}
-	if endTime != "" && len(endTime) >= 10 {
-		qEnd = endTime[:10]
-	}
+	// stat_datetime 是日报日期；次日零点作为时间区间右边界时必须排除次日。
+	qStart, qEnd := orderAdCostDateRange(startTime, endTime)
 
 	if shopName != "" {
 		// 按店铺关联千川广告主ID查询（通过 account 表关联 shopName）

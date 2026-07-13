@@ -189,6 +189,25 @@ func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId
 
 // getStatsRealtime 实时计算统计
 func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId int64, nodeType, startDate, endDate, timeType, platform string) (*model.FinanceStatsRes, error) {
+	if nodeType == "company" && (platform == "" || platform == "douyin") {
+		isRoot, rootErr := isRootFinanceCompany(ctx, nodeId)
+		if rootErr != nil {
+			return nil, rootErr
+		}
+		if isRoot {
+			snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
+			if snapshotErr != nil {
+				return nil, snapshotErr
+			}
+			return &model.FinanceStatsRes{
+				TimeType:  timeType,
+				StartDate: startDate,
+				EndDate:   endDate,
+				Summary:   snapshot.FinanceSummary(),
+			}, nil
+		}
+	}
+
 	// 1. 获取该节点下的所有账号ID
 	accountIds, err := s.getAccountIdsByNode(ctx, nodeId, nodeType, platform)
 	if err != nil {

@@ -30,17 +30,20 @@ type RealtimeProfitReq struct {
 
 // RealtimeProfitResult 实时盈亏结果
 type RealtimeProfitResult struct {
-	StatDate       string  `json:"statDate"`
-	OrderCount     int64   `json:"orderCount"`
-	PayAmount      float64 `json:"payAmount"`
-	CostAmount     float64 `json:"costAmount"`
-	ReserveAmount  float64 `json:"reserveAmount"`
-	ShopServiceFee float64 `json:"shopServiceFee"`
-	Commission     float64 `json:"commission"`
-	RefundCost     float64 `json:"refundCost"`
-	RefundCount    int64   `json:"refundCount"`
-	AdCost         float64 `json:"adCost"`
-	NetProfit      float64 `json:"netProfit"`
+	StatDate          string  `json:"statDate"`
+	TotalOrderCount   int64   `json:"totalOrderCount"`
+	OrderCount        int64   `json:"orderCount"`
+	InvalidOrderCount int64   `json:"invalidOrderCount"`
+	ProductNum        int64   `json:"productNum"`
+	PayAmount         float64 `json:"payAmount"`
+	CostAmount        float64 `json:"costAmount"`
+	ReserveAmount     float64 `json:"reserveAmount"`
+	ShopServiceFee    float64 `json:"shopServiceFee"`
+	Commission        float64 `json:"commission"`
+	RefundCost        float64 `json:"refundCost"`
+	RefundCount       int64   `json:"refundCount"`
+	AdCost            float64 `json:"adCost"`
+	NetProfit         float64 `json:"netProfit"`
 }
 
 // getValidCond 返回有效/无效订单条件SQL
@@ -77,6 +80,34 @@ func (s *FinanceCommissionService) GetRealtimeProfit(ctx context.Context, req *R
 	endTime := endDate + " 23:59:59"
 
 	result := &RealtimeProfitResult{StatDate: startDate + " ~ " + endDate}
+	if req.CompanyId > 0 {
+		isRoot, rootErr := isRootFinanceCompany(ctx, req.CompanyId)
+		if rootErr != nil {
+			return nil, rootErr
+		}
+		if isRoot {
+			snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
+			if snapshotErr != nil {
+				return nil, snapshotErr
+			}
+			return &RealtimeProfitResult{
+				StatDate:          startDate + " ~ " + endDate,
+				TotalOrderCount:   snapshot.TotalOrderCount,
+				OrderCount:        snapshot.ValidOrderCount,
+				InvalidOrderCount: snapshot.InvalidOrderCount,
+				ProductNum:        snapshot.ProductQuantity,
+				PayAmount:         snapshot.SalesAmount,
+				CostAmount:        snapshot.CostAmount,
+				ReserveAmount:     snapshot.ReserveAmount,
+				ShopServiceFee:    snapshot.ShopServiceFee,
+				Commission:        snapshot.Commission,
+				RefundCost:        snapshot.RefundCostAmount,
+				RefundCount:       snapshot.RefundOrderCount,
+				AdCost:            snapshot.AdCostAmount,
+				NetProfit:         snapshot.Profit,
+			}, nil
+		}
+	}
 
 	// 1. 确定要查询的账号ID列表
 	accountIds, err := s.getAccountIdsByDimension(ctx, req)
@@ -242,16 +273,16 @@ func (s *FinanceCommissionService) orderStatsByAccounts(ctx context.Context, acc
 		placeholders := strings.TrimRight(strings.Repeat("?,", len(uids)), ",")
 		sql := fmt.Sprintf(`
 			SELECT
-				COUNT(DISTINCT o.%s) AS order_count,
+				COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS order_count,
 				COALESCE(SUM(CASE WHEN %s THEN o.product_price * o.product_num ELSE 0 END), 0) AS pay_amount,
-				COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, o.product_price) * o.product_num ELSE 0 END), 0) AS cost_amount,
+				COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS cost_amount,
 					COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS refund_cost,
 				COUNT(DISTINCT CASE WHEN %s THEN o.%s END) AS refund_count
 			FROM %s o
 			LEFT JOIN goods g ON o.seller_code COLLATE utf8mb4_unicode_ci = g.goods_code COLLATE utf8mb4_unicode_ci
 			WHERE o.pay_finish_time >= ? AND o.pay_finish_time <= ?
 			  AND o.talent_id IN (%s)
-		`, p.orderNoCol, validCond, validCond, refundCond, refundCond, p.orderNoCol, p.table, placeholders)
+		`, validCond, p.orderNoCol, validCond, validCond, refundCond, refundCond, p.orderNoCol, p.table, placeholders)
 
 		params := []interface{}{startTime, endTime}
 		for _, uid := range uids {

@@ -295,6 +295,32 @@ func TestStatsFromEnrichedOrdersIncludesOfflineCommissionForExternalOrders(t *te
 	}
 }
 
+func TestOrderListApplyCommissionScope(t *testing.T) {
+	tests := []struct {
+		name            string
+		orderType       string
+		wantOnline      float64
+		wantOfflineKeep float64
+	}{
+		{name: "external only shows offline commission", orderType: "external", wantOnline: 0, wantOfflineKeep: 50},
+		{name: "combined talent view shows both commissions", orderType: "talent", wantOnline: 120, wantOfflineKeep: 50},
+		{name: "self sale does not show online commission", orderType: "self_sale", wantOnline: 0, wantOfflineKeep: 50},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			stats := &OrderStats{OnlineCommission: 120, OfflineCommission: 50}
+			orderListApplyCommissionScope(stats, test.orderType)
+			if stats.OnlineCommission != test.wantOnline {
+				t.Fatalf("online commission = %.2f, want %.2f", stats.OnlineCommission, test.wantOnline)
+			}
+			if stats.OfflineCommission != test.wantOfflineKeep {
+				t.Fatalf("offline commission = %.2f, want %.2f", stats.OfflineCommission, test.wantOfflineKeep)
+			}
+		})
+	}
+}
+
 func TestCalculateOrderProfit(t *testing.T) {
 	salesAmount := 434873.85
 	reserveAmount := CalculateReserveAmount(salesAmount)
