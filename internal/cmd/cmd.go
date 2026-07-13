@@ -727,14 +727,20 @@ var (
 				yesterday := time.Now().AddDate(0, 0, -1)
 				startTime := yesterday.Format("2006-01-02") + " 00:00:00"
 				endTime := time.Now().Format("2006-01-02") + " 00:00:00"
-				_, err := douyinSvc.GetPoller().ManualTrigger(ctx, douyinSvc.PollParams{
+				_, err := douyinSvc.NewOrderAllianceSyncService().Sync(ctx, douyinSvc.PollParams{
 					StartTime: startTime, EndTime: endTime, Concurrency: 10,
 				})
 				return err
 			})
 
-			cronMgr.RegisterBuiltin("alliance_order_daily_pull", "0 30 1 * * *", func(ctx context.Context) error {
-				return douyinSvc.NewService().DailyPullAllianceOrders(ctx)
+			cronMgr.RegisterBuiltin("douyin_order_today_pull", "0 0 12,19 * * *", func(ctx context.Context) error {
+				now := time.Now()
+				startTime := now.Format("2006-01-02") + " 00:00:00"
+				endTime := now.Format("2006-01-02 15:04:05")
+				_, err := douyinSvc.NewOrderAllianceSyncService().Sync(ctx, douyinSvc.PollParams{
+					StartTime: startTime, EndTime: endTime, Concurrency: 10,
+				})
+				return err
 			})
 
 			cronMgr.RegisterBuiltin("wechat_shop_order_daily_pull", "0 40 1 * * *", func(ctx context.Context) error {

@@ -27,10 +27,24 @@ type PollParams struct {
 
 // PollResult 拉取结果
 type PollResult struct {
-	StoreCount  int `json:"storeCount"`
-	TotalOrders int `json:"totalOrders"`
-	TotalSaved  int `json:"totalSaved"`
-	DurationMs  int `json:"durationMs"`
+	StoreCount   int               `json:"storeCount"`
+	FailedStores int               `json:"failedStores"`
+	FailedPages  int               `json:"failedPages"`
+	TotalOrders  int               `json:"totalOrders"`
+	TotalSaved   int               `json:"totalSaved"`
+	DurationMs   int               `json:"durationMs"`
+	StoreResults []StorePollResult `json:"storeResults"`
+}
+
+// StorePollResult 记录单个店铺本次实际拉取到的订单，供后续精选联盟精准查询。
+type StorePollResult struct {
+	StoreID     int      `json:"storeId"`
+	StoreName   string   `json:"storeName"`
+	TotalOrders int      `json:"totalOrders"`
+	TotalSaved  int      `json:"totalSaved"`
+	FailedPages []int    `json:"failedPages,omitempty"`
+	Error       string   `json:"error,omitempty"`
+	OrderIDs    []string `json:"-"`
 }
 
 // Poller 抖店订单轮询器（每天最多1000次API调用）
@@ -261,7 +275,7 @@ func (p *Poller) tick(ctx context.Context) {
 				service.TaskLogSuccess(ctx, logId, "10000", string(respSummary), dur)
 			}
 
-			saved := p.saveOrders(ctx, result.Orders)
+			saved, _ := p.saveOrders(ctx, result.Orders)
 			storeSaved += saved
 			storeOrders += len(result.Orders)
 
@@ -296,9 +310,9 @@ func (p *Poller) tick(ctx context.Context) {
 }
 
 // saveOrders 保存订单到 order_info，按 sub_order_no 去重
-func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderItem) int {
+func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderItem) (int, []string) {
 	if len(orders) == 0 {
-		return 0
+		return 0, nil
 	}
 
 	// 批量查询 seller_code → base_price 映射
@@ -309,6 +323,7 @@ func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderIte
 	}
 
 	saved := 0
+	savedOrderIDs := make([]string, 0, len(orders))
 	for _, order := range orders {
 		data := p.orderToMap(order)
 		// 商品成本 = base_price × product_num
@@ -338,8 +353,11 @@ func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderIte
 			}
 		}
 		saved++
+		if order.SubOrderNo != "" {
+			savedOrderIDs = append(savedOrderIDs, order.SubOrderNo)
+		}
 	}
-	return saved
+	return saved, savedOrderIDs
 }
 
 func douyinOrderStatusDesc(order model.PlatformOrderItem) string {
@@ -373,6 +391,9 @@ func (p *Poller) orderToMap(order model.PlatformOrderItem) map[string]interface{
 		}
 	}
 	setIf("product_id", fmt.Sprintf("%d", order.ProductId))
+	if order.ShopId > 0 {
+		setIf("store_id", fmt.Sprintf("%d", order.ShopId))
+	}
 	setIf("seller_code", order.Code)
 	setIf("pay_finish_time", order.PayTime)
 	setIf("talent_id", fmt.Sprintf("%d", order.AuthorId))
@@ -397,45 +418,67 @@ func (p *Poller) orderToMap(order model.PlatformOrderItem) map[string]interface{
 // ManualTrigger 手动触发一次订单拉取（不改变定时调度）
 func (p *Poller) ManualTrigger(ctx context.Context, opt PollParams) (*PollResult, error) {
 	g.Log().Info(ctx, "[DouyinPoller] 手动触发订单拉取 start=%s end=%s", opt.StartTime, opt.EndTime)
-	totalOrders, totalSaved, err := p.tickWithParams(ctx, opt)
-	if err != nil {
-		return nil, err
+	startedAt := time.Now()
+	result, err := p.tickWithParams(ctx, opt)
+	if result != nil {
+		result.DurationMs = int(time.Since(startedAt).Milliseconds())
 	}
-	return &PollResult{
-		StoreCount:  1,
-		TotalOrders: totalOrders,
-		TotalSaved:  totalSaved,
-	}, nil
+	return result, err
 }
 
 // tickWithParams 使用指定时间参数拉取订单
-func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (totalOrders, totalSaved int, err error) {
-	startTime := time.Now()
-
+func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (*PollResult, error) {
 	stores, dbErr := g.DB().Model("store").Ctx(ctx).
 		Where("platform", "douyin").Where("status", 1).Where("author", 1).All()
 	if dbErr != nil {
-		return 0, 0, dbErr
+		return nil, dbErr
 	}
+	result := &PollResult{StoreCount: len(stores)}
 	if len(stores) == 0 {
-		return 0, 0, nil
+		return result, nil
 	}
 
-	now := time.Now()
-	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	cst := time.FixedZone("CST", 8*3600)
+	now := time.Now().In(cst)
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, cst)
+	var requestedStart, requestedEnd time.Time
+	var err error
+	if opt.StartTime != "" {
+		requestedStart, err = time.ParseInLocation("2006-01-02 15:04:05", opt.StartTime, cst)
+		if err != nil {
+			return nil, fmt.Errorf("开始时间格式错误: %w", err)
+		}
+	}
+	if opt.EndTime != "" {
+		requestedEnd, err = time.ParseInLocation("2006-01-02 15:04:05", opt.EndTime, cst)
+		if err != nil {
+			return nil, fmt.Errorf("结束时间格式错误: %w", err)
+		}
+	}
+	if !requestedStart.IsZero() && !requestedEnd.IsZero() && !requestedStart.Before(requestedEnd) {
+		return nil, fmt.Errorf("开始时间必须早于结束时间")
+	}
 
 	for _, store := range stores {
 		storeId := store["id"].Int()
 		storeName := store["store_name"].String()
+		storeResult := StorePollResult{StoreID: storeId, StoreName: storeName}
+		orderIDSet := make(map[string]struct{})
+		appendOrderIDs := func(orderIDs []string) {
+			for _, orderID := range orderIDs {
+				if orderID == "" {
+					continue
+				}
+				if _, exists := orderIDSet[orderID]; exists {
+					continue
+				}
+				orderIDSet[orderID] = struct{}{}
+				storeResult.OrderIDs = append(storeResult.OrderIDs, orderID)
+			}
+		}
 
-		cst := time.FixedZone("CST", 8*3600)
-		var startTimeToUse, endTimeToUse time.Time
-		if opt.StartTime != "" {
-			startTimeToUse, _ = time.ParseInLocation("2006-01-02 15:04:05", opt.StartTime, cst)
-		}
-		if opt.EndTime != "" {
-			endTimeToUse, _ = time.ParseInLocation("2006-01-02 15:04:05", opt.EndTime, cst)
-		}
+		startTimeToUse := requestedStart
+		endTimeToUse := requestedEnd
 		if startTimeToUse.IsZero() {
 			lastPollStr := store["last_poll_time"].String()
 			if lastPollStr != "" {
@@ -468,9 +511,15 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (totalOrder
 		})
 		if apiErr != nil {
 			g.Log().Errorf(ctx, "[DouyinPoller] %s 第%d页失败: %v", storeName, firstPage, apiErr)
+			storeResult.Error = apiErr.Error()
+			storeResult.FailedPages = append(storeResult.FailedPages, firstPage)
+			result.FailedStores++
+			result.FailedPages++
+			result.StoreResults = append(result.StoreResults, storeResult)
 			continue
 		}
-		saved := p.saveOrders(ctx, firstResult.Orders)
+		saved, savedOrderIDs := p.saveOrders(ctx, firstResult.Orders)
+		appendOrderIDs(savedOrderIDs)
 		g.Log().Infof(ctx, "[DouyinPoller] %s 第%d页: %d条保存, total=%d", storeName, firstPage, len(firstResult.Orders), firstResult.Total)
 
 		totalPages := 0
@@ -483,8 +532,11 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (totalOrder
 		// 如果没有更多页，直接返回
 		if firstPage+1 >= totalPages || len(firstResult.Orders) == 0 {
 			g.Log().Infof(ctx, "[DouyinPoller] %s: %d条/%d条保存 (单页完成)", storeName, storeOrders, storeSaved)
-			totalOrders += storeOrders
-			totalSaved += storeSaved
+			storeResult.TotalOrders = storeOrders
+			storeResult.TotalSaved = storeSaved
+			result.TotalOrders += storeOrders
+			result.TotalSaved += storeSaved
+			result.StoreResults = append(result.StoreResults, storeResult)
 			continue
 		}
 
@@ -497,18 +549,8 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (totalOrder
 			concurrency = 45
 		}
 
-		// 速率限制器：45次/秒
-		rateLimiter := make(chan struct{}, concurrency)
-		go func() {
-			ticker := time.NewTicker(time.Second / 45)
-			defer ticker.Stop()
-			for range ticker.C {
-				select {
-				case rateLimiter <- struct{}{}:
-				default:
-				}
-			}
-		}()
+		// 所有 worker 共用限速器，避免并发突发超过 45 次/秒。
+		rateLimiter := time.NewTicker(time.Second / 45)
 
 		var mu sync.Mutex
 		var wg sync.WaitGroup
@@ -525,7 +567,11 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (totalOrder
 				defer wg.Done()
 				svc := NewService()
 				for page := range pageCh {
-					<-rateLimiter
+					select {
+					case <-ctx.Done():
+						return
+					case <-rateLimiter.C:
+					}
 					var result *model.PlatformOrderListResult
 					var apiErr error
 					// 失败重试3次
@@ -549,24 +595,37 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (totalOrder
 						mu.Unlock()
 						continue
 					}
-					saved := p.saveOrders(ctx, result.Orders)
+					saved, savedOrderIDs := p.saveOrders(ctx, result.Orders)
 					mu.Lock()
 					storeOrders += len(result.Orders)
 					storeSaved += saved
+					appendOrderIDs(savedOrderIDs)
 					mu.Unlock()
 				}
 			}(i)
 		}
 		wg.Wait()
+		rateLimiter.Stop()
 
 		g.Log().Infof(ctx, "[DouyinPoller] %s: %d条/%d条保存 (并发%d, 共%d页, 失败%d页)",
 			storeName, storeOrders, storeSaved, concurrency, totalPages, len(failPages))
-		totalOrders += storeOrders
-		totalSaved += storeSaved
+		storeResult.TotalOrders = storeOrders
+		storeResult.TotalSaved = storeSaved
+		storeResult.FailedPages = failPages
+		if len(failPages) > 0 {
+			storeResult.Error = fmt.Sprintf("%d个分页拉取失败", len(failPages))
+			result.FailedStores++
+			result.FailedPages += len(failPages)
+		}
+		result.TotalOrders += storeOrders
+		result.TotalSaved += storeSaved
+		result.StoreResults = append(result.StoreResults, storeResult)
 	}
 
-	_ = time.Since(startTime)
-	return totalOrders, totalSaved, nil
+	if result.FailedStores > 0 {
+		return result, fmt.Errorf("抖店订单拉取部分失败: %d个店铺、%d个分页", result.FailedStores, result.FailedPages)
+	}
+	return result, nil
 }
 
 // truncateStr 截断字符串到指定长度

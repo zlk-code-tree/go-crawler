@@ -61,8 +61,8 @@ func GetCronManager() *CronManager {
 
 // builtinDisplayNames 内置任务中文名
 var builtinDisplayNames = map[string]string{
-	"douyin_order_daily_pull":      "抖店订单每日拉取",
-	"alliance_order_daily_pull":    "精选联盟每日拉取",
+	"douyin_order_daily_pull":      "抖店订单及达人每日对账",
+	"douyin_order_today_pull":      "抖店订单及达人当日同步",
 	"wechat_shop_order_daily_pull": "微信小店订单每日拉取",
 	"finance_daily_aggregate":      "达人佣金日聚合",
 	"order_daily_aggregate":        "抖音订单日聚合",
