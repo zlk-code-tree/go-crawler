@@ -126,6 +126,69 @@ func TestOrderListWeightedIndexRejectsZeroWeights(t *testing.T) {
 	}
 }
 
+func TestOrderListResolveExternalTalentRequiresSameShop(t *testing.T) {
+	externalByUID := map[string]externalTalentInfo{
+		orderListExternalMatchKey("利云文化图书旗舰店", "972381158384056"): {
+			uid:      "972381158384056",
+			teamName: "一壶觞",
+		},
+	}
+
+	_, _, ok := orderListResolveExternalTalent(
+		"利云文化官方旗舰店",
+		"972381158384056",
+		"",
+		"",
+		externalByUID,
+		map[string]externalTalentInfo{},
+		map[string]externalTalentInfo{},
+	)
+	if ok {
+		t.Fatal("cross-shop external talent matched, want no match")
+	}
+}
+
+func TestOrderListResolveExternalTalentPrefersSameShopThenGlobal(t *testing.T) {
+	globalInfo := externalTalentInfo{uid: "1", teamName: "全局团队"}
+	shopInfo := externalTalentInfo{uid: "1", teamName: "店铺团队"}
+	externalByUID := map[string]externalTalentInfo{
+		orderListExternalMatchKey("", "1"):          globalInfo,
+		orderListExternalMatchKey("利云文化官方旗舰店", "1"): shopInfo,
+	}
+
+	got, field, ok := orderListResolveExternalTalent(
+		"利云文化官方旗舰店",
+		"1",
+		"",
+		"",
+		externalByUID,
+		map[string]externalTalentInfo{},
+		map[string]externalTalentInfo{},
+	)
+	if !ok || field != "uid" {
+		t.Fatalf("resolveExternalTalent() matched=%v field=%q, want true/uid", ok, field)
+	}
+	if got.teamName != shopInfo.teamName {
+		t.Fatalf("resolveExternalTalent() teamName=%q, want %q", got.teamName, shopInfo.teamName)
+	}
+
+	got, field, ok = orderListResolveExternalTalent(
+		"不存在的店铺",
+		"1",
+		"",
+		"",
+		externalByUID,
+		map[string]externalTalentInfo{},
+		map[string]externalTalentInfo{},
+	)
+	if !ok || field != "uid" {
+		t.Fatalf("resolveExternalTalent() global fallback matched=%v field=%q, want true/uid", ok, field)
+	}
+	if got.teamName != globalInfo.teamName {
+		t.Fatalf("resolveExternalTalent() fallback teamName=%q, want %q", got.teamName, globalInfo.teamName)
+	}
+}
+
 func TestOrderListFilterByTypePartitionsOrders(t *testing.T) {
 	orders := []g.Map{
 		{"id": 1, "orderOwnershipCode": "internal", "isShopSelfSale": false},
@@ -135,8 +198,9 @@ func TestOrderListFilterByTypePartitionsOrders(t *testing.T) {
 	}
 	talentOrders := orderListFilterByType(orders, "talent")
 	selfSaleOrders := orderListFilterByType(orders, "self_sale")
-	if len(talentOrders) != 2 || len(selfSaleOrders) != 2 {
-		t.Fatalf("partition mismatch: talent=%d selfSale=%d", len(talentOrders), len(selfSaleOrders))
+	externalOrders := orderListFilterByType(orders, "external")
+	if len(talentOrders) != 2 || len(selfSaleOrders) != 2 || len(externalOrders) != 1 {
+		t.Fatalf("partition mismatch: talent=%d selfSale=%d external=%d", len(talentOrders), len(selfSaleOrders), len(externalOrders))
 	}
 	if len(talentOrders)+len(selfSaleOrders) != len(orders) {
 		t.Fatalf("partition lost or duplicated orders: all=%d talent=%d selfSale=%d", len(orders), len(talentOrders), len(selfSaleOrders))
@@ -165,6 +229,69 @@ func TestOrderListFilterByTypeRefundAfterSale(t *testing.T) {
 		if !orderListHasRefundAfterSale(order) {
 			t.Fatalf("non-after-sale order was included: %v", order)
 		}
+	}
+}
+
+func TestOrderListOfflineCommissionAmountOnlyCountsValidExternalRate(t *testing.T) {
+	order := g.Map{
+		"orderOwnershipCode":            "external",
+		"productPrice":                  100,
+		"productNum":                    2,
+		"externalOfflineCommissionRate": 0.25,
+	}
+	if got := orderListOfflineCommissionAmount(order); got != 50 {
+		t.Fatalf("offline commission = %.2f, want 50.00", got)
+	}
+
+	internal := g.Map{
+		"orderOwnershipCode":            "internal",
+		"productPrice":                  100,
+		"productNum":                    2,
+		"externalOfflineCommissionRate": 0.25,
+	}
+	if got := orderListOfflineCommissionAmount(internal); got != 0 {
+		t.Fatalf("non-external offline commission = %.2f, want 0", got)
+	}
+}
+
+func TestStatsFromEnrichedOrdersIncludesOfflineCommissionForExternalOrders(t *testing.T) {
+	orders := []g.Map{
+		{
+			"rawOrderStatus":                "已发货",
+			"afterSaleStatus":               "",
+			"productPrice":                  100,
+			"productNum":                    2,
+			"productCost":                   60,
+			"commission":                    10,
+			"orderOwnershipCode":            "external",
+			"externalOfflineCommissionRate": 0.25,
+		},
+		{
+			"rawOrderStatus":                "已发货",
+			"afterSaleStatus":               "",
+			"productPrice":                  100,
+			"productNum":                    1,
+			"productCost":                   50,
+			"commission":                    5,
+			"orderOwnershipCode":            "internal",
+			"externalOfflineCommissionRate": 0.30,
+		},
+		{
+			"rawOrderStatus":                "已关闭",
+			"afterSaleStatus":               "12",
+			"productPrice":                  100,
+			"productNum":                    3,
+			"productCost":                   90,
+			"commission":                    0,
+			"orderOwnershipCode":            "external",
+			"externalOfflineCommissionRate": 0.40,
+			"sendTime":                      "2026-07-09 10:00:00",
+		},
+	}
+
+	stats := NewOrderService().statsFromEnrichedOrders(context.Background(), orders, "", "", "2026-07-11 00:00:00", "2026-07-11 23:59:59")
+	if got := math.Round(stats.OfflineCommission*100) / 100; got != 50 {
+		t.Fatalf("stats offline commission = %.2f, want 50.00", got)
 	}
 }
 

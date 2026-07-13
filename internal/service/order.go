@@ -26,6 +26,16 @@ import (
 
 type OrderService struct{}
 
+type externalTalentInfo struct {
+	uid                   string
+	accountName           string
+	talentName            string
+	showID                string
+	teamName              string
+	onlineCommissionRate  float64
+	offlineCommissionRate float64
+}
+
 type enrichedDouyinOrderCacheEntry struct {
 	expiresAt time.Time
 	orders    []g.Map
@@ -303,6 +313,19 @@ func orderListFormatRatePercent(rate float64) string {
 	return fmt.Sprintf("%.2f%%", roundFloatOrder(rate*100, 2))
 }
 
+func orderListNormalizeRateValue(rate float64) float64 {
+	switch {
+	case rate <= 0:
+		return 0
+	case rate <= 1:
+		return rate
+	case rate > 100:
+		return rate / 10000
+	default:
+		return rate / 100
+	}
+}
+
 func orderListParseRate(raw string) float64 {
 	raw = strings.TrimSpace(strings.TrimSuffix(raw, "%"))
 	if raw == "" {
@@ -325,6 +348,8 @@ func orderListParseRate(raw string) float64 {
 }
 
 func orderListResolveCommissionRate(rawAllianceRate string, orderOwnershipCode string, externalOnlineRate, externalOfflineRate float64) string {
+	externalOnlineRate = orderListNormalizeRateValue(externalOnlineRate)
+	externalOfflineRate = orderListNormalizeRateValue(externalOfflineRate)
 	switch orderOwnershipCode {
 	case "self_sale":
 		return "0.00%"
@@ -479,6 +504,22 @@ func orderListActualCommissionRate(row gdb.Record, commission float64) string {
 	return orderListFormatRatePercent(rate)
 }
 
+func orderListOfflineCommissionAmount(order g.Map) float64 {
+	if gconv.String(order["orderOwnershipCode"]) != "external" {
+		return 0
+	}
+	rate := orderListNormalizeRateValue(gconv.Float64(order["externalOfflineCommissionRate"]))
+	if rate <= 0 {
+		return 0
+	}
+	productNum := gconv.Float64(order["productNum"])
+	if productNum <= 0 {
+		return 0
+	}
+	amount := gconv.Float64(order["productPrice"]) * productNum * rate
+	return roundFloatOrder(amount, 2)
+}
+
 func orderListAfterSaleStatusLabel(status string) string {
 	switch strings.TrimSpace(status) {
 	case "6":
@@ -512,6 +553,41 @@ func orderListDisplayStatus(orderStatus, afterSaleStatus string) string {
 
 func orderListCompositeKey(shopName, talentUID string) string {
 	return shopName + "\x00" + talentUID
+}
+
+func orderListExternalMatchKey(shopName, value string) string {
+	valueKey := orderListNormalizedLookupKey(value)
+	if valueKey == "" {
+		return ""
+	}
+	return orderListNormalizedLookupKey(shopName) + "\x00" + valueKey
+}
+
+func orderListLookupExternalTalent(shopName, value string, index map[string]externalTalentInfo) (externalTalentInfo, bool) {
+	if key := orderListExternalMatchKey(shopName, value); key != "" {
+		if info, ok := index[key]; ok {
+			return info, true
+		}
+	}
+	if key := orderListExternalMatchKey("", value); key != "" {
+		if info, ok := index[key]; ok {
+			return info, true
+		}
+	}
+	return externalTalentInfo{}, false
+}
+
+func orderListResolveExternalTalent(shopName, uid, showID, talentName string, externalByUID, externalByShowID, externalByName map[string]externalTalentInfo) (externalTalentInfo, string, bool) {
+	if info, ok := orderListLookupExternalTalent(shopName, uid, externalByUID); ok {
+		return info, "uid", true
+	}
+	if info, ok := orderListLookupExternalTalent(shopName, showID, externalByShowID); ok {
+		return info, "show_id", true
+	}
+	if info, ok := orderListLookupExternalTalent(shopName, talentName, externalByName); ok {
+		return info, "talent_name", true
+	}
+	return externalTalentInfo{}, "", false
 }
 
 func orderListQianchuanMatchKey(statDate, shopName, productID string) string {
@@ -607,6 +683,8 @@ func normalizeOrderListType(orderType string) string {
 	switch strings.ToLower(strings.TrimSpace(orderType)) {
 	case "self_sale":
 		return "self_sale"
+	case "external":
+		return "external"
 	case "talent":
 		return "talent"
 	case "refund_after_sale":
@@ -639,6 +717,12 @@ func orderListFilterByType(orders []g.Map, orderType string) []g.Map {
 	for _, order := range orders {
 		if orderType == "refund_after_sale" {
 			if orderListHasRefundAfterSale(order) {
+				filtered = append(filtered, order)
+			}
+			continue
+		}
+		if orderType == "external" {
+			if gconv.String(order["orderOwnershipCode"]) == "external" {
 				filtered = append(filtered, order)
 			}
 			continue
@@ -747,16 +831,6 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 		platformNickname string
 		operator         string
 		companyName      string
-	}
-
-	type externalTalentInfo struct {
-		uid                   string
-		accountName           string
-		talentName            string
-		showID                string
-		teamName              string
-		onlineCommissionRate  float64
-		offlineCommissionRate float64
 	}
 
 	allianceByOrder := make(map[string]gdb.Record)
@@ -928,7 +1002,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 	externalByShowID := make(map[string]externalTalentInfo)
 	externalByName := make(map[string]externalTalentInfo)
 	if len(talentIDs) > 0 || len(shortIDs) > 0 || len(talentNames) > 0 {
-		params := make([]interface{}, 0, len(talentIDs)+len(shortIDs)+len(talentNames)*2)
+		params := make([]interface{}, 0, len(talentIDs)+len(shortIDs)+len(talentNames)*2+len(resolveShopNames))
 		conds := make([]string, 0, 4)
 		if len(talentIDs) > 0 {
 			conds = append(conds, fmt.Sprintf("uid IN (%s)", orderListPlaceholders(len(talentIDs))))
@@ -953,7 +1027,14 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			}
 		}
 
-		sql := "SELECT id, uid, account_name, talent_name, show_id, team_name, online_commission_rate, offline_commission_rate FROM external_talent_registry WHERE platform_type = 'douyin' AND status = 1 AND (" + strings.Join(conds, " OR ") + ") ORDER BY id DESC"
+		sql := "SELECT id, uid, account_name, talent_name, show_id, team_name, online_commission_rate, offline_commission_rate, shop_name FROM external_talent_registry WHERE platform_type = 'douyin' AND status = 1 AND (" + strings.Join(conds, " OR ") + ")"
+		if len(resolveShopNames) > 0 {
+			sql += fmt.Sprintf(" AND (shop_name IN (%s) OR shop_name = '')", orderListPlaceholders(len(resolveShopNames)))
+			for _, shopName := range resolveShopNames {
+				params = append(params, shopName)
+			}
+		}
+		sql += " ORDER BY id DESC"
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -972,19 +1053,19 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				offlineCommissionRate: row["offline_commission_rate"].Float64(),
 			}
 			if info.uid != "" {
-				key := orderListNormalizedLookupKey(info.uid)
+				key := orderListExternalMatchKey(row["shop_name"].String(), info.uid)
 				if _, exists := externalByUID[key]; !exists {
 					externalByUID[key] = info
 				}
 			}
 			if info.showID != "" {
-				key := orderListNormalizedLookupKey(info.showID)
+				key := orderListExternalMatchKey(row["shop_name"].String(), info.showID)
 				if _, exists := externalByShowID[key]; !exists {
 					externalByShowID[key] = info
 				}
 			}
 			for _, name := range []string{info.talentName, info.accountName} {
-				key := orderListNormalizedLookupKey(name)
+				key := orderListExternalMatchKey(row["shop_name"].String(), name)
 				if key == "" {
 					continue
 				}
@@ -1014,23 +1095,8 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 		return accountInfo{}, "", false
 	}
 
-	resolveExternal := func(uid, showID, talentName string) (externalTalentInfo, string, bool) {
-		if key := orderListNormalizedLookupKey(uid); key != "" {
-			if info, ok := externalByUID[key]; ok {
-				return info, "uid", true
-			}
-		}
-		if key := orderListNormalizedLookupKey(showID); key != "" {
-			if info, ok := externalByShowID[key]; ok {
-				return info, "show_id", true
-			}
-		}
-		if key := orderListNormalizedLookupKey(talentName); key != "" {
-			if info, ok := externalByName[key]; ok {
-				return info, "talent_name", true
-			}
-		}
-		return externalTalentInfo{}, "", false
+	resolveExternal := func(shopName, uid, showID, talentName string) (externalTalentInfo, string, bool) {
+		return orderListResolveExternalTalent(shopName, uid, showID, talentName, externalByUID, externalByShowID, externalByName)
 	}
 
 	type qianchuanMatchRequest struct {
@@ -1246,28 +1312,30 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 	}
 
 	type resolvedMeta struct {
-		talentUID          string
-		talentName         string
-		commissionRate     string
-		douyinAccount      string
-		operator           string
-		companyName        string
-		externalTeamName   string
-		commission         float64
-		talentOwnership    string
-		talentOwnershipTag string
-		orderOwnership     string
-		orderOwnershipTag  string
-		matchedBy          string
-		isShopSelfSale     bool
-		allocationRatio    float64
-		qianchuanPlanID    int64
-		qianchuanPlanName  string
-		qianchuanPlanCount int
-		qianchuanAwemeID   string
-		qianchuanStatCost  float64
-		qianchuanPayOrders int64
-		allocationBasis    string
+		talentUID           string
+		talentName          string
+		commissionRate      string
+		douyinAccount       string
+		operator            string
+		companyName         string
+		externalTeamName    string
+		commission          float64
+		talentOwnership     string
+		talentOwnershipTag  string
+		orderOwnership      string
+		orderOwnershipTag   string
+		matchedBy           string
+		isShopSelfSale      bool
+		allocationRatio     float64
+		qianchuanPlanID     int64
+		qianchuanPlanName   string
+		qianchuanPlanCount  int
+		qianchuanAwemeID    string
+		qianchuanStatCost   float64
+		qianchuanPayOrders  int64
+		allocationBasis     string
+		externalOnlineRate  float64
+		externalOfflineRate float64
 	}
 
 	resolved := make([][]resolvedMeta, len(result))
@@ -1282,7 +1350,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 		originTalentID := orderListNormalizedTalentID(row["talent_id"].String())
 		rawTalentName := orderListFirstNonEmpty(row["talent_name"].String(), alliance["author_account"].String())
 		internalInfo, internalField, hasInternal := resolveInternal(originTalentID, shortID, rawTalentName)
-		externalInfo, externalField, hasExternal := resolveExternal(originTalentID, shortID, rawTalentName)
+		externalInfo, externalField, hasExternal := resolveExternal(row["shop_name"].String(), originTalentID, shortID, rawTalentName)
 		appendResolved := func(internalInfo accountInfo, internalField string, hasInternal bool, qianchuanMatch qianchuanMatchInfo) {
 			allocationRatio := qianchuanMatch.allocationRatio
 			if allocationRatio <= 0 {
@@ -1307,28 +1375,30 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			commission := orderListCommissionAmount(row)
 
 			resolved[i] = append(resolved[i], resolvedMeta{
-				talentUID:          talentUID,
-				talentName:         talentName,
-				commissionRate:     orderListActualCommissionRate(row, commission),
-				douyinAccount:      douyinAccount,
-				operator:           operator,
-				companyName:        internalInfo.companyName,
-				externalTeamName:   externalInfo.teamName,
-				commission:         commission,
-				talentOwnership:    talentOwnership,
-				talentOwnershipTag: talentOwnershipCode,
-				orderOwnership:     orderOwnership,
-				orderOwnershipTag:  orderOwnershipCode,
-				matchedBy:          matchedBy,
-				isShopSelfSale:     isShopSelfSale,
-				allocationRatio:    allocationRatio,
-				qianchuanPlanID:    qianchuanMatch.planID,
-				qianchuanPlanName:  qianchuanMatch.planName,
-				qianchuanPlanCount: qianchuanMatch.planCount,
-				qianchuanAwemeID:   qianchuanMatch.awemeShowID,
-				qianchuanStatCost:  qianchuanMatch.statCost,
-				qianchuanPayOrders: qianchuanMatch.payOrderCount,
-				allocationBasis:    qianchuanMatch.allocationBasis,
+				talentUID:           talentUID,
+				talentName:          talentName,
+				commissionRate:      orderListActualCommissionRate(row, commission),
+				douyinAccount:       douyinAccount,
+				operator:            operator,
+				companyName:         internalInfo.companyName,
+				externalTeamName:    externalInfo.teamName,
+				commission:          commission,
+				talentOwnership:     talentOwnership,
+				talentOwnershipTag:  talentOwnershipCode,
+				orderOwnership:      orderOwnership,
+				orderOwnershipTag:   orderOwnershipCode,
+				matchedBy:           matchedBy,
+				isShopSelfSale:      isShopSelfSale,
+				allocationRatio:     allocationRatio,
+				qianchuanPlanID:     qianchuanMatch.planID,
+				qianchuanPlanName:   qianchuanMatch.planName,
+				qianchuanPlanCount:  qianchuanMatch.planCount,
+				qianchuanAwemeID:    qianchuanMatch.awemeShowID,
+				qianchuanStatCost:   qianchuanMatch.statCost,
+				qianchuanPayOrders:  qianchuanMatch.payOrderCount,
+				allocationBasis:     qianchuanMatch.allocationBasis,
+				externalOnlineRate:  externalInfo.onlineCommissionRate,
+				externalOfflineRate: externalInfo.offlineCommissionRate,
 			})
 		}
 
@@ -1421,67 +1491,69 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			}
 
 			orders = append(orders, g.Map{
-				"id":                         row["id"],
-				"allocationRowId":            allocationRowID,
-				"shopName":                   row["shop_name"],
-				"mainOrderNo":                row["main_order_no"],
-				"subOrderNo":                 row["sub_order_no"],
-				"productName":                row["product_name"],
-				"productSpec":                row["product_spec"],
-				"productNum":                 row["product_num"],
-				"originalProductNum":         row["product_num"],
-				"productId":                  row["product_id"],
-				"productPrice":               row["product_price"],
-				"orderPayAmount":             row["order_pay_amount"],
-				"originalOrderPayAmount":     row["order_pay_amount"],
-				"shippingFee":                row["shipping_fee"],
-				"totalDiscount":              row["total_discount"],
-				"orderStatus":                orderListDisplayStatus(row["order_status"].String(), row["after_sale_status"].String()),
-				"rawOrderStatus":             row["order_status"],
-				"orderSubmitTime":            row["order_submit_time"],
-				"sendTime":                   row["send_time"],
-				"payFinishTime":              row["pay_finish_time"],
-				"orderFinishTime":            row["order_finish_time"],
-				"receiverName":               row["receiver_name"],
-				"receiverPhone":              row["receiver_phone"],
-				"province":                   row["province"],
-				"city":                       row["city"],
-				"district":                   row["district"],
-				"talentName":                 item.talentName,
-				"flowSource":                 row["flow_source"],
-				"afterSaleStatus":            row["after_sale_status"],
-				"afterSaleStatusLabel":       orderListAfterSaleStatusLabel(row["after_sale_status"].String()),
-				"talentId":                   item.talentUID,
-				"productCost":                productCost,
-				"originalProductCost":        roundFloatOrder(row["base_price"].Float64()*float64(row["product_num"].Int()), 2),
-				"shopServiceFee":             row["shop_service_fee"],
-				"originalShopServiceFee":     row["shop_service_fee"],
-				"commissionRate":             item.commissionRate,
-				"douyinAccount":              item.douyinAccount,
-				"commission":                 item.commission,
-				"isValidOrder":               isValidOrder,
-				"uid":                        item.talentUID,
-				"teamOwner":                  teamOwner,
-				"companyName":                item.companyName,
-				"externalTeamName":           item.externalTeamName,
-				"orderType":                  item.orderOwnership,
-				"orderOwnershipCode":         item.orderOwnershipTag,
-				"talentType":                 item.talentOwnership,
-				"talentOwnershipCode":        item.talentOwnershipTag,
-				"matchedBy":                  item.matchedBy,
-				"isShopSelfSale":             item.isShopSelfSale,
-				"allocationRatio":            roundFloatOrder(allocationRatio, 6),
-				"allocationPercent":          orderListAllocationPercent(allocationRatio),
-				"isAllocated":                allocationRatio < 0.999999 || allocationRatio > 1.000001,
-				"allocationMode":             orderListFirstNonEmpty(item.allocationBasis, "direct"),
-				"qianchuanPlanId":            item.qianchuanPlanID,
-				"qianchuanPlanName":          item.qianchuanPlanName,
-				"qianchuanPlanCount":         item.qianchuanPlanCount,
-				"qianchuanAwemeShowId":       item.qianchuanAwemeID,
-				"qianchuanStatCost":          roundFloatOrder(item.qianchuanStatCost, 2),
-				"qianchuanPayOrderCount":     item.qianchuanPayOrders,
-				"qianchuanAllocationBasis":   item.allocationBasis,
-				"qianchuanAllocationMatched": item.qianchuanAwemeID != "",
+				"id":                            row["id"],
+				"allocationRowId":               allocationRowID,
+				"shopName":                      row["shop_name"],
+				"mainOrderNo":                   row["main_order_no"],
+				"subOrderNo":                    row["sub_order_no"],
+				"productName":                   row["product_name"],
+				"productSpec":                   row["product_spec"],
+				"productNum":                    row["product_num"],
+				"originalProductNum":            row["product_num"],
+				"productId":                     row["product_id"],
+				"productPrice":                  row["product_price"],
+				"orderPayAmount":                row["order_pay_amount"],
+				"originalOrderPayAmount":        row["order_pay_amount"],
+				"shippingFee":                   row["shipping_fee"],
+				"totalDiscount":                 row["total_discount"],
+				"orderStatus":                   orderListDisplayStatus(row["order_status"].String(), row["after_sale_status"].String()),
+				"rawOrderStatus":                row["order_status"],
+				"orderSubmitTime":               row["order_submit_time"],
+				"sendTime":                      row["send_time"],
+				"payFinishTime":                 row["pay_finish_time"],
+				"orderFinishTime":               row["order_finish_time"],
+				"receiverName":                  row["receiver_name"],
+				"receiverPhone":                 row["receiver_phone"],
+				"province":                      row["province"],
+				"city":                          row["city"],
+				"district":                      row["district"],
+				"talentName":                    item.talentName,
+				"flowSource":                    row["flow_source"],
+				"afterSaleStatus":               row["after_sale_status"],
+				"afterSaleStatusLabel":          orderListAfterSaleStatusLabel(row["after_sale_status"].String()),
+				"talentId":                      item.talentUID,
+				"productCost":                   productCost,
+				"originalProductCost":           roundFloatOrder(row["base_price"].Float64()*float64(row["product_num"].Int()), 2),
+				"shopServiceFee":                row["shop_service_fee"],
+				"originalShopServiceFee":        row["shop_service_fee"],
+				"commissionRate":                item.commissionRate,
+				"douyinAccount":                 item.douyinAccount,
+				"commission":                    item.commission,
+				"isValidOrder":                  isValidOrder,
+				"uid":                           item.talentUID,
+				"teamOwner":                     teamOwner,
+				"companyName":                   item.companyName,
+				"externalTeamName":              item.externalTeamName,
+				"externalOnlineCommissionRate":  roundFloatOrder(orderListNormalizeRateValue(item.externalOnlineRate), 6),
+				"externalOfflineCommissionRate": roundFloatOrder(orderListNormalizeRateValue(item.externalOfflineRate), 6),
+				"orderType":                     item.orderOwnership,
+				"orderOwnershipCode":            item.orderOwnershipTag,
+				"talentType":                    item.talentOwnership,
+				"talentOwnershipCode":           item.talentOwnershipTag,
+				"matchedBy":                     item.matchedBy,
+				"isShopSelfSale":                item.isShopSelfSale,
+				"allocationRatio":               roundFloatOrder(allocationRatio, 6),
+				"allocationPercent":             orderListAllocationPercent(allocationRatio),
+				"isAllocated":                   allocationRatio < 0.999999 || allocationRatio > 1.000001,
+				"allocationMode":                orderListFirstNonEmpty(item.allocationBasis, "direct"),
+				"qianchuanPlanId":               item.qianchuanPlanID,
+				"qianchuanPlanName":             item.qianchuanPlanName,
+				"qianchuanPlanCount":            item.qianchuanPlanCount,
+				"qianchuanAwemeShowId":          item.qianchuanAwemeID,
+				"qianchuanStatCost":             roundFloatOrder(item.qianchuanStatCost, 2),
+				"qianchuanPayOrderCount":        item.qianchuanPayOrders,
+				"qianchuanAllocationBasis":      item.allocationBasis,
+				"qianchuanAllocationMatched":    item.qianchuanAwemeID != "",
 			})
 		}
 	}
@@ -1502,6 +1574,7 @@ type OrderStats struct {
 	ShopServiceFee       float64 `json:"shopServiceFee"`       // 小店服务费 = 总商品金额 × 2%
 	AdCostAmount         float64 `json:"adCostAmount"`         // 广告费消耗（千川）
 	OnlineCommission     float64 `json:"onlineCommission"`     // 线上佣金支出
+	OfflineCommission    float64 `json:"offlineCommission"`    // 线下佣金支出（外部达人）
 	RealtimeProfit       float64 `json:"realtimeProfit"`       // 实时利润
 	ValidOrderCostMatch  int64   `json:"validOrderCostMatch"`  // 有效订单已匹配数量
 	RefundOrderCount     int64   `json:"refundOrderCount"`     // 退款订单数量
@@ -1629,6 +1702,21 @@ func (s *OrderService) Stats(ctx context.Context, keyword, shopName, orderStatus
 	// 10. 广告费：从千川报表获取（按店铺过滤）
 	stats.AdCostAmount = s.getAdCost(ctx, shopName, startTime, endTime)
 
+	startDate, endDate := orderListQueryDateRange(startTime, endTime)
+	enrichedOrders, enrichErr := s.loadEnrichedDouyinOrders(ctx, startDate, endDate)
+	if enrichErr == nil {
+		filteredOrders := orderListFilterEnriched(enrichedOrders, keyword, shopName, orderStatus, talentId, "", startTime, endTime)
+		for _, order := range filteredOrders {
+			orderStatus := gconv.String(order["rawOrderStatus"])
+			afterSaleStatus := gconv.String(order["afterSaleStatus"])
+			if !IsValidOrderForStats(orderStatus, afterSaleStatus) {
+				continue
+			}
+			stats.OfflineCommission += orderListOfflineCommissionAmount(order)
+		}
+		stats.OfflineCommission = roundFloatOrder(stats.OfflineCommission, 2)
+	}
+
 	// 12. 有佣金的订单数：与当前筛选口径保持一致，只统计命中联盟订单的有效订单
 	commissionQuery := `
 		SELECT COUNT(*) AS total
@@ -1683,6 +1771,7 @@ func (s *OrderService) statsFromEnrichedOrders(ctx context.Context, orders []g.M
 		if gconv.Float64(order["commission"]) != 0 {
 			stats.CommissionOrderCount++
 		}
+		stats.OfflineCommission += orderListOfflineCommissionAmount(order)
 	}
 
 	stats.UnmatchedOrderCount = stats.TotalOrderCount - stats.ValidOrderCount - stats.InvalidOrderCount
@@ -1692,6 +1781,7 @@ func (s *OrderService) statsFromEnrichedOrders(ctx context.Context, orders []g.M
 	stats.RefundCostAmount = roundFloatOrder(stats.RefundCostAmount, 2)
 	stats.ShopServiceFee = CalculateDouyinShopServiceFee(stats.ValidPayAmount)
 	stats.OnlineCommission = roundFloatOrder(stats.ValidPayAmount-stats.ReserveAmount-stats.ProductCostAmount, 2)
+	stats.OfflineCommission = roundFloatOrder(stats.OfflineCommission, 2)
 	if stats.OnlineCommission < 0 {
 		stats.OnlineCommission = 0
 	}

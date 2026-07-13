@@ -1097,6 +1097,15 @@ func (p *Poller) saveAuthorReports(ctx context.Context, orgMap map[int64]authorO
 	if len(reports) == 0 {
 		return 0, 0
 	}
+	advSet := make(map[int64]bool)
+	advIDs := make([]int64, 0)
+	for _, report := range reports {
+		if !advSet[report.AdvertiserID] {
+			advSet[report.AdvertiserID] = true
+			advIDs = append(advIDs, report.AdvertiserID)
+		}
+	}
+	temporaryRules := loadQianchuanTemporaryAttributionRules(ctx, advIDs)
 
 	const batchSize = 50
 	saved := 0
@@ -1116,9 +1125,16 @@ func (p *Poller) saveAuthorReports(ctx context.Context, orgMap map[int64]authorO
 			if len(statDate) >= 10 {
 				statDate = statDate[:10]
 			}
+			mapping, _ := temporaryRules.resolve(item.AdvertiserID, statDate, qianchuanOrgMapping{
+				AccountID:      org.AccountID,
+				CompanyID:      org.CompanyID,
+				DepartmentID:   org.DepartmentID,
+				TraderID:       org.TraderID,
+				OrganizationID: org.CompanyID,
+			})
 			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?)")
 			args = append(args,
-				item.AdvertiserID, org.AccountID, org.CompanyID, org.DepartmentID, org.TraderID,
+				item.AdvertiserID, mapping.AccountID, mapping.CompanyID, mapping.DepartmentID, mapping.TraderID,
 				item.AwemeID, item.AwemeName, item.StatCost, item.PayOrderGmv, item.PayOrderCount,
 				statDate,
 			)
@@ -1208,6 +1224,7 @@ func (p *Poller) saveOverallPromotionReports(ctx context.Context, client *Client
 		}
 	}
 	orgMappings := p.loadOrgMappings(ctx, advIDs)
+	temporaryRules := loadQianchuanTemporaryAttributionRules(ctx, advIDs)
 	detailDerivedMappings := p.resolveOverallReportOrgMappings(ctx, client, reports, orgMappings)
 
 	const batchSize = 100
@@ -1224,10 +1241,14 @@ func (p *Poller) saveOverallPromotionReports(ctx context.Context, client *Client
 		args := make([]interface{}, 0, len(batch)*38)
 		for _, item := range batch {
 			mapping := orgMappings[item.AdvertiserID]
-			if detailMapping, ok := detailDerivedMappings[overallReportOrgCacheKey(item.AdvertiserID, item.StatDatetime)]; ok {
-				mapping = detailMapping
+			if temporaryMapping, ok := temporaryRules.resolve(item.AdvertiserID, item.StatDatetime, mapping); ok {
+				mapping = temporaryMapping
+			} else {
+				if detailMapping, exists := detailDerivedMappings[overallReportOrgCacheKey(item.AdvertiserID, item.StatDatetime)]; exists {
+					mapping = detailMapping
+				}
+				mapping = companyOnlyOverallMapping(mapping)
 			}
-			mapping = companyOnlyOverallMapping(mapping)
 			payloadBytes, _ := json.Marshal(item)
 			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 			args = append(args,
@@ -1320,6 +1341,7 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 		}
 	}
 	orgMappings := p.loadOrgMappings(ctx, advIDs)
+	temporaryRules := loadQianchuanTemporaryAttributionRules(ctx, advIDs)
 	advertiserNames := make(map[int64]string, len(advIDs))
 	for _, advertiserID := range advIDs {
 		advertiserNames[advertiserID] = p.lookupAdvertiserName(ctx, advertiserID)
@@ -1342,7 +1364,7 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 				failed++
 				continue
 			}
-			mapping := orgMappings[item.AdvertiserID]
+			mapping, _ := temporaryRules.resolve(item.AdvertiserID, item.StatDatetime, orgMappings[item.AdvertiserID])
 			awemeID, _ := strconv.ParseInt(item.AwemeID, 10, 64)
 			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 			args = append(args,

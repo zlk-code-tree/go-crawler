@@ -262,6 +262,58 @@ var (
 				KEY idx_trader_id (trader_id)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千川乘方日报表'`)
 
+			// 千川账户临时归属规则：账户资产归属不变，仅按生效日期调整统计负责人。
+			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS qianchuan_advertiser_attribution_rule (
+				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+				advertiser_id BIGINT(20) NOT NULL COMMENT '千川广告主ID',
+				advertiser_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '千川账户名称快照',
+				source_trader_id BIGINT UNSIGNED NOT NULL COMMENT '账户原负责人ID',
+				target_trader_id BIGINT UNSIGNED NOT NULL COMMENT '临时统计负责人ID',
+				effective_start_date DATE NOT NULL COMMENT '生效开始日期（含）',
+				effective_end_date DATE DEFAULT NULL COMMENT '生效结束日期（含），空表示持续有效',
+				reason VARCHAR(500) NOT NULL DEFAULT '' COMMENT '借号原因',
+				status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0=停用 1=启用',
+				created_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
+				updated_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				UNIQUE KEY uk_advertiser_start (advertiser_id, effective_start_date),
+				KEY idx_effective_rule (advertiser_id, status, effective_start_date, effective_end_date),
+				KEY idx_target_trader (target_trader_id, status)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='千川账户临时统计归属规则'`)
+
+			g.DB().Exec(ctx, `UPDATE qianchuan_advertiser_attribution_rule
+				SET effective_start_date = '2026-07-01'
+				WHERE advertiser_id IN (1700642741413895, 1774391159738372, 1711882704612356, 1722203379291139)
+					AND effective_start_date = '2026-07-13'
+					AND reason = '王梅雪临时借用李百川千川账户'`)
+
+			// 一次性初始化当前已确认的借号关系；后续只维护规则表。
+			g.DB().Exec(ctx, `INSERT IGNORE INTO qianchuan_advertiser_attribution_rule
+				(advertiser_id, advertiser_name, source_trader_id, target_trader_id,
+				effective_start_date, effective_end_date, reason, status)
+			SELECT seed.advertiser_id, seed.advertiser_name, source.id, target.id,
+				'2026-07-01', NULL, '王梅雪临时借用李百川千川账户', 1
+			FROM (
+				SELECT 1700642741413895 AS advertiser_id, '天书万卷-官方号投放户' AS advertiser_name
+				UNION ALL SELECT 1774391159738372, '利云图书企业店—店铺组'
+				UNION ALL SELECT 1711882704612356, '利云文化进口图书-主账户'
+				UNION ALL SELECT 1722203379291139, '闻道清北图书旗舰店主户'
+			) seed
+			JOIN trader source ON source.id = (SELECT MIN(id) FROM trader WHERE name = '李百川' AND status = 1)
+			JOIN trader target ON target.id = (SELECT MIN(id) FROM trader WHERE name = '王梅雪' AND status = 1)
+			WHERE NOT EXISTS (
+				SELECT 1 FROM qianchuan_advertiser_attribution_rule existing
+				WHERE existing.advertiser_id = seed.advertiser_id
+			)`)
+			seedCount, seedErr := g.DB().GetOne(ctx, `SELECT COUNT(DISTINCT advertiser_id) AS cnt
+				FROM qianchuan_advertiser_attribution_rule
+				WHERE advertiser_id IN (1700642741413895, 1774391159738372, 1711882704612356, 1722203379291139)`)
+			if seedErr != nil || seedCount["cnt"].Int() != 4 {
+				g.Log().Warningf(ctx, "[DBInit] 千川临时归属初始化未完成，需确认李百川、王梅雪均为启用人员: count=%d err=%v", seedCount["cnt"].Int(), seedErr)
+			}
+
 			addColumnIfMissing("qianchuan_ad_report", "organization_id", "organization_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '组织ID（默认公司ID）' AFTER `id`")
 			addColumnIfMissing("qianchuan_ad_report", "account_id", "account_id INT(11) NOT NULL DEFAULT 0 COMMENT '内部账号ID，关联account.id' AFTER `organization_id`")
 			addColumnIfMissing("qianchuan_ad_report", "company_id", "company_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '公司ID' AFTER `account_id`")
@@ -269,6 +321,10 @@ var (
 			addColumnIfMissing("qianchuan_ad_report", "trader_id", "trader_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '投手/运营ID' AFTER `department_id`")
 			addColumnIfMissing("qianchuan_ad_report", "pay_order_count", "pay_order_count BIGINT(20) NOT NULL DEFAULT 0 COMMENT '成交订单数' AFTER `convert_cost`")
 			addColumnIfMissing("qianchuan_ad_report", "create_order_count", "create_order_count BIGINT(20) NOT NULL DEFAULT 0 COMMENT '下单数' AFTER `pay_order_count`")
+
+			if err := oceanengine.SyncQianchuanTemporaryAttribution(ctx); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 同步千川临时归属失败: %v", err)
+			}
 
 			// account 表：status 字段，用于支持软删除
 			addColumnIfMissing("account", "status", "status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0=已删除 1=正常'")
