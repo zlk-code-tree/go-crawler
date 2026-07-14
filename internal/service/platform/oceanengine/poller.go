@@ -378,6 +378,7 @@ func (t *sharedAccessToken) Set(value string) {
 
 type authorOrgInfo struct {
 	AccountID        int
+	AwemeID          int64
 	CompanyID        int64
 	DepartmentID     int64
 	TraderID         int64
@@ -849,6 +850,7 @@ func (p *Poller) pullAuthorReportsByMapping(ctx context.Context, client *Client,
 
 		orgMap[awemeID] = authorOrgInfo{
 			AccountID:        row["account_id"].Int(),
+			AwemeID:          awemeID,
 			CompanyID:        row["company_id"].Int64(),
 			DepartmentID:     fallbackDepartmentID(row["department_id"].Int64(), row["trader_group_id"].Int64()),
 			TraderID:         row["trader_id"].Int64(),
@@ -892,15 +894,17 @@ func (p *Poller) loadAuthorMatchIndex(ctx context.Context) (*authorMatchIndex, e
 		accountNameMap: make(map[string][]authorOrgInfo),
 	}
 	for _, row := range rows {
+		awemeID, _ := strconv.ParseInt(row["uid"].String(), 10, 64)
 		info := authorOrgInfo{
 			AccountID:        row["account_id"].Int(),
+			AwemeID:          awemeID,
 			CompanyID:        row["company_id"].Int64(),
 			DepartmentID:     fallbackDepartmentID(row["department_id"].Int64(), row["trader_group_id"].Int64()),
 			TraderID:         row["trader_id"].Int64(),
 			AccountName:      row["account_name"].String(),
 			PlatformNickname: row["platform_nickname"].String(),
 		}
-		if awemeID, err := strconv.ParseInt(row["uid"].String(), 10, 64); err == nil && awemeID > 0 {
+		if awemeID > 0 {
 			index.uidMap[awemeID] = append(index.uidMap[awemeID], info)
 		}
 		if showID := normalizeAuthorMatchValue(row["platform_nickname"].String()); showID != "" {
@@ -968,6 +972,42 @@ func (m *authorMatchIndex) matchOverallProductAweme(item OverallProductAwemeRepo
 	return authorOrgInfo{}, "", false
 }
 
+// matchPlanReport 按内部账号的 UID、抖音号、账号名称依次匹配计划归属。
+// 全域计划接口的 anchor_id 在部分账号上实际返回抖音号，因此 AwemeID 还需再按 show ID 尝试一次。
+func (m *authorMatchIndex) matchPlanReport(item AdPlanDailyReport) (authorOrgInfo, string, bool) {
+	if m == nil {
+		return authorOrgInfo{}, "", false
+	}
+	if awemeID, err := strconv.ParseInt(strings.TrimSpace(item.AwemeID), 10, 64); err == nil && awemeID > 0 {
+		if candidates := m.uidMap[awemeID]; len(candidates) == 1 {
+			return candidates[0], "uid", true
+		}
+	}
+	for _, showID := range []string{item.AwemeShowID, item.AwemeID} {
+		if normalized := normalizeAuthorMatchValue(showID); normalized != "" {
+			if candidates := m.showIDMap[normalized]; len(candidates) == 1 {
+				return candidates[0], "show_id", true
+			}
+		}
+	}
+	if name := normalizeAuthorMatchValue(item.AwemeName); name != "" {
+		if candidates := m.accountNameMap[name]; len(candidates) == 1 {
+			return candidates[0], "account_name", true
+		}
+	}
+	return authorOrgInfo{}, "", false
+}
+
+func planReportOrgMapping(info authorOrgInfo) qianchuanOrgMapping {
+	return qianchuanOrgMapping{
+		AccountID:      info.AccountID,
+		CompanyID:      info.CompanyID,
+		DepartmentID:   info.DepartmentID,
+		TraderID:       info.TraderID,
+		OrganizationID: info.CompanyID,
+	}
+}
+
 func overallReportOrgCacheKey(advertiserID int64, statDate string) string {
 	return fmt.Sprintf("%d_%s", advertiserID, normalizeStatDate(statDate))
 }
@@ -979,6 +1019,27 @@ func isActiveOverallProductAweme(item OverallProductAwemeReportItem) bool {
 		item.TotalOrderSettleAmountForRoi21h > 0 ||
 		item.TotalOrderRealSettleAmountForRoi21h > 0 ||
 		item.TotalOrderSettleCountForRoi21h > 0
+}
+
+func overallProductAwemeAuthorFallback(advertiserID int64, statDate string, item OverallProductAwemeReportItem, org authorOrgInfo) (AuthorReport, bool) {
+	// stat_cost_for_roi2 是纯广告消耗；stat_cost_for_overall_roi2 还包含达人佣金等综合成本。
+	// 这里只在有广告消耗时生成兜底，避免 0 消耗明细压过计划日报。
+	if org.AwemeID <= 0 || item.StatCostForRoi2 <= 0 {
+		return AuthorReport{}, false
+	}
+	awemeName := item.AnchorName
+	if awemeName == "" {
+		awemeName = org.AccountName
+	}
+	return AuthorReport{
+		AdvertiserID:  advertiserID,
+		AwemeID:       org.AwemeID,
+		AwemeName:     awemeName,
+		StatDatetime:  normalizeStatDate(statDate),
+		StatCost:      item.StatCostForRoi2,
+		PayOrderGmv:   item.TotalOrderSettleAmountForRoi21h,
+		PayOrderCount: item.TotalOrderSettleCountForRoi21h,
+	}, true
 }
 
 func (p *Poller) resolveOverallReportOrgMappings(
@@ -1003,6 +1064,8 @@ func (p *Poller) resolveOverallReportOrgMappings(
 		}
 		return resolved
 	}
+	authorOrgMap := make(map[int64]authorOrgInfo)
+	authorReports := make([]AuthorReport, 0)
 
 	for _, report := range reports {
 		key := overallReportOrgCacheKey(report.AdvertiserID, report.StatDatetime)
@@ -1010,7 +1073,11 @@ func (p *Poller) resolveOverallReportOrgMappings(
 			continue
 		}
 
-		mapping, status := p.resolveOverallReportOrgMapping(ctx, client, report, matchIndex)
+		mapping, status, detailOrgMap, detailReports := p.resolveOverallReportOrgMapping(ctx, client, report, matchIndex)
+		for awemeID, org := range detailOrgMap {
+			authorOrgMap[awemeID] = org
+		}
+		authorReports = append(authorReports, detailReports...)
 		switch status {
 		case "matched":
 			resolved[key] = mapping
@@ -1023,6 +1090,10 @@ func (p *Poller) resolveOverallReportOrgMappings(
 			}
 		}
 	}
+	if len(authorReports) > 0 {
+		saved, failed := p.saveAuthorReports(ctx, authorOrgMap, authorReports)
+		g.Log().Infof(ctx, "[QianchuanPoller] 乘方抖音号明细兜底达人日报: 入库%d条, 失败%d条", saved, failed)
+	}
 
 	return resolved
 }
@@ -1032,7 +1103,7 @@ func (p *Poller) resolveOverallReportOrgMapping(
 	client *Client,
 	report OverallPromotionDailyReport,
 	matchIndex *authorMatchIndex,
-) (qianchuanOrgMapping, string) {
+) (qianchuanOrgMapping, string, map[int64]authorOrgInfo, []AuthorReport) {
 	reportDate := normalizeStatDate(report.StatDatetime)
 	page := 1
 	pageSize := 200
@@ -1040,12 +1111,14 @@ func (p *Poller) resolveOverallReportOrgMapping(
 
 	uniqueCompanies := make(map[int64]struct{})
 	matchedCount := 0
+	authorOrgMap := make(map[int64]authorOrgInfo)
+	authorReportsByAweme := make(map[int64]AuthorReport)
 
 	for page <= totalPages {
 		result, err := client.GetOverallProductAwemeReport(ctx, report.AdvertiserID, reportDate, reportDate, page, pageSize, "")
 		if err != nil {
 			g.Log().Warningf(ctx, "[QianchuanPoller] 查询广告主%d乘方抖音号明细失败(%s,page=%d): %v", report.AdvertiserID, reportDate, page, err)
-			return qianchuanOrgMapping{}, "none"
+			return qianchuanOrgMapping{}, "none", nil, nil
 		}
 		if result == nil {
 			break
@@ -1066,12 +1139,28 @@ func (p *Poller) resolveOverallReportOrgMapping(
 			if org.CompanyID > 0 {
 				uniqueCompanies[org.CompanyID] = struct{}{}
 			}
+			if detail, ok := overallProductAwemeAuthorFallback(report.AdvertiserID, reportDate, item, org); ok {
+				fallback := authorReportsByAweme[org.AwemeID]
+				fallback.AdvertiserID = detail.AdvertiserID
+				fallback.AwemeID = detail.AwemeID
+				fallback.AwemeName = detail.AwemeName
+				fallback.StatDatetime = detail.StatDatetime
+				fallback.StatCost += detail.StatCost
+				fallback.PayOrderGmv += detail.PayOrderGmv
+				fallback.PayOrderCount += detail.PayOrderCount
+				authorReportsByAweme[org.AwemeID] = fallback
+				authorOrgMap[org.AwemeID] = org
+			}
 		}
 		page++
 	}
+	authorReports := make([]AuthorReport, 0, len(authorReportsByAweme))
+	for _, fallback := range authorReportsByAweme {
+		authorReports = append(authorReports, fallback)
+	}
 
 	if matchedCount == 0 || len(uniqueCompanies) == 0 {
-		return qianchuanOrgMapping{}, "none"
+		return qianchuanOrgMapping{}, "none", authorOrgMap, authorReports
 	}
 	if len(uniqueCompanies) == 1 {
 		var companyID int64
@@ -1084,12 +1173,12 @@ func (p *Poller) resolveOverallReportOrgMapping(
 			DepartmentID:   0,
 			TraderID:       0,
 			OrganizationID: companyID,
-		}, "matched"
+		}, "matched", authorOrgMap, authorReports
 	}
 
 	g.Log().Warningf(ctx, "[QianchuanPoller] 广告主%d在%s命中多个公司，跳过乘方汇总归属: companies=%d",
 		report.AdvertiserID, reportDate, len(uniqueCompanies))
-	return qianchuanOrgMapping{}, "conflict"
+	return qianchuanOrgMapping{}, "conflict", authorOrgMap, authorReports
 }
 
 // saveAuthorReports 批量保存达人维度报表
@@ -1341,6 +1430,10 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 		}
 	}
 	orgMappings := p.loadOrgMappings(ctx, advIDs)
+	authorIndex, err := p.loadAuthorMatchIndex(ctx)
+	if err != nil {
+		g.Log().Warningf(ctx, "[QianchuanPoller] 查询计划达人匹配索引失败，将保留广告主归属: %v", err)
+	}
 	temporaryRules := loadQianchuanTemporaryAttributionRules(ctx, advIDs)
 	advertiserNames := make(map[int64]string, len(advIDs))
 	for _, advertiserID := range advIDs {
@@ -1350,6 +1443,7 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 	const batchSize = 100
 	saved := 0
 	failed := 0
+	matched := 0
 	for batchStart := 0; batchStart < len(reports); batchStart += batchSize {
 		batchEnd := batchStart + batchSize
 		if batchEnd > len(reports) {
@@ -1364,13 +1458,27 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 				failed++
 				continue
 			}
-			mapping, _ := temporaryRules.resolve(item.AdvertiserID, item.StatDatetime, orgMappings[item.AdvertiserID])
+			mapping := orgMappings[item.AdvertiserID]
 			awemeID, _ := strconv.ParseInt(item.AwemeID, 10, 64)
+			awemeName := item.AwemeName
+			awemeShowID := item.AwemeShowID
+			if info, _, ok := authorIndex.matchPlanReport(item); ok {
+				mapping = planReportOrgMapping(info)
+				awemeID = info.AwemeID
+				if awemeName == "" {
+					awemeName = info.AccountName
+				}
+				if awemeShowID == "" {
+					awemeShowID = info.PlatformNickname
+				}
+				matched++
+			}
+			mapping, _ = temporaryRules.resolve(item.AdvertiserID, item.StatDatetime, mapping)
 			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 			args = append(args,
 				mapping.OrganizationID, mapping.AccountID, mapping.CompanyID, mapping.DepartmentID, mapping.TraderID,
 				item.AdvertiserID, advertiserNames[item.AdvertiserID], item.AdID, item.AdName, item.ProductID, item.ProductName,
-				awemeID, item.AwemeName, item.AwemeShowID, item.StatCost, item.StatDatetime,
+				awemeID, awemeName, awemeShowID, item.StatCost, item.StatDatetime,
 				item.ShowCnt, item.ClickCnt, item.Ctr, item.ConvertCnt, item.ConvertCost,
 				item.PayOrderCount, item.CreateOrderCount,
 			)
@@ -1403,7 +1511,7 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 		}
 		saved += len(placeholders)
 	}
-	g.Log().Infof(ctx, "[QianchuanPoller] 计划明细入库%d条, 失败%d条", saved, failed)
+	g.Log().Infof(ctx, "[QianchuanPoller] 计划明细入库%d条, 匹配内部账号%d条, 失败%d条", saved, matched, failed)
 	return saved, failed
 }
 

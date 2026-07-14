@@ -1,6 +1,9 @@
 package service
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestNormalizeQianchuanHierarchyDates(t *testing.T) {
 	startDate, endDate, endExclusive, err := normalizeQianchuanHierarchyDates("2026-07-08", "2026-07-10")
@@ -79,5 +82,57 @@ func TestSummarizeQianchuanAwemeNodes(t *testing.T) {
 	}
 	if summary.TotalCost != 110 || summary.TotalProfit != 15 {
 		t.Fatalf("unexpected aweme totals: %+v", summary)
+	}
+}
+
+func TestQianchuanPlanAwemeExportValidation(t *testing.T) {
+	if err := validateQianchuanPlanAwemeExportRequest(QianchuanPlanHierarchyRequest{
+		Level:   QianchuanHierarchyLevelStore,
+		Keyword: "利云文化",
+	}); err == nil || err.Error() != "只支持抖音号维度数据导出" {
+		t.Fatalf("unexpected level validation error: %v", err)
+	}
+
+	if err := validateQianchuanPlanAwemeExportRequest(QianchuanPlanHierarchyRequest{
+		Level: QianchuanHierarchyLevelAweme,
+	}); err != nil {
+		t.Fatalf("empty keyword should export all aweme data: %v", err)
+	}
+}
+
+func TestQianchuanPlanAwemeExportRow(t *testing.T) {
+	wantHeaders := []string{
+		"抖音号", "关联千川户", "关联店铺", "计划数", "商品数", "消耗(¥)", "佣金(¥)",
+		"有效订单", "成本(¥)", "利润(¥)", "成交订单", "展示", "点击", "点击率",
+	}
+	if !reflect.DeepEqual(qianchuanPlanAwemeExportHeaders, wantHeaders) {
+		t.Fatalf("unexpected export headers: %#v", qianchuanPlanAwemeExportHeaders)
+	}
+
+	node := QianchuanPlanHierarchyNode{
+		Name:            "利云文化官方旗舰店",
+		AwemeShowID:     "liyunwenhua21",
+		AdvertiserCount: 2,
+		StoreCount:      1,
+		PlanCount:       184,
+		ProductCount:    32,
+		StatCost:        29091.89,
+		Commission:      31683.15,
+		ValidOrderCount: 2968.8,
+		CostAmount:      15914.55,
+		Profit:          2340.74,
+		PayOrderCount:   3405,
+		ShowCnt:         10000,
+		ClickCnt:        1234,
+		Ctr:             0.1234,
+	}
+	want := []interface{}{
+		"利云文化官方旗舰店（抖音号：liyunwenhua21）",
+		int64(2), int64(1), int64(184), int64(32),
+		29091.89, 31683.15, 2968.8, 15914.55, 2340.74, 3405.0,
+		int64(10000), int64(1234), "12.34%",
+	}
+	if got := qianchuanPlanAwemeExportRow(node); !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected export row:\n got: %#v\nwant: %#v", got, want)
 	}
 }

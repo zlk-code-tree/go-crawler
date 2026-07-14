@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -857,6 +859,32 @@ func (c *QianchuanPollerController) PlanHierarchy(r *ghttp.Request) {
 		return
 	}
 	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": result})
+}
+
+// PlanAwemeExport 导出全部或搜索结果中的抖音号维度指标。
+func (c *QianchuanPollerController) PlanAwemeExport(r *ghttp.Request) {
+	level := r.Get("level").String()
+	if level != service.QianchuanHierarchyLevelAweme {
+		r.Response.WriteStatusExit(http.StatusBadRequest, g.Map{"code": 400, "msg": "只支持抖音号维度数据导出", "data": nil})
+		return
+	}
+	keyword := strings.TrimSpace(r.Get("keyword").String())
+
+	filename, err := service.NewQianchuanPlanHierarchyService().ExportAwemes(r.Context(), service.QianchuanPlanHierarchyRequest{
+		Level:     level,
+		StartDate: r.Get("startDate").String(),
+		EndDate:   r.Get("endDate").String(),
+		Keyword:   keyword,
+	})
+	if err != nil {
+		r.Response.WriteStatusExit(http.StatusInternalServerError, g.Map{"code": 500, "msg": "导出失败: " + err.Error(), "data": nil})
+		return
+	}
+
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+	defer os.Remove(filename)
 }
 
 // OverallReportList 查询千川乘方日报表 GET /api/qianchuan-poller/overall-report

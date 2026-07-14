@@ -326,17 +326,79 @@ func (s *FinanceCommissionService) orderStatsByAccounts(ctx context.Context, acc
 	result.RefundCost = roundFloatFinance(result.RefundCost, 2)
 }
 
-// qianchuanAdReportJoinCond 返回千川广告日报表的 JOIN ON 条件
-// 注意：GoFrame 的 Join 方法签名为 ...string，不支持 ? 占位符传参，
-// 第三个参数会被识别为表别名，因此日期需要直接拼接到条件中。
+// qianchuanAdReportJoinCond 返回千川广告日报表的 JOIN ON 条件。
+// GoFrame 的 Join 不支持条件参数占位符，调用方传入的日期已先做格式校验。
 func qianchuanAdReportJoinCond(date string) string {
 	return fmt.Sprintf("aqm.qianchuan_advertiser_id = qar.advertiser_id AND LEFT(qar.stat_datetime, 10) = '%s'", date)
 }
 
-// qianchuanAdReportJoinCondRange 返回千川广告日报表按日期范围筛选的 JOIN ON 条件
 func qianchuanAdReportJoinCondRange(startDate, endDate string) string {
 	return fmt.Sprintf("aqm.qianchuan_advertiser_id = qar.advertiser_id AND LEFT(qar.stat_datetime, 10) BETWEEN '%s' AND '%s'", startDate, endDate)
 }
+
+// effectiveQianchuanCostCTE 生成账号每日有效消耗：达人日报优先；当天无达人日报时，
+// 才使用已准确匹配到内部账号的计划消耗。这样既能覆盖达人接口缺数，也不会重复计算。
+const effectiveQianchuanCostCTE = `WITH
+	author_daily AS (
+		SELECT
+			account_id,
+			MAX(aweme_id) AS aweme_id,
+			MAX(NULLIF(aweme_name, '')) AS aweme_name,
+			MAX(company_id) AS company_id,
+			MAX(department_id) AS department_id,
+			MAX(trader_id) AS trader_id,
+			LEFT(stat_datetime, 10) AS stat_date,
+			COALESCE(SUM(stat_cost), 0) AS stat_cost,
+			COALESCE(SUM(pay_order_gmv), 0) AS pay_order_gmv,
+			COALESCE(SUM(pay_order_count), 0) AS pay_order_count
+		FROM qianchuan_author_daily_report
+		WHERE account_id > 0
+		  AND LEFT(stat_datetime, 10) >= ?
+		  AND LEFT(stat_datetime, 10) <= ?
+		GROUP BY account_id, LEFT(stat_datetime, 10)
+	),
+	plan_daily AS (
+		SELECT
+			qar.account_id,
+			MAX(qar.aweme_id) AS aweme_id,
+			MAX(NULLIF(qar.aweme_name, '')) AS aweme_name,
+			MAX(qar.company_id) AS company_id,
+			MAX(qar.department_id) AS department_id,
+			MAX(qar.trader_id) AS trader_id,
+			LEFT(qar.stat_datetime, 10) AS stat_date,
+			COALESCE(SUM(qar.stat_cost), 0) AS stat_cost,
+			0 AS pay_order_gmv,
+			COALESCE(SUM(qar.pay_order_count), 0) AS pay_order_count
+		FROM qianchuan_ad_report qar
+		INNER JOIN account matched_account
+			ON matched_account.id = qar.account_id
+			AND matched_account.platform = 'douyin'
+			AND (
+				(matched_account.uid REGEXP '^[0-9]+$' AND CAST(matched_account.uid AS UNSIGNED) = qar.aweme_id)
+				OR (NULLIF(TRIM(matched_account.platform_nickname), '') IS NOT NULL
+					AND LOWER(TRIM(matched_account.platform_nickname)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(qar.aweme_show_id)) COLLATE utf8mb4_unicode_ci)
+				OR (NULLIF(TRIM(matched_account.platform_nickname), '') IS NOT NULL
+					AND LOWER(TRIM(matched_account.platform_nickname)) COLLATE utf8mb4_unicode_ci = LOWER(CAST(qar.aweme_id AS CHAR)) COLLATE utf8mb4_unicode_ci)
+				OR (NULLIF(TRIM(matched_account.account_name), '') IS NOT NULL
+					AND LOWER(TRIM(matched_account.account_name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(qar.aweme_name)) COLLATE utf8mb4_unicode_ci)
+			)
+		WHERE qar.account_id > 0
+		  AND LEFT(qar.stat_datetime, 10) >= ?
+		  AND LEFT(qar.stat_datetime, 10) <= ?
+		GROUP BY qar.account_id, LEFT(qar.stat_datetime, 10)
+	),
+	effective_qianchuan_cost AS (
+		SELECT * FROM author_daily
+		UNION ALL
+		SELECT plan_daily.*
+		FROM plan_daily
+		WHERE NOT EXISTS (
+			SELECT 1 FROM author_daily
+			WHERE author_daily.account_id = plan_daily.account_id
+			  AND author_daily.stat_date = plan_daily.stat_date
+		)
+	)
+`
 
 // getAdCostByAccounts 查询指定账号集合的单日千川广告消耗（兼容旧版）
 func (s *FinanceCommissionService) getAdCostByAccounts(ctx context.Context, accountIds []int, date string) float64 {
@@ -349,24 +411,17 @@ func (s *FinanceCommissionService) getAdCostByAccountsRange(ctx context.Context,
 		return 0
 	}
 
-	// 优先使用达人维度日报表，避免同一个千川广告主下多个达人时按广告主总消耗重复分摊。
-	row, err := g.DB().Model("qianchuan_author_daily_report").
-		WhereIn("account_id", accountIds).
-		Where("LEFT(stat_datetime, 10) >= ?", startDate).
-		Where("LEFT(stat_datetime, 10) <= ?", endDate).
-		Fields("COALESCE(SUM(stat_cost), 0) AS ad_cost").
-		One()
-	if err == nil && row["ad_cost"].Float64() > 0 {
-		return row["ad_cost"].Float64()
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(accountIds)), ",")
+	args := []interface{}{startDate, endDate, startDate, endDate}
+	for _, accountID := range accountIds {
+		args = append(args, accountID)
 	}
-
-	// 兼容历史数据：如果达人维度还未回填，再回退到广告主总消耗。
-	row, err = g.DB().Model("account_qianchuan_mapping aqm").
-		LeftJoin("qianchuan_advertiser_daily_report qar", qianchuanAdReportJoinCondRange(startDate, endDate)).
-		WhereIn("aqm.account_id", accountIds).
-		Fields("COALESCE(SUM(qar.stat_cost), 0) AS ad_cost").
-		One()
+	row, err := g.DB().GetOne(ctx, effectiveQianchuanCostCTE+fmt.Sprintf(`
+		SELECT COALESCE(SUM(stat_cost), 0) AS ad_cost
+		FROM effective_qianchuan_cost
+		WHERE account_id IN (%s)`, placeholders), args...)
 	if err != nil {
+		g.Log().Warningf(ctx, "[QianchuanCost] 查询账号有效消耗失败: %v", err)
 		return 0
 	}
 	return row["ad_cost"].Float64()
@@ -738,35 +793,30 @@ func (s *FinanceCommissionService) GetAuthorCostRanking(ctx context.Context, sta
 	}
 	offset := (page - 1) * pageSize
 
-	totalRow, err := g.DB().Model("qianchuan_author_daily_report").
-		Where("LEFT(stat_datetime, 10) >= ?", startDate).
-		Where("LEFT(stat_datetime, 10) <= ?", endDate).
-		Fields("COUNT(DISTINCT aweme_id) AS total").
-		One()
+	totalRow, err := g.DB().GetOne(ctx, effectiveQianchuanCostCTE+`
+		SELECT COUNT(DISTINCT account_id) AS total
+		FROM effective_qianchuan_cost`, startDate, endDate, startDate, endDate)
 	if err != nil {
 		return nil, 0, err
 	}
 	total := totalRow["total"].Int64()
 
-	rows, err := g.DB().GetAll(ctx, `
+	rows, err := g.DB().GetAll(ctx, effectiveQianchuanCostCTE+`
 		SELECT
-			MAX(qar.account_id) AS account_id,
-			qar.aweme_id,
-			COALESCE(MAX(NULLIF(qar.aweme_name, '')), MAX(NULLIF(a_uid.platform_nickname, '')), MAX(NULLIF(a_id.platform_nickname, '')), '') AS douyin_nickname,
-			COALESCE(MAX(NULLIF(a_uid.account_name, '')), MAX(NULLIF(a_id.account_name, '')), MAX(NULLIF(qar.aweme_name, '')), '') AS author_name,
-			COALESCE(MAX(NULLIF(a_uid.operator, '')), MAX(NULLIF(a_id.operator, '')), '') AS operator_name,
-			COALESCE(SUM(qar.stat_cost), 0) AS stat_cost,
-			COALESCE(SUM(qar.pay_order_gmv), 0) AS pay_order_gmv,
-			COALESCE(SUM(qar.pay_order_count), 0) AS pay_order_count
-		FROM qianchuan_author_daily_report qar
-		LEFT JOIN account a_id ON a_id.id = qar.account_id
-		LEFT JOIN account a_uid ON a_uid.uid REGEXP '^[0-9]+$' AND CAST(a_uid.uid AS UNSIGNED) = qar.aweme_id
-		WHERE LEFT(qar.stat_datetime, 10) >= ?
-		  AND LEFT(qar.stat_datetime, 10) <= ?
-		GROUP BY qar.aweme_id
+			effective.account_id,
+			MAX(effective.aweme_id) AS aweme_id,
+			COALESCE(MAX(NULLIF(effective.aweme_name, '')), MAX(NULLIF(a.platform_nickname, '')), '') AS douyin_nickname,
+			COALESCE(MAX(NULLIF(a.account_name, '')), MAX(NULLIF(effective.aweme_name, '')), '') AS author_name,
+			COALESCE(MAX(NULLIF(a.operator, '')), '') AS operator_name,
+			COALESCE(SUM(effective.stat_cost), 0) AS stat_cost,
+			COALESCE(SUM(effective.pay_order_gmv), 0) AS pay_order_gmv,
+			COALESCE(SUM(effective.pay_order_count), 0) AS pay_order_count
+		FROM effective_qianchuan_cost effective
+		LEFT JOIN account a ON a.id = effective.account_id
+		GROUP BY effective.account_id
 		ORDER BY stat_cost DESC
 		LIMIT ? OFFSET ?
-	`, startDate, endDate, pageSize, offset)
+	`, startDate, endDate, startDate, endDate, pageSize, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -825,144 +875,72 @@ func (s *FinanceCommissionService) GetCostRanking(ctx context.Context, startDate
 }
 
 func (s *FinanceCommissionService) costRankingByTrader(ctx context.Context, startDate, endDate string, limit int) ([]g.Map, error) {
-	if s.hasAuthorCostData(ctx, startDate, endDate) {
-		rows, err := g.DB().Model("trader t").
-			LeftJoin("qianchuan_author_daily_report qar", fmt.Sprintf("t.id = qar.trader_id AND LEFT(qar.stat_datetime, 10) BETWEEN '%s' AND '%s'", startDate, endDate)).
-			Fields("t.id, t.name, COALESCE(SUM(qar.stat_cost), 0) AS ad_cost").
-			Group("t.id, t.name").
-			OrderDesc("ad_cost").
-			Limit(limit).
-			All()
-		if err != nil {
-			return nil, err
-		}
-		result := make([]g.Map, len(rows))
-		for i, row := range rows {
-			traderID := row["id"].Int64()
-			result[i] = g.Map{
-				"id":          row["id"],
-				"name":        row["name"],
-				"adCost":      roundFloatFinance(row["ad_cost"].Float64(), 2),
-				"costDetails": s.costDetailsByDimension(ctx, startDate, endDate, "trader", traderID),
-			}
-		}
-		return result, nil
-	}
-
-	rows, err := g.DB().Model("trader t").
-		InnerJoin("trader_account_relation tar", "t.id = tar.trader_id").
-		InnerJoin("account_qianchuan_mapping aqm", "tar.account_id = aqm.account_id").
-		InnerJoin("qianchuan_advertiser_daily_report qar", qianchuanAdReportJoinCondRange(startDate, endDate)).
-		Fields("t.id, t.name, COALESCE(SUM(qar.stat_cost), 0) AS ad_cost").
-		Group("t.id, t.name").
-		OrderDesc("ad_cost").
-		Limit(limit).
-		All()
+	rows, err := g.DB().GetAll(ctx, effectiveQianchuanCostCTE+`
+		SELECT t.id, t.name, COALESCE(SUM(effective.stat_cost), 0) AS ad_cost
+		FROM trader t
+		LEFT JOIN effective_qianchuan_cost effective ON effective.trader_id = t.id
+		GROUP BY t.id, t.name
+		ORDER BY ad_cost DESC
+		LIMIT ?`, startDate, endDate, startDate, endDate, limit)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]g.Map, len(rows))
 	for i, row := range rows {
+		traderID := row["id"].Int64()
 		result[i] = g.Map{
-			"id":     row["id"],
-			"name":   row["name"],
-			"adCost": roundFloatFinance(row["ad_cost"].Float64(), 2),
+			"id":          row["id"],
+			"name":        row["name"],
+			"adCost":      roundFloatFinance(row["ad_cost"].Float64(), 2),
+			"costDetails": s.costDetailsByDimension(ctx, startDate, endDate, "trader", traderID),
 		}
 	}
 	return result, nil
 }
 
 func (s *FinanceCommissionService) costRankingByDept(ctx context.Context, startDate, endDate string, limit int) ([]g.Map, error) {
-	if s.hasAuthorCostData(ctx, startDate, endDate) {
-		rows, err := g.DB().Model("sys_department d").
-			LeftJoin("qianchuan_author_daily_report qar", fmt.Sprintf("d.id = qar.department_id AND LEFT(qar.stat_datetime, 10) BETWEEN '%s' AND '%s'", startDate, endDate)).
-			Fields("d.id, d.name, COALESCE(SUM(qar.stat_cost), 0) AS ad_cost").
-			Group("d.id, d.name").
-			OrderDesc("ad_cost").
-			Limit(limit).
-			All()
-		if err != nil {
-			return nil, err
-		}
-		result := make([]g.Map, len(rows))
-		for i, row := range rows {
-			departmentID := row["id"].Int64()
-			result[i] = g.Map{
-				"id":          row["id"],
-				"name":        row["name"],
-				"adCost":      roundFloatFinance(row["ad_cost"].Float64(), 2),
-				"costDetails": s.costDetailsByDimension(ctx, startDate, endDate, "department", departmentID),
-			}
-		}
-		return result, nil
-	}
-
-	rows, err := g.DB().Model("sys_department d").
-		InnerJoin("account a", "a.department_id = d.id").
-		InnerJoin("account_qianchuan_mapping aqm", "a.id = aqm.account_id").
-		InnerJoin("qianchuan_advertiser_daily_report qar", qianchuanAdReportJoinCondRange(startDate, endDate)).
-		Fields("d.id, d.name, COALESCE(SUM(qar.stat_cost), 0) AS ad_cost").
-		Group("d.id, d.name").
-		OrderDesc("ad_cost").
-		Limit(limit).
-		All()
+	rows, err := g.DB().GetAll(ctx, effectiveQianchuanCostCTE+`
+		SELECT d.id, d.name, COALESCE(SUM(effective.stat_cost), 0) AS ad_cost
+		FROM sys_department d
+		LEFT JOIN effective_qianchuan_cost effective ON effective.department_id = d.id
+		GROUP BY d.id, d.name
+		ORDER BY ad_cost DESC
+		LIMIT ?`, startDate, endDate, startDate, endDate, limit)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]g.Map, len(rows))
 	for i, row := range rows {
+		departmentID := row["id"].Int64()
 		result[i] = g.Map{
-			"id":     row["id"],
-			"name":   row["name"],
-			"adCost": roundFloatFinance(row["ad_cost"].Float64(), 2),
+			"id":          row["id"],
+			"name":        row["name"],
+			"adCost":      roundFloatFinance(row["ad_cost"].Float64(), 2),
+			"costDetails": s.costDetailsByDimension(ctx, startDate, endDate, "department", departmentID),
 		}
 	}
 	return result, nil
 }
 
 func (s *FinanceCommissionService) costRankingByCompany(ctx context.Context, startDate, endDate string, limit int) ([]g.Map, error) {
-	if s.hasAuthorCostData(ctx, startDate, endDate) {
-		rows, err := g.DB().Model("sys_company c").
-			LeftJoin("qianchuan_author_daily_report qar", fmt.Sprintf("c.id = qar.company_id AND LEFT(qar.stat_datetime, 10) BETWEEN '%s' AND '%s'", startDate, endDate)).
-			Fields("c.id, c.name, COALESCE(SUM(qar.stat_cost), 0) AS ad_cost").
-			Group("c.id, c.name").
-			OrderDesc("ad_cost").
-			Limit(limit).
-			All()
-		if err != nil {
-			return nil, err
-		}
-		result := make([]g.Map, len(rows))
-		for i, row := range rows {
-			companyID := row["id"].Int64()
-			result[i] = g.Map{
-				"id":          row["id"],
-				"name":        row["name"],
-				"adCost":      roundFloatFinance(row["ad_cost"].Float64(), 2),
-				"costDetails": s.costDetailsByDimension(ctx, startDate, endDate, "company", companyID),
-			}
-		}
-		return result, nil
-	}
-
-	rows, err := g.DB().Model("sys_company c").
-		InnerJoin("account a", "a.company_id = c.id").
-		InnerJoin("account_qianchuan_mapping aqm", "a.id = aqm.account_id").
-		InnerJoin("qianchuan_advertiser_daily_report qar", qianchuanAdReportJoinCondRange(startDate, endDate)).
-		Fields("c.id, c.name, COALESCE(SUM(qar.stat_cost), 0) AS ad_cost").
-		Group("c.id, c.name").
-		OrderDesc("ad_cost").
-		Limit(limit).
-		All()
+	rows, err := g.DB().GetAll(ctx, effectiveQianchuanCostCTE+`
+		SELECT c.id, c.name, COALESCE(SUM(effective.stat_cost), 0) AS ad_cost
+		FROM sys_company c
+		LEFT JOIN effective_qianchuan_cost effective ON effective.company_id = c.id
+		GROUP BY c.id, c.name
+		ORDER BY ad_cost DESC
+		LIMIT ?`, startDate, endDate, startDate, endDate, limit)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]g.Map, len(rows))
 	for i, row := range rows {
+		companyID := row["id"].Int64()
 		result[i] = g.Map{
-			"id":     row["id"],
-			"name":   row["name"],
-			"adCost": roundFloatFinance(row["ad_cost"].Float64(), 2),
+			"id":          row["id"],
+			"name":        row["name"],
+			"adCost":      roundFloatFinance(row["ad_cost"].Float64(), 2),
+			"costDetails": s.costDetailsByDimension(ctx, startDate, endDate, "company", companyID),
 		}
 	}
 	return result, nil
@@ -970,32 +948,29 @@ func (s *FinanceCommissionService) costRankingByCompany(ctx context.Context, sta
 
 func (s *FinanceCommissionService) costDetailsByDimension(ctx context.Context, startDate, endDate, dimension string, id int64) []QianchuanCostDetailItem {
 	whereColumn := map[string]string{
-		"trader":     "qar.trader_id",
-		"department": "qar.department_id",
-		"company":    "qar.company_id",
+		"trader":     "effective.trader_id",
+		"department": "effective.department_id",
+		"company":    "effective.company_id",
 	}[dimension]
 	if whereColumn == "" || id <= 0 {
 		return []QianchuanCostDetailItem{}
 	}
 
-	rows, err := g.DB().GetAll(ctx, fmt.Sprintf(`
+	rows, err := g.DB().GetAll(ctx, effectiveQianchuanCostCTE+fmt.Sprintf(`
 		SELECT
-			MAX(qar.account_id) AS account_id,
-			qar.aweme_id,
-			COALESCE(MAX(NULLIF(qar.aweme_name, '')), MAX(NULLIF(a_uid.platform_nickname, '')), MAX(NULLIF(a_id.platform_nickname, '')), '') AS douyin_nickname,
-			COALESCE(MAX(NULLIF(a_uid.account_name, '')), MAX(NULLIF(a_id.account_name, '')), MAX(NULLIF(qar.aweme_name, '')), '') AS author_name,
-			COALESCE(SUM(qar.stat_cost), 0) AS ad_cost,
-			COALESCE(SUM(qar.pay_order_gmv), 0) AS pay_order_gmv,
-			COALESCE(SUM(qar.pay_order_count), 0) AS pay_order_count
-		FROM qianchuan_author_daily_report qar
-		LEFT JOIN account a_id ON a_id.id = qar.account_id
-		LEFT JOIN account a_uid ON a_uid.uid REGEXP '^[0-9]+$' AND CAST(a_uid.uid AS UNSIGNED) = qar.aweme_id
-		WHERE LEFT(qar.stat_datetime, 10) >= ?
-		  AND LEFT(qar.stat_datetime, 10) <= ?
-		  AND %s = ?
-		GROUP BY qar.aweme_id
+			effective.account_id,
+			MAX(effective.aweme_id) AS aweme_id,
+			COALESCE(MAX(NULLIF(effective.aweme_name, '')), MAX(NULLIF(a.platform_nickname, '')), '') AS douyin_nickname,
+			COALESCE(MAX(NULLIF(a.account_name, '')), MAX(NULLIF(effective.aweme_name, '')), '') AS author_name,
+			COALESCE(SUM(effective.stat_cost), 0) AS ad_cost,
+			COALESCE(SUM(effective.pay_order_gmv), 0) AS pay_order_gmv,
+			COALESCE(SUM(effective.pay_order_count), 0) AS pay_order_count
+		FROM effective_qianchuan_cost effective
+		LEFT JOIN account a ON a.id = effective.account_id
+		WHERE %s = ?
+		GROUP BY effective.account_id
 		ORDER BY ad_cost DESC
-	`, whereColumn), startDate, endDate, id)
+	`, whereColumn), startDate, endDate, startDate, endDate, id)
 	if err != nil {
 		g.Log().Warningf(ctx, "[QianchuanCostDetail] 查询%s=%d消耗明细失败: %v", dimension, id, err)
 		return []QianchuanCostDetailItem{}
@@ -1016,18 +991,6 @@ func (s *FinanceCommissionService) costDetailsByDimension(ctx context.Context, s
 		}
 	}
 	return result
-}
-
-func (s *FinanceCommissionService) hasAuthorCostData(ctx context.Context, startDate, endDate string) bool {
-	row, err := g.DB().Model("qianchuan_author_daily_report").
-		Where("LEFT(stat_datetime, 10) >= ?", startDate).
-		Where("LEFT(stat_datetime, 10) <= ?", endDate).
-		Fields("COUNT(1) AS cnt").
-		One()
-	if err != nil {
-		return false
-	}
-	return row["cnt"].Int64() > 0
 }
 
 // ExportAuthorCostRanking 导出达人维度消耗统计全量数据

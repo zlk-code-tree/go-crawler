@@ -107,6 +107,89 @@ func NewQianchuanPlanHierarchyService() *QianchuanPlanHierarchyService {
 	return &QianchuanPlanHierarchyService{}
 }
 
+var qianchuanPlanAwemeExportHeaders = []string{
+	"抖音号",
+	"关联千川户",
+	"关联店铺",
+	"计划数",
+	"商品数",
+	"消耗(¥)",
+	"佣金(¥)",
+	"有效订单",
+	"成本(¥)",
+	"利润(¥)",
+	"成交订单",
+	"展示",
+	"点击",
+	"点击率",
+}
+
+// ExportAwemes 按页面抖音号视角的同一聚合口径导出全部或搜索后的指标。
+func (s *QianchuanPlanHierarchyService) ExportAwemes(ctx context.Context, req QianchuanPlanHierarchyRequest) (string, error) {
+	req.Keyword = strings.TrimSpace(req.Keyword)
+	if err := validateQianchuanPlanAwemeExportRequest(req); err != nil {
+		return "", err
+	}
+
+	result, err := s.Query(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	if len(result.List) == 0 {
+		return "", fmt.Errorf("没有可导出的抖音号数据")
+	}
+
+	return writeExcelFile(
+		"千川计划抖音号指标",
+		qianchuanPlanAwemeExportHeaders,
+		[]float64{34, 13, 12, 10, 10, 14, 14, 12, 14, 14, 12, 12, 12, 12},
+		len(result.List),
+		func(rowIdx int) []interface{} {
+			return qianchuanPlanAwemeExportRow(result.List[rowIdx])
+		},
+	)
+}
+
+func validateQianchuanPlanAwemeExportRequest(req QianchuanPlanHierarchyRequest) error {
+	if req.Level != QianchuanHierarchyLevelAweme {
+		return fmt.Errorf("只支持抖音号维度数据导出")
+	}
+	return nil
+}
+
+func qianchuanPlanAwemeExportRow(node QianchuanPlanHierarchyNode) []interface{} {
+	return []interface{}{
+		qianchuanPlanAwemeExportName(node),
+		node.AdvertiserCount,
+		node.StoreCount,
+		node.PlanCount,
+		node.ProductCount,
+		node.StatCost,
+		node.Commission,
+		node.ValidOrderCount,
+		node.CostAmount,
+		node.Profit,
+		node.PayOrderCount,
+		node.ShowCnt,
+		node.ClickCnt,
+		fmt.Sprintf("%.2f%%", node.Ctr*100),
+	}
+}
+
+func qianchuanPlanAwemeExportName(node QianchuanPlanHierarchyNode) string {
+	name := strings.TrimSpace(node.Name)
+	if name == "" {
+		name = "未识别抖音号"
+	}
+	if showID := strings.TrimSpace(node.AwemeShowID); showID != "" {
+		return fmt.Sprintf("%s（抖音号：%s）", name, showID)
+	}
+	if node.AwemeID > 0 {
+		return fmt.Sprintf("%s（UID：%d）", name, node.AwemeID)
+	}
+	return name
+}
+
 func (s *QianchuanPlanHierarchyService) Query(ctx context.Context, req QianchuanPlanHierarchyRequest) (*QianchuanPlanHierarchyResult, error) {
 	if err := NewQianchuanStoreMappingService().EnsureSchema(ctx); err != nil {
 		return nil, err

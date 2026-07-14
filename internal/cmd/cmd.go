@@ -692,6 +692,7 @@ var (
 				group.GET("/qianchuan-poller/daily-report", qianchuanPollerCtrl.DailyReportList)
 				group.GET("/qianchuan-poller/plan-report", qianchuanPollerCtrl.PlanReportList)
 				group.GET("/qianchuan-poller/plan-hierarchy", qianchuanPollerCtrl.PlanHierarchy)
+				group.GET("/qianchuan-poller/plan-aweme-export", qianchuanPollerCtrl.PlanAwemeExport)
 				group.GET("/qianchuan-poller/overall-report", qianchuanPollerCtrl.OverallReportList)
 				group.GET("/qianchuan-poller/overall-report-detail", qianchuanPollerCtrl.OverallReportDetailList)
 				group.GET("/qianchuan-poller/daily-report-advertisers", qianchuanPollerCtrl.DailyReportAdvertisers)

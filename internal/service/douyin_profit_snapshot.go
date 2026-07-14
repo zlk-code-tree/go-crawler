@@ -91,6 +91,13 @@ func normalizeDouyinProfitDates(startDate, endDate string) (string, string, stri
 		endDate = startDate
 	}
 
+	// 前端可能传入带时间部分的日期（如 "2026-07-13 00:00:00"），截取前10位
+	if len(startDate) > 10 {
+		startDate = startDate[:10]
+	}
+	if len(endDate) > 10 {
+		endDate = endDate[:10]
+	}
 	start, startErr := time.Parse("2006-01-02", startDate)
 	end, endErr := time.Parse("2006-01-02", endDate)
 	if startErr != nil || endErr != nil || end.Before(start) {

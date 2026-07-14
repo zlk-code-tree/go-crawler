@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	ad_open_sdk_go "github.com/oceanengine/ad_open_sdk_go"
@@ -21,6 +22,35 @@ import (
 type Client struct {
 	cfg         *config.Configuration
 	accessToken string
+}
+
+const authorReportRequestInterval = 500 * time.Millisecond
+
+var authorReportLimiter = newRequestIntervalLimiter(authorReportRequestInterval)
+
+// requestIntervalLimiter 保证同一进程内的达人报表请求按固定间隔串行发出。
+// 达人报表接口的限流粒度高于单个广告主，因此不能只依赖 puller 的广告主并发数。
+type requestIntervalLimiter struct {
+	mu       sync.Mutex
+	interval time.Duration
+	next     time.Time
+}
+
+func newRequestIntervalLimiter(interval time.Duration) *requestIntervalLimiter {
+	return &requestIntervalLimiter{interval: interval}
+}
+
+func (l *requestIntervalLimiter) Wait(ctx context.Context) error {
+	l.mu.Lock()
+	now := time.Now()
+	reservedAt := now
+	if l.next.After(now) {
+		reservedAt = l.next
+	}
+	l.next = reservedAt.Add(l.interval)
+	l.mu.Unlock()
+
+	return waitContext(ctx, time.Until(reservedAt))
 }
 
 // NewClient 创建巨量千川客户端
@@ -289,24 +319,44 @@ func (c *Client) GetAuthorizedAwemes(ctx context.Context, advertiserID int64) ([
 	var result []AuthorizedAweme
 
 	for {
-		resp, _, err := sdkClient.QianchuanAwemeAuthorizedGetV10Api().Get(ctx).
-			AdvertiserId(advertiserID).
-			Filtering(models.QianchuanAwemeAuthorizedGetV10Filtering{
-				MarketingGoal: models.ALL_QianchuanAwemeAuthorizedGetV10FilteringMarketingGoal.Ptr(),
-			}).
-			Page(page).
-			PageSize(pageSize).
-			AccessToken(c.accessToken).
-			Execute()
-		if err != nil {
-			return nil, fmt.Errorf("获取授权抖音号列表失败(advID=%d,page=%d): %w", advertiserID, page, err)
-		}
-		if resp.Code != nil && *resp.Code != 0 {
-			msg := ""
-			if resp.Message != nil {
-				msg = *resp.Message
+		var resp *models.QianchuanAwemeAuthorizedGetV10Response
+		const maxRateLimitRetries = 3
+		for attempt := 0; ; attempt++ {
+			err := retryWithBackoff(ctx, fmt.Sprintf("授权抖音号列表API(advID=%d,page=%d)", advertiserID, page), func() error {
+				if err := authorReportLimiter.Wait(ctx); err != nil {
+					return err
+				}
+				var e error
+				resp, _, e = sdkClient.QianchuanAwemeAuthorizedGetV10Api().Get(ctx).
+					AdvertiserId(advertiserID).
+					Filtering(models.QianchuanAwemeAuthorizedGetV10Filtering{
+						MarketingGoal: models.ALL_QianchuanAwemeAuthorizedGetV10FilteringMarketingGoal.Ptr(),
+					}).
+					Page(page).
+					PageSize(pageSize).
+					AccessToken(c.accessToken).
+					Execute()
+				return e
+			})
+			if err != nil {
+				return nil, fmt.Errorf("获取授权抖音号列表失败(advID=%d,page=%d): %w", advertiserID, page, err)
 			}
-			return nil, fmt.Errorf("授权抖音号列表返回错误(code=%d,msg=%s)", *resp.Code, msg)
+			if resp == nil {
+				return nil, fmt.Errorf("授权抖音号列表返回空响应(advID=%d,page=%d)", advertiserID, page)
+			}
+			codeVal, msgVal := qianchuanResponseStatus(resp.Code, resp.Message)
+			if codeVal == 0 {
+				break
+			}
+			if !isQianchuanRateLimitCode(codeVal) || attempt >= maxRateLimitRetries {
+				return nil, fmt.Errorf("授权抖音号列表返回错误(code=%d,msg=%s)", codeVal, msgVal)
+			}
+			backoff := authorRateLimitBackoff(attempt)
+			g.Log().Warningf(ctx, "[Qianchuan] 授权抖音号列表触发频控: advID=%d, page=%d, 第%d次重试(backoff=%v)",
+				advertiserID, page, attempt+1, backoff)
+			if err := waitContext(ctx, backoff); err != nil {
+				return nil, err
+			}
 		}
 		if resp.Data == nil || len(resp.Data.AwemeIdList) == 0 {
 			break
@@ -968,6 +1018,10 @@ func (c *Client) GetUniPromotionReport(ctx context.Context, advertiserID int64, 
 		if resp.Data.TotalPayOrderCountForRoi2 != nil {
 			r.PayOrderCount = int64(*resp.Data.TotalPayOrderCountForRoi2)
 		}
+		if advertiserID == 1741941292252167 {
+			g.Log().Infof(ctx, "[Qianchuan][CostTrace] source=uni_promotion/get advID=%d date=%s stat_cost=%.2f pay_order_gmv=%.2f pay_order_count=%d",
+				advertiserID, date, r.StatCost, r.PayOrderAmount, r.PayOrderCount)
+		}
 		if r.StatCost != 0 || r.PayOrderAmount != 0 || r.PayOrderCount != 0 {
 			reports = append(reports, r)
 		}
@@ -1103,6 +1157,12 @@ func (c *Client) GetOverallPromotionReport(ctx context.Context, advertiserID int
 			NoRefundEcomPlatformSubsidyAmountForRoi2:   floatValue(resp.Data.NoRefundEcomPlatformSubsidyAmountForRoi2),
 		}
 
+		if advertiserID == 1741941292252167 {
+			g.Log().Infof(ctx, "[Qianchuan][CostTrace] source=all_promotion/get advID=%d date=%s data_period=%s stat_cost_for_roi2=%.2f stat_cost_for_overall_roi2=%.2f estimated_commission=%.2f pay_order_gmv=%.2f pay_order_count=%d",
+				advertiserID, date, report.DataPeriod, report.StatCostForRoi2, report.StatCostForOverallRoi2,
+				report.ShopEstimatedComissionCost, report.TotalPayOrderGmvForRoi2, report.TotalPayOrderCountForRoi2)
+		}
+
 		if report.StatCostForRoi2 == 0 &&
 			report.TotalPayOrderGmvForRoi2 == 0 &&
 			report.TotalPayOrderCountForRoi2 == 0 &&
@@ -1193,45 +1253,56 @@ func (c *Client) GetOverallProductAwemeReport(ctx context.Context, advertiserID 
 
 	sdkClient := ad_open_sdk_go.Init(c.cfg)
 	var resp *models.QianchuanReportUniPromotionDataGetV10Response
-	var rawResp *http.Response
-	err := retryWithBackoff(ctx, fmt.Sprintf("乘方商品抖音号明细API(advID=%d,page=%d)", advertiserID, page), func() error {
-		var e error
-		resp, rawResp, e = sdkClient.QianchuanReportUniPromotionDataGetV10Api().Get(ctx).
-			AdvertiserId(advertiserID).
-			DataTopic(models.OVERALL_ROI_PRODUCT_AWEME_QianchuanReportUniPromotionDataGetV10DataTopic).
-			Dimensions(dimensions).
-			Metrics(metrics).
-			Filters(filters).
-			StartTime(normalizeStatDate(startDate) + " 00:00:00").
-			EndTime(normalizeStatDate(endDate) + " 23:59:59").
-			OrderBy(orderBy).
-			DataPeriod(models.OVER_ALL_DATA_QianchuanReportUniPromotionDataGetV10DataPeriod).
-			Page(int64(page)).
-			PageSize(sizeEnum).
-			AccessToken(c.accessToken).
-			Execute()
-		return e
-	})
-	if err != nil {
-		return nil, fmt.Errorf("获取乘方商品抖音号明细失败(advertiserID=%d): %w", advertiserID, err)
-	}
+	const maxRateLimitRetries = 3
+	for attempt := 0; ; attempt++ {
+		var rawResp *http.Response
+		err := retryWithBackoff(ctx, fmt.Sprintf("乘方商品抖音号明细API(advID=%d,page=%d)", advertiserID, page), func() error {
+			if err := authorReportLimiter.Wait(ctx); err != nil {
+				return err
+			}
+			var e error
+			resp, rawResp, e = sdkClient.QianchuanReportUniPromotionDataGetV10Api().Get(ctx).
+				AdvertiserId(advertiserID).
+				DataTopic(models.OVERALL_ROI_PRODUCT_AWEME_QianchuanReportUniPromotionDataGetV10DataTopic).
+				Dimensions(dimensions).
+				Metrics(metrics).
+				Filters(filters).
+				StartTime(normalizeStatDate(startDate) + " 00:00:00").
+				EndTime(normalizeStatDate(endDate) + " 23:59:59").
+				OrderBy(orderBy).
+				DataPeriod(models.OVER_ALL_DATA_QianchuanReportUniPromotionDataGetV10DataPeriod).
+				Page(int64(page)).
+				PageSize(sizeEnum).
+				AccessToken(c.accessToken).
+				Execute()
+			return e
+		})
+		if err != nil {
+			return nil, fmt.Errorf("获取乘方商品抖音号明细失败(advertiserID=%d): %w", advertiserID, err)
+		}
+		if resp == nil {
+			return nil, fmt.Errorf("乘方商品抖音号明细返回空响应(advertiserID=%d,page=%d)", advertiserID, page)
+		}
 
-	codeVal := int64(0)
-	msgVal := ""
-	if resp.Code != nil {
-		codeVal = *resp.Code
-	}
-	if resp.Message != nil {
-		msgVal = *resp.Message
-	}
-	httpStatus := 0
-	if rawResp != nil {
-		httpStatus = rawResp.StatusCode
-	}
-	g.Log().Infof(ctx, "[Qianchuan] 乘方商品抖音号明细API: advID=%d, page=%d, HTTP=%d, code=%d, msg=%s",
-		advertiserID, page, httpStatus, codeVal, msgVal)
-	if codeVal != 0 {
-		return nil, fmt.Errorf("乘方商品抖音号明细返回错误: code=%d, msg=%s", codeVal, msgVal)
+		codeVal, msgVal := qianchuanResponseStatus(resp.Code, resp.Message)
+		httpStatus := 0
+		if rawResp != nil {
+			httpStatus = rawResp.StatusCode
+		}
+		g.Log().Infof(ctx, "[Qianchuan] 乘方商品抖音号明细API: advID=%d, page=%d, HTTP=%d, code=%d, msg=%s",
+			advertiserID, page, httpStatus, codeVal, msgVal)
+		if codeVal == 0 {
+			break
+		}
+		if !isQianchuanRateLimitCode(codeVal) || attempt >= maxRateLimitRetries {
+			return nil, fmt.Errorf("乘方商品抖音号明细返回错误: code=%d, msg=%s", codeVal, msgVal)
+		}
+		backoff := authorRateLimitBackoff(attempt)
+		g.Log().Warningf(ctx, "[Qianchuan] 乘方商品抖音号明细触发频控: advID=%d, page=%d, 第%d次重试(backoff=%v)",
+			advertiserID, page, attempt+1, backoff)
+		if err := waitContext(ctx, backoff); err != nil {
+			return nil, err
+		}
 	}
 
 	result := &OverallProductAwemeReportPage{
@@ -1321,44 +1392,56 @@ func (c *Client) GetAuthorDimensionReports(ctx context.Context, advertiserID, aw
 	}
 
 	var resp *models.QianchuanReportUniPromotionDimensionDataAuthorGetV10Response
-	var rawResp *http.Response
-	err := retryWithBackoff(ctx, fmt.Sprintf("达人维度报表API(advID=%d,awemeID=%d)", advertiserID, awemeID), func() error {
-		var e error
-		resp, rawResp, e = sdkClient.QianchuanReportUniPromotionDimensionDataAuthorGetV10Api().Get(ctx).
-			AccessToken(c.accessToken).
-			AdvertiserId(advertiserID).
-			AwemeId(awemeID).
-			MarketingGoal(models.ALL_QianchuanReportUniPromotionDimensionDataAuthorGetV10MarketingGoal).
-			Metrics(metrics).
-			StartTime(startDate + " 00:00:00").
-			EndTime(endDate + " 23:59:59").
-			Dimension(models.TIME_GRANULARITY_DAILY_QianchuanReportUniPromotionDimensionDataAuthorGetV10Dimension).
-			Page(1).
-			PageSize(100).
-			Execute()
-		return e
-	})
-	if err != nil {
-		return nil, fmt.Errorf("获取达人维度报表失败(advID=%d,awemeID=%d): %w", advertiserID, awemeID, err)
-	}
+	const maxRateLimitRetries = 3
+	for attempt := 0; ; attempt++ {
+		var rawResp *http.Response
+		err := retryWithBackoff(ctx, fmt.Sprintf("达人维度报表API(advID=%d,awemeID=%d)", advertiserID, awemeID), func() error {
+			if err := authorReportLimiter.Wait(ctx); err != nil {
+				return err
+			}
+			var e error
+			resp, rawResp, e = sdkClient.QianchuanReportUniPromotionDimensionDataAuthorGetV10Api().Get(ctx).
+				AccessToken(c.accessToken).
+				AdvertiserId(advertiserID).
+				AwemeId(awemeID).
+				MarketingGoal(models.ALL_QianchuanReportUniPromotionDimensionDataAuthorGetV10MarketingGoal).
+				Metrics(metrics).
+				StartTime(startDate + " 00:00:00").
+				EndTime(endDate + " 23:59:59").
+				Dimension(models.TIME_GRANULARITY_DAILY_QianchuanReportUniPromotionDimensionDataAuthorGetV10Dimension).
+				Page(1).
+				PageSize(100).
+				Execute()
+			return e
+		})
+		if err != nil {
+			return nil, fmt.Errorf("获取达人维度报表失败(advID=%d,awemeID=%d): %w", advertiserID, awemeID, err)
+		}
+		if resp == nil {
+			return nil, fmt.Errorf("达人维度报表返回空响应(advID=%d,awemeID=%d)", advertiserID, awemeID)
+		}
 
-	codeVal := int64(0)
-	msgVal := ""
-	if resp.Code != nil {
-		codeVal = *resp.Code
-	}
-	if resp.Message != nil {
-		msgVal = *resp.Message
-	}
-	httpStatus := 0
-	if rawResp != nil {
-		httpStatus = rawResp.StatusCode
-	}
-	g.Log().Infof(ctx, "[Qianchuan] 达人维度报表API: advID=%d, awemeID=%d, HTTP=%d, code=%d, msg=%s",
-		advertiserID, awemeID, httpStatus, codeVal, msgVal)
+		codeVal, msgVal := authorDimensionResponseStatus(resp)
+		httpStatus := 0
+		if rawResp != nil {
+			httpStatus = rawResp.StatusCode
+		}
+		g.Log().Infof(ctx, "[Qianchuan] 达人维度报表API: advID=%d, awemeID=%d, HTTP=%d, code=%d, msg=%s",
+			advertiserID, awemeID, httpStatus, codeVal, msgVal)
 
-	if codeVal != 0 {
-		return nil, fmt.Errorf("达人维度报表返回错误: code=%d, msg=%s", codeVal, msgVal)
+		if codeVal == 0 {
+			break
+		}
+		if !isQianchuanRateLimitCode(codeVal) || attempt >= maxRateLimitRetries {
+			return nil, fmt.Errorf("达人维度报表返回错误: code=%d, msg=%s", codeVal, msgVal)
+		}
+
+		backoff := authorRateLimitBackoff(attempt)
+		g.Log().Warningf(ctx, "[Qianchuan] 达人维度报表触发频控: advID=%d, awemeID=%d, 第%d次重试(backoff=%v)",
+			advertiserID, awemeID, attempt+1, backoff)
+		if err := waitContext(ctx, backoff); err != nil {
+			return nil, err
+		}
 	}
 	if resp.Data == nil || resp.Data.List == nil || len(resp.Data.List) == 0 {
 		return nil, nil
@@ -1392,6 +1475,40 @@ func (c *Client) GetAuthorDimensionReports(ctx context.Context, advertiserID, aw
 		return nil, nil
 	}
 	return result, nil
+}
+
+func authorDimensionResponseStatus(resp *models.QianchuanReportUniPromotionDimensionDataAuthorGetV10Response) (int64, string) {
+	if resp == nil {
+		return 0, ""
+	}
+	return qianchuanResponseStatus(resp.Code, resp.Message)
+}
+
+func qianchuanResponseStatus(codeValue *int64, messageValue *string) (int64, string) {
+	var code int64
+	var message string
+	if codeValue != nil {
+		code = *codeValue
+	}
+	if messageValue != nil {
+		message = *messageValue
+	}
+	return code, message
+}
+
+func isQianchuanRateLimitCode(code int64) bool {
+	return code == 40100
+}
+
+func authorRateLimitBackoff(attempt int) time.Duration {
+	backoffs := [...]time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second}
+	if attempt < 0 {
+		return backoffs[0]
+	}
+	if attempt >= len(backoffs) {
+		return backoffs[len(backoffs)-1]
+	}
+	return backoffs[attempt]
 }
 
 // GetAdPlanReport 获取广告计划日结报表（千川 v1.0/qianchuan/report/ad/get/）
@@ -1740,20 +1857,24 @@ func extractRowFieldImageURL(bucket map[string]map[string]interface{}, key strin
 func (c *Client) PullAllByDate(ctx context.Context, advertiserID int64, startDate, endDate string) (*PullResult, error) {
 	result := &PullResult{AdvertiserID: advertiserID}
 
-	// 获取账户维度日结报表：标准推广 + 全域推广。
+	// 获取账户维度日结报表：标准推广。
 	reports, err := c.GetAdReport(ctx, advertiserID, startDate, endDate)
 	if err != nil {
 		return nil, fmt.Errorf("获取账户报表失败: %w", err)
 	}
-	uniReports, uniErr := c.GetUniPromotionReport(ctx, advertiserID, startDate, endDate)
-	if uniErr != nil {
-		g.Log().Warningf(ctx, "[Qianchuan] 获取全域推广报表失败(advID=%d): %v，将仅使用标准推广消耗", advertiserID, uniErr)
-	} else {
-		reports = mergeAdReports(reports, uniReports)
-	}
+	// 乘方数据优先使用 all_promotion/get（新接口，含 stat_cost_for_roi2 / stat_cost_for_overall_roi2 等细分字段）。
+	// uni_promotion/get 与该接口返回同一份消耗数据，仅作为 all_promotion/get 失败或无数据时的降级兜底。
 	overallReports, overallErr := c.GetOverallPromotionReport(ctx, advertiserID, startDate, endDate)
-	if overallErr != nil {
-		g.Log().Warningf(ctx, "[Qianchuan] 获取乘方报表失败(advID=%d): %v，将仅使用标准推广+全域消耗", advertiserID, overallErr)
+	if overallErr != nil || len(overallReports) == 0 {
+		if overallErr != nil {
+			g.Log().Warningf(ctx, "[Qianchuan] 获取乘方报表失败(advID=%d): %v，降级使用全域推广", advertiserID, overallErr)
+		}
+		uniReports, uniErr := c.GetUniPromotionReport(ctx, advertiserID, startDate, endDate)
+		if uniErr != nil {
+			g.Log().Warningf(ctx, "[Qianchuan] 获取全域推广报表也失败(advID=%d): %v，将仅使用标准推广消耗", advertiserID, uniErr)
+		} else {
+			reports = mergeAdReports(reports, uniReports)
+		}
 	} else {
 		result.OverallReports = overallReports
 		result.TotalOverallReports = len(overallReports)
@@ -1762,6 +1883,12 @@ func (c *Client) PullAllByDate(ctx context.Context, advertiserID int64, startDat
 			overallAdReports = append(overallAdReports, item.ToAdReport())
 		}
 		reports = mergeAdReports(reports, overallAdReports)
+	}
+	if advertiserID == 1741941292252167 {
+		for _, item := range reports {
+			g.Log().Infof(ctx, "[Qianchuan][CostTrace] source=merged_before_save advID=%d date=%s stat_cost=%.2f pay_order_gmv=%.2f pay_order_count=%d",
+				advertiserID, item.StatDatetime, item.StatCost, item.PayOrderAmount, item.PayOrderCount)
+		}
 	}
 	result.Reports = reports
 	result.TotalReports = len(reports)
@@ -2065,8 +2192,8 @@ func (c *Client) GetAccessToken() string {
 	return c.accessToken
 }
 
-// retryWithBackoff 对 fn 执行指数退避重试，最多3次
-// 只重试返回error的情况，不重试业务错误(code!=0)
+// retryWithBackoff 对 fn 执行指数退避重试，最多3次。
+// 业务错误由具体接口判断；这里只重试返回 error 的情况。
 func retryWithBackoff(ctx context.Context, name string, fn func() error) error {
 	const maxRetries = 3
 	backoffs := []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second}
@@ -2074,7 +2201,9 @@ func retryWithBackoff(ctx context.Context, name string, fn func() error) error {
 	for i := 0; i <= maxRetries; i++ {
 		if i > 0 {
 			g.Log().Warningf(ctx, "[Qianchuan] %s 第%d次重试(backoff=%v)", name, i, backoffs[i-1])
-			time.Sleep(backoffs[i-1])
+			if err := waitContext(ctx, backoffs[i-1]); err != nil {
+				return err
+			}
 		}
 		lastErr = fn()
 		if lastErr == nil {
@@ -2082,6 +2211,20 @@ func retryWithBackoff(ctx context.Context, name string, fn func() error) error {
 		}
 	}
 	return fmt.Errorf("%s 重试%d次后仍失败: %w", name, maxRetries, lastErr)
+}
+
+func waitContext(ctx context.Context, duration time.Duration) error {
+	if duration <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 // GetShopIDs 获取巨量引擎平台广告主ID列表（即 shop_id）
