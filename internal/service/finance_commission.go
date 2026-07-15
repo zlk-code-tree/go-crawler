@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
-	"go-crawler/internal/model"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"go-crawler/internal/model"
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
@@ -189,22 +191,16 @@ func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId
 
 // getStatsRealtime 实时计算统计
 func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId int64, nodeType, startDate, endDate, timeType, platform string) (*model.FinanceStatsRes, error) {
+	useFullDouyinCompanySnapshot := false
 	if nodeType == "company" && (platform == "" || platform == "douyin") {
 		useFullSnapshot, scopeErr := shouldUseFullDouyinCompanySnapshot(ctx, nodeId)
 		if scopeErr != nil {
 			return nil, scopeErr
 		}
-		if useFullSnapshot {
-			snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
-			if snapshotErr != nil {
-				return nil, snapshotErr
-			}
-			return &model.FinanceStatsRes{
-				TimeType:  timeType,
-				StartDate: startDate,
-				EndDate:   endDate,
-				Summary:   snapshot.FinanceSummary(),
-			}, nil
+		useFullDouyinCompanySnapshot = useFullSnapshot
+		if useFullSnapshot && platform == "" {
+			// 公司旧口径在未指定平台时即代表全量抖音，叶子汇总保持该口径。
+			platform = "douyin"
 		}
 	}
 
@@ -215,7 +211,7 @@ func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId 
 		return nil, err
 	}
 
-	g.Log().Infof(ctx, "[Finance] 实时统计: nodeType=%s, nodeId=%d, accountIds=%v, date=%s~%s", nodeType, nodeId, accountIds, startDate, endDate)
+	g.Log().Infof(ctx, "[Finance] 实时统计: nodeType=%s, nodeId=%d, accountCount=%d, date=%s~%s", nodeType, nodeId, len(accountIds), startDate, endDate)
 
 	if len(accountIds) == 0 {
 		g.Log().Warningf(ctx, "[Finance] 节点下无账号: nodeType=%s, nodeId=%d", nodeType, nodeId)
@@ -239,15 +235,18 @@ func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId 
 	}
 	stats, err := s.statsOrdersByAccountIds(ctx, accountIds, startDate, endDate, traderName)
 	if err != nil {
-		g.Log().Warningf(ctx, "[Finance] statsOrdersByAccountIds 失败: accountIds=%v, err=%v", accountIds, err)
+		g.Log().Warningf(ctx, "[Finance] statsOrdersByAccountIds 失败: accountCount=%d, err=%v", len(accountIds), err)
 		return nil, err
 	}
-	if nodeType == "company" {
-		if selfSaleStats, selfSaleErr := s.statsSelfSaleByAccountIds(ctx, accountIds, startDate, endDate); selfSaleErr != nil {
-			g.Log().Warningf(ctx, "[Finance] statsSelfSaleByAccountIds 失败: nodeId=%d, err=%v", nodeId, selfSaleErr)
-		} else {
-			mergeFinanceStatsSummary(stats, selfSaleStats)
+	if nodeType == "company" && useFullDouyinCompanySnapshot {
+		// 公司口径 = 已归属账号叶子 + 公司未归属兜底。
+		// 兜底包含无 UID 订单和尚未归属到账号的广告费，保证层级数据守恒。
+		snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
+		if snapshotErr != nil {
+			return nil, snapshotErr
 		}
+		unassigned := subtractFinanceStatsSummary(snapshot.FinanceSummary(), *stats)
+		mergeFinanceStatsSummary(stats, &unassigned)
 	}
 
 	g.Log().Infof(ctx, "[Finance] 实时统计结果: orderCount=%d, payAmount=%.2f, commission=%.2f", stats.OrderCount, stats.PayAmount, stats.Commission)
@@ -318,17 +317,133 @@ func (s *FinanceCommissionService) GetChildren(ctx context.Context, req *model.F
 	return nil, fmt.Errorf("不支持的节点类型: %s", req.NodeType)
 }
 
-// getCompanyChildren 获取公司下级节点（批量查询优化）
-func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, companyId int64, startDate, endDate, timeType, platform string) (*model.FinanceChildrenRes, error) {
-	// 子节点只查历史数据，避免每个子节点都实时查询今天数据
-	childEndDate := endDate
-	today := time.Now().Format("2006-01-02")
-	if endDate >= today {
-		childEndDate = time.Now().AddDate(0, 0, -1).Format("2006-01-02")
-		if childEndDate < startDate {
-			childEndDate = startDate
+// financeChildNode 表示组织树中的一个直属子节点。
+type financeChildNode struct {
+	id       int64
+	name     string
+	nodeType string
+}
+
+// statsFinanceChildNodes 只计算一次账号叶子，再按直属子节点归并。
+func (s *FinanceCommissionService) statsFinanceChildNodes(ctx context.Context, childNodes []financeChildNode, startDate, endDate, platform string) ([]model.FinanceStatsSummary, map[int]struct{}, error) {
+	nodeAccountIDs := make([][]int, len(childNodes))
+	allAccountIDsSet := make(map[int]struct{})
+	for i, child := range childNodes {
+		accountIDs, err := s.getAccountIdsByNode(ctx, child.id, child.nodeType, platform)
+		if err != nil {
+			return nil, nil, fmt.Errorf("查询子节点%s账号失败: %w", child.name, err)
+		}
+		nodeAccountIDs[i] = accountIDs
+		for _, accountID := range accountIDs {
+			allAccountIDsSet[accountID] = struct{}{}
 		}
 	}
+
+	result := make([]model.FinanceStatsSummary, len(childNodes))
+	if len(allAccountIDsSet) == 0 {
+		return result, allAccountIDsSet, nil
+	}
+
+	allAccountIDs := make([]int, 0, len(allAccountIDsSet))
+	for accountID := range allAccountIDsSet {
+		allAccountIDs = append(allAccountIDs, accountID)
+	}
+	shops, err := g.DB().Model("account").
+		Where("id IN(?)", allAccountIDs).
+		Fields("id, platform, uid, account_name, platform_nickname").
+		All()
+	if err != nil {
+		return nil, nil, err
+	}
+	leafStats, err := s.statsAccountLeaves(ctx, shops, startDate, endDate, "")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for i, accountIDs := range nodeAccountIDs {
+		for _, accountID := range accountIDs {
+			if stats := leafStats[accountID]; stats != nil {
+				mergeFinanceStatsSummary(&result[i], stats)
+			}
+		}
+	}
+	return result, allAccountIDsSet, nil
+}
+
+// getCompanyChildren 获取公司直属子节点，统计值由账号叶子汇总产生。
+func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, companyID int64, startDate, endDate, timeType, platform string) (*model.FinanceChildrenRes, error) {
+	company, err := g.DB().Model("sys_company").Where("id", companyID).One()
+	if err != nil || company.IsEmpty() {
+		return nil, fmt.Errorf("公司不存在")
+	}
+
+	subCompanies, err := g.DB().Model("sys_company").
+		Where("parent_id", companyID).
+		Where("status", 1).
+		Order("sort ASC, id ASC").
+		All()
+	if err != nil {
+		return nil, err
+	}
+	departments, err := g.DB().Model("sys_department").
+		Where("company_id", companyID).
+		Where("parent_id", 0).
+		Where("status", 1).
+		Order("sort ASC, id ASC").
+		All()
+	if err != nil {
+		return nil, err
+	}
+
+	childNodes := make([]financeChildNode, 0, len(subCompanies)+len(departments))
+	for _, company := range subCompanies {
+		childNodes = append(childNodes, financeChildNode{
+			id: company["id"].Int64(), name: company["name"].String(), nodeType: "company",
+		})
+	}
+	for _, department := range departments {
+		childNodes = append(childNodes, financeChildNode{
+			id: model.EncodeDeptID(department["id"].Int64()), name: department["name"].String(), nodeType: "department",
+		})
+	}
+
+	statNodes := make([]financeChildNode, 0, len(childNodes)+1)
+	statNodes = append(statNodes, financeChildNode{id: companyID, name: company["name"].String(), nodeType: "company"})
+	statNodes = append(statNodes, childNodes...)
+	nodeStats, _, err := s.statsFinanceChildNodes(ctx, statNodes, startDate, endDate, platform)
+	if err != nil {
+		return nil, err
+	}
+	parentStats := nodeStats[0]
+	if platform == "" || platform == "douyin" {
+		useFullSnapshot, scopeErr := shouldUseFullDouyinCompanySnapshot(ctx, companyID)
+		if scopeErr != nil {
+			return nil, scopeErr
+		}
+		if useFullSnapshot {
+			snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
+			if snapshotErr != nil {
+				return nil, snapshotErr
+			}
+			parentStats = snapshot.FinanceSummary()
+		}
+	}
+	children := make([]model.NodeStatsItem, 0, len(childNodes)+1)
+	for i, child := range childNodes {
+		children = append(children, financeNodeStatsFromSummary(child.id, child.name, child.nodeType, nodeStats[i+1]))
+	}
+	children = appendFinanceResidualFromSummary(children, parentStats, companyID)
+
+	return &model.FinanceChildrenRes{
+		CurrentNode: model.NodeInfo{Id: companyID, Name: company["name"].String(), Type: "company"},
+		Children:    children,
+	}, nil
+}
+
+// getCompanyChildrenLegacy 保留旧实现供对照；运行入口已切换为账号叶子汇总。
+func (s *FinanceCommissionService) getCompanyChildrenLegacy(ctx context.Context, companyId int64, startDate, endDate, timeType, platform string) (*model.FinanceChildrenRes, error) {
+	// 父子节点必须使用完全相同的日期范围。
+	childEndDate := endDate
 	// 获取当前公司信息
 	company, err := g.DB().Model("sys_company").Where("id", companyId).One()
 	if err != nil || company.IsEmpty() {
@@ -529,21 +644,14 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 		}
 	}
 
-	// 5. 投手子节点需要应用归属规则，批量 SQL 无法处理，改为逐个用 statsOrdersByAccountIds 重新计算
+	// 5. 所有子节点统一使用账号叶子口径，包含千川自营归属和账号广告费。
 	for i, cn := range childNodes {
-		if cn.nodeType == "trader" && len(cn.accountIds) > 0 {
-			realTraderId := model.DecodeTraderID(cn.id)
-			traderName, _ := s.getTraderName(ctx, realTraderId)
-			if traderName != "" {
-				if st, e := s.statsOrdersByAccountIds(ctx, cn.accountIds, startDate, childEndDate, traderName); e == nil && st != nil {
-					nodeStats[i] = *st
-				}
-			}
+		res, e := s.getStatsRealtime(ctx, cn.id, cn.nodeType, startDate, childEndDate, timeType, platform)
+		if e != nil {
+			return nil, fmt.Errorf("计算子节点%s失败: %w", cn.name, e)
 		}
-		if cn.nodeType == "company" && len(cn.accountIds) > 0 {
-			if selfSaleStats, e := s.statsSelfSaleByAccountIds(ctx, cn.accountIds, startDate, childEndDate); e == nil && selfSaleStats != nil {
-				mergeFinanceStatsSummary(&nodeStats[i], selfSaleStats)
-			}
+		if res != nil {
+			nodeStats[i] = res.Summary
 		}
 	}
 
@@ -568,12 +676,18 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 			ProductNum:        st.ProductNum,
 			PayAmount:         st.PayAmount,
 			CostAmount:        st.CostAmount,
+			ReserveAmount:     st.ReserveAmount,
 			Commission:        st.Commission,
 			RefundCostAmount:  st.RefundCostAmount,
 			RefundOrderCount:  st.RefundOrderCount,
 			ShopServiceFee:    st.ShopServiceFee,
+			AdCostAmount:      st.AdCostAmount,
 			RealtimeProfit:    st.RealtimeProfit,
 		})
+	}
+	children, err = s.appendFinanceResidualNode(ctx, children, companyId, "company", startDate, endDate, timeType, platform)
+	if err != nil {
+		return nil, err
 	}
 
 	return &model.FinanceChildrenRes{
@@ -582,17 +696,66 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 	}, nil
 }
 
-// getDepartmentChildren 获取部门下级节点（批量查询优化）
-func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, deptId int64, startDate, endDate, timeType, platform string) (*model.FinanceChildrenRes, error) {
-	// 子节点只查历史数据，避免每个子节点都实时查询今天数据
-	childEndDate := endDate
-	today := time.Now().Format("2006-01-02")
-	if endDate >= today {
-		childEndDate = time.Now().AddDate(0, 0, -1).Format("2006-01-02")
-		if childEndDate < startDate {
-			childEndDate = startDate
-		}
+// getDepartmentChildren 获取部门直属子节点，统计值由账号叶子汇总产生。
+func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, deptID int64, startDate, endDate, timeType, platform string) (*model.FinanceChildrenRes, error) {
+	realDeptID := model.DecodeDeptID(deptID)
+	department, err := g.DB().Model("sys_department").Where("id", realDeptID).One()
+	if err != nil || department.IsEmpty() {
+		return nil, fmt.Errorf("部门不存在")
 	}
+
+	subDepartments, err := g.DB().Model("sys_department").
+		Where("parent_id", realDeptID).
+		Where("status", 1).
+		Order("sort ASC, id ASC").
+		All()
+	if err != nil {
+		return nil, err
+	}
+	traders, err := g.DB().Model("trader").
+		Where("group_id", realDeptID).
+		Where("status", 1).
+		Order("id ASC").
+		All()
+	if err != nil {
+		return nil, err
+	}
+
+	childNodes := make([]financeChildNode, 0, len(subDepartments)+len(traders))
+	for _, childDepartment := range subDepartments {
+		childNodes = append(childNodes, financeChildNode{
+			id: model.EncodeDeptID(childDepartment["id"].Int64()), name: childDepartment["name"].String(), nodeType: "department",
+		})
+	}
+	for _, trader := range traders {
+		childNodes = append(childNodes, financeChildNode{
+			id: model.EncodeTraderID(trader["id"].Int64()), name: trader["name"].String(), nodeType: "trader",
+		})
+	}
+
+	statNodes := make([]financeChildNode, 0, len(childNodes)+1)
+	statNodes = append(statNodes, financeChildNode{id: deptID, name: department["name"].String(), nodeType: "department"})
+	statNodes = append(statNodes, childNodes...)
+	nodeStats, _, err := s.statsFinanceChildNodes(ctx, statNodes, startDate, endDate, platform)
+	if err != nil {
+		return nil, err
+	}
+	children := make([]model.NodeStatsItem, 0, len(childNodes)+1)
+	for i, child := range childNodes {
+		children = append(children, financeNodeStatsFromSummary(child.id, child.name, child.nodeType, nodeStats[i+1]))
+	}
+	children = appendFinanceResidualFromSummary(children, nodeStats[0], deptID)
+
+	return &model.FinanceChildrenRes{
+		CurrentNode: model.NodeInfo{Id: deptID, Name: department["name"].String(), Type: "department"},
+		Children:    children,
+	}, nil
+}
+
+// getDepartmentChildrenLegacy 保留旧实现供对照；运行入口已切换为账号叶子汇总。
+func (s *FinanceCommissionService) getDepartmentChildrenLegacy(ctx context.Context, deptId int64, startDate, endDate, timeType, platform string) (*model.FinanceChildrenRes, error) {
+	// 父子节点必须使用完全相同的日期范围。
+	childEndDate := endDate
 	// 解码部门ID：前端传来的是编码后的ID（1000000 + 原始ID），需要解码
 	realDeptId := model.DecodeDeptID(deptId)
 
@@ -783,16 +946,14 @@ func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, de
 		}
 	}
 
-	// 5. 投手子节点需要应用归属规则，批量 SQL 无法处理，改为逐个用 statsOrdersByAccountIds 重新计算
+	// 5. 所有子节点统一使用账号叶子口径，包含千川自营归属和账号广告费。
 	for i, cn := range childNodes {
-		if cn.nodeType == "trader" && len(cn.accountIds) > 0 {
-			realTraderId := model.DecodeTraderID(cn.id)
-			traderName, _ := s.getTraderName(ctx, realTraderId)
-			if traderName != "" {
-				if st, e := s.statsOrdersByAccountIds(ctx, cn.accountIds, startDate, childEndDate, traderName); e == nil && st != nil {
-					nodeStats[i] = *st
-				}
-			}
+		res, e := s.getStatsRealtime(ctx, cn.id, cn.nodeType, startDate, childEndDate, timeType, platform)
+		if e != nil {
+			return nil, fmt.Errorf("计算子节点%s失败: %w", cn.name, e)
+		}
+		if res != nil {
+			nodeStats[i] = res.Summary
 		}
 	}
 
@@ -817,18 +978,75 @@ func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, de
 			ProductNum:        st.ProductNum,
 			PayAmount:         st.PayAmount,
 			CostAmount:        st.CostAmount,
+			ReserveAmount:     st.ReserveAmount,
 			Commission:        st.Commission,
 			RefundCostAmount:  st.RefundCostAmount,
 			RefundOrderCount:  st.RefundOrderCount,
 			ShopServiceFee:    st.ShopServiceFee,
+			AdCostAmount:      st.AdCostAmount,
 			RealtimeProfit:    st.RealtimeProfit,
 		})
+	}
+	children, err = s.appendFinanceResidualNode(ctx, children, deptId, "department", startDate, endDate, timeType, platform)
+	if err != nil {
+		return nil, err
 	}
 
 	return &model.FinanceChildrenRes{
 		CurrentNode: currentNode,
 		Children:    children,
 	}, nil
+}
+
+// statsAccountLeaves 以账号为最小单元一次性计算订单和广告费。
+func (s *FinanceCommissionService) statsAccountLeaves(ctx context.Context, shops gdb.Result, startDate, endDate, traderName string) (map[int]*model.FinanceStatsSummary, error) {
+	result := make(map[int]*model.FinanceStatsSummary, len(shops))
+	douyinAccountIDs := make([]int, 0, len(shops))
+	for _, shop := range shops {
+		accountID := shop["id"].Int()
+		result[accountID] = &model.FinanceStatsSummary{}
+		if shop["platform"].String() == "douyin" {
+			douyinAccountIDs = append(douyinAccountIDs, accountID)
+		}
+	}
+	if len(douyinAccountIDs) > 0 {
+		douyinStats, err := NewOrderService().statsDouyinOrdersByAccounts(ctx, douyinAccountIDs, startDate, endDate)
+		if err != nil {
+			return nil, err
+		}
+		adCosts, err := s.getAdCostsByAccountRange(ctx, douyinAccountIDs, startDate, endDate)
+		if err != nil {
+			return nil, err
+		}
+		for _, accountID := range douyinAccountIDs {
+			stats := douyinStats[accountID]
+			if stats == nil {
+				stats = &model.FinanceStatsSummary{}
+			}
+			stats.AdCostAmount = roundFloatFinance(adCosts[accountID], 2)
+			stats.Commission = roundFloatFinance(stats.Commission-stats.ShopServiceFee, 2)
+			commissionDeduction := roundFloatFinance(stats.PayAmount*0.005, 2)
+			stats.RealtimeProfit = roundFloatFinance(CalculateOrderProfit(
+				stats.PayAmount, stats.CostAmount, stats.ReserveAmount, stats.RefundCostAmount,
+				stats.ShopServiceFee, commissionDeduction, 0, stats.AdCostAmount,
+			), 2)
+			result[accountID] = stats
+		}
+	}
+	for _, shop := range shops {
+		if shop["platform"].String() == "douyin" {
+			continue
+		}
+		accountID := shop["id"].Int()
+		stats, err := s.statsOrdersByAccountIds(ctx, []int{accountID}, startDate, endDate, traderName)
+		if err != nil {
+			return nil, err
+		}
+		if stats != nil {
+			result[accountID] = stats
+		}
+	}
+	return result, nil
 }
 
 // getTraderChildren 获取投手下级节点（关联的店铺）
@@ -857,37 +1075,52 @@ func (s *FinanceCommissionService) getTraderChildren(ctx context.Context, trader
 	}
 	shops, err := shopQuery.Fields("a.id, a.platform, a.uid, a.account_name, a.platform_nickname").
 		All()
+	if err != nil {
+		return nil, err
+	}
+	leafStats, err := s.statsAccountLeaves(ctx, shops, startDate, endDate, trader["name"].String())
+	if err != nil {
+		return nil, err
+	}
 
 	var children []model.NodeStatsItem
-	if err == nil {
-		for _, shop := range shops {
-			stats, _ := s.statsOrdersByAccountIds(ctx, []int{shop["id"].Int()}, startDate, endDate, trader["name"].String())
-			if stats == nil {
-				stats = &model.FinanceStatsSummary{}
-			}
-			shopName := shop["account_name"].String()
-			if shop["platform_nickname"].String() != "" {
-				shopName = shop["platform_nickname"].String()
-			}
-			children = append(children, model.NodeStatsItem{
-				Id:                int64(shop["id"].Int()),
-				Name:              shopName,
-				Type:              "shop",
-				DouyinNickname:    shop["account_name"].String(),
-				Uid:               shop["uid"].String(),
-				TotalOrderCount:   stats.TotalOrderCount,
-				OrderCount:        stats.OrderCount,
-				InvalidOrderCount: stats.InvalidOrderCount,
-				ProductNum:        stats.ProductNum,
-				PayAmount:         stats.PayAmount,
-				CostAmount:        stats.CostAmount,
-				Commission:        stats.Commission,
-				RefundCostAmount:  stats.RefundCostAmount,
-				RefundOrderCount:  stats.RefundOrderCount,
-				ShopServiceFee:    stats.ShopServiceFee,
-				RealtimeProfit:    stats.RealtimeProfit,
-			})
+	for _, shop := range shops {
+		stats := leafStats[shop["id"].Int()]
+		if stats == nil {
+			stats = &model.FinanceStatsSummary{}
 		}
+		shopName := shop["account_name"].String()
+		if shop["platform_nickname"].String() != "" {
+			shopName = shop["platform_nickname"].String()
+		}
+		children = append(children, model.NodeStatsItem{
+			Id:                int64(shop["id"].Int()),
+			Name:              shopName,
+			Type:              "shop",
+			DouyinNickname:    shop["account_name"].String(),
+			Uid:               shop["uid"].String(),
+			TotalOrderCount:   stats.TotalOrderCount,
+			OrderCount:        stats.OrderCount,
+			InvalidOrderCount: stats.InvalidOrderCount,
+			ProductNum:        stats.ProductNum,
+			PayAmount:         stats.PayAmount,
+			CostAmount:        stats.CostAmount,
+			ReserveAmount:     stats.ReserveAmount,
+			Commission:        stats.Commission,
+			RefundCostAmount:  stats.RefundCostAmount,
+			RefundOrderCount:  stats.RefundOrderCount,
+			ShopServiceFee:    stats.ShopServiceFee,
+			AdCostAmount:      stats.AdCostAmount,
+			RealtimeProfit:    stats.RealtimeProfit,
+		})
+	}
+	assignedAccountIDs := make(map[int]struct{}, len(shops))
+	for _, shop := range shops {
+		assignedAccountIDs[shop["id"].Int()] = struct{}{}
+	}
+	children, err = s.appendFinanceResidualAccountNode(ctx, children, traderId, "trader", assignedAccountIDs, startDate, endDate, platform)
+	if err != nil {
+		return nil, err
 	}
 
 	return &model.FinanceChildrenRes{
@@ -960,11 +1193,15 @@ func (s *FinanceCommissionService) getTraderShopStats(ctx context.Context, trade
 	if err != nil {
 		return nil, err
 	}
+	leafStats, err := s.statsAccountLeaves(ctx, shops, startDate, endDate, traderName)
+	if err != nil {
+		return nil, err
+	}
 
 	var result []model.ShopStatsItem
 	for _, shop := range shops {
 		accountId := shop["id"].Int()
-		stats, _ := s.statsOrdersByAccountIds(ctx, []int{accountId}, startDate, endDate, traderName)
+		stats := leafStats[accountId]
 		if stats == nil {
 			stats = &model.FinanceStatsSummary{}
 		}
@@ -985,10 +1222,12 @@ func (s *FinanceCommissionService) getTraderShopStats(ctx context.Context, trade
 			ProductNum:        stats.ProductNum,
 			PayAmount:         stats.PayAmount,
 			CostAmount:        stats.CostAmount,
+			ReserveAmount:     stats.ReserveAmount,
 			Commission:        stats.Commission,
 			RefundCostAmount:  stats.RefundCostAmount,
 			RefundOrderCount:  stats.RefundOrderCount,
 			ShopServiceFee:    stats.ShopServiceFee,
+			AdCostAmount:      stats.AdCostAmount,
 			RealtimeProfit:    stats.RealtimeProfit,
 		})
 	}
@@ -1354,17 +1593,160 @@ func mergeFinanceStatsSummary(dst, src *model.FinanceStatsSummary) {
 	dst.OrderCount += src.OrderCount
 	dst.InvalidOrderCount += src.InvalidOrderCount
 	dst.ProductNum += src.ProductNum
-	dst.PayAmount = roundFloatFinance(dst.PayAmount+src.PayAmount, 2)
-	dst.CostAmount = roundFloatFinance(dst.CostAmount+src.CostAmount, 2)
-	dst.ReserveAmount = roundFloatFinance(dst.ReserveAmount+src.ReserveAmount, 2)
-	dst.Commission = roundFloatFinance(dst.Commission+src.Commission, 2)
-	dst.RefundCostAmount = roundFloatFinance(dst.RefundCostAmount+src.RefundCostAmount, 2)
+	dst.PayAmount = addFinanceMoney(dst.PayAmount, src.PayAmount)
+	dst.CostAmount = addFinanceMoney(dst.CostAmount, src.CostAmount)
+	dst.ReserveAmount = addFinanceMoney(dst.ReserveAmount, src.ReserveAmount)
+	dst.Commission = addFinanceMoney(dst.Commission, src.Commission)
+	dst.RefundCostAmount = addFinanceMoney(dst.RefundCostAmount, src.RefundCostAmount)
 	dst.RefundOrderCount += src.RefundOrderCount
-	dst.ShopServiceFee = roundFloatFinance(dst.ShopServiceFee+src.ShopServiceFee, 2)
-	dst.AdCostAmount = roundFloatFinance(dst.AdCostAmount+src.AdCostAmount, 2)
+	dst.ShopServiceFee = addFinanceMoney(dst.ShopServiceFee, src.ShopServiceFee)
+	dst.AdCostAmount = addFinanceMoney(dst.AdCostAmount, src.AdCostAmount)
 	dst.ValidOrderCostMatch += src.ValidOrderCostMatch
 	dst.CommissionOrderCount += src.CommissionOrderCount
-	dst.RealtimeProfit = roundFloatFinance(dst.RealtimeProfit+src.RealtimeProfit, 2)
+	dst.RealtimeProfit = addFinanceMoney(dst.RealtimeProfit, src.RealtimeProfit)
+}
+
+func addFinanceMoney(left, right float64) float64 {
+	return float64(math.Round(left*100)+math.Round(right*100)) / 100
+}
+
+func subtractFinanceStatsSummary(total, assigned model.FinanceStatsSummary) model.FinanceStatsSummary {
+	return model.FinanceStatsSummary{
+		TotalOrderCount:      total.TotalOrderCount - assigned.TotalOrderCount,
+		OrderCount:           total.OrderCount - assigned.OrderCount,
+		InvalidOrderCount:    total.InvalidOrderCount - assigned.InvalidOrderCount,
+		ProductNum:           total.ProductNum - assigned.ProductNum,
+		PayAmount:            roundFloatFinance(total.PayAmount-assigned.PayAmount, 2),
+		CostAmount:           roundFloatFinance(total.CostAmount-assigned.CostAmount, 2),
+		ReserveAmount:        roundFloatFinance(total.ReserveAmount-assigned.ReserveAmount, 2),
+		Commission:           roundFloatFinance(total.Commission-assigned.Commission, 2),
+		RefundCostAmount:     roundFloatFinance(total.RefundCostAmount-assigned.RefundCostAmount, 2),
+		RefundOrderCount:     total.RefundOrderCount - assigned.RefundOrderCount,
+		ShopServiceFee:       roundFloatFinance(total.ShopServiceFee-assigned.ShopServiceFee, 2),
+		AdCostAmount:         roundFloatFinance(total.AdCostAmount-assigned.AdCostAmount, 2),
+		ValidOrderCostMatch:  total.ValidOrderCostMatch - assigned.ValidOrderCostMatch,
+		CommissionOrderCount: total.CommissionOrderCount - assigned.CommissionOrderCount,
+		RealtimeProfit:       roundFloatFinance(total.RealtimeProfit-assigned.RealtimeProfit, 2),
+	}
+}
+
+func financeSummaryFromNodeStats(item model.NodeStatsItem) model.FinanceStatsSummary {
+	return model.FinanceStatsSummary{
+		TotalOrderCount:   item.TotalOrderCount,
+		OrderCount:        item.OrderCount,
+		InvalidOrderCount: item.InvalidOrderCount,
+		ProductNum:        item.ProductNum,
+		PayAmount:         item.PayAmount,
+		CostAmount:        item.CostAmount,
+		ReserveAmount:     item.ReserveAmount,
+		Commission:        item.Commission,
+		RefundCostAmount:  item.RefundCostAmount,
+		RefundOrderCount:  item.RefundOrderCount,
+		ShopServiceFee:    item.ShopServiceFee,
+		AdCostAmount:      item.AdCostAmount,
+		RealtimeProfit:    item.RealtimeProfit,
+	}
+}
+
+func financeResidualHasValues(stats model.FinanceStatsSummary) bool {
+	return stats.TotalOrderCount != 0 || stats.OrderCount != 0 || stats.InvalidOrderCount != 0 || stats.ProductNum != 0 ||
+		math.Abs(stats.PayAmount) >= 0.005 || math.Abs(stats.CostAmount) >= 0.005 || math.Abs(stats.ReserveAmount) >= 0.005 ||
+		math.Abs(stats.Commission) >= 0.005 || math.Abs(stats.RefundCostAmount) >= 0.005 || stats.RefundOrderCount != 0 ||
+		math.Abs(stats.ShopServiceFee) >= 0.005 || math.Abs(stats.AdCostAmount) >= 0.005 || math.Abs(stats.RealtimeProfit) >= 0.005
+}
+
+func financeNodeStatsFromSummary(id int64, name, nodeType string, stats model.FinanceStatsSummary) model.NodeStatsItem {
+	return model.NodeStatsItem{
+		Id:                id,
+		Name:              name,
+		Type:              nodeType,
+		TotalOrderCount:   stats.TotalOrderCount,
+		OrderCount:        stats.OrderCount,
+		InvalidOrderCount: stats.InvalidOrderCount,
+		ProductNum:        stats.ProductNum,
+		PayAmount:         stats.PayAmount,
+		CostAmount:        stats.CostAmount,
+		ReserveAmount:     stats.ReserveAmount,
+		Commission:        stats.Commission,
+		RefundCostAmount:  stats.RefundCostAmount,
+		RefundOrderCount:  stats.RefundOrderCount,
+		ShopServiceFee:    stats.ShopServiceFee,
+		AdCostAmount:      stats.AdCostAmount,
+		RealtimeProfit:    stats.RealtimeProfit,
+	}
+}
+
+// appendFinanceResidualFromSummary 只做内存差额，不再次扫描订单。
+func appendFinanceResidualFromSummary(children []model.NodeStatsItem, parent model.FinanceStatsSummary, nodeID int64) []model.NodeStatsItem {
+	childrenTotal := model.FinanceStatsSummary{}
+	for _, child := range children {
+		childStats := financeSummaryFromNodeStats(child)
+		mergeFinanceStatsSummary(&childrenTotal, &childStats)
+	}
+	residual := subtractFinanceStatsSummary(parent, childrenTotal)
+	if financeResidualHasValues(residual) {
+		children = append(children, financeNodeStatsFromSummary(-nodeID, "直属/未归属", "unassigned", residual))
+	}
+	return children
+}
+
+func (s *FinanceCommissionService) appendFinanceResidualAccountNode(
+	ctx context.Context,
+	children []model.NodeStatsItem,
+	nodeID int64,
+	nodeType string,
+	assignedAccountIDs map[int]struct{},
+	startDate, endDate, platform string,
+) ([]model.NodeStatsItem, error) {
+	parentAccountIDs, err := s.getAccountIdsByNode(ctx, nodeID, nodeType, platform)
+	if err != nil {
+		return nil, err
+	}
+	residualIDs := make([]int, 0)
+	seen := make(map[int]struct{}, len(parentAccountIDs))
+	for _, accountID := range parentAccountIDs {
+		if _, ok := seen[accountID]; ok {
+			continue
+		}
+		seen[accountID] = struct{}{}
+		if _, assigned := assignedAccountIDs[accountID]; !assigned {
+			residualIDs = append(residualIDs, accountID)
+		}
+	}
+	if len(residualIDs) == 0 {
+		return children, nil
+	}
+
+	shops, err := g.DB().Model("account").
+		WhereIn("id", residualIDs).
+		Fields("id, platform, uid, account_name, platform_nickname").
+		All()
+	if err != nil {
+		return nil, err
+	}
+	leafStats, err := s.statsAccountLeaves(ctx, shops, startDate, endDate, "")
+	if err != nil {
+		return nil, err
+	}
+
+	residual := model.FinanceStatsSummary{}
+	for _, stats := range leafStats {
+		mergeFinanceStatsSummary(&residual, stats)
+	}
+	if financeResidualHasValues(residual) {
+		children = append(children, financeNodeStatsFromSummary(-nodeID, "直属/未归属", "unassigned", residual))
+	}
+	return children, nil
+}
+
+// appendFinanceResidualNode 将父节点中未落入直接子节点的账号、订单和广告费显式放入兜底节点。
+// 这样页面上所有子节点相加始终等于点击父节点得到的汇总。
+func (s *FinanceCommissionService) appendFinanceResidualNode(ctx context.Context, children []model.NodeStatsItem, nodeID int64, nodeType, startDate, endDate, timeType, platform string) ([]model.NodeStatsItem, error) {
+	parent, err := s.getStatsRealtime(ctx, nodeID, nodeType, startDate, endDate, timeType, platform)
+	if err != nil {
+		return nil, err
+	}
+	return appendFinanceResidualFromSummary(children, parent.Summary, nodeID), nil
 }
 
 func (s *FinanceCommissionService) buildPlatformShopNamesByAccountIds(ctx context.Context, accountIds []int) (map[string][]string, error) {
@@ -1560,7 +1942,7 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 		platformUids = make(map[string][]string)
 	}
 
-	g.Log().Infof(ctx, "[Finance] statsOrdersByAccountIds: accountIds=%v, traderName=%s, platformUids=%v", accountIds, traderName, platformUids)
+	g.Log().Infof(ctx, "[Finance] statsOrdersByAccountIds: accountCount=%d, traderName=%s, platformCount=%d", len(accountIds), traderName, len(platformUids))
 
 	// 生成归属规则排除条件
 	attributionExclude := ""
@@ -1577,7 +1959,7 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 			continue
 		}
 		var stats *model.FinanceStatsSummary
-		if platform == "douyin" && traderName != "" {
+		if platform == "douyin" {
 			stats, err = NewOrderService().statsDouyinOrdersByOwner(ctx, accountIds, traderName, startDate, endDate)
 		} else {
 			stats, err = s.statsOrderTable(ctx, tableName, uids, startDate, endDate, attributionExclude)
@@ -1586,15 +1968,17 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 			return nil, err
 		}
 		if stats != nil {
-			// 小店服务费 = 定价总额(payAmount) × 2%（仅抖音、仅有效订单）
+			// 抖音叶子已经计算服务费；其他平台为 0。
 			if platform == "douyin" {
-				stats.ShopServiceFee = roundFloatFinance(stats.PayAmount*0.02, 2)
+				stats.ShopServiceFee = roundFloatFinance(stats.ShopServiceFee, 2)
 			}
 			// 佣金 = 定价总额 - 留底 - 货款 - 小店服务费
 			stats.Commission = roundFloatFinance(stats.Commission-stats.ShopServiceFee, 2)
 			// 实时利润 = 定价总额 - 货款 - 留底 - 退款成本 - 小店服务费 - 佣金 - 广告费
-			commissionDeduction := roundFloatFinance(stats.PayAmount*0.005, 2)
-			stats.RealtimeProfit = roundFloatFinance(CalculateOrderProfit(stats.PayAmount, stats.CostAmount, stats.ReserveAmount, stats.RefundCostAmount, stats.ShopServiceFee, commissionDeduction, 0, stats.AdCostAmount), 2)
+			if platform != "douyin" {
+				commissionDeduction := roundFloatFinance(stats.PayAmount*0.005, 2)
+				stats.RealtimeProfit = roundFloatFinance(CalculateOrderProfit(stats.PayAmount, stats.CostAmount, stats.ReserveAmount, stats.RefundCostAmount, stats.ShopServiceFee, commissionDeduction, 0, stats.AdCostAmount), 2)
+			}
 
 			totalStats.TotalOrderCount += stats.TotalOrderCount
 			totalStats.OrderCount += stats.OrderCount
@@ -1648,9 +2032,8 @@ func (s *FinanceCommissionService) statsOrdersByAccountIds(ctx context.Context, 
 		qStart, qEnd := extractDateRange(startDate, endDate)
 		totalStats.AdCostAmount = s.getAdCostByAccountIds(ctx, accountIds, qStart, qEnd)
 	}
-	// 重新计算实时利润（含广告费）
-	commissionDeduction := roundFloatFinance(totalStats.PayAmount*0.005, 2)
-	totalStats.RealtimeProfit = roundFloatFinance(CalculateOrderProfit(totalStats.PayAmount, totalStats.CostAmount, totalStats.ReserveAmount, totalStats.RefundCostAmount, totalStats.ShopServiceFee, commissionDeduction, 0, totalStats.AdCostAmount), 2)
+	// 利润由账号叶子直接汇总，不在上级节点重新计算，避免层级间出现分钱误差。
+	totalStats.RealtimeProfit = roundFloatFinance(totalStats.RealtimeProfit, 2)
 
 	return totalStats, nil
 }

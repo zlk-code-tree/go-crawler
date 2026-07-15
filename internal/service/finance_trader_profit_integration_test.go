@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"os"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -12,6 +13,132 @@ import (
 
 	_ "github.com/gogf/gf/contrib/drivers/mysql/v2"
 )
+
+func TestFinanceSummarySubtractAndMergeIsConservative(t *testing.T) {
+	total := model.FinanceStatsSummary{
+		TotalOrderCount: 100, OrderCount: 90, InvalidOrderCount: 10, ProductNum: 95,
+		PayAmount: 1000, CostAmount: 300, ReserveAmount: 30, Commission: 650,
+		RefundCostAmount: 20, RefundOrderCount: 2, ShopServiceFee: 20,
+		AdCostAmount: 400, ValidOrderCostMatch: 80, CommissionOrderCount: 90, RealtimeProfit: 225,
+	}
+	assigned := model.FinanceStatsSummary{
+		TotalOrderCount: 75, OrderCount: 68, InvalidOrderCount: 7, ProductNum: 70,
+		PayAmount: 800, CostAmount: 240, ReserveAmount: 24, Commission: 520,
+		RefundCostAmount: 15, RefundOrderCount: 1, ShopServiceFee: 16,
+		AdCostAmount: 310, ValidOrderCostMatch: 65, CommissionOrderCount: 68, RealtimeProfit: 191,
+	}
+	residual := subtractFinanceStatsSummary(total, assigned)
+	mergeFinanceStatsSummary(&assigned, &residual)
+	if !reflect.DeepEqual(assigned, total) {
+		t.Fatalf("assigned + residual = %+v, want %+v", assigned, total)
+	}
+}
+
+func TestFinanceProfitFormulaIncludesAdvertisingCost(t *testing.T) {
+	profit := roundFloatFinance(CalculateOrderProfit(
+		515853.50,
+		146184.40,
+		15475.60,
+		1219.60,
+		10287.73,
+		2579.27,
+		0,
+		321627.75,
+	), 2)
+	if profit != 18479.15 {
+		t.Fatalf("profit = %.2f, want 18479.15; advertising cost must be deducted", profit)
+	}
+}
+
+func TestFinanceCompanyChildrenRollupDatabaseIntegration(t *testing.T) {
+	if os.Getenv("FINANCE_HIERARCHY_DB_INTEGRATION") != "1" {
+		t.Skip("set FINANCE_HIERARCHY_DB_INTEGRATION=1 to run against the configured database")
+	}
+	statDate := os.Getenv("FINANCE_HIERARCHY_TEST_DATE")
+	companyID, err := strconv.ParseInt(os.Getenv("FINANCE_HIERARCHY_TEST_COMPANY_ID"), 10, 64)
+	if statDate == "" || err != nil || companyID <= 0 {
+		t.Fatal("FINANCE_HIERARCHY_TEST_DATE and FINANCE_HIERARCHY_TEST_COMPANY_ID are required")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	service := NewFinanceCommissionService()
+	parent, err := service.GetStats(ctx, &model.FinanceStatsReq{
+		NodeId: companyID, NodeType: "company", TimeType: "custom",
+		StartDate: statDate, EndDate: statDate, Platform: "douyin",
+	})
+	if err != nil {
+		t.Fatalf("query company stats failed: %v", err)
+	}
+	children, err := service.GetChildren(ctx, &model.FinanceChildrenReq{
+		NodeId: companyID, NodeType: "company", TimeType: "custom",
+		StartDate: statDate, EndDate: statDate, Platform: "douyin",
+	})
+	if err != nil {
+		t.Fatalf("query company children failed: %v", err)
+	}
+	rolledUp := model.FinanceStatsSummary{}
+	for _, child := range children.Children {
+		childStats := financeSummaryFromNodeStats(child)
+		mergeFinanceStatsSummary(&rolledUp, &childStats)
+	}
+	want := parent.Summary
+	// 子节点模型不展示成本命中数和佣金订单数，不纳入展示层守恒校验。
+	want.ValidOrderCostMatch = 0
+	want.CommissionOrderCount = 0
+	rolledUp.ValidOrderCostMatch = 0
+	rolledUp.CommissionOrderCount = 0
+	if !reflect.DeepEqual(rolledUp, want) {
+		t.Fatalf("company children do not roll up to parent: children=%+v parent=%+v", rolledUp, want)
+	}
+	t.Logf("hierarchy rollup date=%s company=%d children=%d orders=%d pay=%.2f ad=%.2f profit=%.2f",
+		statDate, companyID, len(children.Children), rolledUp.OrderCount, rolledUp.PayAmount, rolledUp.AdCostAmount, rolledUp.RealtimeProfit)
+}
+
+func TestFinanceTraderAccountRollupDatabaseIntegration(t *testing.T) {
+	if os.Getenv("FINANCE_HIERARCHY_DB_INTEGRATION") != "1" {
+		t.Skip("set FINANCE_HIERARCHY_DB_INTEGRATION=1 to run against the configured database")
+	}
+	statDate := os.Getenv("FINANCE_HIERARCHY_TEST_DATE")
+	traderID, err := strconv.ParseInt(os.Getenv("FINANCE_HIERARCHY_TEST_TRADER_ID"), 10, 64)
+	if statDate == "" || err != nil || traderID <= 0 {
+		t.Skip("FINANCE_HIERARCHY_TEST_TRADER_ID is not configured")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	service := NewFinanceCommissionService()
+	encodedTraderID := model.EncodeTraderID(traderID)
+	parent, err := service.GetStats(ctx, &model.FinanceStatsReq{
+		NodeId: encodedTraderID, NodeType: "trader", TimeType: "custom",
+		StartDate: statDate, EndDate: statDate, Platform: "douyin",
+	})
+	if err != nil {
+		t.Fatalf("query trader stats failed: %v", err)
+	}
+	children, err := service.GetChildren(ctx, &model.FinanceChildrenReq{
+		NodeId: encodedTraderID, NodeType: "trader", TimeType: "custom",
+		StartDate: statDate, EndDate: statDate, Platform: "douyin",
+	})
+	if err != nil {
+		t.Fatalf("query trader account children failed: %v", err)
+	}
+	rolledUp := model.FinanceStatsSummary{}
+	for _, child := range children.Children {
+		childStats := financeSummaryFromNodeStats(child)
+		mergeFinanceStatsSummary(&rolledUp, &childStats)
+	}
+	want := parent.Summary
+	want.ValidOrderCostMatch = 0
+	want.CommissionOrderCount = 0
+	rolledUp.ValidOrderCostMatch = 0
+	rolledUp.CommissionOrderCount = 0
+	if !reflect.DeepEqual(rolledUp, want) {
+		t.Fatalf("trader accounts do not roll up to parent: accounts=%+v parent=%+v", rolledUp, want)
+	}
+	t.Logf("account rollup date=%s trader=%d accounts=%d orders=%d pay=%.2f ad=%.2f profit=%.2f",
+		statDate, traderID, len(children.Children), rolledUp.OrderCount, rolledUp.PayAmount, rolledUp.AdCostAmount, rolledUp.RealtimeProfit)
+}
 
 func TestRealtimeProfitTraderDatabaseIntegration(t *testing.T) {
 	if os.Getenv("FINANCE_TRADER_PROFIT_DB_INTEGRATION") != "1" {

@@ -36,6 +36,18 @@ func shouldRefreshQianchuanToken(now, expiresAt time.Time) bool {
 	return !now.Add(qianchuanTokenRefreshAhead).Before(expiresAt)
 }
 
+func normalizeQianchuanDate(value string) (string, time.Time, error) {
+	date := strings.TrimSpace(value)
+	if len(date) > len("2006-01-02") {
+		date = date[:len("2006-01-02")]
+	}
+	parsed, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return date, parsed, nil
+}
+
 // GetPoller 获取千川拉取器单例
 func GetPoller() *Poller {
 	pollerOnce.Do(func() {
@@ -301,11 +313,11 @@ func (p *Poller) ManualPull(ctx context.Context, days int) (*PollerResult, error
 // ManualPullByDate 手动拉取指定日期范围的数据
 // startDate/endDate 格式: 2006-01-02
 func (p *Poller) ManualPullByDate(ctx context.Context, startDate, endDate string) (*PollerResult, error) {
-	start, err := time.Parse("2006-01-02", startDate)
+	normalizedStartDate, start, err := normalizeQianchuanDate(startDate)
 	if err != nil {
 		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
 	}
-	end, err := time.Parse("2006-01-02", endDate)
+	normalizedEndDate, end, err := normalizeQianchuanDate(endDate)
 	if err != nil {
 		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
 	}
@@ -314,17 +326,17 @@ func (p *Poller) ManualPullByDate(ctx context.Context, startDate, endDate string
 	if start.After(todayDate) || end.After(todayDate) {
 		return nil, fmt.Errorf("千川数据暂不支持拉取未来日期。当前服务器日期是 %s", today)
 	}
-	return p.pullByDate(ctx, startDate, endDate)
+	return p.pullByDate(ctx, normalizedStartDate, normalizedEndDate)
 }
 
 // ManualPullOverallByDate 仅拉取乘方数据。
 // 乘方接口更容易触发限流，这里单独走一条轻量链路，只调用 all_promotion/get 并写入乘方表。
 func (p *Poller) ManualPullOverallByDate(ctx context.Context, startDate, endDate string) (*PollerResult, error) {
-	start, err := time.Parse("2006-01-02", startDate)
+	normalizedStartDate, start, err := normalizeQianchuanDate(startDate)
 	if err != nil {
 		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
 	}
-	end, err := time.Parse("2006-01-02", endDate)
+	normalizedEndDate, end, err := normalizeQianchuanDate(endDate)
 	if err != nil {
 		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
 	}
@@ -336,7 +348,7 @@ func (p *Poller) ManualPullOverallByDate(ctx context.Context, startDate, endDate
 	if end.Before(start) {
 		return nil, fmt.Errorf("结束日期早于开始日期")
 	}
-	return p.pullOverallByDate(ctx, startDate, endDate)
+	return p.pullOverallByDate(ctx, normalizedStartDate, normalizedEndDate)
 }
 
 // dailyPull 已废弃：定时调度统一由 CronManager 管理并记录日志/通知，

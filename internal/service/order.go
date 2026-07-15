@@ -968,7 +968,8 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 	}
 
 	if len(subOrderNos) > 0 {
-		const allianceBatchSize = 500
+		// 联盟订单按大批次查询，避免财务统计对数万订单产生几十次串行数据库往返。
+		const allianceBatchSize = 10000
 		for start := 0; start < len(subOrderNos); start += allianceBatchSize {
 			end := start + allianceBatchSize
 			if end > len(subOrderNos) {
@@ -1743,7 +1744,8 @@ func persistDouyinQianchuanAttributions(ctx context.Context, orders []g.Map) {
 		return
 	}
 
-	const batchSize = 500
+	// 审计归属批量落库，减少统计请求中的串行写入次数。
+	const batchSize = 2000
 	for start := 0; start < len(orders); {
 		values := make([]string, 0, batchSize)
 		params := make([]interface{}, 0, batchSize*16)
@@ -2057,8 +2059,8 @@ func douyinOrderMatchesBoundUID(order g.Map, selectedUIDs map[string]struct{}) b
 
 // statsDouyinOrdersByOwner 按账号绑定 UID 汇总投手抖音订单。
 // 原始 UID 始终优先；仅真正无达人信息且被千川计划明确分配的小店自营订单可用反推 UID。
-func (s *OrderService) statsDouyinOrdersByOwner(ctx context.Context, accountIDs []int, traderName, startDate, endDate string) (*model.FinanceStatsSummary, error) {
-	if len(accountIDs) == 0 || strings.TrimSpace(traderName) == "" {
+func (s *OrderService) statsDouyinOrdersByOwnerLegacy(ctx context.Context, accountIDs []int, _ string, startDate, endDate string) (*model.FinanceStatsSummary, error) {
+	if len(accountIDs) == 0 {
 		return &model.FinanceStatsSummary{}, nil
 	}
 
@@ -2159,6 +2161,137 @@ func (s *OrderService) statsDouyinOrdersByOwner(ctx context.Context, accountIDs 
 		0,
 	), 2)
 	return stats, nil
+}
+
+// statsDouyinOrdersByAccounts 一次扫描订单并按账号叶子分组，用于投手下钻时避免每个账号重复扫描全部订单。
+func (s *OrderService) statsDouyinOrdersByAccounts(ctx context.Context, accountIDs []int, startDate, endDate string) (map[int]*model.FinanceStatsSummary, error) {
+	result := make(map[int]*model.FinanceStatsSummary, len(accountIDs))
+	if len(accountIDs) == 0 {
+		return result, nil
+	}
+	rows, err := g.DB().Model("account").Ctx(ctx).
+		WhereIn("id", accountIDs).
+		Where("platform", "douyin").
+		Where("status", 1).
+		Fields("id, uid").All()
+	if err != nil {
+		return nil, err
+	}
+	accountByUID := make(map[string]int, len(rows))
+	for _, row := range rows {
+		accountID := row["id"].Int()
+		result[accountID] = &model.FinanceStatsSummary{}
+		if uid := orderListNormalizedTalentID(row["uid"].String()); uid != "" {
+			if existing, ok := accountByUID[uid]; !ok || accountID < existing {
+				accountByUID[uid] = accountID
+			}
+		}
+	}
+
+	type accumulator struct {
+		stats            *model.FinanceStatsSummary
+		totalOrders      map[string]struct{}
+		validOrders      map[string]struct{}
+		invalidOrders    map[string]struct{}
+		refundOrders     map[string]struct{}
+		validCostOrders  map[string]struct{}
+		commissionOrders map[string]struct{}
+	}
+	accumulators := make(map[int]*accumulator, len(result))
+	for accountID, stats := range result {
+		accumulators[accountID] = &accumulator{
+			stats: stats, totalOrders: make(map[string]struct{}), validOrders: make(map[string]struct{}),
+			invalidOrders: make(map[string]struct{}), refundOrders: make(map[string]struct{}),
+			validCostOrders: make(map[string]struct{}), commissionOrders: make(map[string]struct{}),
+		}
+	}
+
+	enriched, err := s.loadEnrichedDouyinOrders(ctx, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	for _, order := range enriched {
+		uid := orderListNormalizedTalentID(gconv.String(order["originalTalentId"]))
+		if uid == "" && strings.TrimSpace(gconv.String(order["profitAttributionSource"])) == "qianchuan_plan" {
+			uid = orderListNormalizedTalentID(gconv.String(order["talentId"]))
+		}
+		accountID, matched := accountByUID[uid]
+		if !matched {
+			continue
+		}
+		acc := accumulators[accountID]
+		orderKey := orderListFirstNonEmpty(gconv.String(order["mainOrderNo"]), gconv.String(order["subOrderNo"]), gconv.String(order["allocationRowId"]))
+		if orderKey == "" {
+			continue
+		}
+		acc.totalOrders[orderKey] = struct{}{}
+		orderStatus := gconv.String(order["rawOrderStatus"])
+		afterSaleStatus := gconv.String(order["afterSaleStatus"])
+		if !IsValidOrderForStats(orderStatus, afterSaleStatus) {
+			if IsInvalidOrderForStats(afterSaleStatus) {
+				acc.invalidOrders[orderKey] = struct{}{}
+			}
+			if IsRefundCostOrderForStats(afterSaleStatus, gconv.String(order["sendTime"])) {
+				acc.refundOrders[orderKey] = struct{}{}
+				acc.stats.RefundCostAmount += gconv.Float64(order["productCost"])
+			}
+			continue
+		}
+		acc.validOrders[orderKey] = struct{}{}
+		productNum := gconv.Int(order["productNum"])
+		productCost := gconv.Float64(order["productCost"])
+		acc.stats.ProductNum += productNum
+		acc.stats.PayAmount += gconv.Float64(order["productPrice"]) * float64(productNum)
+		acc.stats.CostAmount += productCost
+		if productCost > 0 {
+			acc.validCostOrders[orderKey] = struct{}{}
+		}
+		if gconv.Float64(order["commission"]) != 0 {
+			acc.commissionOrders[orderKey] = struct{}{}
+		}
+	}
+
+	for _, acc := range accumulators {
+		stats := acc.stats
+		stats.TotalOrderCount = len(acc.totalOrders)
+		stats.OrderCount = len(acc.validOrders)
+		stats.InvalidOrderCount = len(acc.invalidOrders)
+		stats.RefundOrderCount = len(acc.refundOrders)
+		stats.ValidOrderCostMatch = len(acc.validCostOrders)
+		stats.CommissionOrderCount = len(acc.commissionOrders)
+		stats.PayAmount = roundFloatFinance(stats.PayAmount, 2)
+		stats.CostAmount = roundFloatFinance(stats.CostAmount, 2)
+		stats.ReserveAmount = CalculateReserveAmount(stats.PayAmount)
+		stats.RefundCostAmount = roundFloatFinance(stats.RefundCostAmount, 2)
+		stats.ShopServiceFee = CalculateDouyinShopServiceFee(stats.PayAmount)
+		// 与 statsOrderTable 保持契约一致：返回小店服务费，但 Commission 先不扣服务费，由财务层统一扣除。
+		stats.Commission = roundFloatFinance(stats.PayAmount-stats.ReserveAmount-stats.CostAmount, 2)
+	}
+	return result, nil
+}
+
+func (s *OrderService) statsDouyinOrdersByOwner(ctx context.Context, accountIDs []int, _ string, startDate, endDate string) (*model.FinanceStatsSummary, error) {
+	leafStats, err := s.statsDouyinOrdersByAccounts(ctx, accountIDs, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	adCosts, err := NewFinanceCommissionService().getAdCostsByAccountRange(ctx, accountIDs, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	total := &model.FinanceStatsSummary{}
+	for _, accountID := range uniqueIntSlice(accountIDs) {
+		if stats := leafStats[accountID]; stats != nil {
+			stats.AdCostAmount = roundFloatFinance(adCosts[accountID], 2)
+			commissionDeduction := roundFloatFinance(stats.PayAmount*0.005, 2)
+			stats.RealtimeProfit = roundFloatFinance(CalculateOrderProfit(
+				stats.PayAmount, stats.CostAmount, stats.ReserveAmount, stats.RefundCostAmount,
+				stats.ShopServiceFee, commissionDeduction, 0, stats.AdCostAmount,
+			), 2)
+			mergeFinanceStatsSummary(total, stats)
+		}
+	}
+	return total, nil
 }
 
 func (s *OrderService) getAdCostByTalent(ctx context.Context, talentID, shopName, startTime, endTime string) float64 {

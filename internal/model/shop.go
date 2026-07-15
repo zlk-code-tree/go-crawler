@@ -34,8 +34,8 @@ type ShopListReq struct {
 type ShopSaveReq struct {
 	Id                int    `json:"id"`
 	Platform          string `json:"platform" v:"required#平台不能为空"`
-	Uid string `json:"uid" v:"required#达人ID不能为空"`
-	AccountName       string `json:"accountName" v:"required#账号名称不能为空"`
+	Uid string `json:"uid"`
+	AccountName       string `json:"accountName" v:"required#账号昵称不能为空"`
 	PlatformNickname  string `json:"platformNickname"`
 	Operator          string `json:"operator" v:"required#运营者不能为空"`
 }

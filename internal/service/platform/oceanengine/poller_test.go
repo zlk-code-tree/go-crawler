@@ -41,6 +41,38 @@ func TestShouldRefreshQianchuanToken(t *testing.T) {
 	}
 }
 
+func TestNormalizeQianchuanDate(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		want    string
+		wantErr bool
+	}{
+		{name: "date only", value: "2026-07-14", want: "2026-07-14"},
+		{name: "datetime", value: "2026-07-14 00:00:00", want: "2026-07-14"},
+		{name: "trim spaces", value: " 2026-07-14 23:59:59 ", want: "2026-07-14"},
+		{name: "invalid date", value: "2026/07/14 00:00:00", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _, err := normalizeQianchuanDate(tt.value)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("normalizeQianchuanDate() error = nil, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("normalizeQianchuanDate() error = %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("normalizeQianchuanDate() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestAuthorRateLimitBackoff(t *testing.T) {
 	tests := []struct {
 		attempt int

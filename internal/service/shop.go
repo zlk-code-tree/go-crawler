@@ -135,22 +135,27 @@ func (s *ShopService) Detail(ctx context.Context, id int) (g.Map, error) {
 
 // Save 保存账号
 func (s *ShopService) Save(ctx context.Context, req *model.ShopSaveReq) (int64, error) {
-	// 检查同一平台下 uid 是否已存在（排除自己）
-	query := g.DB().Model("account").Where("platform", req.Platform).Where("uid", req.Uid)
-	if req.Id > 0 {
-		query = query.WhereNot("id", req.Id)
-	}
-	count, err := query.Count()
-	if err != nil {
-		return 0, err
-	}
-	if count > 0 {
-		return 0, gerror.New("该平台下账号ID已存在")
+	req.Uid = strings.TrimSpace(req.Uid)
+	normalizedUid := nullableAccountUID(req.Uid)
+
+	// 达人 ID 为选填；仅在填写后检查同一平台下是否重复（排除自己）。
+	if req.Uid != "" {
+		query := g.DB().Model("account").Where("platform", req.Platform).Where("uid", req.Uid)
+		if req.Id > 0 {
+			query = query.WhereNot("id", req.Id)
+		}
+		count, err := query.Count()
+		if err != nil {
+			return 0, err
+		}
+		if count > 0 {
+			return 0, gerror.New("该平台下账号ID已存在")
+		}
 	}
 
 	data := g.Map{
 		"platform":          req.Platform,
-		"uid":               req.Uid,
+		"uid":               normalizedUid,
 		"account_name":      req.AccountName,
 		"platform_nickname": req.PlatformNickname,
 		"operator":          req.Operator,
@@ -681,7 +686,7 @@ func (s *ShopService) batchUpsert(ctx context.Context, tx gdb.TX, batch []g.Map)
 		" ON DUPLICATE KEY UPDATE " +
 		"operator = VALUES(operator), " +
 		"platform_nickname = VALUES(platform_nickname), " +
-		"uid = VALUES(uid), " +
+		"uid = COALESCE(VALUES(uid), uid), " +
 		"status = VALUES(status), " +
 		"updated_at = VALUES(updated_at)"
 
@@ -704,6 +709,14 @@ func normalizePlatform(p string) string {
 	default:
 		return strings.ToLower(strings.TrimSpace(p))
 	}
+}
+
+func nullableAccountUID(uid string) interface{} {
+	uid = strings.TrimSpace(uid)
+	if uid == "" {
+		return nil
+	}
+	return uid
 }
 
 // ==================== 千川广告主映射 ====================

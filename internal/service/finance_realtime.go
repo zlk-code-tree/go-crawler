@@ -82,97 +82,51 @@ func (s *FinanceCommissionService) GetRealtimeProfit(ctx context.Context, req *R
 	if _, err := time.Parse("2006-01-02", endDate); err != nil {
 		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
 	}
-	startTime := startDate + " 00:00:00"
-	endTime := endDate + " 23:59:59"
-
-	result := &RealtimeProfitResult{StatDate: startDate + " ~ " + endDate}
-	if req.CompanyId > 0 {
-		useFullSnapshot, scopeErr := shouldUseFullDouyinCompanySnapshot(ctx, req.CompanyId)
-		if scopeErr != nil {
-			return nil, scopeErr
+	var nodeID int64
+	var nodeType string
+	platform := ""
+	switch {
+	case req.TraderId > 0:
+		nodeID = req.TraderId
+		if !model.IsTraderID(nodeID) {
+			nodeID = model.EncodeTraderID(nodeID)
 		}
-		if useFullSnapshot {
-			snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
-			if snapshotErr != nil {
-				return nil, snapshotErr
-			}
-			return &RealtimeProfitResult{
-				StatDate:          startDate + " ~ " + endDate,
-				TotalOrderCount:   snapshot.TotalOrderCount,
-				OrderCount:        snapshot.ValidOrderCount,
-				InvalidOrderCount: snapshot.InvalidOrderCount,
-				ProductNum:        snapshot.ProductQuantity,
-				PayAmount:         snapshot.SalesAmount,
-				CostAmount:        snapshot.CostAmount,
-				ReserveAmount:     snapshot.ReserveAmount,
-				ShopServiceFee:    snapshot.ShopServiceFee,
-				Commission:        snapshot.Commission,
-				RefundCost:        snapshot.RefundCostAmount,
-				RefundCount:       snapshot.RefundOrderCount,
-				AdCost:            snapshot.AdCostAmount,
-				NetProfit:         snapshot.Profit,
-			}, nil
+		nodeType = "trader"
+	case req.DepartmentId > 0:
+		nodeID = req.DepartmentId
+		if !model.IsDeptID(nodeID) {
+			nodeID = model.EncodeDeptID(nodeID)
 		}
+		nodeType = "department"
+	case req.CompanyId > 0:
+		nodeID = req.CompanyId
+		nodeType = "company"
+		platform = "douyin"
+	default:
+		return nil, fmt.Errorf("请指定投手、部门或公司")
 	}
 
-	// 1. 确定要查询的账号ID列表
-	accountIds, err := s.getAccountIdsByDimension(ctx, req)
+	stats, err := s.getStatsRealtime(ctx, nodeID, nodeType, startDate, endDate, "custom", platform)
 	if err != nil {
 		return nil, err
 	}
-	if len(accountIds) == 0 {
-		return result, nil
-	}
-
-	// 2. 查询三平台订单统计
-	// 投手维度：使用 statsOrdersByAccountIds（含归属规则），与佣金统计口径一致
-	if req.TraderId > 0 {
-		traderName, _ := s.getTraderName(ctx, req.TraderId)
-		if traderName != "" {
-			stats, err := s.statsOrdersByAccountIds(ctx, accountIds, startDate, endDate, traderName)
-			if err != nil {
-				return nil, fmt.Errorf("查询投手订单归属失败: %w", err)
-			}
-			if stats != nil {
-				result.OrderCount = int64(stats.OrderCount)
-				result.PayAmount = stats.PayAmount
-				result.CostAmount = stats.CostAmount
-				result.ReserveAmount = stats.ReserveAmount
-				result.ShopServiceFee = stats.ShopServiceFee
-				result.Commission = stats.Commission
-				result.RefundCost = stats.RefundCostAmount
-				result.RefundCount = int64(stats.RefundOrderCount)
-			}
-		}
-	} else {
-		validCond, invalidCond, refundCond := getValidCond("o")
-		s.orderStatsByAccounts(ctx, accountIds, startTime, endTime, validCond, invalidCond, refundCond, result)
-		if req.CompanyId > 0 {
-			if selfSaleStats, selfSaleErr := s.statsSelfSaleByAccountIds(ctx, accountIds, startDate, endDate); selfSaleErr != nil {
-				g.Log().Warningf(ctx, "[RealtimeProfit] 查询公司自营销售额失败: companyId=%d, err=%v", req.CompanyId, selfSaleErr)
-			} else {
-				result.OrderCount += int64(selfSaleStats.OrderCount)
-				result.PayAmount = roundFloatFinance(result.PayAmount+selfSaleStats.PayAmount, 2)
-				result.CostAmount = roundFloatFinance(result.CostAmount+selfSaleStats.CostAmount, 2)
-				result.ReserveAmount = roundFloatFinance(result.ReserveAmount+selfSaleStats.ReserveAmount, 2)
-				result.ShopServiceFee = roundFloatFinance(result.ShopServiceFee+selfSaleStats.ShopServiceFee, 2)
-				result.Commission = roundFloatFinance(result.Commission+selfSaleStats.Commission, 2)
-				result.RefundCost = roundFloatFinance(result.RefundCost+selfSaleStats.RefundCostAmount, 2)
-				result.RefundCount += int64(selfSaleStats.RefundOrderCount)
-			}
-		}
-	}
-
-	// 3. 查询千川广告消耗（按日期范围）
-	result.AdCost = s.getAdCostByAccountsRange(ctx, accountIds, startDate, endDate)
-
-	// 4. 计算净利润
-	commissionDeduction := result.PayAmount * 0.005
-	result.NetProfit = CalculateOrderProfit(result.PayAmount, result.CostAmount, result.ReserveAmount, result.RefundCost, result.ShopServiceFee, commissionDeduction, 0, result.AdCost)
-	result.NetProfit = roundFloatFinance(result.NetProfit, 2)
-	result.AdCost = roundFloatFinance(result.AdCost, 2)
-
-	return result, nil
+	summary := stats.Summary
+	return &RealtimeProfitResult{
+		StatDate:          startDate + " ~ " + endDate,
+		TotalOrderCount:   int64(summary.TotalOrderCount),
+		OrderCount:        int64(summary.OrderCount),
+		InvalidOrderCount: int64(summary.InvalidOrderCount),
+		ProductNum:        int64(summary.ProductNum),
+		PayAmount:         summary.PayAmount,
+		CostAmount:        summary.CostAmount,
+		ReserveAmount:     summary.ReserveAmount,
+		ShopServiceFee:    summary.ShopServiceFee,
+		Commission:        summary.Commission,
+		RefundCost:        summary.RefundCostAmount,
+		RefundCount:       int64(summary.RefundOrderCount),
+		AdCost:            summary.AdCostAmount,
+		NetProfit:         summary.RealtimeProfit,
+	}, nil
 }
 
 // getAccountIdsByDimension 根据维度获取账号ID列表
@@ -432,6 +386,30 @@ func (s *FinanceCommissionService) getAdCostByAccountsRange(ctx context.Context,
 		return 0
 	}
 	return row["ad_cost"].Float64()
+}
+
+func (s *FinanceCommissionService) getAdCostsByAccountRange(ctx context.Context, accountIds []int, startDate, endDate string) (map[int]float64, error) {
+	result := make(map[int]float64, len(accountIds))
+	if len(accountIds) == 0 {
+		return result, nil
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(accountIds)), ",")
+	args := []interface{}{startDate, endDate, startDate, endDate}
+	for _, accountID := range accountIds {
+		args = append(args, accountID)
+	}
+	rows, err := g.DB().GetAll(ctx, effectiveQianchuanCostCTE+fmt.Sprintf(`
+		SELECT account_id, COALESCE(SUM(stat_cost), 0) AS ad_cost
+		FROM effective_qianchuan_cost
+		WHERE account_id IN (%s)
+		GROUP BY account_id`, placeholders), args...)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row["account_id"].Int()] = row["ad_cost"].Float64()
+	}
+	return result, nil
 }
 
 // AuthorCostItem 达人消耗明细

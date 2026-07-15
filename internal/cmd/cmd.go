@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
@@ -81,6 +82,42 @@ var (
 				}
 				if _, err := g.DB().Exec(ctx, fmt.Sprintf("ALTER TABLE `%s` ADD %s", table, definition)); err != nil {
 					g.Log().Warningf(ctx, "[DBInit] 添加索引失败 table=%s index=%s err=%v", table, indexName, err)
+				}
+			}
+
+			dropIndexIfExists := func(table, indexName string) {
+				row, err := g.DB().GetOne(ctx, `
+					SELECT COUNT(1) AS cnt
+					FROM information_schema.statistics
+					WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?
+				`, table, indexName)
+				if err != nil {
+					g.Log().Warningf(ctx, "[DBInit] 检查索引失败 table=%s index=%s err=%v", table, indexName, err)
+					return
+				}
+				if row["cnt"].Int() == 0 {
+					return
+				}
+				if _, err := g.DB().Exec(ctx, fmt.Sprintf("ALTER TABLE `%s` DROP INDEX `%s`", table, indexName)); err != nil {
+					g.Log().Warningf(ctx, "[DBInit] 删除索引失败 table=%s index=%s err=%v", table, indexName, err)
+				}
+			}
+
+			modifyColumnIfNeeded := func(table, column, definition string) {
+				row, err := g.DB().GetOne(ctx, `
+					SELECT IS_NULLABLE AS is_nullable
+					FROM information_schema.columns
+					WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?
+				`, table, column)
+				if err != nil {
+					g.Log().Warningf(ctx, "[DBInit] 检查字段定义失败 table=%s column=%s err=%v", table, column, err)
+					return
+				}
+				if row.IsEmpty() || strings.EqualFold(row["is_nullable"].String(), "YES") {
+					return
+				}
+				if _, err := g.DB().Exec(ctx, fmt.Sprintf("ALTER TABLE `%s` MODIFY COLUMN %s", table, definition)); err != nil {
+					g.Log().Warningf(ctx, "[DBInit] 修改字段失败 table=%s column=%s err=%v", table, column, err)
 				}
 			}
 
@@ -339,6 +376,11 @@ var (
 			addColumnIfMissing("account", "created_at", "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'")
 			addColumnIfMissing("account", "updated_at", "updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'")
 			addColumnIfMissing("account", "bind_status", "bind_status TINYINT NOT NULL DEFAULT 0 COMMENT '绑定状态：0=未绑定，1=被绑定'")
+			modifyColumnIfNeeded("account", "uid", "`uid` VARCHAR(100) NULL DEFAULT NULL COMMENT '达人ID（抖音UID/快手号/视频号ID）'")
+			if _, err := g.DB().Exec(ctx, "UPDATE `account` SET `uid` = NULL WHERE `uid` IS NOT NULL AND TRIM(`uid`) = ''"); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 清理空账号UID失败: %v", err)
+			}
+			dropIndexIfExists("account", "uk_uid")
 
 			// account 表：唯一索引，防止重复导入
 			addIndexIfMissing("account", "uk_platform_account_name", "UNIQUE KEY `uk_platform_account_name` (`platform`, `account_name`) COMMENT '平台+账号名称唯一'")

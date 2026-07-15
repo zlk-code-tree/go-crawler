@@ -523,9 +523,11 @@ func (c *QianchuanPollerController) ManualTriggerOverall(r *ghttp.Request) {
 		startDate = yesterday
 		endDate = yesterday
 	}
+	startDate = truncateToDate(startDate)
+	endDate = truncateToDate(endDate)
 
-	start, startErr := time.Parse("2006-01-02", truncateToDate(startDate))
-	end, endErr := time.Parse("2006-01-02", truncateToDate(endDate))
+	start, startErr := time.Parse("2006-01-02", startDate)
+	end, endErr := time.Parse("2006-01-02", endDate)
 	if startErr != nil || endErr != nil || end.Before(start) {
 		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "日期格式错误或结束日期早于开始日期"})
 		return
@@ -904,57 +906,180 @@ func (c *QianchuanPollerController) OverallReportList(r *ghttp.Request) {
 		today := time.Now().Format("2006-01-02")
 		startDate = today
 		endDate = today
+	}
 	startDate = truncateToDate(startDate)
 	endDate = truncateToDate(endDate)
+	start, startErr := time.Parse("2006-01-02", startDate)
+	end, endErr := time.Parse("2006-01-02", endDate)
+	if startErr != nil || endErr != nil || end.Before(start) {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "日期格式错误或结束日期早于开始日期"})
+		return
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 200 {
+		pageSize = 200
 	}
 
-	query := g.DB().Model("qianchuan_overall_promotion_daily_report qopr").Ctx(ctx).
-		Where("qopr.stat_datetime >= ?", startDate).
-		Where("qopr.stat_datetime <= ?", endDate)
-
+	whereSQL := "WHERE LEFT(qopr.stat_datetime, 10) >= ? AND LEFT(qopr.stat_datetime, 10) <= ?"
+	args := []interface{}{startDate, endDate}
 	if advertiserId > 0 {
-		query = query.Where("qopr.advertiser_id", advertiserId)
+		whereSQL += " AND qopr.advertiser_id = ?"
+		args = append(args, advertiserId)
 	}
 
-	total, err := query.Count()
+	groupSQL := `
+		LEFT(qopr.stat_datetime, 10),
+		qopr.advertiser_id,
+		qopr.account_id,
+		qopr.company_id,
+		qopr.department_id,
+		qopr.trader_id
+	`
+	countSQL := fmt.Sprintf(`
+		SELECT COUNT(1) AS total
+		FROM (
+			SELECT 1
+			FROM qianchuan_overall_promotion_daily_report qopr
+			%s
+			GROUP BY %s
+		) grouped
+	`, whereSQL, groupSQL)
+	countRow, err := g.DB().Ctx(ctx).GetOne(ctx, countSQL, args...)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询乘方日报总数失败: " + err.Error()})
 		return
 	}
+	total := countRow["total"].Int()
 
-	list, err := query.
-		Fields(`
-			qopr.*,
+	listSQL := fmt.Sprintf(`
+		SELECT
+			grouped.id,
+			grouped.account_id,
+			grouped.company_id,
+			grouped.department_id,
+			grouped.trader_id,
+			grouped.advertiser_id,
+			grouped.stat_datetime,
+			grouped.adlab_scene,
+			grouped.data_period,
+			grouped.marketing_goal,
+			grouped.order_platform,
+			grouped.shop_estimated_comission_cost,
+			grouped.stat_cost_for_overall_roi2,
+			grouped.stat_cost_for_roi2,
+			grouped.total_cost_per_pay_order_for_roi2,
+			grouped.total_cost_per_pay_order_settle_for_overall_roi2_1h,
+			grouped.total_cost_per_pay_order_settle_for_roi2_1h,
+			grouped.total_ecom_platform_subsidy_amount_for_roi2,
+			grouped.total_order_real_settle_amount_for_roi2_1h,
+			grouped.total_order_settle_amount_for_roi2_1h,
+			grouped.total_order_settle_amount_rate_for_roi2_1h,
+			grouped.total_order_settle_count_for_roi2_1h,
+			grouped.total_order_settle_count_rate_for_roi2_1h,
+			grouped.total_pay_order_count_for_roi2,
+			grouped.total_pay_order_coupon_amount_for_roi2,
+			grouped.total_pay_order_gmv_for_roi2,
+			grouped.total_pay_order_gmv_include_coupon_for_roi2,
+			grouped.total_prepay_and_pay_order_roi2,
+			grouped.total_prepay_and_pay_settle_overall_roi2_1h,
+			grouped.total_prepay_and_pay_settle_roi2_1h,
+			grouped.total_prepay_order_count_for_roi2,
+			grouped.total_prepay_order_gmv_for_roi2,
+			grouped.total_refund_order_count_for_roi2_1h,
+			grouped.total_refund_order_gmv_for_roi2_1h_all,
+			grouped.total_refund_order_gmv_for_roi2_1h_rate,
+			grouped.total_unfinished_estimate_order_gmv_for_roi2,
+			grouped.no_refund_ecom_coupon_amount_for_roi2,
+			grouped.no_refund_ecom_platform_subsidy_amount_for_roi2,
 			COALESCE(NULLIF(a.account_name, ''), '') AS account_name,
 			COALESCE(NULLIF(sc.name, ''), '') AS company_name,
 			COALESCE(NULLIF(sd.name, ''), '') AS department_name,
 			COALESCE(NULLIF(t.name, ''), '') AS trader_name
-		`).
-		LeftJoin("account a", "qopr.account_id = a.id").
-		LeftJoin("sys_company sc", "qopr.company_id = sc.id").
-		LeftJoin("sys_department sd", "qopr.department_id = sd.id").
-		LeftJoin("trader t", "qopr.trader_id = t.id").
-		OrderDesc("stat_datetime").
-		OrderDesc("stat_cost_for_overall_roi2").
-		Page(page, pageSize).
-		All()
+		FROM (
+			SELECT
+				MIN(qopr.id) AS id,
+				qopr.account_id,
+				qopr.company_id,
+				qopr.department_id,
+				qopr.trader_id,
+				qopr.advertiser_id,
+				LEFT(qopr.stat_datetime, 10) AS stat_datetime,
+				MAX(qopr.adlab_scene) AS adlab_scene,
+				MAX(qopr.data_period) AS data_period,
+				MAX(qopr.marketing_goal) AS marketing_goal,
+				MAX(qopr.order_platform) AS order_platform,
+				COALESCE(SUM(qopr.shop_estimated_comission_cost), 0) AS shop_estimated_comission_cost,
+				COALESCE(SUM(qopr.stat_cost_for_overall_roi2), 0) AS stat_cost_for_overall_roi2,
+				COALESCE(SUM(qopr.stat_cost_for_roi2), 0) AS stat_cost_for_roi2,
+				CASE WHEN SUM(qopr.total_pay_order_count_for_roi2) > 0
+					THEN SUM(qopr.stat_cost_for_roi2) / SUM(qopr.total_pay_order_count_for_roi2)
+					ELSE 0 END AS total_cost_per_pay_order_for_roi2,
+				CASE WHEN SUM(qopr.total_order_settle_count_for_roi2_1h) > 0
+					THEN SUM(qopr.stat_cost_for_overall_roi2) / SUM(qopr.total_order_settle_count_for_roi2_1h)
+					ELSE 0 END AS total_cost_per_pay_order_settle_for_overall_roi2_1h,
+				CASE WHEN SUM(qopr.total_order_settle_count_for_roi2_1h) > 0
+					THEN SUM(qopr.stat_cost_for_roi2) / SUM(qopr.total_order_settle_count_for_roi2_1h)
+					ELSE 0 END AS total_cost_per_pay_order_settle_for_roi2_1h,
+				COALESCE(SUM(qopr.total_ecom_platform_subsidy_amount_for_roi2), 0) AS total_ecom_platform_subsidy_amount_for_roi2,
+				COALESCE(SUM(qopr.total_order_real_settle_amount_for_roi2_1h), 0) AS total_order_real_settle_amount_for_roi2_1h,
+				COALESCE(SUM(qopr.total_order_settle_amount_for_roi2_1h), 0) AS total_order_settle_amount_for_roi2_1h,
+				0 AS total_order_settle_amount_rate_for_roi2_1h,
+				COALESCE(SUM(qopr.total_order_settle_count_for_roi2_1h), 0) AS total_order_settle_count_for_roi2_1h,
+				0 AS total_order_settle_count_rate_for_roi2_1h,
+				COALESCE(SUM(qopr.total_pay_order_count_for_roi2), 0) AS total_pay_order_count_for_roi2,
+				COALESCE(SUM(qopr.total_pay_order_coupon_amount_for_roi2), 0) AS total_pay_order_coupon_amount_for_roi2,
+				COALESCE(SUM(qopr.total_pay_order_gmv_for_roi2), 0) AS total_pay_order_gmv_for_roi2,
+				COALESCE(SUM(qopr.total_pay_order_gmv_include_coupon_for_roi2), 0) AS total_pay_order_gmv_include_coupon_for_roi2,
+				CASE WHEN SUM(qopr.stat_cost_for_roi2) > 0
+					THEN SUM(qopr.total_pay_order_gmv_for_roi2) / SUM(qopr.stat_cost_for_roi2)
+					ELSE 0 END AS total_prepay_and_pay_order_roi2,
+				CASE WHEN SUM(qopr.stat_cost_for_overall_roi2) > 0
+					THEN SUM(qopr.total_order_settle_amount_for_roi2_1h) / SUM(qopr.stat_cost_for_overall_roi2)
+					ELSE 0 END AS total_prepay_and_pay_settle_overall_roi2_1h,
+				CASE WHEN SUM(qopr.stat_cost_for_roi2) > 0
+					THEN SUM(qopr.total_order_settle_amount_for_roi2_1h) / SUM(qopr.stat_cost_for_roi2)
+					ELSE 0 END AS total_prepay_and_pay_settle_roi2_1h,
+				COALESCE(SUM(qopr.total_prepay_order_count_for_roi2), 0) AS total_prepay_order_count_for_roi2,
+				COALESCE(SUM(qopr.total_prepay_order_gmv_for_roi2), 0) AS total_prepay_order_gmv_for_roi2,
+				COALESCE(SUM(qopr.total_refund_order_count_for_roi2_1h), 0) AS total_refund_order_count_for_roi2_1h,
+				COALESCE(SUM(qopr.total_refund_order_gmv_for_roi2_1h_all), 0) AS total_refund_order_gmv_for_roi2_1h_all,
+				0 AS total_refund_order_gmv_for_roi2_1h_rate,
+				COALESCE(SUM(qopr.total_unfinished_estimate_order_gmv_for_roi2), 0) AS total_unfinished_estimate_order_gmv_for_roi2,
+				COALESCE(SUM(qopr.no_refund_ecom_coupon_amount_for_roi2), 0) AS no_refund_ecom_coupon_amount_for_roi2,
+				COALESCE(SUM(qopr.no_refund_ecom_platform_subsidy_amount_for_roi2), 0) AS no_refund_ecom_platform_subsidy_amount_for_roi2
+			FROM qianchuan_overall_promotion_daily_report qopr
+			%s
+			GROUP BY %s
+		) grouped
+		LEFT JOIN account a ON grouped.account_id = a.id
+		LEFT JOIN sys_company sc ON grouped.company_id = sc.id
+		LEFT JOIN sys_department sd ON grouped.department_id = sd.id
+		LEFT JOIN trader t ON grouped.trader_id = t.id
+		ORDER BY grouped.stat_datetime DESC, grouped.stat_cost_for_overall_roi2 DESC
+		LIMIT ? OFFSET ?
+	`, whereSQL, groupSQL)
+	listArgs := append([]interface{}{}, args...)
+	listArgs = append(listArgs, pageSize, (page-1)*pageSize)
+	list, err := g.DB().Ctx(ctx).GetAll(ctx, listSQL, listArgs...)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询乘方日报失败: " + err.Error()})
 		return
 	}
 
-	summaryQuery := g.DB().Model("qianchuan_overall_promotion_daily_report").Ctx(ctx).
-		Fields(`
+	summarySQL := fmt.Sprintf(`
+		SELECT
 			COALESCE(SUM(stat_cost_for_overall_roi2),0) AS overallCost,
 			COALESCE(SUM(total_order_settle_amount_for_roi2_1h),0) AS settleAmount,
 			COALESCE(SUM(total_order_settle_count_for_roi2_1h),0) AS settleOrderCount
-		`).
-		Where("stat_datetime >= ?", startDate).
-		Where("stat_datetime <= ?", endDate)
-	if advertiserId > 0 {
-		summaryQuery = summaryQuery.Where("advertiser_id", advertiserId)
-	}
-	summaryRow, _ := summaryQuery.One()
+		FROM qianchuan_overall_promotion_daily_report qopr
+		%s
+	`, whereSQL)
+	summaryRow, _ := g.DB().Ctx(ctx).GetOne(ctx, summarySQL, args...)
 
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
