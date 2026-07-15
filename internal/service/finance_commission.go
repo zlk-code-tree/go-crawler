@@ -14,8 +14,12 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/util/gconv"
 	"github.com/xuri/excelize/v2"
 )
+
+const financeDateLayout = "2006-01-02"
+const financeDateTimeLayout = "2006-01-02 15:04:05"
 
 // FinanceCommissionService 财务管理 - 达人佣金统计服务
 type FinanceCommissionService struct{}
@@ -31,8 +35,8 @@ func NewFinanceCommissionService() *FinanceCommissionService {
 // ParseTimeRange 解析时间范围
 func (s *FinanceCommissionService) ParseTimeRange(timeType, startDate, endDate string) (start, end string) {
 	// 显式传入日期时优先使用
-	if startDate != "" && endDate != "" {
-		return startDate, endDate
+	if startDate != "" || endDate != "" {
+		return NormalizeFinanceDateRange(startDate, endDate)
 	}
 
 	now := time.Now()
@@ -64,6 +68,67 @@ func (s *FinanceCommissionService) ParseTimeRange(timeType, startDate, endDate s
 	return
 }
 
+// NormalizeFinanceDateRange converts frontend date/datetime inputs into the
+// inclusive yyyy-mm-dd range used by daily finance and Qianchuan reports.
+func NormalizeFinanceDateRange(startDate, endDate string) (string, string) {
+	startDate = strings.TrimSpace(startDate)
+	endDate = strings.TrimSpace(endDate)
+	if startDate == "" && endDate == "" {
+		today := time.Now().Format(financeDateLayout)
+		return today, today
+	}
+	if startDate == "" {
+		startDate = endDate
+	}
+	if endDate == "" {
+		endDate = startDate
+	}
+
+	startDay := financeDatePart(startDate)
+	endDay := financeDatePart(endDate)
+	if isFinanceExclusiveMidnightEnd(startDate, endDate) {
+		if start, startOK := parseFinanceDateTime(startDate); startOK {
+			if end, endOK := parseFinanceDateTime(endDate); endOK && end.After(start) {
+				endDay = end.AddDate(0, 0, -1).Format(financeDateLayout)
+			}
+		}
+	}
+	return startDay, endDay
+}
+
+func financeDatePart(value string) string {
+	if len(value) >= len(financeDateLayout) {
+		return value[:len(financeDateLayout)]
+	}
+	return value
+}
+
+func isFinanceExclusiveMidnightEnd(startDate, endDate string) bool {
+	if len(endDate) < len(financeDateTimeLayout) {
+		return false
+	}
+	if endDate[len(financeDateLayout):len(financeDateTimeLayout)] != " 00:00:00" {
+		return false
+	}
+	startDay := financeDatePart(startDate)
+	endDay := financeDatePart(endDate)
+	return startDay != "" && endDay != "" && endDay != startDay
+}
+
+func parseFinanceDateTime(value string) (time.Time, bool) {
+	if len(value) >= len(financeDateTimeLayout) {
+		if t, err := time.ParseInLocation(financeDateTimeLayout, value[:len(financeDateTimeLayout)], time.Local); err == nil {
+			return t, true
+		}
+	}
+	if len(value) >= len(financeDateLayout) {
+		if t, err := time.ParseInLocation(financeDateLayout, value[:len(financeDateLayout)], time.Local); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
 // IsDateTime 检查字符串是否包含时间部分
 func IsDateTime(s string) bool {
 	return len(s) > 10 && s[10] == ' '
@@ -72,11 +137,9 @@ func IsDateTime(s string) bool {
 // CalcEndDateNext 计算结束时间的下一个时间点（用于 < 查询）
 func CalcEndDateNext(endDate string) string {
 	if IsDateTime(endDate) {
-		// 带时间：取整到天，然后加1天
-		if t, err := time.Parse("2006-01-02 15:04:05", endDate); err == nil {
-			// 取整到当天 00:00:00，然后加1天
+		if t, err := time.ParseInLocation(financeDateTimeLayout, endDate[:len(financeDateTimeLayout)], time.Local); err == nil {
 			dayStart := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-			return dayStart.Add(24 * time.Hour).Format("2006-01-02")
+			return dayStart.Add(24 * time.Hour).Format(financeDateLayout)
 		}
 	}
 	// 纯日期：加1天
@@ -100,12 +163,39 @@ func (s *FinanceCommissionService) GetStats(ctx context.Context, req *model.Fina
 		platform = "douyin"
 	}
 
+	if req.NodeType == "company" && (platform == "" || platform == "douyin") {
+		useFullSnapshot, scopeErr := shouldUseFullDouyinCompanySnapshot(ctx, req.NodeId)
+		if scopeErr != nil {
+			return nil, scopeErr
+		}
+		if useFullSnapshot {
+			snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
+			if snapshotErr != nil {
+				return nil, snapshotErr
+			}
+			return &model.FinanceStatsRes{
+				TimeType:  req.TimeType,
+				StartDate: startDate,
+				EndDate:   endDate,
+				Summary:   snapshot.FinanceSummary(),
+			}, nil
+		}
+	}
+
 	// 当天保持实时计算；完整历史日期直接读取账号日汇总。
 	if startDate >= today {
-		return s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
+		result, err := s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
+		if err != nil {
+			return nil, err
+		}
+		return s.alignNodeQianchuanAdvertiserCost(ctx, result, req.NodeId, req.NodeType, platform, startDate, endDate)
 	}
 	if endDate < today {
-		return s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
+		result, err := s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
+		if err != nil {
+			return nil, err
+		}
+		return s.alignNodeQianchuanAdvertiserCost(ctx, result, req.NodeId, req.NodeType, platform, startDate, endDate)
 	}
 
 	// 跨越当天：历史汇总 + 当天实时结果。
@@ -118,7 +208,7 @@ func (s *FinanceCommissionService) GetStats(ctx context.Context, req *model.Fina
 	if err != nil {
 		return nil, err
 	}
-	return s.mergeStats(history, realtime, req.TimeType, startDate, endDate), nil
+	return s.alignNodeQianchuanAdvertiserCost(ctx, s.mergeStats(history, realtime, req.TimeType, startDate, endDate), req.NodeId, req.NodeType, platform, startDate, endDate)
 }
 
 // getStatsFromTable 从预聚合表查询
@@ -309,6 +399,36 @@ func (s *FinanceCommissionService) mergeStats(history, realtime *model.FinanceSt
 	}
 }
 
+func (s *FinanceCommissionService) alignNodeQianchuanAdvertiserCost(ctx context.Context, result *model.FinanceStatsRes, nodeID int64, nodeType, platform, startDate, endDate string) (*model.FinanceStatsRes, error) {
+	if result == nil || platform != "douyin" {
+		return result, nil
+	}
+	adCost, err := s.getNodeCurrentQianchuanCost(ctx, nodeID, nodeType, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	oldAdCost := result.Summary.AdCostAmount
+	newAdCost := roundFloatFinance(adCost, 2)
+	if newAdCost == 0 && oldAdCost > 0 {
+		return result, nil
+	}
+	result.Summary.AdCostAmount = newAdCost
+	result.Summary.RealtimeProfit = roundFloatFinance(result.Summary.RealtimeProfit+oldAdCost-newAdCost, 2)
+	return result, nil
+}
+
+func (s *FinanceCommissionService) getNodeCurrentQianchuanCost(ctx context.Context, nodeID int64, nodeType, startDate, endDate string) (float64, error) {
+	if nodeType == "company" {
+		return getNodeQianchuanAdvertiserDailyCost(ctx, nodeID, nodeType, startDate, endDate)
+	}
+
+	accountIDs, err := s.getAccountIdsByNode(ctx, nodeID, nodeType, "douyin")
+	if err != nil {
+		return 0, err
+	}
+	return s.getAdCostByAccountsRange(ctx, accountIDs, startDate, endDate), nil
+}
+
 // ============================================
 // 下级节点查询
 // ============================================
@@ -431,6 +551,7 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 		return nil, err
 	}
 	parentStats := nodeStats[0]
+	usedFullSnapshot := false
 	if platform == "" || platform == "douyin" {
 		useFullSnapshot, scopeErr := shouldUseFullDouyinCompanySnapshot(ctx, companyID)
 		if scopeErr != nil {
@@ -442,7 +563,15 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 				return nil, snapshotErr
 			}
 			parentStats = snapshot.FinanceSummary()
+			usedFullSnapshot = true
 		}
+	}
+	if !usedFullSnapshot {
+		alignedParent, alignErr := s.alignNodeQianchuanAdvertiserCost(ctx, &model.FinanceStatsRes{Summary: parentStats}, companyID, "company", platform, startDate, endDate)
+		if alignErr != nil {
+			return nil, alignErr
+		}
+		parentStats = alignedParent.Summary
 	}
 	children := make([]model.NodeStatsItem, 0, len(childNodes)+1)
 	for i, child := range childNodes {
@@ -760,7 +889,12 @@ func (s *FinanceCommissionService) getDepartmentChildren(ctx context.Context, de
 	for i, child := range childNodes {
 		children = append(children, financeNodeStatsFromSummary(child.id, child.name, child.nodeType, nodeStats[i+1]))
 	}
-	children = appendFinanceResidualFromSummary(children, nodeStats[0], deptID)
+	parentStats := nodeStats[0]
+	alignedParent, alignErr := s.alignNodeQianchuanAdvertiserCost(ctx, &model.FinanceStatsRes{Summary: parentStats}, deptID, "department", platform, startDate, endDate)
+	if alignErr != nil {
+		return nil, alignErr
+	}
+	children = appendFinanceResidualFromSummary(children, alignedParent.Summary, deptID)
 
 	return &model.FinanceChildrenRes{
 		CurrentNode: model.NodeInfo{Id: deptID, Name: department["name"].String(), Type: "department"},
@@ -1441,7 +1575,10 @@ func (s *FinanceCommissionService) getAccountIdsByNode(ctx context.Context, node
 
 	case "department":
 		// nodeId 为编码后的ID，需要解码
-		realDeptId := model.DecodeDeptID(nodeId)
+		realDeptId := nodeId
+		if model.IsDeptID(nodeId) {
+			realDeptId = model.DecodeDeptID(nodeId)
+		}
 		deptIds := s.getDeptAndChildrenIds(ctx, realDeptId)
 		// 通过 trader 关联获取账号：部门 → trader(group_id) → trader_account_relation → shop
 		traderQuery := g.DB().Model("trader").
@@ -1476,7 +1613,10 @@ func (s *FinanceCommissionService) getAccountIdsByNode(ctx context.Context, node
 
 	case "trader":
 		// nodeId 为编码后的ID，需要解码
-		realTraderId := model.DecodeTraderID(nodeId)
+		realTraderId := nodeId
+		if model.IsTraderID(nodeId) {
+			realTraderId = model.DecodeTraderID(nodeId)
+		}
 		shopQuery := g.DB().Model("trader_account_relation tsr").
 			LeftJoin("account a", "tsr.account_id = a.id").
 			Where("tsr.trader_id", realTraderId)
@@ -2008,14 +2148,7 @@ func (s *FinanceCommissionService) getAdCostByAccountIds(ctx context.Context, ac
 
 // extractDateRange 从 startDate/endDate（可能含时间部分）提取纯日期 2006-01-02
 func extractDateRange(startDate, endDate string) (string, string) {
-	qStart, qEnd := "", ""
-	if len(startDate) >= 10 {
-		qStart = startDate[:10]
-	}
-	if len(endDate) >= 10 {
-		qEnd = endDate[:10]
-	}
-	return qStart, qEnd
+	return NormalizeFinanceDateRange(startDate, endDate)
 }
 
 // statsOrdersByAccountIds 统计账号订单数据（根据店铺 platform 只查对应订单表）
@@ -2774,6 +2907,115 @@ func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, r
 	}, nil
 }
 
+type financeExportOrderRow struct {
+	MainOrderNo     string
+	ProductName     string
+	ProductNum      int
+	ProductPrice    float64
+	OrderPayAmount  float64
+	CostAmount      float64
+	ReserveAmount   float64
+	Commission      float64
+	ShopName        string
+	OrderStatus     string
+	AfterSaleStatus string
+	PayFinishTime   string
+}
+
+func newFinanceExportOrderRow(mainOrderNo, productName string, productNum int, productPrice, costAmount float64, orderStatus, afterSaleStatus, payFinishTime, shopName string, douyin bool) financeExportOrderRow {
+	payAmount := roundFloatFinance(productPrice*float64(productNum), 2)
+	reserveAmount := roundFloatFinance(productPrice*float64(productNum)*FinanceReserveRate, 2)
+	shopServiceFee := 0.0
+	if douyin {
+		shopServiceFee = roundFloatFinance(payAmount*DouyinShopServiceFeeRate, 2)
+	}
+	if len(payFinishTime) >= 10 {
+		payFinishTime = payFinishTime[:10]
+	}
+	return financeExportOrderRow{
+		MainOrderNo:     mainOrderNo,
+		ProductName:     productName,
+		ProductNum:      productNum,
+		ProductPrice:    productPrice,
+		OrderPayAmount:  payAmount,
+		CostAmount:      roundFloatFinance(costAmount, 2),
+		ReserveAmount:   reserveAmount,
+		Commission:      roundFloatFinance(payAmount-costAmount-reserveAmount-shopServiceFee, 2),
+		ShopName:        shopName,
+		OrderStatus:     orderStatus,
+		AfterSaleStatus: afterSaleStatus,
+		PayFinishTime:   payFinishTime,
+	}
+}
+
+func financeExportRowsFromSQLRows(rows gdb.Result, platform string, uidShopMap map[string]string) []financeExportOrderRow {
+	result := make([]financeExportOrderRow, 0, len(rows))
+	for _, row := range rows {
+		talentID := row["talent_id"].String()
+		productNum := row["product_num"].Int()
+		productPrice := row["product_price"].Float64()
+		costAmount := row["base_price"].Float64() * float64(productNum)
+		result = append(result, newFinanceExportOrderRow(
+			row["main_order_no"].String(),
+			row["product_name"].String(),
+			productNum,
+			productPrice,
+			costAmount,
+			row["order_status"].String(),
+			row["after_sale_status"].String(),
+			row["pay_finish_time"].String(),
+			uidShopMap[talentID],
+			platform == "douyin",
+		))
+	}
+	return result
+}
+
+func (s *FinanceCommissionService) exportDouyinAttributedTraderOrders(ctx context.Context, accountIDs []int, startDate, endDate string) ([]financeExportOrderRow, error) {
+	if len(accountIDs) == 0 {
+		return []financeExportOrderRow{}, nil
+	}
+	accountSet := make(map[int]struct{}, len(accountIDs))
+	for _, accountID := range accountIDs {
+		if accountID > 0 {
+			accountSet[accountID] = struct{}{}
+		}
+	}
+
+	orders, err := NewOrderService().loadEnrichedDouyinOrders(ctx, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]financeExportOrderRow, 0)
+	for _, order := range orders {
+		accountID := gconv.Int(order["attributedAccountId"])
+		if _, ok := accountSet[accountID]; !ok {
+			continue
+		}
+		orderStatus := gconv.String(order["rawOrderStatus"])
+		afterSaleStatus := gconv.String(order["afterSaleStatus"])
+		if !IsValidOrderForStats(orderStatus, afterSaleStatus) {
+			continue
+		}
+		rows = append(rows, newFinanceExportOrderRow(
+			gconv.String(order["mainOrderNo"]),
+			gconv.String(order["productName"]),
+			gconv.Int(order["productNum"]),
+			gconv.Float64(order["productPrice"]),
+			gconv.Float64(order["productCost"]),
+			orderStatus,
+			afterSaleStatus,
+			gconv.String(order["payFinishTime"]),
+			orderListFirstNonEmpty(gconv.String(order["douyinAccount"]), gconv.String(order["talentId"]), gconv.String(order["shopName"])),
+			true,
+		))
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		return rows[i].PayFinishTime > rows[j].PayFinishTime
+	})
+	return rows, nil
+}
+
 // ExportTraderOrders 导出投手订单明细（按平台分Sheet）
 func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, traderId int64, timeType, startDate, endDate string) (string, error) {
 	startDate, endDate = s.ParseTimeRange(timeType, startDate, endDate)
@@ -2797,9 +3039,13 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 
 	// 按 platform 分组 uid，同时构建 uid→账号名 映射
 	platformUids := s.buildPlatformUids(ctx, shops)
+	douyinAccountIDs := make([]int, 0, len(shops))
 	uidShopMap := make(map[string]string)
 	for _, shop := range shops {
 		uid := shop["uid"].String()
+		if shop["platform"].String() == "douyin" {
+			douyinAccountIDs = append(douyinAccountIDs, shop["id"].Int())
+		}
 		if uid == "" {
 			continue
 		}
@@ -2855,69 +3101,76 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 			continue
 		}
 
-		orderNoCol := "main_order_no"
-		collateClause := ""
-		talentCollate := ""
-		if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
-			orderNoCol = "order_no"
-			collateClause = "COLLATE utf8mb4_unicode_ci"
-			talentCollate = "COLLATE utf8mb4_unicode_ci"
+		var exportRows []financeExportOrderRow
+		if platform == "douyin" {
+			exportRows, err = s.exportDouyinAttributedTraderOrders(ctx, douyinAccountIDs, startDate, endDate)
+			if err != nil {
+				return "", fmt.Errorf("查询抖音归属订单失败: %v", err)
+			}
+		} else {
+			orderNoCol := "main_order_no"
+			collateClause := ""
+			talentCollate := ""
+			if tableName == "kuaishou_orders" || tableName == "shipinhao_orders" {
+				orderNoCol = "order_no"
+				collateClause = "COLLATE utf8mb4_unicode_ci"
+				talentCollate = "COLLATE utf8mb4_unicode_ci"
+			}
+
+			sql := fmt.Sprintf(`
+				SELECT
+					o.%s AS main_order_no,
+					o.product_name,
+					o.product_num,
+					o.product_price,
+					COALESCE(g.base_price, 0) AS base_price,
+					o.order_status,
+					o.after_sale_status,
+					IFNULL(o.pay_finish_time, '') AS pay_finish_time,
+					o.talent_id
+				FROM %s o
+				LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
+				WHERE o.talent_id %s IN(?)
+				  AND o.pay_finish_time >= ?
+				  AND o.pay_finish_time < ?
+				  AND o.%s IS NOT NULL
+				  AND o.%s != ''
+				  %s
+				ORDER BY o.pay_finish_time DESC
+			`, orderNoCol, tableName, collateClause, collateClause, talentCollate, orderNoCol, orderNoCol, validFilterWithExclude)
+
+			result, err := g.DB().GetAll(ctx, sql, uids, startDate, endDateNext)
+			if err != nil {
+				result = nil
+			}
+
+			redirectedSQL := fmt.Sprintf(`
+				SELECT
+					o.%s AS main_order_no,
+					o.product_name,
+					o.product_num,
+					o.product_price,
+					COALESCE(g.base_price, 0) AS base_price,
+					o.order_status,
+					o.after_sale_status,
+					IFNULL(o.pay_finish_time, '') AS pay_finish_time,
+					o.talent_id
+				FROM %s o
+				LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
+				WHERE o.pay_finish_time >= ?
+				  AND o.pay_finish_time < ?
+				  AND o.%s IS NOT NULL
+				  AND o.%s != ''
+				  %s
+				ORDER BY o.pay_finish_time DESC
+			`, orderNoCol, tableName, collateClause, collateClause, orderNoCol, orderNoCol, validFilterWithRedirect)
+			if redirectedResult, err := g.DB().GetAll(ctx, redirectedSQL, startDate, endDateNext); err == nil && len(redirectedResult) > 0 {
+				result = append(result, redirectedResult...)
+			}
+			exportRows = financeExportRowsFromSQLRows(result, platform, uidShopMap)
 		}
 
-		sql := fmt.Sprintf(`
-			SELECT
-				o.%s AS main_order_no,
-				o.product_name,
-				o.product_num,
-				o.product_price,
-				COALESCE(g.base_price, 0) AS base_price,
-				o.order_status,
-				o.after_sale_status,
-				IFNULL(o.pay_finish_time, '') AS pay_finish_time,
-				o.talent_id
-			FROM %s o
-			LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
-			WHERE o.talent_id %s IN(?)
-			  AND o.pay_finish_time >= ?
-			  AND o.pay_finish_time < ?
-			  AND o.%s IS NOT NULL
-			  AND o.%s != ''
-			  %s
-			ORDER BY o.pay_finish_time DESC
-		`, orderNoCol, tableName, collateClause, collateClause, talentCollate, orderNoCol, orderNoCol, validFilterWithExclude)
-
-		result, err := g.DB().GetAll(ctx, sql, uids, startDate, endDateNext)
-		if err != nil || len(result) == 0 {
-			// 即使直接订单为空，仍需检查重定向订单
-			result = nil
-		}
-
-		// 查询从其他投手重定向到当前投手的订单
-		redirectedSQL := fmt.Sprintf(`
-			SELECT
-				o.%s AS main_order_no,
-				o.product_name,
-				o.product_num,
-				o.product_price,
-				COALESCE(g.base_price, 0) AS base_price,
-				o.order_status,
-				o.after_sale_status,
-				IFNULL(o.pay_finish_time, '') AS pay_finish_time,
-				o.talent_id
-			FROM %s o
-			LEFT JOIN goods g ON o.seller_code %s = g.goods_code %s
-			WHERE o.pay_finish_time >= ?
-			  AND o.pay_finish_time < ?
-			  AND o.%s IS NOT NULL
-			  AND o.%s != ''
-			  %s
-			ORDER BY o.pay_finish_time DESC
-		`, orderNoCol, tableName, collateClause, collateClause, orderNoCol, orderNoCol, validFilterWithRedirect)
-		if redirectedResult, err := g.DB().GetAll(ctx, redirectedSQL, startDate, endDateNext); err == nil && len(redirectedResult) > 0 {
-			result = append(result, redirectedResult...)
-		}
-
-		if len(result) == 0 {
+		if len(exportRows) == 0 {
 			continue
 		}
 
@@ -2934,16 +3187,15 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 			f.NewSheet(sheetName)
 		}
 
-		// 设置列宽
-		for i, w := range colWidths {
-			col, _ := excelize.ColumnNumberToName(i + 1)
-			f.SetColWidth(sheetName, col, col, w)
-		}
-
 		// 流式写入：避免大数据量逐单元格写入导致内存溢出/超时
+		lastCol, _ := excelize.ColumnNumberToName(len(headers))
+		_ = f.SetSheetDimension(sheetName, fmt.Sprintf("A1:%s%d", lastCol, len(exportRows)+1))
 		sw, swErr := f.NewStreamWriter(sheetName)
 		if swErr != nil {
 			continue
+		}
+		for i, w := range colWidths {
+			_ = sw.SetColWidth(i+1, i+1, w)
 		}
 
 		// 写表头（带样式）
@@ -2954,40 +3206,21 @@ func (s *FinanceCommissionService) ExportTraderOrders(ctx context.Context, trade
 		_ = sw.SetRow("A1", headerRow, excelize.RowOpts{StyleID: headerStyle})
 
 		// 写数据（逐行，远快于逐单元格）
-		for rowIdx, row := range result {
-			talentId := row["talent_id"].String()
-			productNum := row["product_num"].Int()
-			productPrice := row["product_price"].Float64()
-			basePrice := row["base_price"].Float64()
-			payAmount := roundFloatFinance(productPrice*float64(productNum), 2)
-			costAmount := basePrice * float64(productNum)
-			reserveAmount := roundFloatFinance(productPrice*float64(productNum)*0.03, 2)
-			// 小店服务费 = 定价总额 × 2%（仅抖音），与系统汇总口径一致
-			shopServiceFee := 0.0
-			if platform == "douyin" {
-				shopServiceFee = roundFloatFinance(payAmount*0.02, 2)
-			}
-			commission := roundFloatFinance(payAmount-costAmount-reserveAmount-shopServiceFee, 2)
-
-			payTime := row["pay_finish_time"].String()
-			if len(payTime) >= 10 {
-				payTime = payTime[:10]
-			}
-
+		for rowIdx, row := range exportRows {
 			cell, _ := excelize.CoordinatesToCellName(1, rowIdx+2)
 			if err := sw.SetRow(cell, []interface{}{
-				row["main_order_no"].String(),
-				row["product_name"].String(),
-				productNum,
-				productPrice,
-				payAmount,
-				roundFloatFinance(costAmount, 2),
-				reserveAmount,
-				commission,
-				uidShopMap[talentId],
-				row["order_status"].String(),
-				row["after_sale_status"].String(),
-				payTime,
+				row.MainOrderNo,
+				row.ProductName,
+				row.ProductNum,
+				row.ProductPrice,
+				row.OrderPayAmount,
+				row.CostAmount,
+				row.ReserveAmount,
+				row.Commission,
+				row.ShopName,
+				row.OrderStatus,
+				row.AfterSaleStatus,
+				row.PayFinishTime,
 			}); err != nil {
 				break
 			}
@@ -3088,15 +3321,15 @@ func (s *FinanceCommissionService) ExportAccountOrders(ctx context.Context, acco
 			f.NewSheet(sheetName)
 		}
 
-		for i, w := range colWidths {
-			col, _ := excelize.ColumnNumberToName(i + 1)
-			f.SetColWidth(sheetName, col, col, w)
-		}
-
 		// 流式写入：避免大数据量逐单元格写入导致内存溢出/超时
+		lastCol, _ := excelize.ColumnNumberToName(len(headers))
+		_ = f.SetSheetDimension(sheetName, fmt.Sprintf("A1:%s%d", lastCol, len(result)+1))
 		sw, swErr := f.NewStreamWriter(sheetName)
 		if swErr != nil {
 			continue
+		}
+		for i, w := range colWidths {
+			_ = sw.SetColWidth(i+1, i+1, w)
 		}
 
 		// 写表头（带样式）

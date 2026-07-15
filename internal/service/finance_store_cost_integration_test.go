@@ -55,6 +55,29 @@ func TestStoreCostDatabaseIntegration(t *testing.T) {
 		}
 	}
 
+	allDetails, allErr := financeService.GetAllStoreCostDetail(ctx, statDate, statDate)
+	if allErr != nil {
+		t.Fatalf("query all store details failed: %v", allErr)
+	}
+	if int64(len(allDetails)) != accountCount {
+		t.Fatalf("all store detail account count mismatch: summary=%d detail=%d", accountCount, len(allDetails))
+	}
+	allDetailCost := 0.0
+	for _, detail := range allDetails {
+		allDetailCost += detail.StatCost
+	}
+	if math.Abs(allDetailCost-totalCost) > 0.05 {
+		t.Fatalf("all store detail cost mismatch: summary=%.2f detail=%.2f", totalCost, allDetailCost)
+	}
+	exportFile, exportErr := financeService.ExportAllStoreCostDetail(ctx, statDate, statDate)
+	if exportErr != nil {
+		t.Fatalf("export all store details failed: %v", exportErr)
+	}
+	if _, statErr := os.Stat(exportFile); statErr != nil {
+		t.Fatalf("export all store details file missing: %v", statErr)
+	}
+	_ = os.Remove(exportFile)
+
 	assertStoreCostCount(t, "FINANCE_STORE_COST_EXPECT_STORES", int64(len(stores)))
 	assertStoreCostCount(t, "FINANCE_STORE_COST_EXPECT_ACCOUNTS", accountCount)
 	assertStoreCostCount(t, "FINANCE_STORE_COST_EXPECT_UNMATCHED", unmatchedCount)

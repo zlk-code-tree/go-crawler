@@ -58,26 +58,11 @@ func (s *FinanceCommissionService) GetRealtimeProfit(ctx context.Context, req *R
 	if startDate == "" && endDate == "" {
 		if req.Date != "" {
 			startDate, endDate = req.Date, req.Date
-		} else {
-			today := time.Now().Format("2006-01-02")
-			startDate, endDate = today, today
-		}
-	} else {
-		if startDate == "" {
-			startDate = endDate
-		}
-		if endDate == "" {
-			endDate = startDate
 		}
 	}
-	if len(startDate) > 10 {
-		startDate = startDate[:10]
-	}
+	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
-	}
-	if len(endDate) > 10 {
-		endDate = endDate[:10]
 	}
 	if _, err := time.Parse("2006-01-02", endDate); err != nil {
 		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
@@ -375,6 +360,7 @@ func (s *FinanceCommissionService) getAdCostByAccountsRange(ctx context.Context,
 		return 0
 	}
 
+	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	placeholders := strings.TrimRight(strings.Repeat("?,", len(accountIds)), ",")
 	args := []interface{}{startDate, endDate, startDate, endDate}
 	for _, accountID := range accountIds {
@@ -396,6 +382,7 @@ func (s *FinanceCommissionService) getAdCostsByAccountRange(ctx context.Context,
 	if len(accountIds) == 0 {
 		return result, nil
 	}
+	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	placeholders := strings.TrimRight(strings.Repeat("?,", len(accountIds)), ",")
 	args := []interface{}{startDate, endDate, startDate, endDate}
 	for _, accountID := range accountIds {
@@ -466,25 +453,9 @@ type QianchuanStoreCostItem struct {
 
 // GetStoreCostStats 按店铺汇总千川广告主账户消耗。
 func (s *FinanceCommissionService) GetStoreCostStats(ctx context.Context, startDate, endDate string, limit int) ([]QianchuanStoreCostItem, error) {
-	if startDate == "" && endDate == "" {
-		today := time.Now().Format("2006-01-02")
-		startDate, endDate = today, today
-	} else {
-		if startDate == "" {
-			startDate = endDate
-		}
-		if endDate == "" {
-			endDate = startDate
-		}
-	}
-	if len(startDate) > 10 {
-		startDate = startDate[:10]
-	}
+	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
-	}
-	if len(endDate) > 10 {
-		endDate = endDate[:10]
 	}
 	if _, err := time.Parse("2006-01-02", endDate); err != nil {
 		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
@@ -599,6 +570,8 @@ func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, star
 
 // QianchuanStoreCostDetailItem 店铺消耗明细（按千川广告主账户维度）。
 type QianchuanStoreCostDetailItem struct {
+	StoreID        int64   `json:"storeId"`
+	StoreName      string  `json:"storeName"`
 	AdvertiserID   int64   `json:"advertiserId"`
 	AdvertiserName string  `json:"advertiserName"`
 	AccountID      int64   `json:"accountId"`
@@ -617,25 +590,9 @@ type QianchuanStoreCostDetailItem struct {
 // GetStoreCostDetail 查询指定店铺下所有千川广告主账户的消耗明细。
 // storeId 为 store.id，0 表示未绑定到有效店铺的账户。
 func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, startDate, endDate string, storeId int64, page, pageSize int) ([]QianchuanStoreCostDetailItem, int64, error) {
-	if startDate == "" && endDate == "" {
-		today := time.Now().Format("2006-01-02")
-		startDate, endDate = today, today
-	} else {
-		if startDate == "" {
-			startDate = endDate
-		}
-		if endDate == "" {
-			endDate = startDate
-		}
-	}
-	if len(startDate) > 10 {
-		startDate = startDate[:10]
-	}
+	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, 0, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
-	}
-	if len(endDate) > 10 {
-		endDate = endDate[:10]
 	}
 	if _, err := time.Parse("2006-01-02", endDate); err != nil {
 		return nil, 0, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
@@ -674,6 +631,8 @@ func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, start
 
 	rows, err := g.DB().GetAll(ctx, `
 		SELECT
+			COALESCE(st.id, 0) AS store_id,
+			COALESCE(NULLIF(MAX(st.store_name), ''), '未绑定店铺') AS store_name,
 			adv.advertiser_id,
 			COALESCE(
 				NULLIF(MAX(adv.advertiser_name), ''),
@@ -725,6 +684,10 @@ func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, start
 		return nil, 0, err
 	}
 
+	return buildStoreCostDetailItems(rows), total, nil
+}
+
+func buildStoreCostDetailItems(rows gdb.Result) []QianchuanStoreCostDetailItem {
 	result := make([]QianchuanStoreCostDetailItem, len(rows))
 	for i, row := range rows {
 		statCost := row["stat_cost"].Float64()
@@ -740,6 +703,8 @@ func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, start
 		}
 
 		result[i] = QianchuanStoreCostDetailItem{
+			StoreID:        row["store_id"].Int64(),
+			StoreName:      row["store_name"].String(),
 			AdvertiserID:   row["advertiser_id"].Int64(),
 			AdvertiserName: row["advertiser_name"].String(),
 			AccountID:      row["account_id"].Int64(),
@@ -755,7 +720,72 @@ func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, start
 			ROI:            roundFloatFinance(roi, 2),
 		}
 	}
-	return result, total, nil
+	return result
+}
+
+// GetAllStoreCostDetail 查询全部店铺下全部千川广告主账户的消耗明细。
+func (s *FinanceCommissionService) GetAllStoreCostDetail(ctx context.Context, startDate, endDate string) ([]QianchuanStoreCostDetailItem, error) {
+	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
+	if _, err := time.Parse("2006-01-02", startDate); err != nil {
+		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
+	}
+	if _, err := time.Parse("2006-01-02", endDate); err != nil {
+		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
+	}
+
+	rows, err := g.DB().GetAll(ctx, `
+		SELECT
+			COALESCE(st.id, 0) AS store_id,
+			COALESCE(NULLIF(MAX(st.store_name), ''), '未绑定店铺') AS store_name,
+			adv.advertiser_id,
+			COALESCE(
+				NULLIF(MAX(adv.advertiser_name), ''),
+				NULLIF(MAX(sqm.qianchuan_advertiser_name), ''),
+				NULLIF(MAX(r.advertiser_name), ''),
+				CONCAT('千川账户 ', adv.advertiser_id)
+			) AS advertiser_name,
+			COALESCE(NULLIF(MAX(a.platform_nickname), ''), NULLIF(MAX(a.account_name), ''), '') AS account_name,
+			COALESCE(MAX(a.id), 0) AS account_id,
+			COALESCE(NULLIF(MAX(a.uid), ''), '') AS uid,
+			COALESCE(NULLIF(MAX(t.name), ''), '') AS trader_name,
+			MAX(adv.stat_cost) AS stat_cost,
+			MAX(adv.pay_order_amount) AS pay_order_amount,
+			MAX(adv.all_order_pay_gmv) AS all_order_pay_gmv,
+			MAX(adv.show_cnt) AS show_cnt,
+			MAX(adv.click_cnt) AS click_cnt,
+			MAX(adv.pay_order_count) AS pay_order_count
+		FROM (
+			SELECT
+				advertiser_id,
+				MAX(NULLIF(advertiser_name, '')) AS advertiser_name,
+				COALESCE(SUM(stat_cost), 0) AS stat_cost,
+				COALESCE(SUM(pay_order_amount), 0) AS pay_order_amount,
+				COALESCE(SUM(all_order_pay_gmv_7days), 0) AS all_order_pay_gmv,
+				COALESCE(SUM(show_cnt), 0) AS show_cnt,
+				COALESCE(SUM(click_cnt), 0) AS click_cnt,
+				COALESCE(SUM(pay_order_count), 0) AS pay_order_count
+			FROM qianchuan_advertiser_daily_report
+			WHERE LEFT(stat_datetime, 10) >= ? AND LEFT(stat_datetime, 10) <= ?
+			GROUP BY advertiser_id
+		) adv
+		LEFT JOIN store_qianchuan_mapping sqm ON sqm.qianchuan_advertiser_id = adv.advertiser_id
+		LEFT JOIN store st ON st.id = sqm.store_id
+		LEFT JOIN account_qianchuan_mapping aqm ON aqm.qianchuan_advertiser_id = adv.advertiser_id
+		LEFT JOIN account a ON a.id = aqm.account_id
+		LEFT JOIN trader_account_relation tar ON tar.account_id = a.id
+		LEFT JOIN trader t ON t.id = tar.trader_id
+		LEFT JOIN (
+			SELECT advertiser_id, MAX(advertiser_name) AS advertiser_name
+			FROM qianchuan_ad_report
+			GROUP BY advertiser_id
+		) r ON r.advertiser_id = adv.advertiser_id
+		GROUP BY COALESCE(st.id, 0), adv.advertiser_id
+		ORDER BY store_name ASC, stat_cost DESC
+	`, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	return buildStoreCostDetailItems(rows), nil
 }
 
 // GetSubjectCostDetail 兼容旧主体明细接口，subjectId 参数按 storeId 解释。
@@ -765,25 +795,9 @@ func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, sta
 
 // GetAuthorCostRanking 查询达人维度消耗统计
 func (s *FinanceCommissionService) GetAuthorCostRanking(ctx context.Context, startDate, endDate string, page, pageSize int) ([]AuthorCostItem, int64, error) {
-	if startDate == "" && endDate == "" {
-		today := time.Now().Format("2006-01-02")
-		startDate, endDate = today, today
-	} else {
-		if startDate == "" {
-			startDate = endDate
-		}
-		if endDate == "" {
-			endDate = startDate
-		}
-	}
-	if len(startDate) > 10 {
-		startDate = startDate[:10]
-	}
+	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, 0, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
-	}
-	if len(endDate) > 10 {
-		endDate = endDate[:10]
 	}
 	if _, err := time.Parse("2006-01-02", endDate); err != nil {
 		return nil, 0, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
@@ -847,25 +861,9 @@ func (s *FinanceCommissionService) GetAuthorCostRanking(ctx context.Context, sta
 
 // GetCostRanking 查询消耗排行
 func (s *FinanceCommissionService) GetCostRanking(ctx context.Context, startDate, endDate, dimension string, limit int) ([]g.Map, error) {
-	if startDate == "" && endDate == "" {
-		today := time.Now().Format("2006-01-02")
-		startDate, endDate = today, today
-	} else {
-		if startDate == "" {
-			startDate = endDate
-		}
-		if endDate == "" {
-			endDate = startDate
-		}
-	}
-	if len(startDate) > 10 {
-		startDate = startDate[:10]
-	}
+	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
-	}
-	if len(endDate) > 10 {
-		endDate = endDate[:10]
 	}
 	if _, err := time.Parse("2006-01-02", endDate); err != nil {
 		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
@@ -1080,10 +1078,35 @@ func (s *FinanceCommissionService) ExportStoreCostDetail(ctx context.Context, st
 		return "", err
 	}
 	return writeExcelFile("店铺消耗明细", []string{
-		"排名", "千川广告主ID", "千川账户", "千川消耗(元)", "成交金额(元)", "成交订单数", "展示数", "点击数", "ROI",
+		"排名", "千川账户ID", "千川账户名称", "千川消耗(¥)", "成交金额(¥)", "成交订单数", "展示数", "点击数", "ROI",
 	}, []float64{8, 18, 24, 16, 16, 12, 12, 12, 10}, len(list), func(rowIdx int) []interface{} {
 		item := list[rowIdx]
 		return []interface{}{
+			rowIdx + 1,
+			fmt.Sprintf("%d", item.AdvertiserID),
+			item.AdvertiserName,
+			item.StatCost,
+			item.PayOrderAmount,
+			item.PayOrderCount,
+			item.ShowCnt,
+			item.ClickCnt,
+			item.ROI,
+		}
+	})
+}
+
+// ExportAllStoreCostDetail 导出全部店铺下全部千川账户消耗明细。
+func (s *FinanceCommissionService) ExportAllStoreCostDetail(ctx context.Context, startDate, endDate string) (string, error) {
+	list, err := s.GetAllStoreCostDetail(ctx, startDate, endDate)
+	if err != nil {
+		return "", err
+	}
+	return writeExcelFile("全部账户消耗明细", []string{
+		"店铺名称", "排名", "千川账户ID", "千川账户名称", "千川消耗(¥)", "成交金额(¥)", "成交订单数", "展示数", "点击数", "ROI",
+	}, []float64{28, 8, 18, 24, 16, 16, 12, 12, 12, 10}, len(list), func(rowIdx int) []interface{} {
+		item := list[rowIdx]
+		return []interface{}{
+			item.StoreName,
 			rowIdx + 1,
 			fmt.Sprintf("%d", item.AdvertiserID),
 			item.AdvertiserName,

@@ -350,6 +350,25 @@ func (c *FinanceController) StoreCostDetailExport(r *ghttp.Request) {
 	defer os.Remove(filename)
 }
 
+// StoreCostAllDetailExport 导出全部店铺的全部账户消耗明细 GET /api/finance/store-cost-all-detail-export
+func (c *FinanceController) StoreCostAllDetailExport(r *ghttp.Request) {
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
+		startDate, endDate = date, date
+	}
+
+	filename, err := service.NewFinanceCommissionService().ExportAllStoreCostDetail(r.Context(), startDate, endDate)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
+		return
+	}
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+	defer os.Remove(filename)
+}
+
 // SubjectCostDetailExport 兼容旧主体消耗明细导出 GET /api/finance/subject-cost-detail-export
 func (c *FinanceController) SubjectCostDetailExport(r *ghttp.Request) {
 	startDate := r.Get("startDate").String()

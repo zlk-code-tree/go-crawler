@@ -82,28 +82,13 @@ func roundDouyinProfit(value float64) float64 {
 }
 
 func normalizeDouyinProfitDates(startDate, endDate string) (string, string, string, error) {
-	if startDate == "" && endDate == "" {
-		today := time.Now().Format("2006-01-02")
-		startDate, endDate = today, today
-	} else if startDate == "" {
-		startDate = endDate
-	} else if endDate == "" {
-		endDate = startDate
-	}
-
-	// 前端可能传入带时间部分的日期（如 "2026-07-13 00:00:00"），截取前10位
-	if len(startDate) > 10 {
-		startDate = startDate[:10]
-	}
-	if len(endDate) > 10 {
-		endDate = endDate[:10]
-	}
-	start, startErr := time.Parse("2006-01-02", startDate)
-	end, endErr := time.Parse("2006-01-02", endDate)
+	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
+	start, startErr := time.Parse(financeDateLayout, startDate)
+	end, endErr := time.Parse(financeDateLayout, endDate)
 	if startErr != nil || endErr != nil || end.Before(start) {
 		return "", "", "", fmt.Errorf("日期格式错误或结束日期早于开始日期")
 	}
-	return startDate, endDate, end.AddDate(0, 0, 1).Format("2006-01-02"), nil
+	return startDate, endDate, end.AddDate(0, 0, 1).Format(financeDateLayout), nil
 }
 
 // GetDouyinProfitSnapshot returns the same full Douyin order facts regardless
@@ -197,14 +182,46 @@ func isRootFinanceCompany(ctx context.Context, companyID int64) (bool, error) {
 }
 
 // shouldUseFullDouyinCompanySnapshot 判断公司统计是否应覆盖全量抖音订单。
-// 根公司沿用原有全量口径；非根公司仅在其公司树覆盖全部有效抖音账号时使用全量口径，
-// 从而纳入尚未绑定 UID 的订单，同时避免多公司场景下跨公司串单。
+// 只有组织树根公司能使用全量快照；具体公司节点必须按自身账号/部门归属统计，
+// 避免某个公司覆盖全部账号时把全平台千川消耗都归到该公司。
 func shouldUseFullDouyinCompanySnapshot(ctx context.Context, companyID int64) (bool, error) {
-	isRoot, err := isRootFinanceCompany(ctx, companyID)
-	if err != nil || isRoot || companyID <= 0 {
-		return isRoot, err
+	return isRootFinanceCompany(ctx, companyID)
+}
+
+func getNodeQianchuanAdvertiserDailyCost(ctx context.Context, nodeID int64, nodeType, startDate, endDate string) (float64, error) {
+	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
+	if nodeID <= 0 {
+		row, err := g.DB().Model("qianchuan_advertiser_daily_report").Ctx(ctx).
+			Where("LEFT(stat_datetime, 10) >= ?", startDate).
+			Where("LEFT(stat_datetime, 10) <= ?", endDate).
+			Fields("COALESCE(SUM(stat_cost), 0) AS ad_cost").One()
+		if err != nil {
+			return 0, fmt.Errorf("查询千川账户实扣消耗失败: %w", err)
+		}
+		return row["ad_cost"].Float64(), nil
 	}
 
+	switch nodeType {
+	case "company":
+		return getCompanyQianchuanAdvertiserDailyCost(ctx, nodeID, startDate, endDate)
+	case "department":
+		departmentID := nodeID
+		if model.IsDeptID(nodeID) {
+			departmentID = model.DecodeDeptID(nodeID)
+		}
+		return getDepartmentQianchuanAdvertiserDailyCost(ctx, departmentID, startDate, endDate)
+	case "trader":
+		traderID := nodeID
+		if model.IsTraderID(nodeID) {
+			traderID = model.DecodeTraderID(nodeID)
+		}
+		return getTraderQianchuanAdvertiserDailyCost(ctx, traderID, startDate, endDate)
+	default:
+		return 0, nil
+	}
+}
+
+func getCompanyQianchuanAdvertiserDailyCost(ctx context.Context, companyID int64, startDate, endDate string) (float64, error) {
 	row, err := g.DB().GetOne(ctx, `
 		WITH RECURSIVE company_tree AS (
 			SELECT id FROM sys_company WHERE id = ? AND status = 1
@@ -213,16 +230,73 @@ func shouldUseFullDouyinCompanySnapshot(ctx context.Context, companyID int64) (b
 			FROM sys_company child
 			INNER JOIN company_tree parent ON child.parent_id = parent.id
 			WHERE child.status = 1
+		),
+		scoped_advertisers AS (
+			SELECT DISTINCT qianchuan_advertiser_id
+			FROM account_qianchuan_mapping
+			WHERE company_id IN (SELECT id FROM company_tree)
 		)
-		SELECT
-			COUNT(*) AS total_accounts,
-			COALESCE(SUM(CASE WHEN company_id IN (SELECT id FROM company_tree) THEN 1 ELSE 0 END), 0) AS owned_accounts
-		FROM account
-		WHERE platform = 'douyin' AND status = 1`, companyID)
+		SELECT COALESCE(SUM(report.stat_cost), 0) AS ad_cost
+		FROM qianchuan_advertiser_daily_report report
+		INNER JOIN scoped_advertisers scoped
+			ON scoped.qianchuan_advertiser_id = report.advertiser_id
+		WHERE LEFT(report.stat_datetime, 10) >= ?
+		  AND LEFT(report.stat_datetime, 10) <= ?`, companyID, startDate, endDate)
 	if err != nil {
-		return false, fmt.Errorf("判断公司抖音统计范围失败: %w", err)
+		return 0, fmt.Errorf("查询公司千川账户实扣消耗失败: %w", err)
 	}
-	total := row["total_accounts"].Int64()
-	owned := row["owned_accounts"].Int64()
-	return total > 0 && owned == total, nil
+	return row["ad_cost"].Float64(), nil
+}
+
+func getDepartmentQianchuanAdvertiserDailyCost(ctx context.Context, departmentID int64, startDate, endDate string) (float64, error) {
+	row, err := g.DB().GetOne(ctx, `
+		WITH RECURSIVE dept_tree AS (
+			SELECT id FROM sys_department WHERE id = ? AND status = 1
+			UNION ALL
+			SELECT child.id
+			FROM sys_department child
+			INNER JOIN dept_tree parent ON child.parent_id = parent.id
+			WHERE child.status = 1
+		),
+		scoped_advertisers AS (
+			SELECT DISTINCT aqm.qianchuan_advertiser_id
+			FROM trader t
+			INNER JOIN trader_account_relation tar ON tar.trader_id = t.id
+			INNER JOIN account_qianchuan_mapping aqm ON aqm.account_id = tar.account_id
+			WHERE t.status = 1
+			  AND t.group_id IN (SELECT id FROM dept_tree)
+		)
+		SELECT COALESCE(SUM(report.stat_cost), 0) AS ad_cost
+		FROM qianchuan_advertiser_daily_report report
+		INNER JOIN scoped_advertisers scoped
+			ON scoped.qianchuan_advertiser_id = report.advertiser_id
+		WHERE LEFT(report.stat_datetime, 10) >= ?
+		  AND LEFT(report.stat_datetime, 10) <= ?`, departmentID, startDate, endDate)
+	if err != nil {
+		return 0, fmt.Errorf("查询部门千川账户实扣消耗失败: %w", err)
+	}
+	return row["ad_cost"].Float64(), nil
+}
+
+func getTraderQianchuanAdvertiserDailyCost(ctx context.Context, traderID int64, startDate, endDate string) (float64, error) {
+	row, err := g.DB().GetOne(ctx, `
+		WITH scoped_advertisers AS (
+			SELECT DISTINCT aqm.qianchuan_advertiser_id
+			FROM trader_account_relation tar
+			INNER JOIN account_qianchuan_mapping aqm ON aqm.account_id = tar.account_id
+			INNER JOIN account a ON a.id = tar.account_id
+			WHERE tar.trader_id = ?
+			  AND a.platform = 'douyin'
+			  AND a.status = 1
+		)
+		SELECT COALESCE(SUM(report.stat_cost), 0) AS ad_cost
+		FROM qianchuan_advertiser_daily_report report
+		INNER JOIN scoped_advertisers scoped
+			ON scoped.qianchuan_advertiser_id = report.advertiser_id
+		WHERE LEFT(report.stat_datetime, 10) >= ?
+		  AND LEFT(report.stat_datetime, 10) <= ?`, traderID, startDate, endDate)
+	if err != nil {
+		return 0, fmt.Errorf("查询投手千川账户实扣消耗失败: %w", err)
+	}
+	return row["ad_cost"].Float64(), nil
 }

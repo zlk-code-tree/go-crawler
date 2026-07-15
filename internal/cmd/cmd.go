@@ -739,6 +739,7 @@ var (
 				group.GET("/finance/author-cost-ranking-export", financeCtrl.AuthorCostRankingExport)
 				group.GET("/finance/cost-detail-export", financeCtrl.CostDetailExport)
 				group.GET("/finance/store-cost-detail-export", financeCtrl.StoreCostDetailExport)
+				group.GET("/finance/store-cost-all-detail-export", financeCtrl.StoreCostAllDetailExport)
 				group.GET("/finance/subject-cost-detail-export", financeCtrl.SubjectCostDetailExport)
 				group.GET("/finance/overall-detail-export", financeCtrl.OverallDetailExport)
 				// 抖店轮询器控制
