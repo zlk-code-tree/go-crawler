@@ -106,7 +106,10 @@ func (s *FinanceCommissionService) GetRealtimeProfit(ctx context.Context, req *R
 		return nil, fmt.Errorf("请指定投手、部门或公司")
 	}
 
-	stats, err := s.getStatsRealtime(ctx, nodeID, nodeType, startDate, endDate, "custom", platform)
+	stats, err := s.GetStats(ctx, &model.FinanceStatsReq{
+		NodeId: nodeID, NodeType: nodeType, TimeType: "custom",
+		StartDate: startDate, EndDate: endDate, Platform: platform,
+	})
 	if err != nil {
 		return nil, err
 	}

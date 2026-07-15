@@ -95,14 +95,30 @@ func (s *FinanceCommissionService) GetStats(ctx context.Context, req *model.Fina
 	startDate, endDate := s.ParseTimeRange(req.TimeType, req.StartDate, req.EndDate)
 	today := time.Now().Format("2006-01-02")
 	platform := req.Platform
+	if platform == "" {
+		// 第一阶段历史账号日汇总仅覆盖抖音；默认口径保持历史和当天一致。
+		platform = "douyin"
+	}
 
-	// 情况1：查询今日数据（实时计算）
+	// 当天保持实时计算；完整历史日期直接读取账号日汇总。
 	if startDate >= today {
 		return s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
 	}
+	if endDate < today {
+		return s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
+	}
 
-	// 全部使用实时计算
-	return s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
+	// 跨越当天：历史汇总 + 当天实时结果。
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	history, err := s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, yesterday, req.TimeType, platform)
+	if err != nil {
+		return nil, err
+	}
+	realtime, err := s.getStatsRealtime(ctx, req.NodeId, req.NodeType, today, today, req.TimeType, platform)
+	if err != nil {
+		return nil, err
+	}
+	return s.mergeStats(history, realtime, req.TimeType, startDate, endDate), nil
 }
 
 // getStatsFromTable 从预聚合表查询
@@ -117,26 +133,22 @@ func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId
 		queryEnd = queryEnd[:10]
 	}
 
-	query := g.DB().Model("finance_daily_stats").
+	accountIDs, err := s.getAccountIdsByNode(ctx, nodeId, nodeType, platform)
+	if err != nil {
+		return nil, err
+	}
+	if len(accountIDs) == 0 {
+		return &model.FinanceStatsRes{TimeType: timeType, StartDate: startDate, EndDate: endDate}, nil
+	}
+
+	query := g.DB().Model("finance_daily_stats").Ctx(ctx).
 		Where("stat_date >= ?", queryStart).
-		Where("stat_date <= ?", queryEnd)
+		Where("stat_date <= ?", queryEnd).
+		WhereIn("account_id", accountIDs)
 	if platform != "" {
 		query = query.Where("platform = ?", platform) // 指定平台
 	} else {
-		query = query.Where("platform = ''") // 全部平台汇总
-	}
-
-	// 根据节点类型筛选（nodeId 为编码后的ID，需要解码）
-	// 只查 account_id > 0 的行（账号维度），避免公司/部门汇总行重复计算
-	switch nodeType {
-	case "company":
-		query = query.Where("company_id = ? AND account_id > 0", nodeId)
-	case "department":
-		realDeptId := model.DecodeDeptID(nodeId)
-		query = query.Where("department_id = ? AND account_id > 0", realDeptId)
-	case "trader":
-		realTraderId := model.DecodeTraderID(nodeId)
-		query = query.Where("trader_id = ? AND account_id = 0", realTraderId)
+		query = query.Where("platform <> ''") // 空筛选代表汇总所有实际平台叶子
 	}
 
 	// 聚合统计
@@ -304,14 +316,18 @@ func (s *FinanceCommissionService) mergeStats(history, realtime *model.FinanceSt
 // GetChildren 获取下级节点列表
 func (s *FinanceCommissionService) GetChildren(ctx context.Context, req *model.FinanceChildrenReq) (*model.FinanceChildrenRes, error) {
 	startDate, endDate := s.ParseTimeRange(req.TimeType, req.StartDate, req.EndDate)
+	platform := req.Platform
+	if platform == "" {
+		platform = "douyin"
+	}
 
 	switch req.NodeType {
 	case "company":
-		return s.getCompanyChildren(ctx, req.NodeId, startDate, endDate, req.TimeType, req.Platform)
+		return s.getCompanyChildren(ctx, req.NodeId, startDate, endDate, req.TimeType, platform)
 	case "department":
-		return s.getDepartmentChildren(ctx, req.NodeId, startDate, endDate, req.TimeType, req.Platform)
+		return s.getDepartmentChildren(ctx, req.NodeId, startDate, endDate, req.TimeType, platform)
 	case "trader":
-		return s.getTraderChildren(ctx, req.NodeId, startDate, endDate, req.TimeType, req.Platform)
+		return s.getTraderChildren(ctx, req.NodeId, startDate, endDate, req.TimeType, platform)
 	}
 
 	return nil, fmt.Errorf("不支持的节点类型: %s", req.NodeType)
@@ -355,7 +371,7 @@ func (s *FinanceCommissionService) statsFinanceChildNodes(ctx context.Context, c
 	if err != nil {
 		return nil, nil, err
 	}
-	leafStats, err := s.statsAccountLeaves(ctx, shops, startDate, endDate, "")
+	leafStats, err := s.statsAccountLeavesForRange(ctx, shops, startDate, endDate, "")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1049,6 +1065,90 @@ func (s *FinanceCommissionService) statsAccountLeaves(ctx context.Context, shops
 	return result, nil
 }
 
+// statsAccountLeavesForRange 返回账号最小单元数据：历史日期读日汇总，当天实时计算。
+func (s *FinanceCommissionService) statsAccountLeavesForRange(ctx context.Context, shops gdb.Result, startDate, endDate, traderName string) (map[int]*model.FinanceStatsSummary, error) {
+	result := make(map[int]*model.FinanceStatsSummary, len(shops))
+	accountIDs := make([]int, 0, len(shops))
+	for _, shop := range shops {
+		accountID := shop["id"].Int()
+		if accountID <= 0 {
+			continue
+		}
+		accountIDs = append(accountIDs, accountID)
+		result[accountID] = &model.FinanceStatsSummary{}
+	}
+	if len(accountIDs) == 0 {
+		return result, nil
+	}
+
+	if len(startDate) > 10 {
+		startDate = startDate[:10]
+	}
+	if len(endDate) > 10 {
+		endDate = endDate[:10]
+	}
+	today := time.Now().Format("2006-01-02")
+	if startDate < today {
+		historyEnd := endDate
+		if historyEnd >= today {
+			historyEnd = time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+		}
+		rows, err := g.DB().Model("finance_daily_stats").Ctx(ctx).
+			Where("stat_date >= ?", startDate).
+			Where("stat_date <= ?", historyEnd).
+			WhereIn("account_id", accountIDs).
+			Where("platform <> ''").
+			Fields(`account_id,
+				COALESCE(SUM(total_order_count), 0) AS total_order_count,
+				COALESCE(SUM(order_count), 0) AS order_count,
+				COALESCE(SUM(invalid_order_count), 0) AS invalid_order_count,
+				COALESCE(SUM(product_num), 0) AS product_num,
+				COALESCE(SUM(pay_amount), 0) AS pay_amount,
+				COALESCE(SUM(cost_amount), 0) AS cost_amount,
+				COALESCE(SUM(reserve_amount), 0) AS reserve_amount,
+				COALESCE(SUM(commission), 0) AS commission,
+				COALESCE(SUM(refund_cost_amount), 0) AS refund_cost_amount,
+				COALESCE(SUM(refund_order_count), 0) AS refund_order_count,
+				COALESCE(SUM(shop_service_fee), 0) AS shop_service_fee,
+				COALESCE(SUM(ad_cost_amount), 0) AS ad_cost_amount,
+				COALESCE(SUM(valid_order_cost_match), 0) AS valid_order_cost_match,
+				COALESCE(SUM(commission_order_count), 0) AS commission_order_count,
+				COALESCE(SUM(realtime_profit), 0) AS realtime_profit`).
+			Group("account_id").
+			All()
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			stats := &model.FinanceStatsSummary{
+				TotalOrderCount: row["total_order_count"].Int(), OrderCount: row["order_count"].Int(),
+				InvalidOrderCount: row["invalid_order_count"].Int(), ProductNum: row["product_num"].Int(),
+				PayAmount: row["pay_amount"].Float64(), CostAmount: row["cost_amount"].Float64(),
+				ReserveAmount: row["reserve_amount"].Float64(), Commission: row["commission"].Float64(),
+				RefundCostAmount: row["refund_cost_amount"].Float64(), RefundOrderCount: row["refund_order_count"].Int(),
+				ShopServiceFee: row["shop_service_fee"].Float64(), AdCostAmount: row["ad_cost_amount"].Float64(),
+				ValidOrderCostMatch: row["valid_order_cost_match"].Int(), CommissionOrderCount: row["commission_order_count"].Int(),
+				RealtimeProfit: row["realtime_profit"].Float64(),
+			}
+			result[row["account_id"].Int()] = stats
+		}
+	}
+
+	if endDate >= today {
+		realtime, err := s.statsAccountLeaves(ctx, shops, today, today, traderName)
+		if err != nil {
+			return nil, err
+		}
+		for accountID, stats := range realtime {
+			if result[accountID] == nil {
+				result[accountID] = &model.FinanceStatsSummary{}
+			}
+			mergeFinanceStatsSummary(result[accountID], stats)
+		}
+	}
+	return result, nil
+}
+
 // getTraderChildren 获取投手下级节点（关联的店铺）
 func (s *FinanceCommissionService) getTraderChildren(ctx context.Context, traderId int64, startDate, endDate, timeType, platform string) (*model.FinanceChildrenRes, error) {
 	// 解码投手ID
@@ -1078,7 +1178,7 @@ func (s *FinanceCommissionService) getTraderChildren(ctx context.Context, trader
 	if err != nil {
 		return nil, err
 	}
-	leafStats, err := s.statsAccountLeaves(ctx, shops, startDate, endDate, trader["name"].String())
+	leafStats, err := s.statsAccountLeavesForRange(ctx, shops, startDate, endDate, trader["name"].String())
 	if err != nil {
 		return nil, err
 	}
@@ -1188,12 +1288,13 @@ func (s *FinanceCommissionService) getTraderShopStats(ctx context.Context, trade
 	shops, err := g.DB().Model("account a").
 		LeftJoin("trader_account_relation tsr", "a.id = tsr.account_id").
 		Where("tsr.trader_id", traderId).
+		Where("a.platform", "douyin").
 		Fields("a.id, a.platform, a.uid, a.account_name, a.platform_nickname").
 		All()
 	if err != nil {
 		return nil, err
 	}
-	leafStats, err := s.statsAccountLeaves(ctx, shops, startDate, endDate, traderName)
+	leafStats, err := s.statsAccountLeavesForRange(ctx, shops, startDate, endDate, traderName)
 	if err != nil {
 		return nil, err
 	}
@@ -1724,7 +1825,7 @@ func (s *FinanceCommissionService) appendFinanceResidualAccountNode(
 	if err != nil {
 		return nil, err
 	}
-	leafStats, err := s.statsAccountLeaves(ctx, shops, startDate, endDate, "")
+	leafStats, err := s.statsAccountLeavesForRange(ctx, shops, startDate, endDate, "")
 	if err != nil {
 		return nil, err
 	}

@@ -828,7 +828,8 @@ var (
 				return err
 			})
 
-			cronMgr.RegisterBuiltin("finance_daily_aggregate", "0 0 2 * * *", func(ctx context.Context) error {
+			// 千川昨天数据在 04:37 拉取，财务账号日汇总延后到 06:00，确保广告费已入库。
+			cronMgr.RegisterBuiltin("finance_daily_aggregate", "0 0 6 * * *", func(ctx context.Context) error {
 				yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 				return service.NewFinanceAggregateService().DailyAggregateJob(ctx, yesterday)
 			})

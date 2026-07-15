@@ -12,6 +12,7 @@ import (
 	_ "go-crawler/internal/packed"
 
 	_ "github.com/gogf/gf/contrib/drivers/mysql/v2"
+	"github.com/gogf/gf/v2/frame/g"
 )
 
 func TestFinanceSummarySubtractAndMergeIsConservative(t *testing.T) {
@@ -47,6 +48,80 @@ func TestFinanceProfitFormulaIncludesAdvertisingCost(t *testing.T) {
 	), 2)
 	if profit != 18479.15 {
 		t.Fatalf("profit = %.2f, want 18479.15; advertising cost must be deducted", profit)
+	}
+}
+
+func TestFinanceDailyAggregateDatabaseIntegration(t *testing.T) {
+	if os.Getenv("FINANCE_DAILY_AGGREGATE_DB_INTEGRATION") != "1" {
+		t.Skip("set FINANCE_DAILY_AGGREGATE_DB_INTEGRATION=1 to rebuild configured database dates")
+	}
+	startDate := os.Getenv("FINANCE_DAILY_AGGREGATE_START_DATE")
+	endDate := os.Getenv("FINANCE_DAILY_AGGREGATE_END_DATE")
+	start, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		t.Fatalf("invalid start date: %v", err)
+	}
+	end, err := time.Parse("2006-01-02", endDate)
+	if err != nil || end.Before(start) {
+		t.Fatalf("invalid end date: %s", endDate)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	defer cancel()
+	aggregate := NewFinanceAggregateService()
+	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
+		statDate := date.Format("2006-01-02")
+		startedAt := time.Now()
+		if err := aggregate.DailyAggregateJob(ctx, statDate); err != nil {
+			t.Fatalf("aggregate %s failed: %v", statDate, err)
+		}
+		row, err := g.DB().Model("finance_daily_stats").Ctx(ctx).
+			Where("stat_date", statDate).
+			Fields("COUNT(*) AS rows_count, SUM(account_id > 0 AND platform <> '') AS leaf_count, SUM(company_id <> 0 OR department_id <> 0 OR trader_id <> 0) AS legacy_count").
+			One()
+		if err != nil {
+			t.Fatalf("verify %s failed: %v", statDate, err)
+		}
+		if row["rows_count"].Int() == 0 || row["rows_count"].Int() != row["leaf_count"].Int() || row["legacy_count"].Int() != 0 {
+			t.Fatalf("invalid leaf aggregate %s: %+v", statDate, row.Map())
+		}
+		t.Logf("aggregated date=%s rows=%d duration=%s", statDate, row["rows_count"].Int(), time.Since(startedAt).Round(time.Millisecond))
+	}
+}
+
+func TestFinanceDailyAggregateMatchesRealtimeDatabaseIntegration(t *testing.T) {
+	if os.Getenv("FINANCE_DAILY_COMPARE_DB_INTEGRATION") != "1" {
+		t.Skip("set FINANCE_DAILY_COMPARE_DB_INTEGRATION=1 to compare aggregate and realtime data")
+	}
+	statDate := os.Getenv("FINANCE_DAILY_COMPARE_DATE")
+	companyID, err := strconv.ParseInt(os.Getenv("FINANCE_DAILY_COMPARE_COMPANY_ID"), 10, 64)
+	if statDate == "" || err != nil || companyID <= 0 {
+		t.Fatal("compare date and company id are required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	service := NewFinanceCommissionService()
+
+	compareNode := func(nodeID int64, nodeType string) {
+		t.Helper()
+		daily, err := service.getStatsFromTable(ctx, nodeID, nodeType, statDate, statDate, "custom", "douyin")
+		if err != nil {
+			t.Fatalf("query aggregate %s/%d failed: %v", nodeType, nodeID, err)
+		}
+		realtime, err := service.getStatsRealtime(ctx, nodeID, nodeType, statDate, statDate, "custom", "douyin")
+		if err != nil {
+			t.Fatalf("query realtime %s/%d failed: %v", nodeType, nodeID, err)
+		}
+		if !reflect.DeepEqual(daily.Summary, realtime.Summary) {
+			t.Fatalf("aggregate mismatch %s/%d: daily=%+v realtime=%+v", nodeType, nodeID, daily.Summary, realtime.Summary)
+		}
+		t.Logf("aggregate matches realtime node=%s/%d date=%s orders=%d pay=%.2f ad=%.2f profit=%.2f",
+			nodeType, nodeID, statDate, daily.Summary.OrderCount, daily.Summary.PayAmount, daily.Summary.AdCostAmount, daily.Summary.RealtimeProfit)
+	}
+
+	compareNode(companyID, "company")
+	if traderID, parseErr := strconv.ParseInt(os.Getenv("FINANCE_DAILY_COMPARE_TRADER_ID"), 10, 64); parseErr == nil && traderID > 0 {
+		compareNode(model.EncodeTraderID(traderID), "trader")
 	}
 }
 

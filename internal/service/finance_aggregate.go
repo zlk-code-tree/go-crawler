@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"go-crawler/internal/model"
+
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -25,101 +27,73 @@ func (s *FinanceAggregateService) DailyAggregateJob(ctx context.Context, date st
 	}
 	g.Log().Infof(ctx, "[FinanceAggregate] 开始执行日聚合任务, 日期: %s", date)
 
-	// 1. 先删除该日期的旧数据（保证幂等性）
-	_, err := g.DB().Model("finance_daily_stats").Where("stat_date", date).Delete()
+	// 历史汇总必须复用实时页面的账号叶子计算器，避免出现两套订单归属、广告费和利润公式。
+	shops, err := g.DB().Model("account").Ctx(ctx).
+		Where("status", 1).
+		Where("platform", "douyin").
+		Fields("id, platform, uid, account_name, platform_nickname").
+		All()
 	if err != nil {
-		g.Log().Errorf(ctx, "[FinanceAggregate] 删除旧数据失败: %v", err)
-		return err
+		return fmt.Errorf("查询有效账号失败: %w", err)
 	}
-
-	// 2. 查询该日期的所有有效订单（跨三张表）
-	orders, err := s.getAllValidOrders(ctx, date)
+	leafStats, err := NewFinanceCommissionService().statsAccountLeaves(ctx, shops, date, date, "")
 	if err != nil {
-		g.Log().Errorf(ctx, "[FinanceAggregate] 查询订单失败: %v", err)
-		return err
+		return fmt.Errorf("计算账号日汇总失败: %w", err)
 	}
 
-	g.Log().Infof(ctx, "[FinanceAggregate] 查询到 %d 条订单", len(orders))
-
-	// 3. 按店铺聚合
-	shopMap := s.aggregateByShop(orders)
-
-	// 3.5 补全广告消耗（通过千川映射表关联）
-	s.enrichAdCost(ctx, shopMap, date)
-
-	// 4. 写入各维度统计（去重：同一组合只写一次）
-	saved := make(map[string]bool)
-	uniqueKey := func(companyId, departmentId, traderId int64, accountId int, platform string) string {
-		return fmt.Sprintf("%d-%d-%d-%d-%s", companyId, departmentId, traderId, accountId, platform)
-	}
-
-	for accountId, stat := range shopMap {
-		// 获取账号信息
-		shop, err := g.DB().Model("account").Where("id", accountId).One()
-		if err != nil || shop.IsEmpty() {
+	rows := make([]g.Map, 0, len(shops))
+	for _, shop := range shops {
+		accountID := shop["id"].Int()
+		platform := shop["platform"].String()
+		if accountID <= 0 || platform == "" {
 			continue
 		}
-
-		companyId := shop["company_id"].Int64()
-		departmentId := shop["department_id"].Int64()
-
-		// 4.2 写入投手维度，同时从投手获取组织信息
-		traders, _ := g.DB().Model("trader_account_relation").
-			Where("account_id", accountId).
-			All()
-		for _, trader := range traders {
-			traderId := trader["trader_id"].Int64()
-			traderInfo, _ := g.DB().Model("trader").Where("id", traderId).One()
-			if !traderInfo.IsEmpty() {
-				traderCompanyId := traderInfo["company_id"].Int64()
-				traderGroupId := traderInfo["group_id"].Int64()
-
-				// 如果 shop 的 company_id/department_id 为0，从投手获取
-				if companyId == 0 && traderCompanyId > 0 {
-					companyId = traderCompanyId
-				}
-				if departmentId == 0 && traderGroupId > 0 {
-					departmentId = traderGroupId
-				}
-
-				key := uniqueKey(traderCompanyId, traderGroupId, traderId, 0, "")
-				if !saved[key] {
-					saved[key] = true
-					s.saveStat(ctx, date, traderCompanyId, traderGroupId, traderId, 0, "", stat)
-				}
-			}
+		stats := leafStats[accountID]
+		if stats == nil {
+			stats = &model.FinanceStatsSummary{}
 		}
-
-		// 4.1 写入账号维度
-		s.saveStat(ctx, date, companyId, departmentId, 0, accountId, "", stat)
-
-		// 4.3 写入部门维度（汇总）
-		if departmentId > 0 {
-			key := uniqueKey(companyId, departmentId, 0, 0, "")
-			if !saved[key] {
-				saved[key] = true
-				s.saveStat(ctx, date, companyId, departmentId, 0, 0, "", stat)
-			}
-		}
-
-		// 4.4 写入公司维度（汇总）
-		if companyId > 0 {
-			key := uniqueKey(companyId, 0, 0, 0, "")
-			if !saved[key] {
-				saved[key] = true
-				s.saveStat(ctx, date, companyId, 0, 0, 0, "", stat)
-			}
-		}
-
-		// 4.5 写入平台维度（可选）
-		platform := shop["platform"].String()
-		if platform != "" {
-			s.saveStat(ctx, date, companyId, departmentId, 0, accountId, platform, stat)
-		}
+		rows = append(rows, financeDailyLeafRow(date, accountID, platform, *stats))
 	}
 
-	g.Log().Infof(ctx, "[FinanceAggregate] 日聚合任务完成, 日期: %s, 账号数: %d", date, len(shopMap))
+	// 先在事务外完成计算，事务内一次性替换；失败时页面仍可读取旧数据。
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, err := tx.Model("finance_daily_stats").Ctx(ctx).Where("stat_date", date).Delete(); err != nil {
+			return err
+		}
+		const batchSize = 200
+		for start := 0; start < len(rows); start += batchSize {
+			end := start + batchSize
+			if end > len(rows) {
+				end = len(rows)
+			}
+			if _, err := tx.Model("finance_daily_stats").Ctx(ctx).Data(rows[start:end]).Insert(); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("保存账号日汇总失败: %w", err)
+	}
+
+	g.Log().Infof(ctx, "[FinanceAggregate] 日聚合任务完成, 日期: %s, 账号数: %d", date, len(rows))
 	return nil
+}
+
+func financeDailyLeafRow(date string, accountID int, platform string, stats model.FinanceStatsSummary) g.Map {
+	return g.Map{
+		"stat_date": date, "company_id": 0, "department_id": 0, "trader_id": 0,
+		"account_id": accountID, "platform": platform,
+		"total_order_count": stats.TotalOrderCount, "order_count": stats.OrderCount,
+		"invalid_order_count": stats.InvalidOrderCount, "product_num": stats.ProductNum,
+		"pay_amount": stats.PayAmount, "cost_amount": stats.CostAmount,
+		"reserve_amount": stats.ReserveAmount, "commission": stats.Commission,
+		"refund_cost_amount": stats.RefundCostAmount, "refund_order_count": stats.RefundOrderCount,
+		"shop_service_fee": stats.ShopServiceFee, "ad_cost_amount": stats.AdCostAmount,
+		"valid_order_cost_match": stats.ValidOrderCostMatch,
+		"commission_order_count": stats.CommissionOrderCount,
+		"realtime_profit":        stats.RealtimeProfit,
+	}
 }
 
 // OrderStatItem 订单统计项
@@ -374,7 +348,7 @@ func (s *FinanceAggregateService) saveStat(ctx context.Context, date string, com
 	}
 }
 
-// AggregateRange 回填历史数据（3并发）
+// AggregateRange 回填历史账号日汇总（2并发）。
 func (s *FinanceAggregateService) AggregateRange(ctx context.Context, startDate, endDate string) error {
 	start, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
@@ -401,6 +375,7 @@ func (s *FinanceAggregateService) AggregateRange(ctx context.Context, startDate,
 	close(dateCh)
 
 	var wg sync.WaitGroup
+	errCh := make(chan error, len(dates))
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
@@ -408,11 +383,16 @@ func (s *FinanceAggregateService) AggregateRange(ctx context.Context, startDate,
 			for date := range dateCh {
 				if err := s.DailyAggregateJob(ctx, date); err != nil {
 					g.Log().Errorf(ctx, "[FinanceAggregate] 回填数据失败, 日期: %s, 错误: %v", date, err)
+					errCh <- fmt.Errorf("日期%s: %w", date, err)
 				}
 			}
 		}()
 	}
 	wg.Wait()
+	close(errCh)
+	for aggregateErr := range errCh {
+		return aggregateErr
+	}
 
 	return nil
 }
