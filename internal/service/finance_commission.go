@@ -190,11 +190,11 @@ func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId
 // getStatsRealtime 实时计算统计
 func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId int64, nodeType, startDate, endDate, timeType, platform string) (*model.FinanceStatsRes, error) {
 	if nodeType == "company" && (platform == "" || platform == "douyin") {
-		isRoot, rootErr := isRootFinanceCompany(ctx, nodeId)
-		if rootErr != nil {
-			return nil, rootErr
+		useFullSnapshot, scopeErr := shouldUseFullDouyinCompanySnapshot(ctx, nodeId)
+		if scopeErr != nil {
+			return nil, scopeErr
 		}
-		if isRoot {
+		if useFullSnapshot {
 			snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
 			if snapshotErr != nil {
 				return nil, snapshotErr
@@ -1520,16 +1520,7 @@ func (s *FinanceCommissionService) getAdCostByAccountIds(ctx context.Context, ac
 	if len(accountIds) == 0 || startDate == "" || endDate == "" {
 		return 0
 	}
-	row, err := g.DB().Model("account_qianchuan_mapping aqm").
-		LeftJoin("qianchuan_advertiser_daily_report qar", qianchuanAdReportJoinCondRange(startDate, endDate)).
-		WhereIn("aqm.account_id", accountIds).
-		Fields("COALESCE(SUM(qar.stat_cost), 0) AS ad_cost").
-		One()
-	if err != nil {
-		g.Log().Warningf(ctx, "[Finance] 查询千川广告消耗失败: accountIds=%v, err=%v", accountIds, err)
-		return 0
-	}
-	return roundFloatFinance(row["ad_cost"].Float64(), 2)
+	return roundFloatFinance(s.getAdCostByAccountsRange(ctx, accountIds, startDate, endDate), 2)
 }
 
 // extractDateRange 从 startDate/endDate（可能含时间部分）提取纯日期 2006-01-02

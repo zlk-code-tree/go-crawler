@@ -195,3 +195,34 @@ func isRootFinanceCompany(ctx context.Context, companyID int64) (bool, error) {
 	}
 	return !row.IsEmpty() && row["parent_id"].Int64() == 0, nil
 }
+
+// shouldUseFullDouyinCompanySnapshot 判断公司统计是否应覆盖全量抖音订单。
+// 根公司沿用原有全量口径；非根公司仅在其公司树覆盖全部有效抖音账号时使用全量口径，
+// 从而纳入尚未绑定 UID 的订单，同时避免多公司场景下跨公司串单。
+func shouldUseFullDouyinCompanySnapshot(ctx context.Context, companyID int64) (bool, error) {
+	isRoot, err := isRootFinanceCompany(ctx, companyID)
+	if err != nil || isRoot || companyID <= 0 {
+		return isRoot, err
+	}
+
+	row, err := g.DB().GetOne(ctx, `
+		WITH RECURSIVE company_tree AS (
+			SELECT id FROM sys_company WHERE id = ? AND status = 1
+			UNION ALL
+			SELECT child.id
+			FROM sys_company child
+			INNER JOIN company_tree parent ON child.parent_id = parent.id
+			WHERE child.status = 1
+		)
+		SELECT
+			COUNT(*) AS total_accounts,
+			COALESCE(SUM(CASE WHEN company_id IN (SELECT id FROM company_tree) THEN 1 ELSE 0 END), 0) AS owned_accounts
+		FROM account
+		WHERE platform = 'douyin' AND status = 1`, companyID)
+	if err != nil {
+		return false, fmt.Errorf("判断公司抖音统计范围失败: %w", err)
+	}
+	total := row["total_accounts"].Int64()
+	owned := row["owned_accounts"].Int64()
+	return total > 0 && owned == total, nil
+}

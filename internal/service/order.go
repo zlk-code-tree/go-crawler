@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -671,6 +672,87 @@ func orderListWeightedIndex(orderKey string, ratios []float64) int {
 	return lastPositive
 }
 
+// orderListExactWeightedAssignments 使用最大余数法生成稳定的整数订单配额。
+// 同一批订单和权重无论查询多少次都会得到相同结果，同时保证订单数严格守恒。
+func orderListExactWeightedAssignments(scopeKey string, orderKeys []string, ratios []float64) map[string]int {
+	assignments := make(map[string]int)
+	if len(orderKeys) == 0 || len(ratios) == 0 {
+		return assignments
+	}
+
+	uniqueKeys := make([]string, 0, len(orderKeys))
+	seen := make(map[string]struct{}, len(orderKeys))
+	for _, orderKey := range orderKeys {
+		if orderKey == "" {
+			continue
+		}
+		if _, exists := seen[orderKey]; exists {
+			continue
+		}
+		seen[orderKey] = struct{}{}
+		uniqueKeys = append(uniqueKeys, orderKey)
+	}
+	if len(uniqueKeys) == 0 {
+		return assignments
+	}
+
+	totalWeight := 0.0
+	for _, ratio := range ratios {
+		if ratio > 0 {
+			totalWeight += ratio
+		}
+	}
+	if totalWeight <= 0 {
+		return assignments
+	}
+
+	type remainderItem struct {
+		index     int
+		remainder float64
+	}
+	quotas := make([]int, len(ratios))
+	remainders := make([]remainderItem, 0, len(ratios))
+	allocated := 0
+	for i, ratio := range ratios {
+		if ratio < 0 {
+			ratio = 0
+		}
+		exactQuota := float64(len(uniqueKeys)) * ratio / totalWeight
+		baseQuota := int(math.Floor(exactQuota))
+		quotas[i] = baseQuota
+		allocated += baseQuota
+		remainders = append(remainders, remainderItem{index: i, remainder: exactQuota - float64(baseQuota)})
+	}
+	sort.SliceStable(remainders, func(i, j int) bool {
+		if math.Abs(remainders[i].remainder-remainders[j].remainder) > 1e-12 {
+			return remainders[i].remainder > remainders[j].remainder
+		}
+		return remainders[i].index < remainders[j].index
+	})
+	for i := 0; allocated < len(uniqueKeys); i++ {
+		quotas[remainders[i%len(remainders)].index]++
+		allocated++
+	}
+
+	sort.SliceStable(uniqueKeys, func(i, j int) bool {
+		left := sha256.Sum256([]byte(scopeKey + "\x00" + uniqueKeys[i]))
+		right := sha256.Sum256([]byte(scopeKey + "\x00" + uniqueKeys[j]))
+		if left == right {
+			return uniqueKeys[i] < uniqueKeys[j]
+		}
+		return string(left[:]) < string(right[:])
+	})
+
+	position := 0
+	for ownerIndex, quota := range quotas {
+		for count := 0; count < quota && position < len(uniqueKeys); count++ {
+			assignments[uniqueKeys[position]] = ownerIndex
+			position++
+		}
+	}
+	return assignments
+}
+
 func orderListAllocationPercent(ratio float64) string {
 	if ratio <= 0 {
 		return ""
@@ -861,6 +943,8 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 	}
 
 	type accountInfo struct {
+		id               int64
+		traderID         int64
 		uid              string
 		accountName      string
 		platformNickname string
@@ -984,7 +1068,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			}
 		}
 
-		sql := "SELECT a.id, a.uid, a.account_name, a.platform_nickname, a.operator, c.name AS company_name FROM account a LEFT JOIN sys_company c ON a.company_id = c.id WHERE a.platform = 'douyin' AND a.status = 1"
+		sql := "SELECT a.id, a.uid, a.account_name, a.platform_nickname, a.operator, c.name AS company_name, (SELECT MIN(tar.trader_id) FROM trader_account_relation tar WHERE tar.account_id = a.id) AS trader_id FROM account a LEFT JOIN sys_company c ON a.company_id = c.id WHERE a.platform = 'douyin' AND a.status = 1"
 		if len(resolveShopNames) > 0 {
 			params = nil
 		} else if len(conds) > 0 {
@@ -1000,6 +1084,8 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 		}
 		for _, row := range rows {
 			info := accountInfo{
+				id:               row["id"].Int64(),
+				traderID:         row["trader_id"].Int64(),
 				uid:              row["uid"].String(),
 				accountName:      row["account_name"].String(),
 				platformNickname: row["platform_nickname"].String(),
@@ -1183,35 +1269,25 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			totalCost += match.statCost
 		}
 		for i := range matches {
-			if totalPayOrders > 0 {
-				matches[i].allocationRatio = orderListWeightedRatio(float64(totalPayOrders), float64(matches[i].payOrderCount))
-				matches[i].allocationBasis = "pay_order_count"
-			} else {
+			if totalCost > 0 {
 				matches[i].allocationRatio = orderListWeightedRatio(totalCost, matches[i].statCost)
 				matches[i].allocationBasis = "stat_cost"
+			} else {
+				matches[i].allocationRatio = orderListWeightedRatio(float64(totalPayOrders), float64(matches[i].payOrderCount))
+				matches[i].allocationBasis = "pay_order_count_fallback"
 			}
 		}
 		return matches
-	}
-	selectQianchuanMatch := func(orderKey string, matches []qianchuanMatchInfo) (qianchuanMatchInfo, bool) {
-		if len(matches) == 0 {
-			return qianchuanMatchInfo{}, false
-		}
-		ratios := make([]float64, len(matches))
-		for i, match := range matches {
-			ratios[i] = match.allocationRatio
-		}
-		if index := orderListWeightedIndex(orderKey, ratios); index >= 0 {
-			return matches[index], true
-		}
-		return qianchuanMatchInfo{}, false
 	}
 
 	qianchuanRequests := make([]qianchuanMatchRequest, 0, len(result))
 	qianchuanRequestSet := make(map[string]struct{}, len(result))
 	for _, row := range result {
 		alliance := allianceByOrder[row["sub_order_no"].String()]
-		if orderListNormalizedTalentID(row["talent_id"].String()) != "" || strings.TrimSpace(alliance["short_id"].String()) != "" {
+		rawTalentName := orderListFirstNonEmpty(row["talent_name"].String(), alliance["author_account"].String())
+		if orderListNormalizedTalentID(row["talent_id"].String()) != "" ||
+			strings.TrimSpace(alliance["short_id"].String()) != "" ||
+			orderListNormalizedLookupKey(rawTalentName) != "" {
 			continue
 		}
 
@@ -1259,13 +1335,16 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 						q.ad_id,
 						q.ad_name,
 						q.aweme_show_id,
+						q.aweme_id,
 						q.pay_order_count,
 						q.stat_cost,
+						a.id AS account_id,
 						a.uid,
 						a.account_name,
 						a.platform_nickname,
 					a.operator,
-					c.name AS company_name
+					c.name AS company_name,
+					(SELECT MIN(tar.trader_id) FROM trader_account_relation tar WHERE tar.account_id = a.id) AS trader_id
 				FROM (
 					SELECT
 							LEFT(qar.stat_datetime, 10) AS stat_date,
@@ -1273,6 +1352,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 							CAST(qar.product_id AS CHAR) AS product_id,
 							qar.ad_id AS ad_id,
 							MAX(qar.ad_name) AS ad_name,
+							MAX(qar.aweme_id) AS aweme_id,
 							qar.aweme_show_id AS aweme_show_id,
 							COALESCE(SUM(qar.pay_order_count), 0) AS pay_order_count,
 							COALESCE(SUM(qar.stat_cost), 0) AS stat_cost
@@ -1293,21 +1373,14 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 						  AND (%s)
 					GROUP BY LEFT(qar.stat_datetime, 10), COALESCE(mapped_shop.shop_name, legacy_shop.account_name), CAST(qar.product_id AS CHAR), qar.ad_id, qar.aweme_show_id
 				) q
-				LEFT JOIN (
-					SELECT
-						platform_nickname,
-						MAX(id) AS id,
-						MAX(uid) AS uid,
-						MAX(account_name) AS account_name,
-						MAX(operator) AS operator,
-						MAX(company_id) AS company_id
-					FROM account
-					WHERE platform = 'douyin'
-					  AND status = 1
-					  AND platform_nickname IS NOT NULL
-					  AND platform_nickname != ''
-					GROUP BY platform_nickname
-				) a ON a.platform_nickname COLLATE utf8mb4_unicode_ci = q.aweme_show_id COLLATE utf8mb4_unicode_ci
+					INNER JOIN account a
+					  ON a.platform = 'douyin'
+					 AND a.status = 1
+					 AND (
+						(q.aweme_id > 0 AND a.uid COLLATE utf8mb4_unicode_ci = CAST(q.aweme_id AS CHAR) COLLATE utf8mb4_unicode_ci)
+						OR
+						(q.aweme_id = 0 AND q.aweme_show_id != '' AND a.platform_nickname COLLATE utf8mb4_unicode_ci = q.aweme_show_id COLLATE utf8mb4_unicode_ci)
+					 )
 				LEFT JOIN sys_company c ON a.company_id = c.id
 					ORDER BY q.stat_date, q.shop_name, q.product_id, q.pay_order_count DESC, q.stat_cost DESC, a.id DESC, q.ad_id ASC`,
 				strings.Join(conds, " OR "),
@@ -1326,6 +1399,8 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				}
 				qianchuanByKey[key] = append(qianchuanByKey[key], qianchuanMatchInfo{
 					accountInfo: accountInfo{
+						id:               row["account_id"].Int64(),
+						traderID:         row["trader_id"].Int64(),
 						uid:              row["uid"].String(),
 						accountName:      row["account_name"].String(),
 						platformNickname: row["platform_nickname"].String(),
@@ -1346,7 +1421,54 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 		}
 	}
 
+	// 先按日期+店铺+商品收集真正无达人信息的小店自营订单，再按千川消耗权重生成严格整数配额。
+	qianchuanOrderKeysByScope := make(map[string][]string)
+	for _, row := range result {
+		alliance := allianceByOrder[row["sub_order_no"].String()]
+		rawTalentName := orderListFirstNonEmpty(row["talent_name"].String(), alliance["author_account"].String())
+		if orderListNormalizedTalentID(row["talent_id"].String()) != "" ||
+			strings.TrimSpace(alliance["short_id"].String()) != "" ||
+			orderListNormalizedLookupKey(rawTalentName) != "" {
+			continue
+		}
+		scopeKey := orderListQianchuanMatchKey(orderListStatDateFromRow(row), row["shop_name"].String(), row["product_id"].String())
+		if len(qianchuanByKey[scopeKey]) == 0 {
+			continue
+		}
+		orderKey := orderListFirstNonEmpty(row["main_order_no"].String(), row["sub_order_no"].String(), row["id"].String())
+		if orderKey != "" {
+			qianchuanOrderKeysByScope[scopeKey] = append(qianchuanOrderKeysByScope[scopeKey], orderKey)
+		}
+	}
+	qianchuanAssignmentByOrder := make(map[string]qianchuanMatchInfo)
+	scopeKeys := make([]string, 0, len(qianchuanOrderKeysByScope))
+	for scopeKey := range qianchuanOrderKeysByScope {
+		scopeKeys = append(scopeKeys, scopeKey)
+	}
+	sort.Strings(scopeKeys)
+	for _, scopeKey := range scopeKeys {
+		matches := qianchuanByKey[scopeKey]
+		availableOrderKeys := make([]string, 0, len(qianchuanOrderKeysByScope[scopeKey]))
+		for _, orderKey := range qianchuanOrderKeysByScope[scopeKey] {
+			if _, assigned := qianchuanAssignmentByOrder[orderKey]; !assigned {
+				availableOrderKeys = append(availableOrderKeys, orderKey)
+			}
+		}
+		ratios := make([]float64, len(matches))
+		for i, match := range matches {
+			ratios[i] = match.allocationRatio
+		}
+		for orderKey, ownerIndex := range orderListExactWeightedAssignments(scopeKey, availableOrderKeys, ratios) {
+			if ownerIndex >= 0 && ownerIndex < len(matches) {
+				qianchuanAssignmentByOrder[orderKey] = matches[ownerIndex]
+			}
+		}
+	}
+
 	type resolvedMeta struct {
+		accountID           int64
+		traderID            int64
+		attributionSource   string
 		talentUID           string
 		talentName          string
 		commissionRate      string
@@ -1397,7 +1519,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			douyinAccount := orderListFirstNonEmpty(internalInfo.platformNickname, shortID, externalInfo.showID)
 			operator := strings.TrimSpace(internalInfo.operator)
 			isShopSelfSale := orderListIsShopSelfSale(row, talentUID, talentName, douyinAccount)
-			if internalField == "shop_account" || internalField == "qianchuan_plan" {
+			if internalField == "shop_account" {
 				isShopSelfSale = true
 			}
 			orderOwnershipCode, orderOwnership, talentOwnershipCode, talentOwnership, matchedBy := orderListResolveOwnership(
@@ -1410,6 +1532,9 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			commission := orderListCommissionAmount(row)
 
 			resolved[i] = append(resolved[i], resolvedMeta{
+				accountID:           internalInfo.id,
+				traderID:            internalInfo.traderID,
+				attributionSource:   internalField,
 				talentUID:           talentUID,
 				talentName:          talentName,
 				commissionRate:      orderListActualCommissionRate(row, commission),
@@ -1437,13 +1562,10 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			})
 		}
 
-		if !hasInternal && !hasExternal && originTalentID == "" && shortID == "" {
-			key := orderListQianchuanMatchKey(orderListStatDateFromRow(row), row["shop_name"].String(), row["product_id"].String())
-			if matches, ok := qianchuanByKey[key]; ok && len(matches) > 0 {
-				orderKey := orderListFirstNonEmpty(row["sub_order_no"].String(), row["main_order_no"].String(), row["id"].String())
-				if match, matched := selectQianchuanMatch(orderKey, matches); matched {
-					appendResolved(match.accountInfo, "qianchuan_plan", true, match)
-				}
+		if !hasInternal && !hasExternal && originTalentID == "" && shortID == "" && orderListNormalizedLookupKey(rawTalentName) == "" {
+			orderKey := orderListFirstNonEmpty(row["main_order_no"].String(), row["sub_order_no"].String(), row["id"].String())
+			if match, matched := qianchuanAssignmentByOrder[orderKey]; matched {
+				appendResolved(match.accountInfo, "qianchuan_plan", true, match)
 			}
 		}
 		if len(resolved[i]) == 0 && !hasInternal && !hasExternal && originTalentID == "" && shortID == "" && rawTalentName == "" {
@@ -1525,6 +1647,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				allocationRowID = fmt.Sprintf("%s_%d_%d", row["id"].String(), item.qianchuanPlanID, allocationIndex+1)
 			}
 
+			// talentId 是列表展示使用的归属结果，可能由千川计划反推；利润归属必须保留订单原始 UID。
 			orders = append(orders, g.Map{
 				"id":                            row["id"],
 				"allocationRowId":               allocationRowID,
@@ -1536,6 +1659,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				"productNum":                    row["product_num"],
 				"originalProductNum":            row["product_num"],
 				"productId":                     row["product_id"],
+				"attributionStatDate":           orderListStatDateFromRow(row),
 				"productPrice":                  row["product_price"],
 				"orderPayAmount":                row["order_pay_amount"],
 				"originalOrderPayAmount":        row["order_pay_amount"],
@@ -1557,6 +1681,10 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				"afterSaleStatus":               row["after_sale_status"],
 				"afterSaleStatusLabel":          orderListAfterSaleStatusLabel(row["after_sale_status"].String()),
 				"talentId":                      item.talentUID,
+				"originalTalentId":              row["talent_id"],
+				"profitAttributionSource":       item.attributionSource,
+				"attributedAccountId":           item.accountID,
+				"attributedTraderId":            item.traderID,
 				"productCost":                   productCost,
 				"originalProductCost":           roundFloatOrder(row["base_price"].Float64()*float64(row["product_num"].Int()), 2),
 				"shopServiceFee":                row["shop_service_fee"],
@@ -1593,7 +1721,89 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 		}
 	}
 
+	persistDouyinQianchuanAttributions(ctx, orders)
 	return orders, nil
+}
+
+// persistDouyinQianchuanAttributions 保存千川反推结果，便于对单个订单的利润归属进行复核。
+// 归属表是审计辅助数据；表未迁移或写入失败不影响当次利润计算。
+func persistDouyinQianchuanAttributions(ctx context.Context, orders []g.Map) {
+	if len(orders) == 0 || ctx.Err() != nil {
+		return
+	}
+	exists, err := g.DB().GetOne(ctx, `
+		SELECT COUNT(*) AS cnt
+		FROM information_schema.tables
+		WHERE table_schema = DATABASE() AND table_name = 'douyin_order_attribution'`)
+	if err != nil {
+		g.Log().Warningf(ctx, "[DouyinOrderAttribution] 检查归属表失败: %v", err)
+		return
+	}
+	if exists["cnt"].Int() == 0 {
+		return
+	}
+
+	const batchSize = 500
+	for start := 0; start < len(orders); {
+		values := make([]string, 0, batchSize)
+		params := make([]interface{}, 0, batchSize*16)
+		for start < len(orders) && len(values) < batchSize {
+			order := orders[start]
+			start++
+			if strings.TrimSpace(gconv.String(order["profitAttributionSource"])) != "qianchuan_plan" ||
+				gconv.Int64(order["id"]) <= 0 ||
+				strings.TrimSpace(gconv.String(order["attributionStatDate"])) == "" {
+				continue
+			}
+			values = append(values, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			params = append(params,
+				gconv.Int64(order["id"]),
+				gconv.String(order["mainOrderNo"]),
+				gconv.String(order["subOrderNo"]),
+				gconv.String(order["attributionStatDate"]),
+				gconv.String(order["shopName"]),
+				gconv.String(order["productId"]),
+				"qianchuan_plan",
+				gconv.Int64(order["attributedAccountId"]),
+				gconv.Int64(order["attributedTraderId"]),
+				gconv.String(order["talentId"]),
+				gconv.Int64(order["qianchuanPlanId"]),
+				gconv.Int(order["qianchuanPlanCount"]),
+				gconv.Float64(order["qianchuanStatCost"]),
+				gconv.Float64(order["allocationRatio"]),
+				gconv.String(order["qianchuanAllocationBasis"]),
+				"qianchuan_cost_quota_v1",
+			)
+		}
+		if len(values) == 0 {
+			continue
+		}
+		sql := `INSERT INTO douyin_order_attribution (
+			order_info_id, main_order_no, sub_order_no, stat_date, shop_name, product_id,
+			source, account_id, trader_id, talent_uid, qianchuan_plan_id, qianchuan_plan_count,
+			qianchuan_stat_cost, allocation_ratio, allocation_basis, rule_version
+		) VALUES ` + strings.Join(values, ",") + `
+		ON DUPLICATE KEY UPDATE
+			main_order_no = VALUES(main_order_no),
+			sub_order_no = VALUES(sub_order_no),
+			stat_date = VALUES(stat_date),
+			shop_name = VALUES(shop_name),
+			product_id = VALUES(product_id),
+			account_id = VALUES(account_id),
+			trader_id = VALUES(trader_id),
+			talent_uid = VALUES(talent_uid),
+			qianchuan_plan_id = VALUES(qianchuan_plan_id),
+			qianchuan_plan_count = VALUES(qianchuan_plan_count),
+			qianchuan_stat_cost = VALUES(qianchuan_stat_cost),
+			allocation_ratio = VALUES(allocation_ratio),
+			allocation_basis = VALUES(allocation_basis),
+			rule_version = VALUES(rule_version),
+			calculated_at = CURRENT_TIMESTAMP`
+		if _, err := g.DB().Exec(ctx, sql, params...); err != nil {
+			g.Log().Warningf(ctx, "[DouyinOrderAttribution] 保存千川归属结果失败: %v", err)
+			return
+		}
+	}
 }
 
 // OrderStats 订单统计数据
@@ -1831,7 +2041,22 @@ func (s *OrderService) statsFromEnrichedOrders(ctx context.Context, orders []g.M
 	return stats
 }
 
-// statsDouyinOrdersByOwner 在汇总投手抖音订单前复用订单列表的联盟/千川归属规则。
+func douyinOrderMatchesBoundUID(order g.Map, selectedUIDs map[string]struct{}) bool {
+	rawTalentUID := orderListNormalizedTalentID(gconv.String(order["originalTalentId"]))
+	if rawTalentUID != "" {
+		_, selected := selectedUIDs[rawTalentUID]
+		return selected
+	}
+	if strings.TrimSpace(gconv.String(order["profitAttributionSource"])) != "qianchuan_plan" {
+		return false
+	}
+	inferredTalentUID := orderListNormalizedTalentID(gconv.String(order["talentId"]))
+	_, selected := selectedUIDs[inferredTalentUID]
+	return selected
+}
+
+// statsDouyinOrdersByOwner 按账号绑定 UID 汇总投手抖音订单。
+// 原始 UID 始终优先；仅真正无达人信息且被千川计划明确分配的小店自营订单可用反推 UID。
 func (s *OrderService) statsDouyinOrdersByOwner(ctx context.Context, accountIDs []int, traderName, startDate, endDate string) (*model.FinanceStatsSummary, error) {
 	if len(accountIDs) == 0 || strings.TrimSpace(traderName) == "" {
 		return &model.FinanceStatsSummary{}, nil
@@ -1868,10 +2093,7 @@ func (s *OrderService) statsDouyinOrdersByOwner(ctx context.Context, accountIDs 
 	validCostOrders := make(map[string]struct{})
 	commissionOrders := make(map[string]struct{})
 	for _, order := range enriched {
-		talentUID := orderListNormalizedTalentID(gconv.String(order["talentId"]))
-		owner := strings.TrimSpace(gconv.String(order["teamOwner"]))
-		_, selected := selectedUIDs[talentUID]
-		if owner != traderName && !(owner == "" && selected) {
+		if !douyinOrderMatchesBoundUID(order, selectedUIDs) {
 			continue
 		}
 

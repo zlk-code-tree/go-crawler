@@ -1,0 +1,30 @@
+-- 抖音小店自营订单的千川计划归属结果。
+-- 订单归属按日期+店铺+商品匹配，再按达人千川消耗权重分配整数订单配额。
+CREATE TABLE IF NOT EXISTS `douyin_order_attribution` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `order_info_id` BIGINT NOT NULL COMMENT '抖音订单明细ID',
+    `main_order_no` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '主订单号',
+    `sub_order_no` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '子订单号',
+    `stat_date` DATE NOT NULL COMMENT '归属日期',
+    `shop_name` VARCHAR(200) NOT NULL DEFAULT '' COMMENT '店铺名称',
+    `product_id` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '商品ID',
+    `source` VARCHAR(30) NOT NULL DEFAULT 'qianchuan_plan' COMMENT '归属来源',
+    `account_id` BIGINT NOT NULL DEFAULT 0 COMMENT '归属达人账号ID',
+    `trader_id` BIGINT NOT NULL DEFAULT 0 COMMENT '归属投手ID快照',
+    `talent_uid` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '归属达人UID',
+    `qianchuan_plan_id` BIGINT NOT NULL DEFAULT 0 COMMENT '千川计划ID，0表示多计划合并',
+    `qianchuan_plan_count` INT NOT NULL DEFAULT 0 COMMENT '参与归属的计划数',
+    `qianchuan_stat_cost` DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '归属范围内该达人消耗',
+    `allocation_ratio` DECIMAL(12,8) NOT NULL DEFAULT 0.00000000 COMMENT '消耗权重',
+    `allocation_basis` VARCHAR(30) NOT NULL DEFAULT 'stat_cost' COMMENT '分配依据',
+    `rule_version` VARCHAR(40) NOT NULL DEFAULT 'qianchuan_cost_quota_v1' COMMENT '规则版本',
+    `calculated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最后计算时间',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_order_source` (`order_info_id`, `source`),
+    INDEX `idx_stat_shop_product` (`stat_date`, `shop_name`, `product_id`),
+    INDEX `idx_account_date` (`account_id`, `stat_date`),
+    INDEX `idx_trader_date` (`trader_id`, `stat_date`),
+    INDEX `idx_main_order_no` (`main_order_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='抖音小店自营订单千川归属结果';

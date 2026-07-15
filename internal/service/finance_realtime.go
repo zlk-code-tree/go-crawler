@@ -70,8 +70,14 @@ func (s *FinanceCommissionService) GetRealtimeProfit(ctx context.Context, req *R
 			endDate = startDate
 		}
 	}
+	if len(startDate) > 10 {
+		startDate = startDate[:10]
+	}
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
+	}
+	if len(endDate) > 10 {
+		endDate = endDate[:10]
 	}
 	if _, err := time.Parse("2006-01-02", endDate); err != nil {
 		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
@@ -81,11 +87,11 @@ func (s *FinanceCommissionService) GetRealtimeProfit(ctx context.Context, req *R
 
 	result := &RealtimeProfitResult{StatDate: startDate + " ~ " + endDate}
 	if req.CompanyId > 0 {
-		isRoot, rootErr := isRootFinanceCompany(ctx, req.CompanyId)
-		if rootErr != nil {
-			return nil, rootErr
+		useFullSnapshot, scopeErr := shouldUseFullDouyinCompanySnapshot(ctx, req.CompanyId)
+		if scopeErr != nil {
+			return nil, scopeErr
 		}
-		if isRoot {
+		if useFullSnapshot {
 			snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
 			if snapshotErr != nil {
 				return nil, snapshotErr
@@ -405,7 +411,8 @@ func (s *FinanceCommissionService) getAdCostByAccounts(ctx context.Context, acco
 	return s.getAdCostByAccountsRange(ctx, accountIds, date, date)
 }
 
-// getAdCostByAccountsRange 查询指定账号集合在日期范围内的千川广告消耗
+// getAdCostByAccountsRange 查询指定账号集合在日期范围内的有效千川消耗。
+// 达人日报优先，缺失时才使用已准确匹配账号的计划日报，避免重复计算。
 func (s *FinanceCommissionService) getAdCostByAccountsRange(ctx context.Context, accountIds []int, startDate, endDate string) float64 {
 	if len(accountIds) == 0 {
 		return 0
@@ -489,8 +496,14 @@ func (s *FinanceCommissionService) GetStoreCostStats(ctx context.Context, startD
 			endDate = startDate
 		}
 	}
+	if len(startDate) > 10 {
+		startDate = startDate[:10]
+	}
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
+	}
+	if len(endDate) > 10 {
+		endDate = endDate[:10]
 	}
 	if _, err := time.Parse("2006-01-02", endDate); err != nil {
 		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
@@ -634,8 +647,14 @@ func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, start
 			endDate = startDate
 		}
 	}
+	if len(startDate) > 10 {
+		startDate = startDate[:10]
+	}
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, 0, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
+	}
+	if len(endDate) > 10 {
+		endDate = endDate[:10]
 	}
 	if _, err := time.Parse("2006-01-02", endDate); err != nil {
 		return nil, 0, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
@@ -776,8 +795,14 @@ func (s *FinanceCommissionService) GetAuthorCostRanking(ctx context.Context, sta
 			endDate = startDate
 		}
 	}
+	if len(startDate) > 10 {
+		startDate = startDate[:10]
+	}
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, 0, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
+	}
+	if len(endDate) > 10 {
+		endDate = endDate[:10]
 	}
 	if _, err := time.Parse("2006-01-02", endDate); err != nil {
 		return nil, 0, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
@@ -852,8 +877,14 @@ func (s *FinanceCommissionService) GetCostRanking(ctx context.Context, startDate
 			endDate = startDate
 		}
 	}
+	if len(startDate) > 10 {
+		startDate = startDate[:10]
+	}
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
+	}
+	if len(endDate) > 10 {
+		endDate = endDate[:10]
 	}
 	if _, err := time.Parse("2006-01-02", endDate); err != nil {
 		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)

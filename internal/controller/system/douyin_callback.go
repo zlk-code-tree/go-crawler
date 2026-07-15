@@ -79,6 +79,12 @@ func (c *DouyinCallbackController) Callback(r *ghttp.Request) {
 	for _, advID := range advertiserIDs {
 		ar := accountResult{AdvertiserID: advID}
 
+		// 校验广告主是否活跃（外部/无效账户跳过拉取）
+		if !oceanengine.IsAdvertiserActive(ctx, advID) {
+			g.Log().Infof(ctx, "[QianchuanCallback] 广告主%d标记为非活跃，跳过拉取", advID)
+			continue
+		}
+
 		pullResult, err := client.PullAll(ctx, advID, pullDays)
 		if err != nil {
 			ar.Error = err.Error()

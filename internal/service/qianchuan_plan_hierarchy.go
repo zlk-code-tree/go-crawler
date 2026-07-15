@@ -272,8 +272,15 @@ func normalizeQianchuanHierarchyDates(startDate, endDate string) (string, string
 		today := time.Now().Format("2006-01-02")
 		startDate, endDate = today, today
 	}
-	start, startErr := time.Parse("2006-01-02", startDate)
-	end, endErr := time.Parse("2006-01-02", endDate)
+		// 支持前端传入带时分秒的日期，截取日期部分
+		if len(startDate) > 10 {
+			startDate = startDate[:10]
+		}
+		if len(endDate) > 10 {
+			endDate = endDate[:10]
+		}
+		start, startErr := time.Parse("2006-01-02", startDate)
+		end, endErr := time.Parse("2006-01-02", endDate)
 	if startErr != nil || endErr != nil || end.Before(start) {
 		return "", "", "", fmt.Errorf("日期格式错误或结束日期早于开始日期")
 	}

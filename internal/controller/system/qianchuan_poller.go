@@ -451,8 +451,8 @@ func (c *QianchuanPollerController) ManualTrigger(r *ghttp.Request) {
 	userId := r.GetCtxVar("userId").Int64()
 
 	if startDate != "" && endDate != "" {
-		start, startErr := time.Parse("2006-01-02", startDate)
-		end, endErr := time.Parse("2006-01-02", endDate)
+		start, startErr := time.Parse("2006-01-02", truncateToDate(startDate))
+		end, endErr := time.Parse("2006-01-02", truncateToDate(endDate))
 		if startErr != nil || endErr != nil || end.Before(start) {
 			msg := "日期格式错误或结束日期早于开始日期"
 			r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": msg})
@@ -524,8 +524,8 @@ func (c *QianchuanPollerController) ManualTriggerOverall(r *ghttp.Request) {
 		endDate = yesterday
 	}
 
-	start, startErr := time.Parse("2006-01-02", startDate)
-	end, endErr := time.Parse("2006-01-02", endDate)
+	start, startErr := time.Parse("2006-01-02", truncateToDate(startDate))
+	end, endErr := time.Parse("2006-01-02", truncateToDate(endDate))
 	if startErr != nil || endErr != nil || end.Before(start) {
 		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "日期格式错误或结束日期早于开始日期"})
 		return
@@ -665,10 +665,13 @@ func (c *QianchuanPollerController) DailyReportList(r *ghttp.Request) {
 		startDate = today
 		endDate = today
 	}
+	// 支持前端传入带时分秒的日期（如 "2026-07-13 00:00:00"），截取日期部分
+	startDate = truncateToDate(startDate)
+	endDate = truncateToDate(endDate)
 
 	query := g.DB().Model("qianchuan_advertiser_daily_report").Ctx(ctx).
-		Where("LEFT(stat_datetime, 10) >= ?", startDate).
-		Where("LEFT(stat_datetime, 10) <= ?", endDate)
+		Where("stat_datetime >= ?", startDate).
+		Where("stat_datetime <= ?", endDate)
 
 	if advertiserId > 0 {
 		query = query.Where("advertiser_id", advertiserId)
@@ -689,8 +692,8 @@ func (c *QianchuanPollerController) DailyReportList(r *ghttp.Request) {
 	}
 
 	summaryRow, _ := g.DB().Model("qianchuan_advertiser_daily_report").Ctx(ctx).
-		Where("LEFT(stat_datetime, 10) >= ?", startDate).
-		Where("LEFT(stat_datetime, 10) <= ?", endDate).
+		Where("stat_datetime >= ?", startDate).
+		Where("stat_datetime <= ?", endDate).
 		Fields(`
 			COALESCE(SUM(stat_cost),0) as total_cost,
 			COALESCE(SUM(pay_order_amount),0) as total_pay_amount,
@@ -733,13 +736,14 @@ func (c *QianchuanPollerController) PlanReportList(r *ghttp.Request) {
 		pageSize = 20
 	}
 
+	// 支持前端传入带时分秒的日期，截取日期部分
 	if startDate == "" || endDate == "" {
 		today := time.Now().Format("2006-01-02")
 		startDate = today
 		endDate = today
 	}
-	start, startErr := time.Parse("2006-01-02", startDate)
-	end, endErr := time.Parse("2006-01-02", endDate)
+	start, startErr := time.Parse("2006-01-02", truncateToDate(startDate))
+	end, endErr := time.Parse("2006-01-02", truncateToDate(endDate))
 	if startErr != nil || endErr != nil || end.Before(start) {
 		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "日期格式错误或结束日期早于开始日期"})
 		return
@@ -900,11 +904,13 @@ func (c *QianchuanPollerController) OverallReportList(r *ghttp.Request) {
 		today := time.Now().Format("2006-01-02")
 		startDate = today
 		endDate = today
+	startDate = truncateToDate(startDate)
+	endDate = truncateToDate(endDate)
 	}
 
 	query := g.DB().Model("qianchuan_overall_promotion_daily_report qopr").Ctx(ctx).
-		Where("LEFT(qopr.stat_datetime, 10) >= ?", startDate).
-		Where("LEFT(qopr.stat_datetime, 10) <= ?", endDate)
+		Where("qopr.stat_datetime >= ?", startDate).
+		Where("qopr.stat_datetime <= ?", endDate)
 
 	if advertiserId > 0 {
 		query = query.Where("qopr.advertiser_id", advertiserId)
@@ -943,8 +949,8 @@ func (c *QianchuanPollerController) OverallReportList(r *ghttp.Request) {
 			COALESCE(SUM(total_order_settle_amount_for_roi2_1h),0) AS settleAmount,
 			COALESCE(SUM(total_order_settle_count_for_roi2_1h),0) AS settleOrderCount
 		`).
-		Where("LEFT(stat_datetime, 10) >= ?", startDate).
-		Where("LEFT(stat_datetime, 10) <= ?", endDate)
+		Where("stat_datetime >= ?", startDate).
+		Where("stat_datetime <= ?", endDate)
 	if advertiserId > 0 {
 		summaryQuery = summaryQuery.Where("advertiser_id", advertiserId)
 	}
@@ -1033,4 +1039,12 @@ func (c *QianchuanPollerController) DailyReportAdvertisers(r *ghttp.Request) {
 		return
 	}
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": rows, "msg": "ok"})
+}
+
+// truncateToDate 截取日期部分，兼容前端传入带时分秒的日期格式（如 "2026-07-13 00:00:00"）
+func truncateToDate(s string) string {
+	if len(s) > 10 {
+		return s[:10]
+	}
+	return s
 }

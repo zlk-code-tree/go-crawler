@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/util/gconv"
 )
 
 func TestEnrichDouyinOrderRowsStopsBeforeQueriesWhenCanceled(t *testing.T) {
@@ -20,6 +21,171 @@ func TestEnrichDouyinOrderRowsStopsBeforeQueriesWhenCanceled(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("enrichDouyinOrderRows() error = %v, want context.Canceled", err)
 	}
+}
+
+func TestDouyinOrderMatchesBoundUIDUsesOriginalUIDOrExplicitQianchuanAttribution(t *testing.T) {
+	selectedUIDs := map[string]struct{}{"972381158384056": {}}
+	tests := []struct {
+		name  string
+		order g.Map
+		want  bool
+	}{
+		{
+			name: "original UID is bound",
+			order: g.Map{
+				"originalTalentId": "972381158384056",
+				"talentId":         "another-display-uid",
+				"teamOwner":        "其他组",
+			},
+			want: true,
+		},
+		{
+			name: "qianchuan inferred UID can claim a self-sale order",
+			order: g.Map{
+				"originalTalentId":        "",
+				"talentId":                "972381158384056",
+				"profitAttributionSource": "qianchuan_plan",
+				"teamOwner":               "张文蔚/孟令饶组",
+			},
+			want: true,
+		},
+		{
+			name: "shop-name inference cannot claim an empty original UID",
+			order: g.Map{
+				"originalTalentId":        "",
+				"talentId":                "972381158384056",
+				"profitAttributionSource": "shop_account",
+				"teamOwner":               "张文蔚/孟令饶组",
+			},
+			want: false,
+		},
+		{
+			name: "team owner cannot override a different original UID",
+			order: g.Map{
+				"originalTalentId": "111111111111111",
+				"talentId":         "972381158384056",
+				"teamOwner":        "张文蔚/孟令饶组",
+			},
+			want: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := douyinOrderMatchesBoundUID(test.order, selectedUIDs); got != test.want {
+				t.Fatalf("douyinOrderMatchesBoundUID() = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestOrderListExactWeightedAssignmentsUsesIntegerQuotas(t *testing.T) {
+	orderKeys := []string{"o1", "o2", "o3", "o4", "o5", "o6", "o7", "o8", "o9", "o10"}
+	assignments := orderListExactWeightedAssignments("2026-07-13\x00测试店\x00p1", orderKeys, []float64{60, 30, 10})
+	counts := make([]int, 3)
+	for _, ownerIndex := range assignments {
+		counts[ownerIndex]++
+	}
+	if counts[0] != 6 || counts[1] != 3 || counts[2] != 1 {
+		t.Fatalf("allocation counts = %v, want [6 3 1]", counts)
+	}
+	if len(assignments) != len(orderKeys) {
+		t.Fatalf("assigned orders = %d, want %d", len(assignments), len(orderKeys))
+	}
+}
+
+func TestOrderListExactWeightedAssignmentsIsStableAndDeduplicatesOrders(t *testing.T) {
+	forward := []string{"o1", "o2", "o3", "o4", "o5", "o5"}
+	reverse := []string{"o5", "o4", "o3", "o2", "o1"}
+	first := orderListExactWeightedAssignments("scope", forward, []float64{2, 1})
+	second := orderListExactWeightedAssignments("scope", reverse, []float64{2, 1})
+	if fmt.Sprint(first) != fmt.Sprint(second) {
+		t.Fatalf("allocation changed with input order: first=%v second=%v", first, second)
+	}
+	if len(first) != 5 {
+		t.Fatalf("assigned orders = %d, want 5 unique orders", len(first))
+	}
+}
+
+func TestOrderListExactWeightedAssignmentsRejectsZeroWeights(t *testing.T) {
+	if got := orderListExactWeightedAssignments("scope", []string{"o1"}, []float64{0, 0}); len(got) != 0 {
+		t.Fatalf("zero weights assigned orders: %v", got)
+	}
+}
+
+func TestDouyinQianchuanSelfSaleAttributionDatabaseIntegration(t *testing.T) {
+	if os.Getenv("DOUYIN_SELF_SALE_ATTRIBUTION_DB_INTEGRATION") != "1" {
+		t.Skip("set DOUYIN_SELF_SALE_ATTRIBUTION_DB_INTEGRATION=1 to run against the configured database")
+	}
+	statDate := os.Getenv("DOUYIN_SELF_SALE_ATTRIBUTION_TEST_DATE")
+	if statDate == "" {
+		t.Fatal("DOUYIN_SELF_SALE_ATTRIBUTION_TEST_DATE is required")
+	}
+
+	cacheKey := statDate + "\x00" + statDate
+	enrichedDouyinOrderCache.Delete(cacheKey)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	orders, err := NewOrderService().loadEnrichedDouyinOrders(ctx, statDate, statDate)
+	if err != nil {
+		t.Fatalf("load enriched Douyin orders failed: %v", err)
+	}
+
+	type attributionSummary struct {
+		orders map[string]struct{}
+		valid  map[string]struct{}
+		pay    float64
+		cost   float64
+	}
+	summaries := make(map[int64]*attributionSummary)
+	ownersByOrder := make(map[string]map[string]struct{})
+	for _, order := range orders {
+		if gconv.String(order["profitAttributionSource"]) != "qianchuan_plan" {
+			continue
+		}
+		if orderListNormalizedTalentID(gconv.String(order["originalTalentId"])) != "" {
+			t.Fatalf("Qianchuan attribution overwrote non-empty original UID: order=%s originalUID=%s",
+				gconv.String(order["mainOrderNo"]), gconv.String(order["originalTalentId"]))
+		}
+		accountID := gconv.Int64(order["attributedAccountId"])
+		traderID := gconv.Int64(order["attributedTraderId"])
+		talentUID := orderListNormalizedTalentID(gconv.String(order["talentId"]))
+		if accountID <= 0 || traderID <= 0 || talentUID == "" {
+			t.Fatalf("incomplete Qianchuan attribution: order=%s account=%d trader=%d uid=%s",
+				gconv.String(order["mainOrderNo"]), accountID, traderID, talentUID)
+		}
+
+		orderKey := orderListFirstNonEmpty(gconv.String(order["mainOrderNo"]), gconv.String(order["subOrderNo"]), gconv.String(order["id"]))
+		if _, ok := ownersByOrder[orderKey]; !ok {
+			ownersByOrder[orderKey] = make(map[string]struct{})
+		}
+		ownersByOrder[orderKey][talentUID] = struct{}{}
+		summary := summaries[traderID]
+		if summary == nil {
+			summary = &attributionSummary{orders: make(map[string]struct{}), valid: make(map[string]struct{})}
+			summaries[traderID] = summary
+		}
+		summary.orders[orderKey] = struct{}{}
+		if gconv.Bool(order["isValidOrder"]) {
+			summary.valid[orderKey] = struct{}{}
+			summary.pay += gconv.Float64(order["orderPayAmount"])
+			summary.cost += gconv.Float64(order["productCost"])
+		}
+	}
+
+	for orderKey, owners := range ownersByOrder {
+		if len(owners) > 1 {
+			t.Fatalf("main order was assigned to multiple talents: order=%s owners=%v", orderKey, owners)
+		}
+	}
+	if len(ownersByOrder) == 0 {
+		t.Fatal("no self-sale orders matched a Qianchuan plan")
+	}
+	for traderID, summary := range summaries {
+		t.Logf("self-sale attribution date=%s trader=%d total=%d valid=%d pay=%.2f cost=%.2f",
+			statDate, traderID, len(summary.orders), len(summary.valid), summary.pay, summary.cost)
+	}
+	t.Logf("self-sale attribution date=%s assignedMainOrders=%d traders=%d", statDate, len(ownersByOrder), len(summaries))
 }
 
 func TestOrderTypeStatsSurviveInitialRequestCancellationIntegration(t *testing.T) {

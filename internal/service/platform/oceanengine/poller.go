@@ -576,6 +576,11 @@ func (p *Poller) cleanInvalidAdvertisers(ctx context.Context, allIDs []int64, er
 
 // pullOneAdvertiser 拉取单个广告主的数据并批量入库
 func (p *Poller) pullOneAdvertiser(ctx context.Context, tokenState *sharedAccessToken, advID int64, startDate, endDate string) advResult {
+	// 校验广告主是否活跃（外部/无效账户跳过拉取）
+	if !IsAdvertiserActive(ctx, advID) {
+		g.Log().Infof(ctx, "[QianchuanPoller] 广告主%d标记为非活跃，跳过拉取", advID)
+		return advResult{}
+	}
 	requestToken := tokenState.Get()
 	client := NewClient(requestToken)
 	pullResult, err := client.PullAllByDate(ctx, advID, startDate, endDate)
@@ -712,6 +717,11 @@ func (p *Poller) pullOneAdvertiser(ctx context.Context, tokenState *sharedAccess
 }
 
 func (p *Poller) pullOneOverallAdvertiser(ctx context.Context, client *Client, advID int64, startDate, endDate string) advResult {
+	// 校验广告主是否活跃
+	if !IsAdvertiserActive(ctx, advID) {
+		g.Log().Infof(ctx, "[QianchuanPoller] 广告主%d标记为非活跃，跳过乘方拉取", advID)
+		return advResult{}
+	}
 	// 单独拉乘方时主动放缓一点，避免开发者频控把整批请求打断。
 	defer time.Sleep(120 * time.Millisecond)
 
@@ -1569,4 +1579,17 @@ func (p *Poller) lookupAdvertiserName(ctx context.Context, advID int64) string {
 		return name
 	}
 	return ""
+}
+
+// IsAdvertiserActive 检查千川广告主是否活跃（未标记为外部/无效）。
+// 无配置记录时默认视为活跃。
+func IsAdvertiserActive(ctx context.Context, advID int64) bool {
+	row, err := g.DB().Model("qianchuan_advertiser_config").Ctx(ctx).
+		Where("advertiser_id", advID).
+		Fields("is_active").
+		One()
+	if err != nil || row.IsEmpty() {
+		return true
+	}
+	return row["is_active"].Int() != 0
 }
