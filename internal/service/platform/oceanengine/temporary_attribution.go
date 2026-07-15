@@ -75,6 +75,13 @@ func (rules qianchuanTemporaryAttributionRules) resolve(advertiserID int64, stat
 	return mapping, false
 }
 
+func (rules qianchuanTemporaryAttributionRules) resolveFallback(advertiserID int64, statDate string, mapping qianchuanOrgMapping, hasConcreteAccount bool) (qianchuanOrgMapping, bool) {
+	if hasConcreteAccount {
+		return mapping, false
+	}
+	return rules.resolve(advertiserID, statDate, mapping)
+}
+
 // SyncQianchuanTemporaryAttribution reapplies every stored rule to existing daily reports.
 // Rules for one advertiser must retain the same source owner and must not overlap.
 func SyncQianchuanTemporaryAttribution(ctx context.Context) error {

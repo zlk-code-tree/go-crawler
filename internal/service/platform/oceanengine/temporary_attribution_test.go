@@ -53,3 +53,33 @@ func TestQianchuanTemporaryAttributionRulesEndDate(t *testing.T) {
 		t.Fatal("rule should not apply after end date")
 	}
 }
+
+func TestQianchuanTemporaryAttributionRulesDoNotOverrideConcreteAccount(t *testing.T) {
+	rules := qianchuanTemporaryAttributionRules{
+		1: {{
+			AdvertiserID:       1,
+			TargetTraderID:     8,
+			TargetCompanyID:    1,
+			TargetDepartmentID: 14,
+			EffectiveStartDate: "2026-07-01",
+		}},
+	}
+	concrete := qianchuanOrgMapping{
+		AccountID:      143,
+		CompanyID:      1,
+		DepartmentID:   13,
+		TraderID:       1,
+		OrganizationID: 1,
+	}
+
+	resolved, matched := rules.resolveFallback(1, "2026-07-14", concrete, true)
+	if matched || resolved != concrete {
+		t.Fatalf("concrete account attribution should be preserved: matched=%v mapping=%+v", matched, resolved)
+	}
+
+	unmatched := qianchuanOrgMapping{CompanyID: 1, DepartmentID: 13, TraderID: 1, OrganizationID: 1}
+	resolved, matched = rules.resolveFallback(1, "2026-07-14", unmatched, false)
+	if !matched || resolved.TraderID != 8 || resolved.DepartmentID != 14 {
+		t.Fatalf("unmatched advertiser fallback should still apply: matched=%v mapping=%+v", matched, resolved)
+	}
+}

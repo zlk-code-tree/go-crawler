@@ -1236,13 +1236,13 @@ func (p *Poller) saveAuthorReports(ctx context.Context, orgMap map[int64]authorO
 			if len(statDate) >= 10 {
 				statDate = statDate[:10]
 			}
-			mapping, _ := temporaryRules.resolve(item.AdvertiserID, statDate, qianchuanOrgMapping{
+			mapping, _ := temporaryRules.resolveFallback(item.AdvertiserID, statDate, qianchuanOrgMapping{
 				AccountID:      org.AccountID,
 				CompanyID:      org.CompanyID,
 				DepartmentID:   org.DepartmentID,
 				TraderID:       org.TraderID,
 				OrganizationID: org.CompanyID,
-			})
+			}, org.AccountID > 0)
 			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?)")
 			args = append(args,
 				item.AdvertiserID, mapping.AccountID, mapping.CompanyID, mapping.DepartmentID, mapping.TraderID,
@@ -1484,6 +1484,7 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 			awemeID, _ := strconv.ParseInt(item.AwemeID, 10, 64)
 			awemeName := item.AwemeName
 			awemeShowID := item.AwemeShowID
+			hasConcreteAccount := false
 			if info, _, ok := authorIndex.matchPlanReport(item); ok {
 				mapping = planReportOrgMapping(info)
 				awemeID = info.AwemeID
@@ -1493,9 +1494,10 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 				if awemeShowID == "" {
 					awemeShowID = info.PlatformNickname
 				}
+				hasConcreteAccount = info.AccountID > 0
 				matched++
 			}
-			mapping, _ = temporaryRules.resolve(item.AdvertiserID, item.StatDatetime, mapping)
+			mapping, _ = temporaryRules.resolveFallback(item.AdvertiserID, item.StatDatetime, mapping, hasConcreteAccount)
 			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 			args = append(args,
 				mapping.OrganizationID, mapping.AccountID, mapping.CompanyID, mapping.DepartmentID, mapping.TraderID,
