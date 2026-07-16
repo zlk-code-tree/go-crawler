@@ -899,6 +899,9 @@ func (c *QianchuanPollerController) OverallReportList(r *ghttp.Request) {
 	startDate := r.Get("startDate").String()
 	endDate := r.Get("endDate").String()
 	advertiserId := r.Get("advertiserId", int64(0)).Int64()
+	companyId := r.Get("company_id", r.Get("companyId", 0).Int64()).Int64()
+	departmentId := r.Get("department_id", r.Get("departmentId", 0).Int64()).Int64()
+	traderId := r.Get("trader_id", r.Get("traderId", 0).Int64()).Int64()
 	page := r.Get("page", 1).Int()
 	pageSize := r.Get("pageSize", 20).Int()
 
@@ -930,6 +933,16 @@ func (c *QianchuanPollerController) OverallReportList(r *ghttp.Request) {
 	if advertiserId > 0 {
 		whereSQL += " AND qopr.advertiser_id = ?"
 		args = append(args, advertiserId)
+	}
+	if traderId > 0 {
+		whereSQL += " AND qopr.trader_id = ?"
+		args = append(args, traderId)
+	} else if departmentId > 0 {
+		whereSQL += " AND qopr.department_id = ?"
+		args = append(args, departmentId)
+	} else if companyId > 0 {
+		whereSQL += " AND qopr.company_id = ?"
+		args = append(args, companyId)
 	}
 
 	groupSQL := `

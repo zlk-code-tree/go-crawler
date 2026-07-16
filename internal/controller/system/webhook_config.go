@@ -160,6 +160,10 @@ func (c *WebhookConfigController) TestPush(r *ghttp.Request) {
 		r.Response.WriteJsonExit(g.Map{"code": 404, "data": nil, "msg": "配置不存在"})
 		return
 	}
+	if row["enabled"].Int() != 1 {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "配置已禁用，不能主动推送"})
+		return
+	}
 
 	cfg := &webhook.WebhookConfig{
 		Id:          row["id"].Int64(),

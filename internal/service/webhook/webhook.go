@@ -78,7 +78,7 @@ func (s *WebhookPushService) SendDailyReport(ctx context.Context) error {
 func (s *WebhookPushService) SendReport(ctx context.Context, pushType string) error {
 	g.Log().Info(ctx, "[WebhookPush] 开始生成盈亏报告推送")
 
-	configs, err := s.loadConfigs(ctx)
+	configs, hasAnyConfig, err := s.loadConfigs(ctx)
 	if err != nil {
 		return fmt.Errorf("加载webhook配置失败: %w", err)
 	}
@@ -87,10 +87,14 @@ func (s *WebhookPushService) SendReport(ctx context.Context, pushType string) er
 		g.Log().Warningf(ctx, "[WebhookPush] 推送前补拉当天千川数据失败，继续推送现有数据: %v", err)
 	}
 
-	if len(configs) == 0 {
+	if !hasAnyConfig {
 		// 降级：从 config.yaml 读取，推全公司汇总到飞书
 		g.Log().Info(ctx, "[WebhookPush] webhook_config表无配置，降级使用config.yaml飞书配置推送汇总")
 		return s.fallbackPush(ctx)
+	}
+	if len(configs) == 0 {
+		g.Log().Info(ctx, "[WebhookPush] webhook_config表已有配置，但当前没有启用项，跳过推送")
+		return nil
 	}
 
 	successCount := 0
@@ -138,11 +142,15 @@ func (s *WebhookPushService) refreshTodayQianchuan(ctx context.Context) error {
 	return nil
 }
 
-// loadConfigs 从 webhook_config 表加载所有启用的配置
-func (s *WebhookPushService) loadConfigs(ctx context.Context) ([]WebhookConfig, error) {
+// loadConfigs 从 webhook_config 表加载所有启用的配置，并返回表内是否存在配置。
+func (s *WebhookPushService) loadConfigs(ctx context.Context) ([]WebhookConfig, bool, error) {
+	total, err := g.DB().Model("webhook_config").Ctx(ctx).Count()
+	if err != nil {
+		return nil, false, err
+	}
 	rows, err := g.DB().Model("webhook_config").Ctx(ctx).Where("enabled", 1).OrderAsc("id").All()
 	if err != nil {
-		return nil, err
+		return nil, total > 0, err
 	}
 	configs := make([]WebhookConfig, 0, len(rows))
 	for _, row := range rows {
@@ -161,7 +169,7 @@ func (s *WebhookPushService) loadConfigs(ctx context.Context) ([]WebhookConfig, 
 			Enabled:     row["enabled"].Int(),
 		})
 	}
-	return configs, nil
+	return configs, total > 0, nil
 }
 
 // pushOneConfig 按单个配置推送：构建卡片并发送到对应机器人

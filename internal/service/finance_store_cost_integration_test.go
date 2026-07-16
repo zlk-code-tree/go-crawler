@@ -25,7 +25,7 @@ func TestStoreCostDatabaseIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	financeService := NewFinanceCommissionService()
-	stores, err := financeService.GetStoreCostStats(ctx, statDate, statDate, 100)
+	stores, err := financeService.GetStoreCostStats(ctx, statDate, statDate, 100, FinanceOrgScope{})
 	if err != nil {
 		t.Fatalf("query store costs failed: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestStoreCostDatabaseIntegration(t *testing.T) {
 		if !store.MatchedStore {
 			unmatchedCount += store.AdvertiserCount
 		}
-		details, detailTotal, detailErr := financeService.GetStoreCostDetail(ctx, statDate, statDate, store.StoreID, 1, 500)
+		details, detailTotal, detailErr := financeService.GetStoreCostDetail(ctx, statDate, statDate, store.StoreID, 1, 500, FinanceOrgScope{})
 		if detailErr != nil {
 			t.Fatalf("query store %d details failed: %v", store.StoreID, detailErr)
 		}
@@ -55,7 +55,7 @@ func TestStoreCostDatabaseIntegration(t *testing.T) {
 		}
 	}
 
-	allDetails, allErr := financeService.GetAllStoreCostDetail(ctx, statDate, statDate)
+	allDetails, allErr := financeService.GetAllStoreCostDetail(ctx, statDate, statDate, FinanceOrgScope{})
 	if allErr != nil {
 		t.Fatalf("query all store details failed: %v", allErr)
 	}
@@ -69,7 +69,7 @@ func TestStoreCostDatabaseIntegration(t *testing.T) {
 	if math.Abs(allDetailCost-totalCost) > 0.05 {
 		t.Fatalf("all store detail cost mismatch: summary=%.2f detail=%.2f", totalCost, allDetailCost)
 	}
-	exportFile, exportErr := financeService.ExportAllStoreCostDetail(ctx, statDate, statDate)
+	exportFile, exportErr := financeService.ExportAllStoreCostDetail(ctx, statDate, statDate, FinanceOrgScope{})
 	if exportErr != nil {
 		t.Fatalf("export all store details failed: %v", exportErr)
 	}

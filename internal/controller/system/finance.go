@@ -25,6 +25,14 @@ func NewFinanceController() *FinanceController {
 	return &FinanceController{}
 }
 
+func financeOrgScopeFromRequest(r *ghttp.Request) service.FinanceOrgScope {
+	return service.FinanceOrgScope{
+		CompanyId:    r.Get("company_id", r.Get("companyId", 0).Int64()).Int64(),
+		DepartmentId: r.Get("department_id", r.Get("departmentId", 0).Int64()).Int64(),
+		TraderId:     r.Get("trader_id", r.Get("traderId", 0).Int64()).Int64(),
+	}
+}
+
 // CommissionStats 获取佣金统计 GET /api/finance/commission-stats
 func (c *FinanceController) CommissionStats(ctx context.Context, req *v1.FinanceStatsReq) (res *v1.FinanceStatsRes, err error) {
 	financeService := service.NewFinanceCommissionService()
@@ -274,8 +282,9 @@ func (c *FinanceController) CostRankingExport(r *ghttp.Request) {
 		startDate, endDate = date, date
 	}
 	dimension := r.Get("dimension", "trader").String()
+	scope := financeOrgScopeFromRequest(r)
 
-	filename, err := service.NewFinanceCommissionService().ExportCostRanking(r.Context(), startDate, endDate, dimension)
+	filename, err := service.NewFinanceCommissionService().ExportCostRanking(r.Context(), startDate, endDate, dimension, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return
@@ -293,8 +302,9 @@ func (c *FinanceController) AuthorCostRankingExport(r *ghttp.Request) {
 	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
 		startDate, endDate = date, date
 	}
+	scope := financeOrgScopeFromRequest(r)
 
-	filename, err := service.NewFinanceCommissionService().ExportAuthorCostRanking(r.Context(), startDate, endDate)
+	filename, err := service.NewFinanceCommissionService().ExportAuthorCostRanking(r.Context(), startDate, endDate, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return
@@ -338,8 +348,9 @@ func (c *FinanceController) StoreCostDetailExport(r *ghttp.Request) {
 		startDate, endDate = date, date
 	}
 	storeId := r.Get("storeId", 0).Int64()
+	scope := financeOrgScopeFromRequest(r)
 
-	filename, err := service.NewFinanceCommissionService().ExportStoreCostDetail(r.Context(), startDate, endDate, storeId)
+	filename, err := service.NewFinanceCommissionService().ExportStoreCostDetail(r.Context(), startDate, endDate, storeId, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return
@@ -357,8 +368,9 @@ func (c *FinanceController) StoreCostAllDetailExport(r *ghttp.Request) {
 	if date := r.Get("date").String(); date != "" && startDate == "" && endDate == "" {
 		startDate, endDate = date, date
 	}
+	scope := financeOrgScopeFromRequest(r)
 
-	filename, err := service.NewFinanceCommissionService().ExportAllStoreCostDetail(r.Context(), startDate, endDate)
+	filename, err := service.NewFinanceCommissionService().ExportAllStoreCostDetail(r.Context(), startDate, endDate, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return
@@ -377,8 +389,9 @@ func (c *FinanceController) SubjectCostDetailExport(r *ghttp.Request) {
 		startDate, endDate = date, date
 	}
 	subjectId := r.Get("subjectId", 0).Int64()
+	scope := financeOrgScopeFromRequest(r)
 
-	filename, err := service.NewFinanceCommissionService().ExportSubjectCostDetail(r.Context(), startDate, endDate, subjectId)
+	filename, err := service.NewFinanceCommissionService().ExportSubjectCostDetail(r.Context(), startDate, endDate, subjectId, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
 		return
@@ -501,9 +514,10 @@ func (c *FinanceController) CostRanking(r *ghttp.Request) {
 	}
 	dimension := r.Get("dimension", "trader").String()
 	limit := r.Get("limit", 20).Int()
+	scope := financeOrgScopeFromRequest(r)
 
 	financeService := service.NewFinanceCommissionService()
-	result, err := financeService.GetCostRanking(r.Context(), startDate, endDate, dimension, limit)
+	result, err := financeService.GetCostRanking(r.Context(), startDate, endDate, dimension, limit, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
 		return
@@ -520,8 +534,9 @@ func (c *FinanceController) StoreCostStats(r *ghttp.Request) {
 		startDate, endDate = date, date
 	}
 	limit := r.Get("limit", 100).Int()
+	scope := financeOrgScopeFromRequest(r)
 
-	result, err := service.NewFinanceCommissionService().GetStoreCostStats(r.Context(), startDate, endDate, limit)
+	result, err := service.NewFinanceCommissionService().GetStoreCostStats(r.Context(), startDate, endDate, limit, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
 		return
@@ -548,8 +563,9 @@ func (c *FinanceController) StoreCostDetail(r *ghttp.Request) {
 	if pageSize > 500 {
 		pageSize = 500
 	}
+	scope := financeOrgScopeFromRequest(r)
 
-	list, total, err := service.NewFinanceCommissionService().GetStoreCostDetail(r.Context(), startDate, endDate, storeId, page, pageSize)
+	list, total, err := service.NewFinanceCommissionService().GetStoreCostDetail(r.Context(), startDate, endDate, storeId, page, pageSize, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
 		return
@@ -567,9 +583,10 @@ func (c *FinanceController) SubjectCostStats(r *ghttp.Request) {
 		startDate, endDate = date, date
 	}
 	limit := r.Get("limit", 10).Int()
+	scope := financeOrgScopeFromRequest(r)
 
 	financeService := service.NewFinanceCommissionService()
-	result, err := financeService.GetSubjectCostStats(r.Context(), startDate, endDate, limit)
+	result, err := financeService.GetSubjectCostStats(r.Context(), startDate, endDate, limit, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
 		return
@@ -597,9 +614,10 @@ func (c *FinanceController) SubjectCostDetail(r *ghttp.Request) {
 	if pageSize > 500 {
 		pageSize = 500
 	}
+	scope := financeOrgScopeFromRequest(r)
 
 	financeService := service.NewFinanceCommissionService()
-	list, total, err := financeService.GetSubjectCostDetail(r.Context(), startDate, endDate, subjectId, page, pageSize)
+	list, total, err := financeService.GetSubjectCostDetail(r.Context(), startDate, endDate, subjectId, page, pageSize, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
 		return
@@ -631,9 +649,10 @@ func (c *FinanceController) AuthorCostRanking(r *ghttp.Request) {
 	if pageSize > 200 {
 		pageSize = 200
 	}
+	scope := financeOrgScopeFromRequest(r)
 
 	financeService := service.NewFinanceCommissionService()
-	list, total, err := financeService.GetAuthorCostRanking(r.Context(), startDate, endDate, page, pageSize)
+	list, total, err := financeService.GetAuthorCostRanking(r.Context(), startDate, endDate, page, pageSize, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
 		return

@@ -171,6 +171,42 @@ func (s *FinanceCommissionService) getDepartmentTreeIds(ctx context.Context, dep
 	return ids, nil
 }
 
+func (s *FinanceCommissionService) getCompanyTreeIds(ctx context.Context, companyId int64) ([]int64, error) {
+	rows, err := g.DB().GetAll(ctx, `
+		WITH RECURSIVE company_tree AS (
+			SELECT id FROM sys_company WHERE id = ? AND status = 1
+			UNION ALL
+			SELECT child.id
+			FROM sys_company child
+			INNER JOIN company_tree parent ON child.parent_id = parent.id
+			WHERE child.status = 1
+		)
+		SELECT id FROM company_tree
+	`, companyId)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		if id := row["id"].Int64(); id > 0 {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
+func int64Placeholders(count int) string {
+	return strings.TrimRight(strings.Repeat("?,", count), ",")
+}
+
+func appendInt64Args(args []interface{}, ids []int64) []interface{} {
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	return args
+}
+
 func uniqueIntSlice(values []int) []int {
 	if len(values) <= 1 {
 		return values
@@ -427,6 +463,184 @@ type QianchuanCostDetailItem struct {
 	OrderCount     int64   `json:"orderCount"`
 }
 
+// FinanceOrgScope 统一表示财务看板的组织筛选范围。
+// 优先级：trader > department > company。
+type FinanceOrgScope struct {
+	CompanyId    int64
+	DepartmentId int64
+	TraderId     int64
+}
+
+func (s *FinanceCommissionService) effectiveScopeWhere(ctx context.Context, scope FinanceOrgScope, alias string) (string, []interface{}, error) {
+	if alias == "" {
+		alias = "effective"
+	}
+	if scope.TraderId > 0 {
+		return fmt.Sprintf(" AND %s.trader_id = ?", alias), []interface{}{scope.TraderId}, nil
+	}
+	if scope.DepartmentId > 0 {
+		deptIds, err := s.getDepartmentTreeIds(ctx, scope.DepartmentId)
+		if err != nil {
+			return "", nil, err
+		}
+		if len(deptIds) == 0 {
+			return " AND 1=0", nil, nil
+		}
+		return fmt.Sprintf(" AND %s.department_id IN (%s)", alias, int64Placeholders(len(deptIds))), appendInt64Args(nil, deptIds), nil
+	}
+	if scope.CompanyId > 0 {
+		companyIds, err := s.getCompanyTreeIds(ctx, scope.CompanyId)
+		if err != nil {
+			return "", nil, err
+		}
+		if len(companyIds) == 0 {
+			return " AND 1=0", nil, nil
+		}
+		return fmt.Sprintf(" AND %s.company_id IN (%s)", alias, int64Placeholders(len(companyIds))), appendInt64Args(nil, companyIds), nil
+	}
+	return "", nil, nil
+}
+
+func (s *FinanceCommissionService) costRankingBaseWhere(ctx context.Context, scope FinanceOrgScope, dimension, alias string) (string, []interface{}, error) {
+	switch dimension {
+	case "trader":
+		if alias == "" {
+			alias = "t"
+		}
+		if scope.TraderId > 0 {
+			return fmt.Sprintf(" AND %s.id = ?", alias), []interface{}{scope.TraderId}, nil
+		}
+		if scope.DepartmentId > 0 {
+			deptIds, err := s.getDepartmentTreeIds(ctx, scope.DepartmentId)
+			if err != nil {
+				return "", nil, err
+			}
+			if len(deptIds) == 0 {
+				return " AND 1=0", nil, nil
+			}
+			return fmt.Sprintf(" AND %s.group_id IN (%s)", alias, int64Placeholders(len(deptIds))), appendInt64Args(nil, deptIds), nil
+		}
+		if scope.CompanyId > 0 {
+			companyIds, err := s.getCompanyTreeIds(ctx, scope.CompanyId)
+			if err != nil {
+				return "", nil, err
+			}
+			if len(companyIds) == 0 {
+				return " AND 1=0", nil, nil
+			}
+			return fmt.Sprintf(" AND %s.company_id IN (%s)", alias, int64Placeholders(len(companyIds))), appendInt64Args(nil, companyIds), nil
+		}
+	case "department":
+		if alias == "" {
+			alias = "d"
+		}
+		if scope.TraderId > 0 {
+			return fmt.Sprintf(" AND %s.id = (SELECT group_id FROM trader WHERE id = ?)", alias), []interface{}{scope.TraderId}, nil
+		}
+		if scope.DepartmentId > 0 {
+			deptIds, err := s.getDepartmentTreeIds(ctx, scope.DepartmentId)
+			if err != nil {
+				return "", nil, err
+			}
+			if len(deptIds) == 0 {
+				return " AND 1=0", nil, nil
+			}
+			return fmt.Sprintf(" AND %s.id IN (%s)", alias, int64Placeholders(len(deptIds))), appendInt64Args(nil, deptIds), nil
+		}
+		if scope.CompanyId > 0 {
+			companyIds, err := s.getCompanyTreeIds(ctx, scope.CompanyId)
+			if err != nil {
+				return "", nil, err
+			}
+			if len(companyIds) == 0 {
+				return " AND 1=0", nil, nil
+			}
+			return fmt.Sprintf(" AND %s.company_id IN (%s)", alias, int64Placeholders(len(companyIds))), appendInt64Args(nil, companyIds), nil
+		}
+	case "company":
+		if alias == "" {
+			alias = "c"
+		}
+		if scope.TraderId > 0 {
+			return fmt.Sprintf(" AND %s.id = (SELECT company_id FROM trader WHERE id = ?)", alias), []interface{}{scope.TraderId}, nil
+		}
+		if scope.DepartmentId > 0 {
+			return fmt.Sprintf(" AND %s.id = (SELECT company_id FROM sys_department WHERE id = ?)", alias), []interface{}{scope.DepartmentId}, nil
+		}
+		if scope.CompanyId > 0 {
+			companyIds, err := s.getCompanyTreeIds(ctx, scope.CompanyId)
+			if err != nil {
+				return "", nil, err
+			}
+			if len(companyIds) == 0 {
+				return " AND 1=0", nil, nil
+			}
+			return fmt.Sprintf(" AND %s.id IN (%s)", alias, int64Placeholders(len(companyIds))), appendInt64Args(nil, companyIds), nil
+		}
+	}
+	return "", nil, nil
+}
+
+func (s *FinanceCommissionService) storeAdvertiserScopeWhere(ctx context.Context, scope FinanceOrgScope, advertiserAlias string) (string, []interface{}, error) {
+	if advertiserAlias == "" {
+		advertiserAlias = "adv"
+	}
+	advertiserColumn := fmt.Sprintf("%s.advertiser_id", advertiserAlias)
+	if scope.TraderId > 0 {
+		return fmt.Sprintf(`
+			AND EXISTS (
+				SELECT 1
+				FROM trader_account_relation tar_scope
+				INNER JOIN account_qianchuan_mapping aqm_scope
+					ON aqm_scope.account_id = tar_scope.account_id
+				INNER JOIN account a_scope
+					ON a_scope.id = tar_scope.account_id
+				WHERE tar_scope.trader_id = ?
+				  AND a_scope.platform = 'douyin'
+				  AND a_scope.status = 1
+				  AND aqm_scope.qianchuan_advertiser_id = %s
+			)`, advertiserColumn), []interface{}{scope.TraderId}, nil
+	}
+	if scope.DepartmentId > 0 {
+		deptIds, err := s.getDepartmentTreeIds(ctx, scope.DepartmentId)
+		if err != nil {
+			return "", nil, err
+		}
+		if len(deptIds) == 0 {
+			return " AND 1=0", nil, nil
+		}
+		return fmt.Sprintf(`
+			AND EXISTS (
+				SELECT 1
+				FROM trader t_scope
+				INNER JOIN trader_account_relation tar_scope
+					ON tar_scope.trader_id = t_scope.id
+				INNER JOIN account_qianchuan_mapping aqm_scope
+					ON aqm_scope.account_id = tar_scope.account_id
+				WHERE t_scope.status = 1
+				  AND t_scope.group_id IN (%s)
+				  AND aqm_scope.qianchuan_advertiser_id = %s
+			)`, int64Placeholders(len(deptIds)), advertiserColumn), appendInt64Args(nil, deptIds), nil
+	}
+	if scope.CompanyId > 0 {
+		companyIds, err := s.getCompanyTreeIds(ctx, scope.CompanyId)
+		if err != nil {
+			return "", nil, err
+		}
+		if len(companyIds) == 0 {
+			return " AND 1=0", nil, nil
+		}
+		return fmt.Sprintf(`
+			AND EXISTS (
+				SELECT 1
+				FROM account_qianchuan_mapping aqm_scope
+				WHERE aqm_scope.company_id IN (%s)
+				  AND aqm_scope.qianchuan_advertiser_id = %s
+			)`, int64Placeholders(len(companyIds)), advertiserColumn), appendInt64Args(nil, companyIds), nil
+	}
+	return "", nil, nil
+}
+
 // QianchuanStoreCostItem 店铺消耗统计。
 type QianchuanStoreCostItem struct {
 	StoreID      int64  `json:"storeId"`
@@ -452,7 +666,7 @@ type QianchuanStoreCostItem struct {
 }
 
 // GetStoreCostStats 按店铺汇总千川广告主账户消耗。
-func (s *FinanceCommissionService) GetStoreCostStats(ctx context.Context, startDate, endDate string, limit int) ([]QianchuanStoreCostItem, error) {
+func (s *FinanceCommissionService) GetStoreCostStats(ctx context.Context, startDate, endDate string, limit int, scope FinanceOrgScope) ([]QianchuanStoreCostItem, error) {
 	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
@@ -467,6 +681,13 @@ func (s *FinanceCommissionService) GetStoreCostStats(ctx context.Context, startD
 		limit = 100
 	}
 
+	scopeWhere, scopeArgs, scopeErr := s.storeAdvertiserScopeWhere(ctx, scope, "adv")
+	if scopeErr != nil {
+		return nil, scopeErr
+	}
+	args := []interface{}{startDate, endDate}
+	args = append(args, scopeArgs...)
+	args = append(args, limit)
 	rows, err := g.DB().GetAll(ctx, `
 		SELECT
 			COALESCE(st.id, 0) AS store_id,
@@ -492,10 +713,11 @@ func (s *FinanceCommissionService) GetStoreCostStats(ctx context.Context, startD
 		LEFT JOIN store_qianchuan_mapping sqm
 			ON sqm.qianchuan_advertiser_id = adv.advertiser_id
 		LEFT JOIN store st ON st.id = sqm.store_id
+		WHERE 1=1`+scopeWhere+`
 		GROUP BY COALESCE(st.id, 0), COALESCE(NULLIF(st.store_name, ''), '未绑定店铺'), COALESCE(st.status, 0)
 		ORDER BY stat_cost DESC
 		LIMIT ?
-	`, startDate, endDate, limit)
+	`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -564,8 +786,8 @@ func (s *FinanceCommissionService) GetStoreCostStats(ctx context.Context, startD
 }
 
 // GetSubjectCostStats 兼容旧主体消耗接口，数据已统一为店铺口径。
-func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, startDate, endDate string, limit int) ([]QianchuanStoreCostItem, error) {
-	return s.GetStoreCostStats(ctx, startDate, endDate, limit)
+func (s *FinanceCommissionService) GetSubjectCostStats(ctx context.Context, startDate, endDate string, limit int, scope FinanceOrgScope) ([]QianchuanStoreCostItem, error) {
+	return s.GetStoreCostStats(ctx, startDate, endDate, limit, scope)
 }
 
 // QianchuanStoreCostDetailItem 店铺消耗明细（按千川广告主账户维度）。
@@ -589,7 +811,7 @@ type QianchuanStoreCostDetailItem struct {
 
 // GetStoreCostDetail 查询指定店铺下所有千川广告主账户的消耗明细。
 // storeId 为 store.id，0 表示未绑定到有效店铺的账户。
-func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, startDate, endDate string, storeId int64, page, pageSize int) ([]QianchuanStoreCostDetailItem, int64, error) {
+func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, startDate, endDate string, storeId int64, page, pageSize int, scope FinanceOrgScope) ([]QianchuanStoreCostDetailItem, int64, error) {
 	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, 0, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
@@ -607,8 +829,14 @@ func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, start
 		pageSize = 500
 	}
 	offset := (page - 1) * pageSize
+	scopeWhere, scopeArgs, scopeErr := s.storeAdvertiserScopeWhere(ctx, scope, "adv")
+	if scopeErr != nil {
+		return nil, 0, scopeErr
+	}
 
 	// 统计总数
+	countArgs := []interface{}{startDate, endDate, storeId}
+	countArgs = append(countArgs, scopeArgs...)
 	countRow, err := g.DB().GetOne(ctx, `
 		SELECT COUNT(*) AS total FROM (
 			SELECT adv.advertiser_id
@@ -621,14 +849,18 @@ func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, start
 			LEFT JOIN store_qianchuan_mapping sqm ON sqm.qianchuan_advertiser_id = adv.advertiser_id
 			LEFT JOIN store st ON st.id = sqm.store_id
 			WHERE COALESCE(st.id, 0) = ?
+			`+scopeWhere+`
 			GROUP BY adv.advertiser_id
 		) t
-	`, startDate, endDate, storeId)
+	`, countArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
 	total := countRow["total"].Int64()
 
+	listArgs := []interface{}{startDate, endDate, storeId}
+	listArgs = append(listArgs, scopeArgs...)
+	listArgs = append(listArgs, offset, pageSize)
 	rows, err := g.DB().GetAll(ctx, `
 		SELECT
 			COALESCE(st.id, 0) AS store_id,
@@ -676,10 +908,11 @@ func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, start
 			GROUP BY advertiser_id
 		) r ON r.advertiser_id = adv.advertiser_id
 		WHERE COALESCE(st.id, 0) = ?
+		`+scopeWhere+`
 		GROUP BY adv.advertiser_id
 		ORDER BY stat_cost DESC
 		LIMIT ?, ?
-	`, startDate, endDate, storeId, offset, pageSize)
+	`, listArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -724,7 +957,7 @@ func buildStoreCostDetailItems(rows gdb.Result) []QianchuanStoreCostDetailItem {
 }
 
 // GetAllStoreCostDetail 查询全部店铺下全部千川广告主账户的消耗明细。
-func (s *FinanceCommissionService) GetAllStoreCostDetail(ctx context.Context, startDate, endDate string) ([]QianchuanStoreCostDetailItem, error) {
+func (s *FinanceCommissionService) GetAllStoreCostDetail(ctx context.Context, startDate, endDate string, scope FinanceOrgScope) ([]QianchuanStoreCostDetailItem, error) {
 	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
@@ -733,6 +966,12 @@ func (s *FinanceCommissionService) GetAllStoreCostDetail(ctx context.Context, st
 		return nil, fmt.Errorf("结束日期格式错误，期望 2006-01-02: %s", endDate)
 	}
 
+	scopeWhere, scopeArgs, scopeErr := s.storeAdvertiserScopeWhere(ctx, scope, "adv")
+	if scopeErr != nil {
+		return nil, scopeErr
+	}
+	args := []interface{}{startDate, endDate}
+	args = append(args, scopeArgs...)
 	rows, err := g.DB().GetAll(ctx, `
 		SELECT
 			COALESCE(st.id, 0) AS store_id,
@@ -779,9 +1018,10 @@ func (s *FinanceCommissionService) GetAllStoreCostDetail(ctx context.Context, st
 			FROM qianchuan_ad_report
 			GROUP BY advertiser_id
 		) r ON r.advertiser_id = adv.advertiser_id
+		WHERE 1=1`+scopeWhere+`
 		GROUP BY COALESCE(st.id, 0), adv.advertiser_id
 		ORDER BY store_name ASC, stat_cost DESC
-	`, startDate, endDate)
+	`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -789,12 +1029,12 @@ func (s *FinanceCommissionService) GetAllStoreCostDetail(ctx context.Context, st
 }
 
 // GetSubjectCostDetail 兼容旧主体明细接口，subjectId 参数按 storeId 解释。
-func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, startDate, endDate string, subjectId int64, page, pageSize int) ([]QianchuanStoreCostDetailItem, int64, error) {
-	return s.GetStoreCostDetail(ctx, startDate, endDate, subjectId, page, pageSize)
+func (s *FinanceCommissionService) GetSubjectCostDetail(ctx context.Context, startDate, endDate string, subjectId int64, page, pageSize int, scope FinanceOrgScope) ([]QianchuanStoreCostDetailItem, int64, error) {
+	return s.GetStoreCostDetail(ctx, startDate, endDate, subjectId, page, pageSize, scope)
 }
 
 // GetAuthorCostRanking 查询达人维度消耗统计
-func (s *FinanceCommissionService) GetAuthorCostRanking(ctx context.Context, startDate, endDate string, page, pageSize int) ([]AuthorCostItem, int64, error) {
+func (s *FinanceCommissionService) GetAuthorCostRanking(ctx context.Context, startDate, endDate string, page, pageSize int, scope FinanceOrgScope) ([]AuthorCostItem, int64, error) {
 	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, 0, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
@@ -813,14 +1053,24 @@ func (s *FinanceCommissionService) GetAuthorCostRanking(ctx context.Context, sta
 	}
 	offset := (page - 1) * pageSize
 
+	scopeWhere, scopeArgs, scopeErr := s.effectiveScopeWhere(ctx, scope, "effective")
+	if scopeErr != nil {
+		return nil, 0, scopeErr
+	}
+	totalArgs := []interface{}{startDate, endDate, startDate, endDate}
+	totalArgs = append(totalArgs, scopeArgs...)
 	totalRow, err := g.DB().GetOne(ctx, effectiveQianchuanCostCTE+`
 		SELECT COUNT(DISTINCT account_id) AS total
-		FROM effective_qianchuan_cost`, startDate, endDate, startDate, endDate)
+		FROM effective_qianchuan_cost effective
+		WHERE 1=1`+scopeWhere, totalArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
 	total := totalRow["total"].Int64()
 
+	listArgs := []interface{}{startDate, endDate, startDate, endDate}
+	listArgs = append(listArgs, scopeArgs...)
+	listArgs = append(listArgs, pageSize, offset)
 	rows, err := g.DB().GetAll(ctx, effectiveQianchuanCostCTE+`
 		SELECT
 			effective.account_id,
@@ -833,10 +1083,11 @@ func (s *FinanceCommissionService) GetAuthorCostRanking(ctx context.Context, sta
 			COALESCE(SUM(effective.pay_order_count), 0) AS pay_order_count
 		FROM effective_qianchuan_cost effective
 		LEFT JOIN account a ON a.id = effective.account_id
+		WHERE 1=1`+scopeWhere+`
 		GROUP BY effective.account_id
 		ORDER BY stat_cost DESC
 		LIMIT ? OFFSET ?
-	`, startDate, endDate, startDate, endDate, pageSize, offset)
+	`, listArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -860,7 +1111,7 @@ func (s *FinanceCommissionService) GetAuthorCostRanking(ctx context.Context, sta
 }
 
 // GetCostRanking 查询消耗排行
-func (s *FinanceCommissionService) GetCostRanking(ctx context.Context, startDate, endDate, dimension string, limit int) ([]g.Map, error) {
+func (s *FinanceCommissionService) GetCostRanking(ctx context.Context, startDate, endDate, dimension string, limit int, scope FinanceOrgScope) ([]g.Map, error) {
 	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	if _, err := time.Parse("2006-01-02", startDate); err != nil {
 		return nil, fmt.Errorf("开始日期格式错误，期望 2006-01-02: %s", startDate)
@@ -874,24 +1125,38 @@ func (s *FinanceCommissionService) GetCostRanking(ctx context.Context, startDate
 
 	switch dimension {
 	case "trader":
-		return s.costRankingByTrader(ctx, startDate, endDate, limit)
+		return s.costRankingByTrader(ctx, startDate, endDate, limit, scope)
 	case "department":
-		return s.costRankingByDept(ctx, startDate, endDate, limit)
+		return s.costRankingByDept(ctx, startDate, endDate, limit, scope)
 	case "company":
-		return s.costRankingByCompany(ctx, startDate, endDate, limit)
+		return s.costRankingByCompany(ctx, startDate, endDate, limit, scope)
 	default:
 		return nil, fmt.Errorf("不支持的维度: %s，支持: trader/department/company", dimension)
 	}
 }
 
-func (s *FinanceCommissionService) costRankingByTrader(ctx context.Context, startDate, endDate string, limit int) ([]g.Map, error) {
+func (s *FinanceCommissionService) costRankingByTrader(ctx context.Context, startDate, endDate string, limit int, scope FinanceOrgScope) ([]g.Map, error) {
+	joinScopeWhere, joinScopeArgs, scopeErr := s.effectiveScopeWhere(ctx, scope, "effective")
+	if scopeErr != nil {
+		return nil, scopeErr
+	}
+	baseWhere, baseArgs, baseErr := s.costRankingBaseWhere(ctx, scope, "trader", "t")
+	if baseErr != nil {
+		return nil, baseErr
+	}
+	args := []interface{}{startDate, endDate, startDate, endDate}
+	args = append(args, joinScopeArgs...)
+	args = append(args, baseArgs...)
+	args = append(args, limit)
 	rows, err := g.DB().GetAll(ctx, effectiveQianchuanCostCTE+`
 		SELECT t.id, t.name, COALESCE(SUM(effective.stat_cost), 0) AS ad_cost
 		FROM trader t
-		LEFT JOIN effective_qianchuan_cost effective ON effective.trader_id = t.id
+		LEFT JOIN effective_qianchuan_cost effective
+			ON effective.trader_id = t.id`+joinScopeWhere+`
+		WHERE t.status = 1`+baseWhere+`
 		GROUP BY t.id, t.name
-		ORDER BY ad_cost DESC
-		LIMIT ?`, startDate, endDate, startDate, endDate, limit)
+		ORDER BY ad_cost DESC, t.id ASC
+		LIMIT ?`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -908,14 +1173,28 @@ func (s *FinanceCommissionService) costRankingByTrader(ctx context.Context, star
 	return result, nil
 }
 
-func (s *FinanceCommissionService) costRankingByDept(ctx context.Context, startDate, endDate string, limit int) ([]g.Map, error) {
+func (s *FinanceCommissionService) costRankingByDept(ctx context.Context, startDate, endDate string, limit int, scope FinanceOrgScope) ([]g.Map, error) {
+	joinScopeWhere, joinScopeArgs, scopeErr := s.effectiveScopeWhere(ctx, scope, "effective")
+	if scopeErr != nil {
+		return nil, scopeErr
+	}
+	baseWhere, baseArgs, baseErr := s.costRankingBaseWhere(ctx, scope, "department", "d")
+	if baseErr != nil {
+		return nil, baseErr
+	}
+	args := []interface{}{startDate, endDate, startDate, endDate}
+	args = append(args, joinScopeArgs...)
+	args = append(args, baseArgs...)
+	args = append(args, limit)
 	rows, err := g.DB().GetAll(ctx, effectiveQianchuanCostCTE+`
 		SELECT d.id, d.name, COALESCE(SUM(effective.stat_cost), 0) AS ad_cost
 		FROM sys_department d
-		LEFT JOIN effective_qianchuan_cost effective ON effective.department_id = d.id
+		LEFT JOIN effective_qianchuan_cost effective
+			ON effective.department_id = d.id`+joinScopeWhere+`
+		WHERE d.status = 1`+baseWhere+`
 		GROUP BY d.id, d.name
-		ORDER BY ad_cost DESC
-		LIMIT ?`, startDate, endDate, startDate, endDate, limit)
+		ORDER BY ad_cost DESC, d.sort ASC, d.id ASC
+		LIMIT ?`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -932,14 +1211,28 @@ func (s *FinanceCommissionService) costRankingByDept(ctx context.Context, startD
 	return result, nil
 }
 
-func (s *FinanceCommissionService) costRankingByCompany(ctx context.Context, startDate, endDate string, limit int) ([]g.Map, error) {
+func (s *FinanceCommissionService) costRankingByCompany(ctx context.Context, startDate, endDate string, limit int, scope FinanceOrgScope) ([]g.Map, error) {
+	joinScopeWhere, joinScopeArgs, scopeErr := s.effectiveScopeWhere(ctx, scope, "effective")
+	if scopeErr != nil {
+		return nil, scopeErr
+	}
+	baseWhere, baseArgs, baseErr := s.costRankingBaseWhere(ctx, scope, "company", "c")
+	if baseErr != nil {
+		return nil, baseErr
+	}
+	args := []interface{}{startDate, endDate, startDate, endDate}
+	args = append(args, joinScopeArgs...)
+	args = append(args, baseArgs...)
+	args = append(args, limit)
 	rows, err := g.DB().GetAll(ctx, effectiveQianchuanCostCTE+`
 		SELECT c.id, c.name, COALESCE(SUM(effective.stat_cost), 0) AS ad_cost
 		FROM sys_company c
-		LEFT JOIN effective_qianchuan_cost effective ON effective.company_id = c.id
+		LEFT JOIN effective_qianchuan_cost effective
+			ON effective.company_id = c.id`+joinScopeWhere+`
+		WHERE c.status = 1`+baseWhere+`
 		GROUP BY c.id, c.name
-		ORDER BY ad_cost DESC
-		LIMIT ?`, startDate, endDate, startDate, endDate, limit)
+		ORDER BY ad_cost DESC, c.sort ASC, c.id ASC
+		LIMIT ?`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -1004,8 +1297,8 @@ func (s *FinanceCommissionService) costDetailsByDimension(ctx context.Context, s
 }
 
 // ExportAuthorCostRanking 导出达人维度消耗统计全量数据
-func (s *FinanceCommissionService) ExportAuthorCostRanking(ctx context.Context, startDate, endDate string) (string, error) {
-	list, _, err := s.GetAuthorCostRanking(ctx, startDate, endDate, 1, 1000000)
+func (s *FinanceCommissionService) ExportAuthorCostRanking(ctx context.Context, startDate, endDate string, scope FinanceOrgScope) (string, error) {
+	list, _, err := s.GetAuthorCostRanking(ctx, startDate, endDate, 1, 1000000, scope)
 	if err != nil {
 		return "", err
 	}
@@ -1026,8 +1319,8 @@ func (s *FinanceCommissionService) ExportAuthorCostRanking(ctx context.Context, 
 }
 
 // ExportCostRanking 导出千川消耗统计全量数据
-func (s *FinanceCommissionService) ExportCostRanking(ctx context.Context, startDate, endDate, dimension string) (string, error) {
-	list, err := s.GetCostRanking(ctx, startDate, endDate, dimension, 1000000)
+func (s *FinanceCommissionService) ExportCostRanking(ctx context.Context, startDate, endDate, dimension string, scope FinanceOrgScope) (string, error) {
+	list, err := s.GetCostRanking(ctx, startDate, endDate, dimension, 1000000, scope)
 	if err != nil {
 		return "", err
 	}
@@ -1072,8 +1365,8 @@ func (s *FinanceCommissionService) ExportCostDetails(ctx context.Context, startD
 }
 
 // ExportStoreCostDetail 导出店铺消耗明细（按千川广告主账户维度，全量数据）。
-func (s *FinanceCommissionService) ExportStoreCostDetail(ctx context.Context, startDate, endDate string, storeId int64) (string, error) {
-	list, _, err := s.GetStoreCostDetail(ctx, startDate, endDate, storeId, 1, 1000000)
+func (s *FinanceCommissionService) ExportStoreCostDetail(ctx context.Context, startDate, endDate string, storeId int64, scope FinanceOrgScope) (string, error) {
+	list, _, err := s.GetStoreCostDetail(ctx, startDate, endDate, storeId, 1, 1000000, scope)
 	if err != nil {
 		return "", err
 	}
@@ -1096,8 +1389,8 @@ func (s *FinanceCommissionService) ExportStoreCostDetail(ctx context.Context, st
 }
 
 // ExportAllStoreCostDetail 导出全部店铺下全部千川账户消耗明细。
-func (s *FinanceCommissionService) ExportAllStoreCostDetail(ctx context.Context, startDate, endDate string) (string, error) {
-	list, err := s.GetAllStoreCostDetail(ctx, startDate, endDate)
+func (s *FinanceCommissionService) ExportAllStoreCostDetail(ctx context.Context, startDate, endDate string, scope FinanceOrgScope) (string, error) {
+	list, err := s.GetAllStoreCostDetail(ctx, startDate, endDate, scope)
 	if err != nil {
 		return "", err
 	}
@@ -1121,8 +1414,8 @@ func (s *FinanceCommissionService) ExportAllStoreCostDetail(ctx context.Context,
 }
 
 // ExportSubjectCostDetail 兼容旧主体明细导出接口，subjectId 参数按 storeId 解释。
-func (s *FinanceCommissionService) ExportSubjectCostDetail(ctx context.Context, startDate, endDate string, subjectId int64) (string, error) {
-	return s.ExportStoreCostDetail(ctx, startDate, endDate, subjectId)
+func (s *FinanceCommissionService) ExportSubjectCostDetail(ctx context.Context, startDate, endDate string, subjectId int64, scope FinanceOrgScope) (string, error) {
+	return s.ExportStoreCostDetail(ctx, startDate, endDate, subjectId, scope)
 }
 
 // OverallDetailExportItem 乘方明细导出项（供 controller 层填充）
