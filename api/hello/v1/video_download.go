@@ -33,6 +33,15 @@ type VideoDownloadFileReq struct {
 // VideoDownloadFileRes 下载视频文件响应
 type VideoDownloadFileRes struct{}
 
+// VideoDownloadTicketReq 创建视频下载票据请求
+type VideoDownloadTicketReq struct {
+	g.Meta  `path:"/videos/:videoId/download-ticket" tags:"Video" method:"post" summary:"创建视频下载票据"`
+	VideoId string `json:"videoId" v:"required" dc:"视频 ID"`
+}
+
+// VideoDownloadTicketRes 创建视频下载票据响应
+type VideoDownloadTicketRes struct{}
+
 type VideoDownloadTaskReq struct {
 	g.Meta  `path:"/videos/:videoId/download-task" tags:"Video" method:"post" summary:"创建视频直链解析任务"`
 	VideoId string `json:"videoId" v:"required"`

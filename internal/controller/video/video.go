@@ -2,17 +2,23 @@ package video
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	v1 "go-crawler/api/hello/v1"
 	"go-crawler/internal/logic/crawler"
 
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/net/ghttp"
 )
 
 type Controller struct{}
@@ -35,6 +41,27 @@ func (c *Controller) DownloadTask(ctx context.Context, req *v1.VideoDownloadTask
 	}
 	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "直链解析任务已接收", "data": g.Map{
 		"video_id": req.VideoId, "download_status": status,
+	}})
+	return
+}
+
+func (c *Controller) DownloadTicket(ctx context.Context, req *v1.VideoDownloadTicketReq) (res *v1.VideoDownloadTicketRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	if !validVideoID.MatchString(req.VideoId) {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "video_id 格式不正确", "data": nil})
+		return
+	}
+	ticket, ticketErr := createDownloadTicket(ctx, req.VideoId)
+	if ticketErr != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": ticketErr.Error(), "data": nil})
+		return
+	}
+	downloadURL := fmt.Sprintf("/api/videos/%s/file-public?ticket=%s", url.PathEscape(req.VideoId), url.QueryEscape(ticket))
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": g.Map{
+		"video_id": req.VideoId,
+		"ticket":   ticket,
+		"url":      downloadURL,
+		"expires":  time.Now().Add(10 * time.Minute).Unix(),
 	}})
 	return
 }
@@ -216,16 +243,35 @@ func (c *Controller) DownloadProxy(ctx context.Context, req *v1.VideoDownloadPro
 // 将已解析的下载直链通过后端转发为附件下载，避免浏览器跨域时忽略 download 属性。
 func (c *Controller) DownloadFile(ctx context.Context, req *v1.VideoDownloadFileReq) (res *v1.VideoDownloadFileRes, err error) {
 	r := g.RequestFromCtx(ctx)
-
 	videoId := req.VideoId
 	if !validVideoID.MatchString(videoId) {
 		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "video_id 格式不正确", "data": nil})
 		return
 	}
 
+	writeVideoFile(ctx, r.Response, videoId)
+	return
+}
+
+// DownloadFilePublic GET /api/videos/{videoId}/file-public?ticket=xxx
+// 公开下载入口只接受短期签名票据，用于浏览器原生下载，避免前端 fetch 等完整 blob。
+func (c *Controller) DownloadFilePublic(r *ghttp.Request) {
+	videoId := r.Get("videoId").String()
+	if !validVideoID.MatchString(videoId) {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "video_id 格式不正确", "data": nil})
+		return
+	}
+	if err := verifyDownloadTicket(r.Context(), videoId, r.GetQuery("ticket").String()); err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 401, "msg": err.Error(), "data": nil})
+		return
+	}
+	writeVideoFile(r.Context(), r.Response, videoId)
+}
+
+func writeVideoFile(ctx context.Context, response *ghttp.Response, videoId string) {
 	downloadURL, resolveErr := getResolvedDownloadURL(ctx, videoId)
 	if resolveErr != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 404, "msg": resolveErr.Error(), "data": nil})
+		response.WriteJsonExit(g.Map{"code": 404, "msg": resolveErr.Error(), "data": nil})
 		return
 	}
 
@@ -236,18 +282,18 @@ func (c *Controller) DownloadFile(ctx context.Context, req *v1.VideoDownloadFile
 		}
 		downloadURL, resolveErr = forceResolveDownloadURL(ctx, videoId)
 		if resolveErr != nil {
-			r.Response.WriteJsonExit(g.Map{"code": 404, "msg": resolveErr.Error(), "data": nil})
+			response.WriteJsonExit(g.Map{"code": 404, "msg": resolveErr.Error(), "data": nil})
 			return
 		}
 		resp, fetchErr = fetchVideoStream(ctx, downloadURL)
 	}
 	if fetchErr != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 502, "msg": fetchErr.Error(), "data": nil})
+		response.WriteJsonExit(g.Map{"code": 502, "msg": fetchErr.Error(), "data": nil})
 		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		r.Response.WriteJsonExit(g.Map{"code": resp.StatusCode, "msg": fmt.Sprintf("视频源返回 HTTP %d", resp.StatusCode), "data": nil})
+		response.WriteJsonExit(g.Map{"code": resp.StatusCode, "msg": fmt.Sprintf("视频源返回 HTTP %d", resp.StatusCode), "data": nil})
 		return
 	}
 
@@ -255,14 +301,13 @@ func (c *Controller) DownloadFile(ctx context.Context, req *v1.VideoDownloadFile
 	if contentType == "" {
 		contentType = "video/mp4"
 	}
-	r.Response.Header().Set("Content-Type", contentType)
-	r.Response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="douyin_%s.mp4"`, videoId))
+	response.Header().Set("Content-Type", contentType)
+	response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="douyin_%s.mp4"`, videoId))
 	if length := resp.Header.Get("Content-Length"); length != "" {
-		r.Response.Header().Set("Content-Length", length)
+		response.Header().Set("Content-Length", length)
 	}
-	r.Response.WriteHeader(http.StatusOK)
-	_, _ = io.Copy(r.Response.Writer, resp.Body)
-	return
+	response.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(response.Writer, resp.Body)
 }
 
 func getResolvedDownloadURL(ctx context.Context, videoId string) (string, error) {
@@ -283,6 +328,45 @@ func getResolvedDownloadURL(ctx context.Context, videoId string) (string, error)
 func forceResolveDownloadURL(ctx context.Context, videoId string) (string, error) {
 	downloadURL, _, err := downloadManager.ResolveNow(ctx, videoId)
 	return downloadURL, err
+}
+
+func createDownloadTicket(ctx context.Context, videoId string) (string, error) {
+	expires := time.Now().Add(10 * time.Minute).Unix()
+	expireText := strconv.FormatInt(expires, 10)
+	signature, err := signDownloadTicket(ctx, videoId, expireText)
+	if err != nil {
+		return "", err
+	}
+	return expireText + "." + signature, nil
+}
+
+func verifyDownloadTicket(ctx context.Context, videoId, ticket string) error {
+	parts := strings.Split(ticket, ".")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return fmt.Errorf("下载票据无效")
+	}
+	expires, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil || time.Now().Unix() > expires {
+		return fmt.Errorf("下载票据已过期")
+	}
+	expected, err := signDownloadTicket(ctx, videoId, parts[0])
+	if err != nil {
+		return err
+	}
+	if !hmac.Equal([]byte(expected), []byte(parts[1])) {
+		return fmt.Errorf("下载票据校验失败")
+	}
+	return nil
+}
+
+func signDownloadTicket(ctx context.Context, videoId, expires string) (string, error) {
+	secret, err := g.Cfg().Get(ctx, "jwt.secret", "go-crawler-jwt-secret-2024")
+	if err != nil {
+		return "", err
+	}
+	mac := hmac.New(sha256.New, []byte(secret.String()))
+	_, _ = mac.Write([]byte(videoId + "." + expires))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
 }
 
 func fetchVideoStream(ctx context.Context, downloadURL string) (*http.Response, error) {

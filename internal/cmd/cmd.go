@@ -850,6 +850,12 @@ var (
 				group.GET("/store/export-template", storeFileCtrl.ExportTemplate)
 			})
 
+			// 视频下载直连入口：通过短期签名 ticket 校验，不走 JWT Header，方便浏览器原生下载。
+			s.Group("/api", func(group *ghttp.RouterGroup) {
+				videoFileCtrl := ctrlVideo.New()
+				group.GET("/videos/{videoId}/file-public", videoFileCtrl.DownloadFilePublic)
+			})
+
 			// WebSocket 路由（不经过标准 response 中间件）
 			wsCtrl := ctrlWs.New()
 			s.Group("/api", func(group *ghttp.RouterGroup) {
