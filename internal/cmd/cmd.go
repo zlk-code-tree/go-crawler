@@ -25,6 +25,7 @@ import (
 	ctrlTask "go-crawler/internal/controller/task"
 	ctrlVideo "go-crawler/internal/controller/video"
 	ctrlWs "go-crawler/internal/controller/ws"
+	crawlerLogic "go-crawler/internal/logic/crawler"
 	"go-crawler/internal/middleware"
 
 	// 注册第三方平台实现（init() 自动注册）
@@ -48,6 +49,19 @@ var (
 			sqlLogger.SetLevel(glog.LEVEL_ALL) // 记录所有执行细节
 			s := g.Server()
 			s.SetClientMaxBodySize(0) // 0表示无限制，解决大文件上传问题
+
+			// 接通榜单 -> 视频池爬取流水线。调度器仍由管理端显式启动。
+			crawlerWorker := crawlerLogic.New()
+			service.GetScheduler().SetTaskHandler(func(taskCtx context.Context, taskType service.TaskType) error {
+				switch taskType {
+				case service.TaskTypeProductRank:
+					return crawlerWorker.RunProductRankTask(taskCtx)
+				case service.TaskTypeVideoPool:
+					return crawlerWorker.RunVideoPoolTask(taskCtx)
+				default:
+					return fmt.Errorf("不支持的爬虫任务类型: %s", taskType)
+				}
+			})
 
 			addColumnIfMissing := func(table, column, definition string) {
 				row, err := g.DB().GetOne(ctx, `
@@ -136,6 +150,66 @@ var (
 			// 兼容已有表：添加 refresh_token 字段
 			addColumnIfMissing("qianchuan_token", "refresh_token", "refresh_token VARCHAR(512) NOT NULL DEFAULT '' COMMENT 'refresh_token' AFTER access_token")
 			addColumnIfMissing("qianchuan_token", "refresh_token_expires_at", "refresh_token_expires_at DATETIME DEFAULT NULL COMMENT 'refresh_token过期时间' AFTER expires_at")
+
+			addColumnIfMissing("tiktok_ranking_list", "shop_id", "shop_id VARCHAR(64) NOT NULL DEFAULT '' COMMENT '店铺ID' AFTER product_id")
+			addColumnIfMissing("tiktok_ranking_list", "product_url", "product_url VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '榜单详情页' AFTER shop_id")
+
+			// 视频发现、列表和异步下载都依赖此表。部分存量环境只有
+			// 榜单表，先完整建表，再由下方的兼容逻辑为旧表补字段。
+			if _, err := g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS video_analysis_data (
+				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键 ID',
+				task_id VARCHAR(64) NOT NULL DEFAULT '' COMMENT '爬虫任务 ID',
+				product_id VARCHAR(64) DEFAULT NULL COMMENT '商品 ID',
+				product_name VARCHAR(255) DEFAULT NULL COMMENT '商品名称',
+				video_id VARCHAR(64) DEFAULT NULL COMMENT '视频 ID',
+				video_desc VARCHAR(512) DEFAULT NULL COMMENT '短视频信息',
+				author_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '视频作者',
+				cover_url VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '视频封面',
+				publish_time VARCHAR(64) NOT NULL DEFAULT '' COMMENT '发布时间',
+				source_url VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '视频页地址',
+				payment_amount VARCHAR(32) DEFAULT NULL COMMENT '用户支付金额',
+				expose_user_count VARCHAR(32) DEFAULT NULL COMMENT '商品曝光人数',
+				click_user_count VARCHAR(32) DEFAULT NULL COMMENT '商品点击人数',
+				convert_user_count VARCHAR(32) DEFAULT NULL COMMENT '商品成交人数',
+				click_rate VARCHAR(16) DEFAULT NULL COMMENT '商品点击率',
+				click_convert_rate VARCHAR(16) DEFAULT NULL COMMENT '点击成交率',
+				expose_convert_rate VARCHAR(16) DEFAULT NULL COMMENT '曝光成交率',
+				order_count VARCHAR(32) DEFAULT NULL COMMENT '商品成交订单数',
+				sales_volume VARCHAR(32) DEFAULT NULL COMMENT '商品成交件数',
+				download_status VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT '下载状态',
+				download_url VARCHAR(2048) NOT NULL DEFAULT '' COMMENT '视频下载直链',
+				resolve_strategy VARCHAR(64) NOT NULL DEFAULT '' COMMENT '直链解析策略',
+				storage_path VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '存储路径',
+				file_size BIGINT NOT NULL DEFAULT 0 COMMENT '文件大小',
+				last_error TEXT NULL COMMENT '最后错误',
+				retry_count INT NOT NULL DEFAULT 0 COMMENT '重试次数',
+				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+				PRIMARY KEY (id),
+				KEY idx_task_id (task_id),
+				KEY idx_product_id (product_id),
+				KEY idx_video_id (video_id),
+				KEY idx_video_download_status (download_status),
+				KEY idx_created_at (created_at)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='抖音视频分析数据表'`); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 创建视频分析表失败 err=%v", err)
+			}
+			addColumnIfMissing("video_analysis_data", "author_name", "author_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '视频作者' AFTER video_desc")
+			addColumnIfMissing("video_analysis_data", "cover_url", "cover_url VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '视频封面' AFTER author_name")
+			addColumnIfMissing("video_analysis_data", "publish_time", "publish_time VARCHAR(64) NOT NULL DEFAULT '' COMMENT '发布时间' AFTER cover_url")
+			addColumnIfMissing("video_analysis_data", "source_url", "source_url VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '视频页地址' AFTER publish_time")
+			addColumnIfMissing("video_analysis_data", "download_status", "download_status VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT '下载状态' AFTER sales_volume")
+			addColumnIfMissing("video_analysis_data", "download_url", "download_url VARCHAR(2048) NOT NULL DEFAULT '' COMMENT '视频下载直链' AFTER download_status")
+			addColumnIfMissing("video_analysis_data", "resolve_strategy", "resolve_strategy VARCHAR(64) NOT NULL DEFAULT '' COMMENT '直链解析策略' AFTER download_url")
+			addColumnIfMissing("video_analysis_data", "storage_path", "storage_path VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '存储路径' AFTER download_status")
+			addColumnIfMissing("video_analysis_data", "file_size", "file_size BIGINT NOT NULL DEFAULT 0 COMMENT '文件大小' AFTER storage_path")
+			addColumnIfMissing("video_analysis_data", "last_error", "last_error TEXT NULL COMMENT '最后错误' AFTER file_size")
+			addColumnIfMissing("video_analysis_data", "retry_count", "retry_count INT NOT NULL DEFAULT 0 COMMENT '重试次数' AFTER last_error")
+			addIndexIfMissing("video_analysis_data", "idx_video_download_status", "INDEX `idx_video_download_status` (`download_status`)")
+			if resumeResult, err := crawlerLogic.GetVideoDownloadManager().ResumePending(ctx, 1000); err != nil {
+				g.Log().Warningf(ctx, "[VideoDownload] 恢复未完成直链解析失败 err=%v", err)
+			} else if resumeResult.Queued > 0 {
+				g.Log().Infof(ctx, "[VideoDownload] 已恢复 %d 个未完成视频直链解析", resumeResult.Queued)
+			}
 
 			// 自动建表：千川广告主日结报表（账户维度）
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS qianchuan_advertiser_daily_report (

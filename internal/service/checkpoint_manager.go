@@ -13,15 +13,19 @@ import (
 
 // CrawlTask 爬取任务状态
 type CrawlTask struct {
-	TaskId        string    `json:"task_id"`
-	Status        string    `json:"status"` // pending, running, completed, failed
-	CurrentStep   int       `json:"current_step"`
-	CurrentPage   int       `json:"current_page"`
-	TotalPages    int       `json:"total_pages"`
-	ScrapedCount  int       `json:"scraped_count"`
-	StartTime     time.Time `json:"start_time"`
-	EndTime       time.Time `json:"end_time"`
-	Error         string    `json:"error,omitempty"`
+	TaskId              string    `json:"task_id"`
+	Status              string    `json:"status"` // pending, running, paused, completed, failed
+	CurrentStep         int       `json:"current_step"`
+	CurrentPage         int       `json:"current_page"`
+	TotalPages          int       `json:"total_pages"`
+	ScrapedCount        int       `json:"scraped_count"`
+	CurrentProductIndex int       `json:"current_product_index"`
+	ProductCount        int       `json:"product_count"`
+	VideoCount          int       `json:"video_count"`
+	StopReason          string    `json:"stop_reason,omitempty"`
+	StartTime           time.Time `json:"start_time"`
+	EndTime             time.Time `json:"end_time"`
+	Error               string    `json:"error,omitempty"`
 }
 
 // CheckpointManager 断点管理器
@@ -92,6 +96,50 @@ func (cm *CheckpointManager) LoadCheckpoint(ctx context.Context, taskId string) 
 	return &task, nil
 }
 
+// FindLatestResumableCheckpoint 查找最近一个可恢复的断点任务。
+func (cm *CheckpointManager) FindLatestResumableCheckpoint(ctx context.Context) (*CrawlTask, error) {
+	entries, err := os.ReadDir(cm.checkpointDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var latest *CrawlTask
+	var latestMod time.Time
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(cm.checkpointDir, entry.Name()))
+		if err != nil {
+			continue
+		}
+		var task CrawlTask
+		if err := json.Unmarshal(data, &task); err != nil {
+			continue
+		}
+		if task.TaskId == "" || task.Status == "completed" || task.Status == "failed" {
+			continue
+		}
+		if task.CurrentStep < 8 || task.CurrentProductIndex <= 0 {
+			continue
+		}
+		if latest == nil || info.ModTime().After(latestMod) {
+			copied := task
+			latest = &copied
+			latestMod = info.ModTime()
+		}
+	}
+	if latest != nil {
+		glog.Info(ctx, fmt.Sprintf("[%s] 🔄 找到最近可恢复的视频采集断点：商品索引=%d，视频=%d 条",
+			latest.TaskId, latest.CurrentProductIndex, latest.VideoCount))
+	}
+	return latest, nil
+}
+
 // UpdateProgress 更新任务进度
 func (cm *CheckpointManager) UpdateProgress(ctx context.Context, taskId string, step, page, scrapedCount int) error {
 	task, err := cm.LoadCheckpoint(ctx, taskId)
@@ -101,9 +149,9 @@ func (cm *CheckpointManager) UpdateProgress(ctx context.Context, taskId string, 
 
 	if task == nil {
 		task = &CrawlTask{
-			TaskId:    taskId,
-			Status:    "running",
-			StartTime: time.Now(),
+			TaskId:     taskId,
+			Status:     "running",
+			StartTime:  time.Now(),
 			TotalPages: 20,
 		}
 	}
@@ -112,6 +160,39 @@ func (cm *CheckpointManager) UpdateProgress(ctx context.Context, taskId string, 
 	task.CurrentPage = page
 	task.ScrapedCount = scrapedCount
 	task.Status = "running"
+
+	return cm.SaveCheckpoint(ctx, task)
+}
+
+// UpdateVideoProgress 保存视频采集阶段断点。
+func (cm *CheckpointManager) UpdateVideoProgress(ctx context.Context, taskId string, nextProductIndex, productCount, videoCount int, status, reason string) error {
+	task, err := cm.LoadCheckpoint(ctx, taskId)
+	if err != nil {
+		return err
+	}
+
+	if task == nil {
+		task = &CrawlTask{
+			TaskId:     taskId,
+			StartTime:  time.Now(),
+			TotalPages: 20,
+		}
+	}
+	if status == "" {
+		status = "running"
+	}
+	task.CurrentStep = 8
+	task.CurrentPage = 20
+	task.TotalPages = 20
+	task.ScrapedCount = productCount
+	task.CurrentProductIndex = nextProductIndex
+	task.ProductCount = productCount
+	task.VideoCount = videoCount
+	task.Status = status
+	task.StopReason = reason
+	if status == "paused" {
+		task.EndTime = time.Now()
+	}
 
 	return cm.SaveCheckpoint(ctx, task)
 }

@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"encoding/json"
+	"regexp"
 	"strings"
 	"time"
 
@@ -11,16 +13,16 @@ import (
 
 // excludePaths 不需要记录日志的路径（精确匹配）
 var excludePaths = map[string]bool{
-	"/api/health":            true,
-	"/api/ping":              true,
-	"/api/system/dict":       true,
-	"/api/system/dict/list":  true,
-	"/api/org/tree":          true,
-	"/api/org/list":          true,
-	"/api/org/children":      true,
-	"/api/org/ancestors":     true,
-	"/api/org/detail":        true,
-	"/api/org/shop-path":     true,
+	"/api/health":           true,
+	"/api/ping":             true,
+	"/api/system/dict":      true,
+	"/api/system/dict/list": true,
+	"/api/org/tree":         true,
+	"/api/org/list":         true,
+	"/api/org/children":     true,
+	"/api/org/ancestors":    true,
+	"/api/org/detail":       true,
+	"/api/org/shop-path":    true,
 }
 
 // excludePathPrefixes 不需要记录日志的路径前缀
@@ -31,6 +33,8 @@ var excludePathPrefixes = []string{
 	"/assets/",
 	"/favicon.ico",
 }
+
+var sensitiveParamPattern = regexp.MustCompile(`(?i)(password|secret|token|authorization)([^:=&]*[:=]\s*["']?)[^&,"'\s}]+`)
 
 func OperationLog(r *ghttp.Request) {
 	startTime := time.Now()
@@ -59,7 +63,7 @@ func OperationLog(r *ghttp.Request) {
 	ip := r.GetClientIp()
 	location := service.NewIpLocationService().GetLocationByIP(ip)
 	userAgent := r.UserAgent()
-	params := string(r.GetBody())
+	params := sanitizeOperationParams(r.GetBody())
 	if len(params) > 2000 {
 		params = params[:2000] + "..."
 	}
@@ -105,6 +109,41 @@ func OperationLog(r *ghttp.Request) {
 	}()
 }
 
+func sanitizeOperationParams(body []byte) string {
+	if len(body) == 0 {
+		return ""
+	}
+	var value interface{}
+	if err := json.Unmarshal(body, &value); err != nil {
+		return sensitiveParamPattern.ReplaceAllString(string(body), `${1}${2}***`)
+	}
+	var redact func(interface{})
+	redact = func(current interface{}) {
+		switch typed := current.(type) {
+		case map[string]interface{}:
+			for key, child := range typed {
+				lower := strings.ToLower(key)
+				if strings.Contains(lower, "password") || strings.Contains(lower, "secret") ||
+					strings.Contains(lower, "token") || strings.Contains(lower, "authorization") {
+					typed[key] = "***"
+					continue
+				}
+				redact(child)
+			}
+		case []interface{}:
+			for _, child := range typed {
+				redact(child)
+			}
+		}
+	}
+	redact(value)
+	sanitized, err := json.Marshal(value)
+	if err != nil {
+		return "[redacted]"
+	}
+	return string(sanitized)
+}
+
 // shouldExcludePath 判断路径是否应该排除
 func shouldExcludePath(url string) bool {
 	// 精确匹配
@@ -129,12 +168,12 @@ func extractModuleFromUrl(url string) string {
 	// 解析模块层级
 	var firstLevel, secondLevel string
 	var operation string
-	
+
 	// 处理外链菜单访问 - /system/external/{code}
 	if len(parts) >= 2 && parts[0] == "system" && parts[1] == "external" {
 		return "系统管理 - 外链菜单 - 访问"
 	}
-	
+
 	// 处理 /api/system/user/list 格式
 	if strings.HasPrefix(parts[0], "system/") {
 		firstLevel = "系统管理"
@@ -253,7 +292,7 @@ func parseSecondLevel(module string) string {
 			return "系统管理"
 		}
 	}
-	
+
 	// 处理 douyin/product-pool 格式
 	if strings.HasPrefix(module, "douyin/") {
 		subModule := strings.TrimPrefix(module, "douyin/")
@@ -266,7 +305,7 @@ func parseSecondLevel(module string) string {
 			return "抖音盯盘"
 		}
 	}
-	
+
 	// 处理直接模块名
 	return parseFirstLevel(module)
 }
@@ -278,7 +317,7 @@ func parseOperation(controller, action string) string {
 	if action != "" {
 		fullPath = controller + "/" + action
 	}
-	
+
 	switch fullPath {
 	case "assign-roles":
 		return "分配角色"
@@ -291,10 +330,10 @@ func parseOperation(controller, action string) string {
 	case "data-scope":
 		return "数据权限"
 	}
-	
+
 	// 根据HTTP方法和常见操作名称判断
 	upperAction := strings.ToUpper(action)
-	
+
 	// 常见的CRUD操作映射
 	if action == "list" {
 		return "查询"
@@ -309,7 +348,7 @@ func parseOperation(controller, action string) string {
 	} else if action == "update" {
 		return "更新"
 	}
-	
+
 	// 根据HTTP方法判断
 	switch upperAction {
 	case "GET":

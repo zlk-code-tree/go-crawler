@@ -1,0 +1,11 @@
+{
+  "task_id": "r1aBhNJex07E4GDf",
+  "status": "failed",
+  "current_step": 6,
+  "current_page": 20,
+  "total_pages": 20,
+  "scraped_count": 160,
+  "start_time": "2026-07-16T17:54:54.995179+08:00",
+  "end_time": "2026-07-16T18:01:42.855167+08:00",
+  "error": "强制下线"
+}

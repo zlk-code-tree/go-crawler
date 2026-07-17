@@ -7,6 +7,7 @@ import (
 // CrawlReq 爬虫请求
 type CrawlReq struct {
 	g.Meta    `path:"/crawl" tags:"Crawler" method:"post" summary:"启动抖音电商罗盘爬虫任务"`
+	TaskId    string `json:"task_id" dc:"可选任务 ID，用于断点恢复"`
 	TargetUrl string `json:"target_url" dc:"目标 URL（可选，默认使用商品榜单页面）"`
 	LoginType string `json:"login_type" dc:"登录方式：qrcode(扫码) / password(账号密码)"`
 	Username  string `json:"username" dc:"账号（仅 password 模式需要）"`
@@ -29,6 +30,8 @@ type Result struct {
 // ProductInfo 商品基本信息
 type ProductInfo struct {
 	Rank             int    `json:"rank" dc:"排名"`
+	ProductID        string `json:"product_id" dc:"商品 ID"`
+	ShopID           string `json:"shop_id" dc:"店铺 ID"`
 	ProductName      string `json:"product_name" dc:"商品名称"`
 	ShopName         string `json:"shop_name" dc:"账号名称"`
 	PaymentAmount    string `json:"payment_amount" dc:"短视频用户支付金额"`
@@ -41,6 +44,7 @@ type ProductInfo struct {
 
 // ProductDetail 商品详情数据
 type ProductDetail struct {
+	ProductID      string `json:"product_id" dc:"商品 ID"`
 	ProductName    string `json:"product_name" dc:"商品名称"`
 	FirstShelfTime string `json:"first_shelf_time" dc:"首次上架时间"`
 	MinPrice       string `json:"min_price" dc:"最低到手价"`
@@ -50,6 +54,10 @@ type ProductDetail struct {
 type VideoAnalysis struct {
 	VideoID           string `json:"video_id" dc:"视频 ID"`
 	VideoDesc         string `json:"video_desc" dc:"短视频信息"`
+	AuthorName        string `json:"author_name" dc:"作者名称"`
+	CoverURL          string `json:"cover_url" dc:"封面地址"`
+	PublishTime       string `json:"publish_time" dc:"发布时间"`
+	SourceURL         string `json:"source_url" dc:"视频页地址"`
 	PaymentAmount     string `json:"payment_amount" dc:"用户支付金额"`
 	ExposeUserCount   string `json:"expose_user_count" dc:"商品曝光人数"`
 	ClickUserCount    string `json:"click_user_count" dc:"商品点击人数"`

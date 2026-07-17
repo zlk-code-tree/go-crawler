@@ -32,10 +32,10 @@ func (s *sVideoAnalysis) CreateBatch(ctx context.Context, data []*model.VideoAna
 	}
 
 	db := g.DB()
-	entity := (*model.VideoAnalysis)(nil)
-
 	return db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		_, err := tx.Model(entity).Ctx(ctx).Insert(data)
+		// 表名是 video_analysis_data，不能依赖 VideoAnalysis 结构体自动推导，
+		// 否则会误写到不存在的 video_analysis 表。
+		_, err := tx.Model("video_analysis_data").Ctx(ctx).Insert(data)
 		if err != nil {
 			g.Log().Error(ctx, "批量插入视频分析数据失败:", err)
 			return err

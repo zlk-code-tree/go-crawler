@@ -2,6 +2,7 @@ package crawler_service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -65,18 +66,45 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 		return
 	}
 
-	taskId := grand.S(16)
-
-	_, dbErr := g.DB().Model("crawl_tasks").Insert(g.Map{
-		"task_id":    taskId,
-		"status":     "running",
-		"login_type": loginType,
-		"start_time": time.Now(),
-		"created_at": time.Now(),
-	})
-	if dbErr != nil {
-		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": fmt.Sprintf("创建任务失败: %v", dbErr), "data": nil})
+	taskId := req.ResumeTaskId
+	checkpointManager := service.NewCheckpointManager("checkpoints")
+	resumed := false
+	if taskId == "" {
+		if checkpoint, checkpointErr := checkpointManager.FindLatestResumableCheckpoint(ctx); checkpointErr == nil && checkpoint != nil {
+			taskId = checkpoint.TaskId
+			resumed = true
+		}
+	} else if checkpoint, checkpointErr := checkpointManager.LoadCheckpoint(ctx, taskId); checkpointErr != nil || checkpoint == nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "指定的恢复任务不存在或不可恢复", "data": nil})
 		return
+	} else {
+		resumed = true
+	}
+
+	if taskId == "" {
+		taskId = grand.S(16)
+		_, dbErr := g.DB().Model("crawl_tasks").Insert(g.Map{
+			"task_id":    taskId,
+			"status":     "running",
+			"login_type": loginType,
+			"start_time": time.Now(),
+			"created_at": time.Now(),
+		})
+		if dbErr != nil {
+			r.Response.WriteJsonExit(g.Map{"code": 500, "msg": fmt.Sprintf("创建任务失败: %v", dbErr), "data": nil})
+			return
+		}
+	} else {
+		_, dbErr := g.DB().Model("crawl_tasks").Where("task_id", taskId).Update(g.Map{
+			"status":     "running",
+			"login_type": loginType,
+			"start_time": time.Now(),
+			"end_time":   nil,
+		})
+		if dbErr != nil {
+			r.Response.WriteJsonExit(g.Map{"code": 500, "msg": fmt.Sprintf("恢复任务失败: %v", dbErr), "data": nil})
+			return
+		}
 	}
 
 	taskCtx, cancelFn := context.WithCancel(context.Background())
@@ -89,6 +117,7 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 
 		logic := crawler.New()
 		crawlReq := &crawler.CrawlReq{
+			TaskId:    taskId,
 			LoginType: loginType,
 			Username:  req.Username,
 			Password:  req.Password,
@@ -96,7 +125,7 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 
 		mgr.SetMessage("爬虫运行中")
 
-		_, runErr := logic.RunBrowserTask(taskCtx, crawlReq)
+		results, runErr := logic.RunBrowserTask(taskCtx, crawlReq)
 		if runErr != nil {
 			g.Log().Errorf(taskCtx, "[CrawlerService] task %s failed: %v", taskId, runErr)
 			_, _ = g.DB().Model("crawl_tasks").Where("task_id", taskId).Update(g.Map{
@@ -106,17 +135,35 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 			return
 		}
 
-		_, _ = g.DB().Model("crawl_tasks").Where("task_id", taskId).Update(g.Map{
-			"status":   "completed",
-			"end_time": time.Now(),
-		})
-		g.Log().Infof(taskCtx, "[CrawlerService] task %s completed", taskId)
+		status := "completed"
+		var exportFiles map[string]string
+		if len(results) > 0 {
+			exportFiles = results[0].ExportFiles
+			if results[0].Paused {
+				status = "paused"
+			}
+		}
+		productCount, _ := g.DB().Model("tiktok_ranking_list").Ctx(taskCtx).Where("task_id", taskId).Count()
+		videoCount, _ := g.DB().Model("video_analysis_data").Ctx(taskCtx).Where("task_id", taskId).Count()
+		updateData := g.Map{
+			"status":        status,
+			"product_count": productCount,
+			"video_count":   videoCount,
+			"end_time":      time.Now(),
+		}
+		if len(exportFiles) > 0 {
+			if encoded, err := json.Marshal(exportFiles); err == nil {
+				updateData["export_files"] = string(encoded)
+			}
+		}
+		_, _ = g.DB().Model("crawl_tasks").Where("task_id", taskId).Update(updateData)
+		g.Log().Infof(taskCtx, "[CrawlerService] task %s %s", taskId, status)
 	}()
 
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
 		"msg":  "爬虫服务已启动",
-		"data": g.Map{"taskId": taskId},
+		"data": g.Map{"taskId": taskId, "resumed": resumed},
 	})
 	return
 }
@@ -139,5 +186,53 @@ func (c *Controller) CrawlerServiceForceOffline(ctx context.Context, req *v1.Cra
 		"msg":  "ok",
 		"data": nil,
 	})
+	return
+}
+
+func (c *Controller) CrawlerVideoDiagnostic(ctx context.Context, req *v1.CrawlerVideoDiagnosticReq) (res *v1.CrawlerVideoDiagnosticRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	result, runErr := crawler.New().RunVideoDiagnostic(ctx, req.ProductId)
+	if runErr != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 1, "msg": runErr.Error(), "data": nil})
+		return
+	}
+	videos := make([]g.Map, 0, len(result.Videos))
+	for _, video := range result.Videos {
+		videos = append(videos, g.Map{
+			"video_id": video.VideoId, "video_desc": video.VideoDesc,
+			"author_name": video.AuthorName, "cover_url": video.CoverURL,
+			"publish_time": video.PublishTime, "source_url": video.SourceURL,
+			"payment_amount": video.PaymentAmount, "sales_volume": video.SalesVolume,
+		})
+	}
+	diagnostics := make([]g.Map, 0, len(result.Diagnostics))
+	for _, diagnostic := range result.Diagnostics {
+		diagnostics = append(diagnostics, g.Map{
+			"product_id":         diagnostic.ProductID,
+			"response_path":      diagnostic.ResponsePath,
+			"query_keys":         diagnostic.QueryKeys,
+			"body_size":          diagnostic.BodySize,
+			"json_valid":         diagnostic.JSONValid,
+			"business_code":      diagnostic.BusinessCode,
+			"message":            diagnostic.Message,
+			"top_level_keys":     diagnostic.TopLevelKeys,
+			"data_keys":          diagnostic.DataKeys,
+			"array_lengths":      diagnostic.ArrayLengths,
+			"has_video_id":       diagnostic.HasVideoID,
+			"has_aweme_id":       diagnostic.HasAwemeID,
+			"has_video_list":     diagnostic.HasVideoList,
+			"has_download_url":   diagnostic.HasDownloadURL,
+			"restriction_note":   diagnostic.RestrictionNote,
+			"parsed_video_count": diagnostic.ParsedVideoCount,
+			"remaining_count":    diagnostic.RemainingCount,
+			"target_viewable":    diagnostic.TargetViewable,
+			"display_type":       diagnostic.DisplayType,
+		})
+	}
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "ok", "data": g.Map{
+		"task_id": result.TaskId, "product_id": result.Product.ProductID,
+		"product_name": result.Product.ProductName, "analysis_url": result.AnalysisURL,
+		"video_count": len(videos), "videos": videos, "diagnostics": diagnostics,
+	}})
 	return
 }

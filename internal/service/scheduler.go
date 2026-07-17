@@ -28,25 +28,25 @@ const (
 
 // ScheduleTask 调度任务
 type ScheduleTask struct {
-	Type       TaskType
-	Status     TaskStatus
-	Interval   time.Duration
-	LastRunAt  time.Time
-	NextRunAt  time.Time
-	RunCount   int
-	LastError  string
+	Type      TaskType
+	Status    TaskStatus
+	Interval  time.Duration
+	LastRunAt time.Time
+	NextRunAt time.Time
+	RunCount  int
+	LastError string
 }
 
 // Scheduler 任务调度器
 // 流水线模式：商品榜单抓取 → 商品详情/视频抓取 → 等待间隔 → 循环
 type Scheduler struct {
-	mu           sync.RWMutex
-	running      bool
-	ticker       *time.Ticker
-	tasks        map[TaskType]*ScheduleTask
-	taskHandler  func(ctx context.Context, taskType TaskType) error
+	mu            sync.RWMutex
+	running       bool
+	ticker        *time.Ticker
+	tasks         map[TaskType]*ScheduleTask
+	taskHandler   func(ctx context.Context, taskType TaskType) error
 	cycleInterval time.Duration // 一轮完整抓取后的等待间隔
-	triggerCh    chan TaskType   // 流水线触发通道
+	triggerCh     chan TaskType // 流水线触发通道
 }
 
 var (
@@ -192,6 +192,13 @@ func (s *Scheduler) executeTask(taskType TaskType) {
 	task.LastRunAt = time.Now()
 	task.RunCount++
 	handler := s.taskHandler
+	if handler == nil {
+		task.Status = TaskStatusIdle
+		task.LastError = "任务处理器未注册"
+		s.mu.Unlock()
+		g.Log().Errorf(context.Background(), "[Scheduler] 无法执行任务 %s: %s", taskType, task.LastError)
+		return
+	}
 	s.mu.Unlock()
 
 	g.Log().Infof(context.Background(), "[Scheduler] 开始执行任务: %s (第 %d 次)", taskType, task.RunCount)

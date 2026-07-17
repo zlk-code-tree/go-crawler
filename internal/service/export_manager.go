@@ -10,6 +10,7 @@ import (
 
 	"go-crawler/internal/model"
 
+	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/glog"
 	"github.com/xuri/excelize/v2"
 )
@@ -156,6 +157,13 @@ func (em *ExportManager) ExportToExcel(ctx context.Context, taskId string, produ
 
 // ExportVideoAnalysisToCSV 导出视频分析数据到 CSV
 func (em *ExportManager) ExportVideoAnalysisToCSV(ctx context.Context, taskId string, videos []model.VideoAnalysisData) (string, error) {
+	latestVideos, err := em.loadLatestVideoAnalysisFromDB(ctx, taskId)
+	if err != nil {
+		glog.Warning(ctx, fmt.Sprintf("[%s] 刷新视频分析导出数据失败，使用内存数据导出：%v", taskId, err))
+	} else if len(latestVideos) > 0 {
+		videos = latestVideos
+	}
+
 	if len(videos) == 0 {
 		return "", fmt.Errorf("没有数据可导出")
 	}
@@ -172,7 +180,10 @@ func (em *ExportManager) ExportVideoAnalysisToCSV(ctx context.Context, taskId st
 	defer writer.Flush()
 
 	headers := []string{
-		"商品 ID", "商品名称", "视频 ID", "短视频信息", "用户支付金额",
+		"商品 ID", "商品名称", "视频 ID", "短视频信息", "作者", "发布时间",
+		"视频封面链接(cover_url)", "视频页链接(source_url)", "下载状态(download_status)",
+		"视频下载直链(download_url)", "解析策略(resolve_strategy)", "最后错误(last_error)",
+		"用户支付金额",
 		"商品曝光人数", "商品点击人数", "商品成交人数",
 		"商品点击率", "商品点击 - 成交率", "商品曝光 - 成交率",
 		"商品成交订单数", "商品成交件数", "创建时间",
@@ -185,6 +196,14 @@ func (em *ExportManager) ExportVideoAnalysisToCSV(ctx context.Context, taskId st
 			v.ProductName,
 			v.VideoId,
 			v.VideoDesc,
+			v.AuthorName,
+			v.PublishTime,
+			v.CoverURL,
+			v.SourceURL,
+			v.DownloadStatus,
+			v.DownloadURL,
+			v.ResolveStrategy,
+			v.LastError,
 			v.PaymentAmount,
 			v.ExposeUserCount,
 			v.ClickUserCount,
@@ -201,6 +220,23 @@ func (em *ExportManager) ExportVideoAnalysisToCSV(ctx context.Context, taskId st
 
 	glog.Info(ctx, fmt.Sprintf("[%s] ✅ 导出视频分析 CSV 成功：%s (%d 条)", taskId, filename, len(videos)))
 	return filename, nil
+}
+
+func (em *ExportManager) loadLatestVideoAnalysisFromDB(ctx context.Context, taskId string) ([]model.VideoAnalysisData, error) {
+	if taskId == "" {
+		return nil, nil
+	}
+
+	var videos []model.VideoAnalysisData
+	err := g.DB().Model("video_analysis_data").
+		Ctx(ctx).
+		Where("task_id", taskId).
+		OrderAsc("id").
+		Scan(&videos)
+	if err != nil {
+		return nil, err
+	}
+	return videos, nil
 }
 
 // ExportAll 导出所有数据（商品 + 视频分析）
@@ -224,8 +260,9 @@ func (em *ExportManager) ExportAll(ctx context.Context, taskId string, products 
 		}
 	}
 
-	// 导出视频分析数据
-	if len(videos) > 0 {
+	// 导出视频分析数据。视频直链解析是后台异步的，传入的内存数据可能为空或滞后；
+	// 只要数据库里已有当前任务的视频行，就允许导出器刷新 DB 后导出。
+	if len(videos) > 0 || em.hasVideoAnalysisRows(ctx, taskId) {
 		csvFile, err := em.ExportVideoAnalysisToCSV(ctx, taskId, videos)
 		if err != nil {
 			glog.Error(ctx, fmt.Sprintf("[%s] 导出视频分析 CSV 失败：%v", taskId, err))
@@ -235,4 +272,12 @@ func (em *ExportManager) ExportAll(ctx context.Context, taskId string, products 
 	}
 
 	return results, nil
+}
+
+func (em *ExportManager) hasVideoAnalysisRows(ctx context.Context, taskId string) bool {
+	if taskId == "" {
+		return false
+	}
+	count, err := g.DB().Model("video_analysis_data").Ctx(ctx).Where("task_id", taskId).Count()
+	return err == nil && count > 0
 }

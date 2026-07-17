@@ -14,6 +14,9 @@ DROP TABLE IF EXISTS `tiktok_ranking_list`;
 CREATE TABLE `tiktok_ranking_list` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键 ID',
   `task_id` VARCHAR(64) NOT NULL COMMENT '任务 ID',
+  `product_id` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '商品 ID',
+  `shop_id` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '店铺 ID',
+  `product_url` VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '商品详情页',
   `rank` INT NOT NULL DEFAULT 0 COMMENT '排名',
   `product_name` VARCHAR(255) NOT NULL COMMENT '商品名称',
   `shop_name` VARCHAR(255) DEFAULT '' COMMENT '店铺名称',
@@ -27,6 +30,7 @@ CREATE TABLE `tiktok_ranking_list` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_task_id` (`task_id`),
+  KEY `idx_product_id` (`product_id`),
   KEY `idx_rank` (`rank`),
   KEY `idx_product_name` (`product_name`),
   KEY `idx_created_at` (`created_at`)
@@ -44,6 +48,10 @@ CREATE TABLE `video_analysis_data` (
   `product_name` VARCHAR(255) NOT NULL COMMENT '商品名称',
   `video_id` VARCHAR(64) DEFAULT '' COMMENT '视频 ID',
   `video_desc` TEXT COMMENT '短视频信息',
+  `author_name` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '视频作者',
+  `cover_url` VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '视频封面',
+  `publish_time` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '发布时间',
+  `source_url` VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '视频页地址',
   `payment_amount` VARCHAR(64) DEFAULT '' COMMENT '用户支付金额',
   `expose_user_count` VARCHAR(64) DEFAULT '' COMMENT '商品曝光人数',
   `click_user_count` VARCHAR(64) DEFAULT '' COMMENT '商品点击人数',
@@ -53,11 +61,19 @@ CREATE TABLE `video_analysis_data` (
   `expose_convert_rate` VARCHAR(32) DEFAULT '' COMMENT '商品曝光 - 成交率 (人数)',
   `order_count` VARCHAR(64) DEFAULT '' COMMENT '商品成交订单数',
   `sales_volume` VARCHAR(64) DEFAULT '' COMMENT '商品成交件数',
+  `download_status` VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT '下载状态',
+  `download_url` VARCHAR(2048) NOT NULL DEFAULT '' COMMENT '视频下载直链',
+  `resolve_strategy` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '直链解析策略',
+  `storage_path` VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '存储路径',
+  `file_size` BIGINT NOT NULL DEFAULT 0 COMMENT '文件大小',
+  `last_error` TEXT NULL COMMENT '最后错误',
+  `retry_count` INT NOT NULL DEFAULT 0 COMMENT '重试次数',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_task_id` (`task_id`),
   KEY `idx_product_id` (`product_id`),
   KEY `idx_video_id` (`video_id`),
+  KEY `idx_video_download_status` (`download_status`),
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='视频分析数据表';
 

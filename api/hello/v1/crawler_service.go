@@ -18,10 +18,11 @@ type CrawlerServiceStatusRes struct {
 }
 
 type CrawlerServiceLoginReq struct {
-	g.Meta    `path:"/crawler-service/login" method:"post" tags:"CrawlerService" summary:"登录并启动爬虫服务"`
-	LoginType string `json:"login_type" d:"qrcode" dc:"登录方式：qrcode/password"`
-	Username  string `json:"username" dc:"账号（password模式）"`
-	Password  string `json:"password" dc:"密码（password模式）"`
+	g.Meta       `path:"/crawler-service/login" method:"post" tags:"CrawlerService" summary:"登录并启动爬虫服务"`
+	LoginType    string `json:"login_type" d:"qrcode" dc:"登录方式：qrcode/password"`
+	Username     string `json:"username" dc:"账号（password模式）"`
+	Password     string `json:"password" dc:"密码（password模式）"`
+	ResumeTaskId string `json:"resume_task_id" dc:"可选；指定恢复暂停的视频采集任务"`
 }
 
 type CrawlerServiceLoginRes struct {
@@ -36,3 +37,10 @@ type CrawlerServiceForceOfflineReq struct {
 type CrawlerServiceForceOfflineRes struct {
 	g.Meta `mime:"application/json"`
 }
+
+type CrawlerVideoDiagnosticReq struct {
+	g.Meta    `path:"/crawler-service/video-diagnostic" method:"post" tags:"CrawlerService" summary:"诊断单个商品的视频发现链路"`
+	ProductId string `json:"product_id" dc:"可选；默认使用最新榜单第一个商品"`
+}
+
+type CrawlerVideoDiagnosticRes struct{}
