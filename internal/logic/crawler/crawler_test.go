@@ -351,6 +351,65 @@ func TestBuildAccessControlDiagnostic(t *testing.T) {
 	}
 }
 
+func TestAccessControlDiagnosticDailyLimit(t *testing.T) {
+	body := `{
+		"st": 0,
+		"data": {
+			"remaining_cnt": 0,
+			"target_id_viewable": false,
+			"display_type": 1
+		}
+	}`
+	diagnostic := buildVideoResponseDiagnostic(
+		body,
+		"https://compass.jinritemai.com/compass_api/shop/common/competition/get_view_quota?product_id=1",
+		"product-1",
+		0,
+	)
+	if !diagnosticIndicatesDailyLimit(diagnostic) {
+		t.Fatalf("expected daily limit diagnostic: %#v", diagnostic)
+	}
+	if !isDailyVideoViewLimit("今日查看个数已达上限10个") {
+		t.Fatal("expected daily limit text variant to be recognized")
+	}
+}
+
+func TestExtractOfficialRankTrendFromArrowText(t *testing.T) {
+	previousRank, rankDelta, source := extractOfficialRankTrend(map[string]any{
+		"flow_index": "↑59",
+	}, 1)
+	if source != "official" || rankDelta == nil || *rankDelta != 59 {
+		t.Fatalf("上升名次解析失败 previous=%v delta=%v source=%s", previousRank, rankDelta, source)
+	}
+	if previousRank == nil || *previousRank != 60 {
+		t.Fatalf("上期排名推导失败: %v", previousRank)
+	}
+
+	previousRank, rankDelta, source = extractOfficialRankTrend(map[string]any{
+		"rank_trend": "下降 2",
+	}, 6)
+	if source != "official" || rankDelta == nil || *rankDelta != -2 {
+		t.Fatalf("下降名次解析失败 previous=%v delta=%v source=%s", previousRank, rankDelta, source)
+	}
+	if previousRank == nil || *previousRank != 4 {
+		t.Fatalf("下降上期排名推导失败: %v", previousRank)
+	}
+}
+
+func TestExtractOfficialRankTrendFromPreviousRank(t *testing.T) {
+	previousRank, rankDelta, source := extractOfficialRankTrend(map[string]any{
+		"rank_info": map[string]any{
+			"previous_rank": 8,
+		},
+	}, 3)
+	if source != "official" || previousRank == nil || *previousRank != 8 {
+		t.Fatalf("官方上期排名解析失败 previous=%v source=%s", previousRank, source)
+	}
+	if rankDelta == nil || *rankDelta != 5 {
+		t.Fatalf("排名变化补算失败: %v", rankDelta)
+	}
+}
+
 func containsString(values []string, needle string) bool {
 	for _, value := range values {
 		if value == needle {

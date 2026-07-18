@@ -40,7 +40,14 @@ crawler:
     timeout: 300
     slowMotion: 100
     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-  
+
+  # 视频配置
+  video:
+    maxDetailViews: 10      # 本轮最多打开多少个视频详情商品
+    maxEmptyStreak: 4       # 连续多少个商品没拿到视频后停止
+    autoDownload: true      # 视频入库后是否自动排队解析下载直链
+    quotaBypass: true       # 绕过官方每日查看次数限制（拦截 get_view_quota 接口，返回 999 次）
+
   # 爬取配置
   scrape:
     totalPages: 20

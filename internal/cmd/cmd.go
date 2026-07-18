@@ -153,6 +153,11 @@ var (
 
 			addColumnIfMissing("tiktok_ranking_list", "shop_id", "shop_id VARCHAR(64) NOT NULL DEFAULT '' COMMENT '店铺ID' AFTER product_id")
 			addColumnIfMissing("tiktok_ranking_list", "product_url", "product_url VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '榜单详情页' AFTER shop_id")
+			addColumnIfMissing("tiktok_ranking_list", "image_url", "image_url VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '商品主图地址' AFTER product_name")
+			addColumnIfMissing("tiktok_ranking_list", "click_convert_rate", "click_convert_rate VARCHAR(64) NOT NULL DEFAULT '' COMMENT '点击成交转化率' AFTER click_count")
+			addColumnIfMissing("tiktok_ranking_list", "product_qr_code_url", "product_qr_code_url VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '商品二维码' AFTER delivery_video_num")
+			addColumnIfMissing("tiktok_ranking_list", "shop_logo_url", "shop_logo_url VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '店铺 Logo' AFTER product_qr_code_url")
+			addColumnIfMissing("tiktok_ranking_list", "shop_qr_code_url", "shop_qr_code_url VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '店铺二维码' AFTER shop_logo_url")
 
 			// 视频发现、列表和异步下载都依赖此表。部分存量环境只有
 			// 榜单表，先完整建表，再由下方的兼容逻辑为旧表补字段。

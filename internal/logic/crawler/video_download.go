@@ -234,12 +234,15 @@ func (d *VideoDownloader) verifyDownloadURL(candidate string) (string, error) {
 	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
 	finalURL := resp.Request.URL.String()
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
-		return "", gerror.Newf("候选下载地址不可用 HTTP %d content_type=%s", resp.StatusCode, contentType)
+		return "", gerror.Newf("候选下载地址不可用 HTTP %d content_type=%s url=%s", resp.StatusCode, contentType, limitURLForLog(finalURL))
+	}
+	if isKnownPlaceholderVideoURL(strings.ToLower(finalURL)) {
+		return "", gerror.Newf("候选地址是播放器占位视频 content_type=%s url=%s", contentType, limitURLForLog(finalURL))
 	}
 	if isDownloadableVideoResponse(contentType, finalURL, prefix) {
 		return finalURL, nil
 	}
-	return "", gerror.Newf("候选地址不是视频流 content_type=%s", contentType)
+	return "", gerror.Newf("候选地址不是视频流 content_type=%s url=%s", contentType, limitURLForLog(finalURL))
 }
 
 func isDownloadableVideoResponse(contentType, finalURL string, prefix []byte) bool {
@@ -523,6 +526,12 @@ func (d *VideoDownloader) resolveByDesktopBrowser(videoID string, useShareURL bo
 		return "", gerror.Wrap(err, "打开视频页失败")
 	}
 	_ = page.WaitLoad()
+	_ = page.Mouse.Scroll(0, 480, 3)
+	if playButton, err := page.Timeout(2 * time.Second).ElementX("//*[contains(text(), '播放') or contains(@aria-label, '播放')]"); err == nil {
+		_ = playButton.Click(proto.InputMouseButtonLeft, 1)
+	} else if video, err := page.Timeout(2 * time.Second).Element("video"); err == nil {
+		_ = video.Click(proto.InputMouseButtonLeft, 1)
+	}
 
 	candidates := make([]string, 0, 16)
 	seen := make(map[string]struct{}, 16)
@@ -563,6 +572,26 @@ collect:
 				if src, err := source.Property("src"); err == nil && src.String() != "" {
 					appendCandidate(src.String())
 				}
+			}
+		}
+	}
+	// 补充从浏览器 Performance API 中可见的媒体请求。部分播放器请求会在
+	// hijack 启动前或 ServiceWorker 内部触发，直接读 performance entries
+	// 能捞回这些已发生的请求，仍然不重放罗盘内部接口。
+	if result, err := page.Timeout(3 * time.Second).Evaluate(rod.Eval(`
+		() => performance.getEntriesByType('resource')
+			.map(item => item.name)
+			.filter(Boolean)
+	`)); err == nil {
+		for _, item := range result.Value.Arr() {
+			appendCandidate(item.String())
+		}
+	}
+	// 从页面 HTML 中的 RENDER_DATA / videoInfoRes 兜底提取播放地址。
+	if pageHTML, err := page.Timeout(3 * time.Second).HTML(); err == nil {
+		if videoInfo := extractVideoInfoFromHTML(pageHTML); videoInfo != nil {
+			for _, candidate := range pickVideoURLCandidates(videoInfo) {
+				appendCandidate(candidate)
 			}
 		}
 	}

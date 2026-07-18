@@ -1,5 +1,15 @@
 [
   {
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "name": "COMPASS_LUOPAN_DT",
+    "value": "session_7663055735840047400",
+    "expires": 1789378295.151939,
+    "httpOnly": false,
+    "secure": false,
+    "session": false
+  },
+  {
     "domain": ".compass.jinritemai.com",
     "path": "/",
     "name": "ecom_us_lt_ss_compass",
@@ -22,21 +32,21 @@
   {
     "domain": ".jinritemai.com",
     "path": "/",
-    "name": "has_biz_token",
-    "value": "false",
-    "expires": 1789378294.851785,
-    "httpOnly": true,
-    "secure": false,
-    "session": false
-  },
-  {
-    "domain": ".jinritemai.com",
-    "path": "/",
     "name": "ssid_ucp_v1",
     "value": "1.0.0-KDcwODU0NDEzMDQyMDA2NjhhNWY0NjVhYTRjNWFlNzEwMjc4NGU4ZjcKGQjTqaDih_XPBhD2yeLSBhiwISAMOAFA6wcaAmhsIiAyMWYzODY2ZTY5ZjE3MjYzMjI4ZjBlYzZiNGNiMWFhZQ",
     "expires": 1789378294.851817,
     "httpOnly": true,
     "secure": true,
+    "session": false
+  },
+  {
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "name": "has_biz_token",
+    "value": "false",
+    "expires": 1789378294.851785,
+    "httpOnly": true,
+    "secure": false,
     "session": false
   },
   {
@@ -103,7 +113,7 @@
     "domain": "compass.jinritemai.com",
     "path": "/",
     "name": "x-web-secsdk-uid",
-    "value": "1df06ca7-603c-413d-a92e-58ae738c18aa",
+    "value": "bff5c64b-b154-467f-9045-689cff23501c",
     "expires": -1,
     "httpOnly": false,
     "secure": false,
@@ -182,9 +192,9 @@
   {
     "domain": ".jinritemai.com",
     "path": "/",
-    "name": "uid_tt",
-    "value": "fa852ad776b626b8e1b11bd0320d5fbd",
-    "expires": 1789378294.851668,
+    "name": "odin_tt",
+    "value": "b36a8c29e6b39d6ffa944fcb95d742dbd1713b70d9540a8ce9f1fad3c28c2ff077c7f442163a4737053f498420432ea29c8e83b88eafaf58d44c4e95f2a83d66",
+    "expires": 1815730294.044096,
     "httpOnly": true,
     "secure": false,
     "session": false
@@ -192,9 +202,9 @@
   {
     "domain": ".jinritemai.com",
     "path": "/",
-    "name": "odin_tt",
-    "value": "b36a8c29e6b39d6ffa944fcb95d742dbd1713b70d9540a8ce9f1fad3c28c2ff077c7f442163a4737053f498420432ea29c8e83b88eafaf58d44c4e95f2a83d66",
-    "expires": 1815730294.044096,
+    "name": "uid_tt",
+    "value": "fa852ad776b626b8e1b11bd0320d5fbd",
+    "expires": 1789378294.851668,
     "httpOnly": true,
     "secure": false,
     "session": false
@@ -250,12 +260,12 @@
     "session": false
   },
   {
-    "domain": ".jinritemai.com",
-    "path": "/",
-    "name": "COMPASS_LUOPAN_DT",
-    "value": "session_7663055735840047400",
-    "expires": 1789378295.151939,
-    "httpOnly": false,
+    "domain": "compass.jinritemai.com",
+    "path": "/shop",
+    "name": "gd_random",
+    "value": "eyJtYXRjaCI6ZmFsc2UsInBlcmNlbnQiOjAuNjQxMTEzMzAwMjExNzA5fQ==.HnSDGSKi22XH7PSsFZPz+Ew1HB665SbZ3QA0vrZz7is=",
+    "expires": 1784803859.616418,
+    "httpOnly": true,
     "secure": false,
     "session": false
   },
@@ -267,16 +277,6 @@
     "expires": 1789378294.851687,
     "httpOnly": true,
     "secure": true,
-    "session": false
-  },
-  {
-    "domain": "compass.jinritemai.com",
-    "path": "/shop",
-    "name": "gd_random",
-    "value": "eyJtYXRjaCI6ZmFsc2UsInBlcmNlbnQiOjAuNjQxMTEzMzAwMjExNzA5fQ==.HnSDGSKi22XH7PSsFZPz+Ew1HB665SbZ3QA0vrZz7is=",
-    "expires": 1784803859.616418,
-    "httpOnly": true,
-    "secure": false,
     "session": false
   }
 ]

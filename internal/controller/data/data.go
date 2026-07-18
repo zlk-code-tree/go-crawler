@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 
 	v1 "go-crawler/api/hello/v1"
@@ -15,6 +16,14 @@ import (
 type Controller struct{}
 
 func New() *Controller { return &Controller{} }
+
+func recordInt(row gdb.Record, key string) (int, bool) {
+	value, ok := row[key]
+	if !ok || value == nil || value.IsNil() {
+		return 0, false
+	}
+	return value.Int(), true
+}
 
 // Overview GET /api/data/overview
 func (c *Controller) Overview(ctx context.Context, req *v1.DataOverviewReq) (res *v1.DataOverviewRes, err error) {
@@ -52,9 +61,19 @@ func (c *Controller) RankingList(ctx context.Context, req *v1.DataRankingListReq
 		pageSize = 20
 	}
 
-	m := g.DB().Model("tiktok_ranking_list").OrderAsc("rank")
-	if req.TaskId != "" {
-		m = m.Where("task_id", req.TaskId)
+	effectiveTaskId, taskErr := resolveRankingTaskId(ctx, req.TaskId)
+	if taskErr != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": taskErr.Error(), "data": nil})
+		return
+	}
+	previousTaskId := ""
+	if effectiveTaskId != "" {
+		previousTaskId, _ = resolvePreviousRankingTaskId(ctx, effectiveTaskId)
+	}
+
+	m := g.DB().Model("tiktok_ranking_list")
+	if effectiveTaskId != "" {
+		m = m.Where("task_id", effectiveTaskId)
 	}
 	if req.Keyword != "" {
 		m = m.WhereLike("product_name", "%"+req.Keyword+"%")
@@ -68,18 +87,154 @@ func (c *Controller) RankingList(ctx context.Context, req *v1.DataRankingListReq
 		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
-	list, e := m.Page(page, pageSize).All()
+	list, e := m.OrderAsc("rank").OrderAsc("id").Page(page, pageSize).All()
 	if e != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return
 	}
+	enriched := make([]g.Map, 0, len(list))
+	for _, row := range list {
+		item := g.Map{}
+		for key, value := range row {
+			item[key] = value.Val()
+		}
+
+		productId := row["product_id"].String()
+		productName := row["product_name"].String()
+		currentRank := row["rank"].Int()
+		storedPreviousRank, hasStoredPreviousRank := recordInt(row, "previous_rank")
+		storedRankDelta, hasStoredRankDelta := recordInt(row, "rank_delta")
+		onListCount := countProductRankingCycles(ctx, productId, productName)
+
+		if hasStoredRankDelta {
+			if hasStoredPreviousRank {
+				item["previous_rank"] = storedPreviousRank
+			} else {
+				item["previous_rank"] = nil
+			}
+			item["rank_delta"] = storedRankDelta
+			item["is_new_list"] = false
+		} else if previousRank, hasPreviousRank := getPreviousProductRank(ctx, previousTaskId, productId, productName); hasPreviousRank {
+			item["previous_rank"] = previousRank
+			item["rank_delta"] = previousRank - currentRank
+			item["is_new_list"] = false
+		} else {
+			item["previous_rank"] = nil
+			item["rank_delta"] = nil
+			item["is_new_list"] = true
+		}
+		item["on_list_count"] = onListCount
+		enriched = append(enriched, item)
+	}
 	r.Response.WriteJsonExit(g.Map{
-		"code":  0,
-		"msg":   "ok",
-		"data":  list,
-		"total": total,
+		"code":             0,
+		"msg":              "ok",
+		"data":             enriched,
+		"total":            total,
+		"page":             page,
+		"pageSize":         pageSize,
+		"current_task_id":  effectiveTaskId,
+		"previous_task_id": previousTaskId,
 	})
 	return
+}
+
+func resolveRankingTaskId(ctx context.Context, requestedTaskId string) (string, error) {
+	if requestedTaskId != "" {
+		return requestedTaskId, nil
+	}
+	value, err := g.DB().GetValue(ctx, `
+		SELECT task_id
+		FROM (
+			SELECT
+				r.task_id,
+				MAX(r.created_at) AS latest_created_at,
+				MAX(t.status) AS status,
+				COUNT(*) AS product_count
+			FROM tiktok_ranking_list r
+			LEFT JOIN crawl_tasks t
+				ON CONVERT(r.task_id USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+				   CONVERT(t.task_id USING utf8mb4) COLLATE utf8mb4_unicode_ci
+			WHERE r.task_id <> ''
+			GROUP BY r.task_id
+		) cycles
+		ORDER BY
+			CASE WHEN status = 'completed' AND product_count >= 200 THEN 0 ELSE 1 END,
+			latest_created_at DESC
+		LIMIT 1
+	`)
+	if err != nil || value.IsNil() {
+		return "", err
+	}
+	return value.String(), nil
+}
+
+func resolvePreviousRankingTaskId(ctx context.Context, currentTaskId string) (string, error) {
+	currentLatest, err := g.DB().GetValue(ctx, `
+		SELECT MAX(created_at)
+		FROM tiktok_ranking_list
+		WHERE CONVERT(task_id USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+		      CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci
+	`, currentTaskId)
+	if err != nil || currentLatest.IsNil() {
+		return "", err
+	}
+	value, err := g.DB().GetValue(ctx, `
+		SELECT task_id
+		FROM (
+			SELECT task_id, MAX(created_at) AS latest_created_at
+			FROM tiktok_ranking_list
+			WHERE task_id <> ''
+			GROUP BY task_id
+		) cycles
+		WHERE latest_created_at < ?
+		ORDER BY latest_created_at DESC
+		LIMIT 1
+	`, currentLatest.Val())
+	if err != nil || value.IsNil() {
+		return "", err
+	}
+	return value.String(), nil
+}
+
+func getPreviousProductRank(ctx context.Context, previousTaskId, productId, productName string) (int, bool) {
+	if previousTaskId == "" || (productId == "" && productName == "") {
+		return 0, false
+	}
+	value, err := g.DB().GetValue(ctx, `
+		SELECT rank
+		FROM tiktok_ranking_list
+		WHERE task_id = ?
+		  AND (
+			(? <> '' AND product_id = ?)
+			OR (? <> '' AND product_name = ?)
+		  )
+		ORDER BY
+			CASE WHEN ? <> '' AND product_id = ? THEN 0 ELSE 1 END,
+			rank ASC,
+			id ASC
+		LIMIT 1
+	`, previousTaskId, productId, productId, productName, productName, productId, productId)
+	if err != nil || value.IsNil() {
+		return 0, false
+	}
+	return value.Int(), true
+}
+
+func countProductRankingCycles(ctx context.Context, productId, productName string) int {
+	if productId == "" && productName == "" {
+		return 0
+	}
+	value, err := g.DB().GetValue(ctx, `
+		SELECT COUNT(DISTINCT task_id)
+		FROM tiktok_ranking_list
+		WHERE (? <> '' AND product_id = ?)
+		   OR (? <> '' AND product_name = ?)
+	`, productId, productId, productName, productName)
+	if err != nil || value.IsNil() {
+		return 0
+	}
+	return value.Int()
 }
 
 // RankingStats GET /api/data/ranking/stats
@@ -183,7 +338,22 @@ func (c *Controller) Export(ctx context.Context, req *v1.DataExportReq) (res *v1
 // TaskIds GET /api/data/task_ids
 func (c *Controller) TaskIds(ctx context.Context, req *v1.DataTaskIdsReq) (res *v1.DataTaskIdsRes, err error) {
 	r := g.RequestFromCtx(ctx)
-	rows, e := g.DB().GetAll(ctx, `SELECT DISTINCT r.task_id, t.start_time, t.status FROM tiktok_ranking_list r LEFT JOIN crawl_tasks t ON r.task_id = t.task_id ORDER BY t.start_time DESC LIMIT 50`)
+	rows, e := g.DB().GetAll(ctx, `
+		SELECT
+			r.task_id,
+			MAX(r.created_at) AS latest_created_at,
+			MAX(t.start_time) AS start_time,
+			MAX(t.status) AS status,
+			COUNT(*) AS product_count
+		FROM tiktok_ranking_list r
+		LEFT JOIN crawl_tasks t
+			ON CONVERT(r.task_id USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+			   CONVERT(t.task_id USING utf8mb4) COLLATE utf8mb4_unicode_ci
+		WHERE r.task_id <> ''
+		GROUP BY r.task_id
+		ORDER BY latest_created_at DESC
+		LIMIT 50
+	`)
 	if e != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": e.Error(), "data": nil})
 		return

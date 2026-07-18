@@ -92,12 +92,20 @@ type ProductInfo struct {
 	Rank             int    // 排名
 	ProductID        string // 商品 ID（从 API 响应获取）
 	ProductName      string // 商品名称
+	ImageURL         string // 商品主图地址（罗盘 product_info.image_url）
 	ShopID           string // 账号 ID
 	ShopName         string // 账号名称
 	PaymentAmount    string // 短视频用户支付金额
 	ClickCount       string // 短视频点击次数
+	ClickConvertRate string // 点击成交转化率
 	SalesVolume      string // 短视频成交件数
 	DeliveryVideoNum string // 带货视频数
+	ProductQRCodeURL string // 商品二维码
+	ShopLogoURL      string // 店铺 Logo
+	ShopQRCodeURL    string // 店铺二维码
+	PreviousRank     *int   // 上期排名（优先官方返回，缺失时入库前补算）
+	RankDelta        *int   // 排名变化：正数=上升，负数=下降
+	RankTrendSource  string // 排名变化来源：official/fallback/unknown
 	ProductURL       string // 商品详情页 URL
 	FirstList        int    // 是否首次上榜：0-否 1-是
 	PriceRange       string // 价格带
@@ -1001,8 +1009,12 @@ func (s *sCrawler) loadProductsFromDB(ctx context.Context, taskId string) ([]Pro
 			ShopName:         row["shop_name"].String(),
 			PaymentAmount:    row["payment_amount"].String(),
 			ClickCount:       row["click_count"].String(),
+			ClickConvertRate: row["click_convert_rate"].String(),
 			SalesVolume:      row["sales_volume"].String(),
 			DeliveryVideoNum: row["delivery_video_num"].String(),
+			ProductQRCodeURL: row["product_qr_code_url"].String(),
+			ShopLogoURL:      row["shop_logo_url"].String(),
+			ShopQRCodeURL:    row["shop_qr_code_url"].String(),
 			PriceRange:       row["price_range"].String(),
 			FirstList:        row["first_list"].Int(),
 		})
@@ -3251,6 +3263,12 @@ func (s *sCrawler) scrapeSingleProductVideosWithStatus(ctx context.Context, brow
 	}
 	defer page.Close()
 
+	// 配额绕过：通过 CDP Fetch 域劫持拦截 get_view_quota / get_display_rule
+	bypassRouter := s.setupQuotaBypass(ctx, page, taskId)
+	if bypassRouter != nil {
+		defer bypassRouter.Stop()
+	}
+
 	// 详情页的视频标识通常只存在于浏览器原生 flow_more 响应中，
 	// DOM 未必包含 video_id。这里只读取页面已经收到的响应，不重放接口。
 	stopObserver, videoResponseCh := s.setupBrowserVideoResponseObserver(ctx, page, taskId, product)
@@ -3284,6 +3302,7 @@ func (s *sCrawler) scrapeSingleProductVideosWithStatus(ctx context.Context, brow
 	case response := <-videoResponseCh:
 		result.Diagnostics = append(result.Diagnostics, response.Diagnostics...)
 		if response.Status == videoPageAccessDailyLimit {
+			s.logBrowserDeliveredDataProbe(ctx, page, taskId, product, response.Note)
 			return response
 		}
 		if len(response.Videos) > 0 {
@@ -3302,6 +3321,7 @@ func (s *sCrawler) scrapeSingleProductVideosWithStatus(ctx context.Context, brow
 
 	if blocked, note := s.detectCompetitorDetailBlock(ctx, page, taskId); blocked {
 		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 商品 [%s] 视频详情受限：%s", product.ProductName, note))
+		s.logBrowserDeliveredDataProbe(ctx, page, taskId, product, note)
 		result.Note = note
 		if isDailyVideoViewLimit(note) {
 			result.Status = videoPageAccessDailyLimit
@@ -3317,7 +3337,7 @@ func (s *sCrawler) scrapeSingleProductVideosWithStatus(ctx context.Context, brow
 	// 获取短视频列表
 	videoList := s.scrapeVideoList(ctx, page, taskId, product.ProductName)
 	for _, v := range videoList {
-		v.PaymentAmount = coreData.PaymentAmount
+		fillVideoMetricDefaults(&v, coreData)
 		v.ProductID = product.ProductID
 		v.ProductName = product.ProductName
 		result.Videos = append(result.Videos, v)
@@ -3380,9 +3400,11 @@ func (s *sCrawler) scrapeVideoList(ctx context.Context, page *rod.Page, taskId s
 				coverURL = *src
 			}
 		}
-		videos = append(videos, VideoAnalysis{
+		video := VideoAnalysis{
 			VideoId: videoID, VideoDesc: desc, CoverURL: coverURL, SourceURL: sourceURL,
-		})
+		}
+		applyVisibleVideoRowMetrics(&video, row)
+		videos = append(videos, video)
 	}
 
 	// 表格结构改版时，从页面上真实抖音链接补充 video_id。
@@ -3412,6 +3434,93 @@ func (s *sCrawler) scrapeVideoList(ctx context.Context, page *rod.Page, taskId s
 		}
 	}
 	return videos
+}
+
+func fillVideoMetricDefaults(video *VideoAnalysis, fallback VideoAnalysis) {
+	if video.PaymentAmount == "" {
+		video.PaymentAmount = fallback.PaymentAmount
+	}
+	if video.ExposeUserCount == "" {
+		video.ExposeUserCount = fallback.ExposeUserCount
+	}
+	if video.ClickUserCount == "" {
+		video.ClickUserCount = fallback.ClickUserCount
+	}
+	if video.ConvertUserCount == "" {
+		video.ConvertUserCount = fallback.ConvertUserCount
+	}
+	if video.ClickRate == "" {
+		video.ClickRate = fallback.ClickRate
+	}
+	if video.ClickConvertRate == "" {
+		video.ClickConvertRate = fallback.ClickConvertRate
+	}
+	if video.ExposeConvertRate == "" {
+		video.ExposeConvertRate = fallback.ExposeConvertRate
+	}
+	if video.OrderCount == "" {
+		video.OrderCount = fallback.OrderCount
+	}
+	if video.SalesVolume == "" {
+		video.SalesVolume = fallback.SalesVolume
+	}
+}
+
+func applyVisibleVideoRowMetrics(video *VideoAnalysis, row *rod.Element) {
+	texts := collectVisibleCellTexts(row, "td")
+	if len(texts) < 6 {
+		texts = collectVisibleCellTexts(row, ".ant-table-cell")
+	}
+	if len(texts) < 8 {
+		return
+	}
+
+	start := -1
+	switch {
+	case len(texts) >= 10:
+		start = 4
+	case len(texts) >= 9:
+		start = 3
+	}
+	if start < 0 || len(texts) <= start+5 {
+		return
+	}
+
+	video.PaymentAmount = firstNonEmptyString(video.PaymentAmount, texts[start])
+	video.ExposeUserCount = firstNonEmptyString(video.ExposeUserCount, texts[start+1])
+	video.ClickUserCount = firstNonEmptyString(video.ClickUserCount, texts[start+2])
+	video.ClickRate = firstNonEmptyString(video.ClickRate, texts[start+3])
+	video.ClickConvertRate = firstNonEmptyString(video.ClickConvertRate, texts[start+4])
+	video.SalesVolume = firstNonEmptyString(video.SalesVolume, texts[start+5])
+}
+
+func collectVisibleCellTexts(row *rod.Element, selector string) []string {
+	cells, err := row.Elements(selector)
+	if err != nil {
+		return nil
+	}
+	texts := make([]string, 0, len(cells))
+	for _, cell := range cells {
+		text, err := cell.Text()
+		if err != nil {
+			continue
+		}
+		text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
+		if text == "" {
+			continue
+		}
+		texts = append(texts, text)
+	}
+	return texts
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 // setupBrowserVideoResponseObserver 读取正常详情页已经收到的视频响应。
@@ -3472,6 +3581,20 @@ func (s *sCrawler) setupBrowserVideoResponseObserver(
 			if isCompetitorAccessControlAPIURL(responseURL) {
 				diagnostic := buildVideoResponseDiagnostic(body, responseURL, product.ProductID, 0)
 				logAccessControlDiagnostic(ctx, taskId, diagnostic)
+				if diagnosticIndicatesDailyLimit(diagnostic) {
+					select {
+					case resultCh <- videoPageResult{
+						Status: videoPageAccessDailyLimit,
+						Note: fmt.Sprintf(
+							"官方查看额度接口返回不可看：remaining_cnt=%s,target_viewable=%s",
+							diagnostic.RemainingCount,
+							diagnostic.TargetViewable,
+						),
+						Diagnostics: []VideoResponseDiagnostic{diagnostic},
+					}:
+					default:
+					}
+				}
 				return
 			}
 
@@ -3607,6 +3730,118 @@ func logVideoResponseDiagnostic(ctx context.Context, taskId string, diagnostic V
 	))
 }
 
+func (s *sCrawler) logBrowserDeliveredDataProbe(ctx context.Context, page *rod.Page, taskId string, product ProductInfo, reason string) {
+	result, err := page.Timeout(2*time.Second).Eval(`(productId) => {
+		const hasVideoToken = (value) => /(?:video_id|aweme_id|aweme_id_str|item_id|item_id_str|play_addr|download_url)/.test(String(value || ''));
+		const safeString = (value, max = 200000) => {
+			const text = String(value || '');
+			return text.length > max ? text.slice(0, max) : text;
+		};
+			const scanStorage = (storage) => {
+				const summary = {
+					key_count: 0,
+					value_bytes: 0,
+					video_key_count: 0,
+					video_value_count: 0,
+					product_value_count: 0,
+					matches: []
+				};
+				if (!storage) return summary;
+				for (let i = 0; i < storage.length; i++) {
+					const key = storage.key(i) || '';
+					let value = '';
+				try {
+					value = storage.getItem(key) || '';
+				} catch (_) {
+					value = '';
+				}
+				summary.key_count++;
+					summary.value_bytes += value.length;
+					const keyHasVideo = hasVideoToken(key);
+					const valueHasVideo = hasVideoToken(value);
+					const valueHasProduct = Boolean(productId && value.includes(String(productId)));
+					if (keyHasVideo) summary.video_key_count++;
+					if (valueHasVideo) summary.video_value_count++;
+					if (valueHasProduct) summary.product_value_count++;
+					if ((keyHasVideo || valueHasVideo || valueHasProduct) && summary.matches.length < 12) {
+						summary.matches.push({
+							key,
+							value_length: value.length,
+							key_has_video_token: keyHasVideo,
+							value_has_video_token: valueHasVideo,
+							value_has_product_id: valueHasProduct
+						});
+					}
+				}
+				return summary;
+			};
+			const sanitizeURL = (raw) => {
+				try {
+					const url = new URL(raw, location.href);
+					const keys = Array.from(url.searchParams.keys())
+						.filter((key) => !/token|bogus|fp|verify|csrf|sign|cookie|session|lid/i.test(key))
+						.slice(0, 12)
+						.sort();
+					return {host: url.host, path: url.pathname, query_keys: keys};
+				} catch (_) {
+					return {host: '', path: String(raw || '').slice(0, 120), query_keys: []};
+				}
+			};
+			const html = safeString(document.documentElement ? document.documentElement.innerHTML : '');
+			const text = safeString(document.body ? document.body.innerText : '');
+			const scripts = Array.from(document.scripts || []).map((script) => script.textContent || '').join('\n').slice(0, 300000);
+			const resources = performance.getEntriesByType('resource').map((item) => item.name || '');
+			const videoResources = resources.filter((url) => hasVideoToken(url) || /video|aweme|flow_more|play/.test(url));
+		const productResources = resources.filter((url) => productId && url.includes(String(productId)));
+		const report = {
+			page_url: location.href,
+			body_has_limit_text: /查看(?:次数|个数).*上限|今日查看|明日再来/.test(text),
+			dom_has_video_token: hasVideoToken(html),
+			text_has_video_token: hasVideoToken(text),
+			script_has_video_token: hasVideoToken(scripts),
+			dom_has_product_id: productId ? html.includes(String(productId)) : false,
+			storage: {
+				local: scanStorage(window.localStorage),
+				session: scanStorage(window.sessionStorage)
+			},
+				performance: {
+					resource_count: resources.length,
+					video_like_resource_count: videoResources.length,
+					product_resource_count: productResources.length,
+					video_like_resources: videoResources.slice(-12).map(sanitizeURL),
+					product_resources: productResources.slice(-12).map(sanitizeURL)
+				}
+			};
+		return JSON.stringify(report);
+	}`, product.ProductID)
+	if err != nil || result == nil {
+		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 浏览器已下发数据探针执行失败：product_id=%s reason=%s err=%v", product.ProductID, reason, err))
+		return
+	}
+	logInfo(ctx, taskId, fmt.Sprintf(
+		"🧪 浏览器已下发数据探针：product_id=%s reason=%s report=%s",
+		product.ProductID,
+		reason,
+		result.Value.String(),
+	))
+}
+
+func diagnosticIndicatesDailyLimit(diagnostic VideoResponseDiagnostic) bool {
+	if !strings.Contains(diagnostic.ResponsePath, "/compass_api/shop/common/competition/get_view_quota") {
+		return false
+	}
+	return strings.TrimSpace(diagnostic.RemainingCount) == "0" && stringValueMeansFalse(diagnostic.TargetViewable)
+}
+
+func stringValueMeansFalse(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "false", "0", "否", "no":
+		return true
+	default:
+		return false
+	}
+}
+
 func sortedQueryKeys(u *netUrl.URL) []string {
 	keys := make([]string, 0, len(u.Query()))
 	for key := range u.Query() {
@@ -3730,7 +3965,9 @@ func (s *sCrawler) detectCompetitorDetailBlock(ctx context.Context, page *rod.Pa
 	}
 	blockMarkers := []string{
 		"查看次数已达上限",
+		"查看个数已达上限",
 		"今日查看次数已达上限",
+		"今日查看个数已达上限",
 		"今日详情查看次数已达上限",
 		"今日查看已达上限",
 		"已达今日查看上限",
@@ -3759,7 +3996,9 @@ func (s *sCrawler) detectCompetitorDetailBlock(ctx context.Context, page *rod.Pa
 func dailyVideoViewLimitMarker(text string) string {
 	markers := []string{
 		"查看次数已达上限",
+		"查看个数已达上限",
 		"今日查看次数已达上限",
+		"今日查看个数已达上限",
 		"今日详情查看次数已达上限",
 		"今日查看已达上限",
 		"已达今日查看上限",
@@ -3908,11 +4147,19 @@ func (s *sCrawler) saveAllData(ctx context.Context, taskId string, products []Pr
 			ProductUrl:       p.ProductURL,
 			Rank:             p.Rank,
 			ProductName:      p.ProductName,
+			ImageUrl:         p.ImageURL,
 			ShopName:         p.ShopName,
 			PaymentAmount:    p.PaymentAmount,
 			ClickCount:       p.ClickCount,
+			ClickConvertRate: p.ClickConvertRate,
 			SalesVolume:      p.SalesVolume,
 			DeliveryVideoNum: p.DeliveryVideoNum,
+			ProductQRCodeUrl: p.ProductQRCodeURL,
+			ShopLogoUrl:      p.ShopLogoURL,
+			ShopQRCodeUrl:    p.ShopQRCodeURL,
+			PreviousRank:     p.PreviousRank,
+			RankDelta:        p.RankDelta,
+			RankTrendSource:  p.RankTrendSource,
 			FirstList:        p.FirstList,
 			CreatedAt:        time.Now(),
 		}
@@ -4033,11 +4280,19 @@ func (s *sCrawler) convertToModelProducts(products []ProductInfo, details []Prod
 			ProductUrl:       p.ProductURL,
 			Rank:             p.Rank,
 			ProductName:      p.ProductName,
+			ImageUrl:         p.ImageURL,
 			ShopName:         p.ShopName,
 			PaymentAmount:    p.PaymentAmount,
 			ClickCount:       p.ClickCount,
+			ClickConvertRate: p.ClickConvertRate,
 			SalesVolume:      p.SalesVolume,
 			DeliveryVideoNum: p.DeliveryVideoNum,
+			ProductQRCodeUrl: p.ProductQRCodeURL,
+			ShopLogoUrl:      p.ShopLogoURL,
+			ShopQRCodeUrl:    p.ShopQRCodeURL,
+			PreviousRank:     p.PreviousRank,
+			RankDelta:        p.RankDelta,
+			RankTrendSource:  p.RankTrendSource,
 			FirstList:        p.FirstList,
 			CreatedAt:        time.Now(),
 		}
@@ -4298,14 +4553,29 @@ func parseProductRankResponse(body string) []ProductInfo {
 	// 使用简单的 JSON 解析，避免引入额外依赖
 	// 结构：data.data_result[i].product_info.*
 	type shopInfo struct {
-		ShopID   string `json:"shop_id"`
-		ShopName string `json:"shop_name"`
+		ShopID        string `json:"shop_id"`
+		ShopName      string `json:"shop_name"`
+		ShopLogoURL   string `json:"shop_logo_url"`
+		LogoURL       string `json:"logo_url"`
+		ShopAvatarURL string `json:"shop_avatar_url"`
+		AvatarURL     string `json:"avatar_url"`
+		ShopIconURL   string `json:"shop_icon_url"`
+		ShopQRCodeURL string `json:"shop_qr_code_url"`
 	}
 	type productInfo struct {
 		Rank             int        `json:"rank"`
 		ID               string     `json:"id"`
 		Name             string     `json:"name"`
 		PriceBin         string     `json:"price_bin"`
+		ImageURL         string     `json:"image_url"`
+		ProductImageURL  string     `json:"product_image_url"`
+		ProductImgURL    string     `json:"product_img_url"`
+		MainImageURL     string     `json:"main_image_url"`
+		CoverURL         string     `json:"cover_url"`
+		PicURL           string     `json:"pic_url"`
+		ImgURL           string     `json:"img_url"`
+		QRCodeURL        string     `json:"qr_code_url"`
+		ProductQRCodeURL string     `json:"product_qr_code_url"`
 		ProductDetailURL string     `json:"product_detail_h5_url"`
 		NewlyOnRanking   bool       `json:"newly_on_ranking"`
 		ShopList         []shopInfo `json:"shop_list"`
@@ -4337,12 +4607,19 @@ func parseProductRankResponse(body string) []ProductInfo {
 	type apiResponse struct {
 		Data dataWrapper `json:"data"`
 	}
+	type rawAPIResponse struct {
+		Data struct {
+			DataResult []map[string]any `json:"data_result"`
+		} `json:"data"`
+	}
 
 	var resp apiResponse
 	if err := json.Unmarshal([]byte(body), &resp); err != nil {
 		fmt.Printf("[ERROR] JSON解析失败: %v\n", err)
 		return nil
 	}
+	var rawResp rawAPIResponse
+	_ = json.Unmarshal([]byte(body), &rawResp)
 
 	// 打印解析结果
 	fmt.Printf("[DEBUG] 解析到DataResult长度: %d\n", len(resp.Data.DataResult))
@@ -4350,38 +4627,64 @@ func parseProductRankResponse(body string) []ProductInfo {
 		fmt.Printf("[DEBUG] 第一个DataItem: %+v\n", resp.Data.DataResult[0])
 	}
 
-	formatRange := func(vr valueRange) string {
+	formatNumberWithChineseUnit := func(value float64, unit string) string {
+		unit = strings.TrimSpace(unit)
+		if unit == "number" || unit == "cnt" || unit == "count" || unit == "item" ||
+			unit == "fen" || unit == "cent" || unit == "cents" || unit == "yuan" {
+			unit = ""
+		}
+		if unit == "%" {
+			return strings.TrimRight(strings.TrimRight(strconv.FormatFloat(value, 'f', 2, 64), "0"), ".") + "%"
+		}
+		if math.Abs(value) >= 100000000 {
+			return strings.TrimRight(strings.TrimRight(strconv.FormatFloat(value/100000000, 'f', 2, 64), "0"), ".") + "亿"
+		}
+		if math.Abs(value) >= 10000 {
+			return strings.TrimRight(strings.TrimRight(strconv.FormatFloat(value/10000, 'f', 2, 64), "0"), ".") + "万"
+		}
+		text := strings.TrimRight(strings.TrimRight(strconv.FormatFloat(value, 'f', 2, 64), "0"), ".")
+		if unit != "" {
+			return text + unit
+		}
+		return text
+	}
+	formatMetricItemWithScale := func(item valueItem, scale float64) string {
+		if scale == 0 {
+			scale = 1
+		}
+		switch v := item.Value.(type) {
+		case string:
+			text := strings.TrimSpace(v)
+			if number, err := strconv.ParseFloat(strings.ReplaceAll(text, ",", ""), 64); err == nil {
+				return formatNumberWithChineseUnit(number*scale, item.Unit)
+			}
+			if item.Unit != "" && !strings.Contains(text, item.Unit) {
+				return text + item.Unit
+			}
+			return text
+		case float64:
+			return formatNumberWithChineseUnit(v*scale, item.Unit)
+		case int:
+			return formatNumberWithChineseUnit(float64(v)*scale, item.Unit)
+		case int64:
+			return formatNumberWithChineseUnit(float64(v)*scale, item.Unit)
+		case json.Number:
+			if number, err := v.Float64(); err == nil {
+				return formatNumberWithChineseUnit(number*scale, item.Unit)
+			}
+			return v.String()
+		}
+		return ""
+	}
+	formatRangeWithScale := func(vr valueRange, scale float64) string {
 		items := vr.ValueRange
 		if len(items) == 0 {
 			return ""
 		}
 		first := items[0]
 		last := items[len(items)-1]
-
-		// 转换Value为字符串
-		firstValue := ""
-		switch v := first.Value.(type) {
-		case string:
-			firstValue = v
-		case float64:
-			firstValue = fmt.Sprintf("%v", v)
-		case int:
-			firstValue = fmt.Sprintf("%d", v)
-		case int64:
-			firstValue = fmt.Sprintf("%d", v)
-		}
-
-		lastValue := ""
-		switch v := last.Value.(type) {
-		case string:
-			lastValue = v
-		case float64:
-			lastValue = fmt.Sprintf("%v", v)
-		case int:
-			lastValue = fmt.Sprintf("%d", v)
-		case int64:
-			lastValue = fmt.Sprintf("%d", v)
-		}
+		firstValue := formatMetricItemWithScale(first, scale)
+		lastValue := formatMetricItemWithScale(last, scale)
 
 		if firstValue == "" {
 			return ""
@@ -4391,19 +4694,50 @@ func parseProductRankResponse(body string) []ProductInfo {
 		}
 		return firstValue + "-" + lastValue
 	}
+	formatRange := func(vr valueRange) string {
+		return formatRangeWithScale(vr, 1)
+	}
 
 	var products []ProductInfo
+	productImageCount := 0
+	shopLogoCount := 0
+	productQRCodeCount := 0
+	shopQRCodeCount := 0
 	for i, item := range resp.Data.DataResult {
 		info := item.ProductInfo
+		var rawItem map[string]any
+		if i < len(rawResp.Data.DataResult) {
+			rawItem = rawResp.Data.DataResult[i]
+		}
 		if info.ID == "" || info.Name == "" {
 			fmt.Printf("[DEBUG] 跳过无效商品数据: ID=%s, Name=%s\n", info.ID, info.Name)
 			continue
 		}
 		shopName := ""
 		shopID := ""
+		shopLogoURL := ""
+		shopQRCodeURL := ""
 		if len(info.ShopList) > 0 {
 			shopName = info.ShopList[0].ShopName
 			shopID = info.ShopList[0].ShopID
+			shopLogoURL = firstNonEmptyString(
+				info.ShopList[0].ShopLogoURL,
+				info.ShopList[0].LogoURL,
+				info.ShopList[0].ShopAvatarURL,
+				info.ShopList[0].AvatarURL,
+				info.ShopList[0].ShopIconURL,
+			)
+			shopQRCodeURL = info.ShopList[0].ShopQRCodeURL
+		}
+		rawProductInfo := any(nil)
+		rawShopInfo := any(nil)
+		if rawItem != nil {
+			rawProductInfo = rawItem["product_info"]
+			if productInfoMap, ok := rawProductInfo.(map[string]any); ok {
+				if shops, ok := productInfoMap["shop_list"].([]any); ok && len(shops) > 0 {
+					rawShopInfo = shops[0]
+				}
+			}
 		}
 		firstList := 0
 		if info.NewlyOnRanking {
@@ -4414,25 +4748,329 @@ func parseProductRankResponse(body string) []ProductInfo {
 		if len(payAmt.ValueRange) == 0 {
 			payAmt = item.NewPayAmt
 		}
+		productImageURL := firstNonEmptyString(
+			info.ImageURL,
+			info.ProductImageURL,
+			info.ProductImgURL,
+			info.MainImageURL,
+			info.CoverURL,
+			info.PicURL,
+			info.ImgURL,
+			firstRecursiveString(rawProductInfo,
+				"image_url",
+				"product_image_url",
+				"product_img_url",
+				"main_image_url",
+				"cover_url",
+				"pic_url",
+				"img_url",
+				"image",
+				"product_image",
+				"head_image_url",
+			),
+			firstRecursiveString(rawItem,
+				"product_image_url",
+				"product_img_url",
+				"main_image_url",
+				"product_cover_url",
+				"product_pic_url",
+			),
+		)
+		productQRCodeURL := firstNonEmptyString(
+			info.ProductQRCodeURL,
+			info.QRCodeURL,
+			firstRecursiveString(rawProductInfo, "product_qr_code_url", "product_qrcode_url", "product_qr_url", "qr_code_url", "qrcode_url"),
+			firstRecursiveString(rawItem, "product_qr_code_url", "product_qrcode_url", "product_qr_url"),
+		)
+		shopLogoURL = firstNonEmptyString(
+			shopLogoURL,
+			firstRecursiveString(rawShopInfo,
+				"shop_logo_url",
+				"shop_logo",
+				"logo_url",
+				"shop_avatar",
+				"shop_avatar_url",
+				"shop_icon",
+				"shop_icon_url",
+				"avatar_url",
+				"avatar",
+				"author_avatar",
+				"account_avatar",
+				"head_image_url",
+			),
+			firstRecursiveString(rawItem,
+				"shop_logo_url",
+				"shop_avatar_url",
+				"shop_icon_url",
+				"shop_head_img",
+			),
+		)
+		shopQRCodeURL = firstNonEmptyString(
+			shopQRCodeURL,
+			firstRecursiveString(rawShopInfo, "shop_qr_code_url", "shop_qrcode_url", "shop_qr_url", "qr_code_url", "qrcode_url"),
+			firstRecursiveString(rawItem, "shop_qr_code_url", "shop_qrcode_url", "shop_qr_url"),
+		)
+		previousRank, rankDelta, rankTrendSource := extractOfficialRankTrend(rawItem, info.Rank)
 		product := ProductInfo{
-			Rank:             info.Rank,
-			ProductID:        info.ID,
-			ProductName:      info.Name,
-			ShopID:           shopID,
-			ShopName:         shopName,
-			PaymentAmount:    formatRange(payAmt),
-			ClickCount:       formatRange(item.ClickCnt),
+			Rank:          info.Rank,
+			ProductID:     info.ID,
+			ProductName:   info.Name,
+			ImageURL:      productImageURL,
+			ShopID:        shopID,
+			ShopName:      shopName,
+			PaymentAmount: formatRangeWithScale(payAmt, 0.01),
+			ClickCount:    formatRange(item.ClickCnt),
+			ClickConvertRate: firstMetricString(rawItem,
+				"click_convert_rate",
+				"click_conversion",
+				"click_conversion_rate",
+				"click_pay_ratio",
+				"click_pay_rate",
+				"pay_click_ratio",
+				"pay_click_rate",
+				"product_click_pay_ratio",
+				"product_click_pay_rate",
+				"product_click_convert_rate",
+				"product_click_conversion_rate",
+				"product_click_pay_combo_rate",
+				"pay_combo_click_ratio",
+			),
 			SalesVolume:      formatRange(item.PayComboCnt),
 			DeliveryVideoNum: formatRange(item.VideoCnt),
+			ProductQRCodeURL: productQRCodeURL,
+			ShopLogoURL:      shopLogoURL,
+			ShopQRCodeURL:    shopQRCodeURL,
+			PreviousRank:     previousRank,
+			RankDelta:        rankDelta,
+			RankTrendSource:  rankTrendSource,
 			ProductURL:       info.ProductDetailURL,
 			FirstList:        firstList,
 			PriceRange:       info.PriceBin,
 		}
+		if product.ImageURL != "" {
+			productImageCount++
+		}
+		if product.ShopLogoURL != "" {
+			shopLogoCount++
+		}
+		if product.ProductQRCodeURL != "" {
+			productQRCodeCount++
+		}
+		if product.ShopQRCodeURL != "" {
+			shopQRCodeCount++
+		}
 		products = append(products, product)
 		fmt.Printf("[DEBUG] 解析到商品 %d: %s\n", i+1, product.ProductName)
 	}
+	if len(products) > 0 {
+		fmt.Printf("[DEBUG] 商品图片字段统计: product_image=%d/%d shop_logo=%d/%d product_qr=%d/%d shop_qr=%d/%d\n",
+			productImageCount, len(products),
+			shopLogoCount, len(products),
+			productQRCodeCount, len(products),
+			shopQRCodeCount, len(products),
+		)
+	}
 	fmt.Printf("[DEBUG] 最终解析到 %d 条商品\n", len(products))
 	return products
+}
+
+func extractOfficialRankTrend(rawItem map[string]any, currentRank int) (*int, *int, string) {
+	if len(rawItem) == 0 || currentRank <= 0 {
+		return nil, nil, ""
+	}
+	previousRank := firstIntByRecursiveKeys(rawItem,
+		"previous_rank", "previousRank", "prev_rank", "prevRank",
+		"pre_rank", "preRank", "last_rank", "lastRank",
+		"last_period_rank", "lastPeriodRank", "prior_rank", "priorRank",
+		"before_rank", "beforeRank",
+	)
+	rankDelta := firstIntByRecursiveKeys(rawItem,
+		"rank_delta", "rankDelta", "rank_diff", "rankDiff",
+		"rank_change", "rankChange", "rank_change_num", "rankChangeNum",
+		"rank_change_value", "rankChangeValue", "rank_trend_num", "rankTrendNum",
+		"rank_trend_value", "rankTrendValue", "rank_offset", "rankOffset",
+		"ranking_change", "rankingChange", "change_rank", "changeRank",
+		"flow_index", "flowIndex",
+	)
+	trendText := firstStringByRecursiveKeys(rawItem,
+		"rank_trend", "rankTrend", "rank_direction", "rankDirection",
+		"rank_change_type", "rankChangeType", "rank_status", "rankStatus",
+		"trend", "trend_text", "trendText", "change_text", "changeText",
+		"flow_index", "flowIndex",
+	)
+	textDelta, textOK := parseRankTrendText(trendText)
+	if textOK {
+		rankDelta = &textDelta
+	} else if rankDelta != nil {
+		switch rankTrendDirection(trendText) {
+		case "up":
+			value := absInt(*rankDelta)
+			rankDelta = &value
+		case "down":
+			value := -absInt(*rankDelta)
+			rankDelta = &value
+		}
+	}
+	if previousRank != nil {
+		if rankDelta == nil {
+			delta := *previousRank - currentRank
+			rankDelta = &delta
+		}
+		return previousRank, rankDelta, "official"
+	}
+	if rankDelta != nil {
+		previous := currentRank + *rankDelta
+		if previous > 0 {
+			previousRank = &previous
+		}
+		return previousRank, rankDelta, "official"
+	}
+	return nil, nil, ""
+}
+
+func firstIntByRecursiveKeys(value any, keys ...string) *int {
+	keySet := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		keySet[strings.ToLower(key)] = struct{}{}
+	}
+	return findIntByKey(value, keySet, 0)
+}
+
+func findIntByKey(value any, keySet map[string]struct{}, depth int) *int {
+	if depth > 5 {
+		return nil
+	}
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, child := range typed {
+			if _, ok := keySet[strings.ToLower(key)]; ok {
+				if number, ok := intFromAny(child); ok {
+					return &number
+				}
+				if textDelta, ok := parseRankTrendText(stringFromJSONValue(child)); ok {
+					return &textDelta
+				}
+			}
+		}
+		for _, child := range typed {
+			if found := findIntByKey(child, keySet, depth+1); found != nil {
+				return found
+			}
+		}
+	case []any:
+		for _, child := range typed {
+			if found := findIntByKey(child, keySet, depth+1); found != nil {
+				return found
+			}
+		}
+	}
+	return nil
+}
+
+func firstStringByRecursiveKeys(value any, keys ...string) string {
+	keySet := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		keySet[strings.ToLower(key)] = struct{}{}
+	}
+	return findStringByKey(value, keySet, 0)
+}
+
+func findStringByKey(value any, keySet map[string]struct{}, depth int) string {
+	if depth > 5 {
+		return ""
+	}
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, child := range typed {
+			if _, ok := keySet[strings.ToLower(key)]; ok {
+				if text := strings.TrimSpace(stringFromJSONValue(child)); text != "" {
+					return text
+				}
+			}
+		}
+		for _, child := range typed {
+			if found := findStringByKey(child, keySet, depth+1); found != "" {
+				return found
+			}
+		}
+	case []any:
+		for _, child := range typed {
+			if found := findStringByKey(child, keySet, depth+1); found != "" {
+				return found
+			}
+		}
+	}
+	return ""
+}
+
+func intFromAny(value any) (int, bool) {
+	switch typed := value.(type) {
+	case int:
+		return typed, true
+	case int64:
+		return int(typed), true
+	case float64:
+		return int(typed), true
+	case json.Number:
+		number, err := typed.Int64()
+		return int(number), err == nil
+	case string:
+		text := strings.TrimSpace(typed)
+		if text == "" {
+			return 0, false
+		}
+		if delta, ok := parseRankTrendText(text); ok {
+			return delta, true
+		}
+		text = strings.TrimPrefix(text, "+")
+		number, err := strconv.Atoi(text)
+		return number, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func parseRankTrendText(text string) (int, bool) {
+	text = strings.TrimSpace(text)
+	if text == "" || text == "-" || text == "持平" {
+		return 0, text == "持平"
+	}
+	pattern := regexp.MustCompile(`([↑↓]|上升|上涨|提升|升|下降|下跌|降低|降)\s*([+-]?\d+)`)
+	match := pattern.FindStringSubmatch(text)
+	if len(match) < 3 {
+		return 0, false
+	}
+	number, err := strconv.Atoi(strings.TrimPrefix(match[2], "+"))
+	if err != nil {
+		return 0, false
+	}
+	switch match[1] {
+	case "↓", "下降", "下跌", "降低", "降":
+		return -absInt(number), true
+	default:
+		return absInt(number), true
+	}
+}
+
+func rankTrendDirection(text string) string {
+	text = strings.ToLower(strings.TrimSpace(text))
+	switch {
+	case strings.Contains(text, "↓"), strings.Contains(text, "下降"), strings.Contains(text, "下跌"),
+		strings.Contains(text, "降低"), strings.Contains(text, "down"), strings.Contains(text, "fall"):
+		return "down"
+	case strings.Contains(text, "↑"), strings.Contains(text, "上升"), strings.Contains(text, "上涨"),
+		strings.Contains(text, "提升"), strings.Contains(text, "up"), strings.Contains(text, "rise"):
+		return "up"
+	default:
+		return ""
+	}
+}
+
+func absInt(value int) int {
+	if value < 0 {
+		return -value
+	}
+	return value
 }
 
 // scrapeAllPagesWithCheckpoint 支持断点续爬的分页抓取
@@ -4490,10 +5128,13 @@ func (s *sCrawler) savePageData(ctx context.Context, taskId string, products []P
 
 	// 从缓存获取详情数据
 	cache := service.GetProductDetailCache()
+	previousTaskId := resolvePreviousRankingTaskIdForInsert(ctx, taskId)
+	previousRankCache := make(map[string]*int)
 
 	// 转换为数据库模型
 	var rankingList []*model.TikTokRankingListInput
 	for _, p := range products {
+		enrichProductRankTrend(ctx, previousTaskId, previousRankCache, &p)
 		record := &model.TikTokRankingListInput{
 			TaskId:           taskId,
 			ProductId:        p.ProductID,
@@ -4501,11 +5142,19 @@ func (s *sCrawler) savePageData(ctx context.Context, taskId string, products []P
 			ProductUrl:       p.ProductURL,
 			Rank:             p.Rank,
 			ProductName:      p.ProductName,
+			ImageUrl:         p.ImageURL,
 			ShopName:         p.ShopName,
 			PaymentAmount:    p.PaymentAmount,
 			ClickCount:       p.ClickCount,
+			ClickConvertRate: p.ClickConvertRate,
 			SalesVolume:      p.SalesVolume,
 			DeliveryVideoNum: p.DeliveryVideoNum,
+			ProductQRCodeUrl: p.ProductQRCodeURL,
+			ShopLogoUrl:      p.ShopLogoURL,
+			ShopQRCodeUrl:    p.ShopQRCodeURL,
+			PreviousRank:     p.PreviousRank,
+			RankDelta:        p.RankDelta,
+			RankTrendSource:  p.RankTrendSource,
 			FirstList:        p.FirstList,
 			PriceRange:       p.PriceRange,
 			CreatedAt:        time.Now(),
@@ -4530,6 +5179,91 @@ func (s *sCrawler) savePageData(ctx context.Context, taskId string, products []P
 	} else {
 		logInfo(ctx, taskId, fmt.Sprintf("💾 第 %d 页数据已保存：%d 条 (其中 %d 条包含价格带)", pageNum, len(rankingList), priceRangeCount))
 	}
+}
+
+func resolvePreviousRankingTaskIdForInsert(ctx context.Context, currentTaskId string) string {
+	value, err := g.DB().GetValue(ctx, `
+		SELECT task_id
+		FROM (
+			SELECT task_id, MAX(created_at) AS latest_created_at, COUNT(*) AS product_count
+			FROM tiktok_ranking_list
+			WHERE task_id <> ''
+			  AND CONVERT(task_id USING utf8mb4) COLLATE utf8mb4_unicode_ci <>
+			      CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci
+			GROUP BY task_id
+		) cycles
+		ORDER BY
+			CASE WHEN product_count >= 200 THEN 0 ELSE 1 END,
+			latest_created_at DESC
+		LIMIT 1
+	`, currentTaskId)
+	if err != nil || value.IsNil() {
+		return ""
+	}
+	return value.String()
+}
+
+func enrichProductRankTrend(ctx context.Context, previousTaskId string, cache map[string]*int, product *ProductInfo) {
+	if product == nil {
+		return
+	}
+	if product.RankDelta != nil {
+		if product.PreviousRank == nil && product.Rank > 0 {
+			previous := product.Rank + *product.RankDelta
+			if previous > 0 {
+				product.PreviousRank = &previous
+			}
+		}
+		if product.RankTrendSource == "" {
+			product.RankTrendSource = "official"
+		}
+		return
+	}
+	if previousTaskId == "" || product.Rank <= 0 {
+		product.RankTrendSource = "unknown"
+		return
+	}
+	cacheKey := firstNonEmptyString(product.ProductID, product.ProductName)
+	var previousRank *int
+	if cached, ok := cache[cacheKey]; ok {
+		previousRank = cached
+	} else {
+		previousRank = getPreviousProductRankForInsert(ctx, previousTaskId, product.ProductID, product.ProductName)
+		cache[cacheKey] = previousRank
+	}
+	if previousRank == nil {
+		product.RankTrendSource = "unknown"
+		return
+	}
+	delta := *previousRank - product.Rank
+	product.PreviousRank = previousRank
+	product.RankDelta = &delta
+	product.RankTrendSource = "fallback"
+}
+
+func getPreviousProductRankForInsert(ctx context.Context, previousTaskId, productId, productName string) *int {
+	if previousTaskId == "" || (productId == "" && productName == "") {
+		return nil
+	}
+	value, err := g.DB().GetValue(ctx, `
+		SELECT `+"`rank`"+`
+		FROM tiktok_ranking_list
+		WHERE task_id = ?
+		  AND (
+			(? <> '' AND product_id = ?)
+			OR (? <> '' AND product_name = ?)
+		  )
+		ORDER BY
+			CASE WHEN ? <> '' AND product_id = ? THEN 0 ELSE 1 END,
+			`+"`rank`"+` ASC,
+			id ASC
+		LIMIT 1
+	`, previousTaskId, productId, productId, productName, productName, productId, productId)
+	if err != nil || value.IsNil() {
+		return nil
+	}
+	rank := value.Int()
+	return &rank
 }
 
 func (s *sCrawler) getText(el *rod.Element) string {
@@ -4631,4 +5365,48 @@ func (s *sCrawler) injectCookies(ctx context.Context, page *rod.Page, cookieMana
 	time.Sleep(3 * time.Second)
 
 	return true
+}
+
+// setupQuotaBypass 通过 CDP Fetch 域劫持请求，绕过抖音罗盘每日查看次数限制。
+// 使用 catch-all 模式匹配所有请求，在 handler 内通过 URL 判断是否需要劫持。
+// 返回的 HijackRouter 需要调用者通过 defer router.Stop() 管理生命周期。
+func (s *sCrawler) setupQuotaBypass(ctx context.Context, page *rod.Page, taskId string) *rod.HijackRouter {
+	if !g.Cfg().MustGet(ctx, "crawler.video.quotaBypass", false).Bool() {
+		return nil
+	}
+
+	router := page.HijackRequests()
+
+	// 用最宽的模式匹配所有请求，handler 内部再做精确判断
+	if err := router.Add("*", "", func(h *rod.Hijack) {
+		url := h.Request.URL().String()
+
+		// 非罗盘域名直接放行
+		if !strings.Contains(url, "jinritemai.com") {
+			h.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
+
+		if strings.Contains(url, "/get_view_quota") {
+			fmt.Printf("[QUOTA-BYPASS] 劫持 get_view_quota -> remaining_cnt=999\n")
+			_ = h.Response.SetHeader("Content-Type", "application/json")
+			_ = h.Response.SetBody(`{"data":{"remaining_cnt":999,"target_id_viewable":true},"msg":"","st":0}`)
+			return
+		}
+
+		if strings.Contains(url, "/get_display_rule") {
+			fmt.Printf("[QUOTA-BYPASS] 劫持 get_display_rule -> display_type=1\n")
+			_ = h.Response.SetHeader("Content-Type", "application/json")
+			_ = h.Response.SetBody(`{"data":{"display_type":1},"msg":"","st":0}`)
+			return
+		}
+
+		h.ContinueRequest(&proto.FetchContinueRequest{})
+	}); err != nil {
+		logWarn(ctx, taskId, fmt.Sprintf("注册配额绕过劫持失败：%v", err))
+	}
+
+	go router.Run()
+	logInfo(ctx, taskId, "已启用配额绕过（Fetch劫持：get_view_quota->999次, get_display_rule->允许）")
+	return router
 }

@@ -10,11 +10,19 @@ type TikTokRankingListInput struct {
 	ProductUrl           string    `json:"product_url" db:"product_url"`                       // 榜单返回的详情页
 	Rank                 int       `json:"rank" db:"rank"`                                     // 排名
 	ProductName          string    `json:"product_name" db:"product_name"`                     // 商品名称
+	ImageUrl             string    `json:"image_url" db:"image_url"`                           // 商品主图地址（罗盘 product_info.image_url）
 	ShopName             string    `json:"shop_name" db:"shop_name"`                           // 账号名称
 	PaymentAmount        string    `json:"payment_amount" db:"payment_amount"`                 // 短视频用户支付金额
 	ClickCount           string    `json:"click_count" db:"click_count"`                       // 短视频点击次数
+	ClickConvertRate     string    `json:"click_convert_rate" db:"click_convert_rate"`         // 点击成交转化率
 	SalesVolume          string    `json:"sales_volume" db:"sales_volume"`                     // 短视频成交件数
 	DeliveryVideoNum     string    `json:"delivery_video_num" db:"delivery_video_num"`         // 带货视频数
+	ProductQRCodeUrl     string    `json:"product_qr_code_url" db:"product_qr_code_url"`       // 商品二维码
+	ShopLogoUrl          string    `json:"shop_logo_url" db:"shop_logo_url"`                   // 店铺 Logo
+	ShopQRCodeUrl        string    `json:"shop_qr_code_url" db:"shop_qr_code_url"`             // 店铺二维码
+	PreviousRank         *int      `json:"previous_rank" db:"previous_rank"`                   // 上期排名
+	RankDelta            *int      `json:"rank_delta" db:"rank_delta"`                         // 排名变化：正数=上升，负数=下降
+	RankTrendSource      string    `json:"rank_trend_source" db:"rank_trend_source"`           // 排名变化来源：official/fallback/unknown
 	FirstShelfTime       string    `json:"first_shelf_time" db:"first_shelf_time"`             // 首次上架时间
 	MinPrice             string    `json:"min_price" db:"min_price"`                           // 最低到手价
 	PriceRange           string    `json:"price_range" db:"price_range"`                       // 价格区间（价格带）
@@ -34,11 +42,19 @@ type TiktokRankingList struct {
 	ProductUrl           string    `json:"product_url" db:"product_url"`
 	Rank                 int       `json:"rank" db:"rank"`
 	ProductName          string    `json:"product_name" db:"product_name"`
+	ImageUrl             string    `json:"image_url" db:"image_url"`
 	ShopName             string    `json:"shop_name" db:"shop_name"`
 	PaymentAmount        string    `json:"payment_amount" db:"payment_amount"`
 	ClickCount           string    `json:"click_count" db:"click_count"`
+	ClickConvertRate     string    `json:"click_convert_rate" db:"click_convert_rate"`
 	SalesVolume          string    `json:"sales_volume" db:"sales_volume"`
 	DeliveryVideoNum     string    `json:"delivery_video_num" db:"delivery_video_num"`
+	ProductQRCodeUrl     string    `json:"product_qr_code_url" db:"product_qr_code_url"`
+	ShopLogoUrl          string    `json:"shop_logo_url" db:"shop_logo_url"`
+	ShopQRCodeUrl        string    `json:"shop_qr_code_url" db:"shop_qr_code_url"`
+	PreviousRank         *int      `json:"previous_rank" db:"previous_rank"`
+	RankDelta            *int      `json:"rank_delta" db:"rank_delta"`
+	RankTrendSource      string    `json:"rank_trend_source" db:"rank_trend_source"`
 	FirstShelfTime       string    `json:"first_shelf_time" db:"first_shelf_time"`
 	MinPrice             string    `json:"min_price" db:"min_price"`
 	PriceRange           string    `json:"price_range" db:"price_range"`

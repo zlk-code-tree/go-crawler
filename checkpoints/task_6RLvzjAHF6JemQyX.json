@@ -1,0 +1,14 @@
+{
+  "task_id": "6RLvzjAHF6JemQyX",
+  "status": "paused",
+  "current_step": 8,
+  "current_page": 20,
+  "total_pages": 20,
+  "scraped_count": 200,
+  "current_product_index": 16,
+  "product_count": 200,
+  "video_count": 152,
+  "stop_reason": "⏸️ 已达到本轮视频详情查看保护上限：10 次；停止继续打开详情页，避免消耗官方查看次数",
+  "start_time": "2026-07-18T15:38:10.905299+08:00",
+  "end_time": "2026-07-18T15:46:11.104129+08:00"
+}
