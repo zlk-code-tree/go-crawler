@@ -19,6 +19,14 @@ func New() *Controller {
 
 // Start 启动调度器
 func (c *Controller) Start(r *ghttp.Request) {
+	if !service.SchedulerManualTriggerEnabled(r.Context()) {
+		r.Response.WriteJsonExit(g.Map{
+			"code":    1,
+			"message": "采集调度器已关闭，无法手动启动",
+		})
+		return
+	}
+
 	scheduler := service.GetScheduler()
 	if scheduler.IsRunning() {
 		r.Response.WriteJsonExit(g.Map{
@@ -58,10 +66,13 @@ func (c *Controller) Status(r *ghttp.Request) {
 	scheduler := service.GetScheduler()
 
 	status := g.Map{
-		"running":        scheduler.IsRunning(),
-		"cycleInterval":  scheduler.GetCycleInterval().String(),
-		"pipeline":       "product_rank → video_pool → wait → loop",
-		"tasks":          scheduler.GetAllTaskStatus(),
+		"appEnv":               service.AppEnv(r.Context()),
+		"running":              scheduler.IsRunning(),
+		"schedulerEnabled":     service.SchedulerEnabled(r.Context()),
+		"manualTriggerEnabled": service.SchedulerManualTriggerEnabled(r.Context()),
+		"cycleInterval":        scheduler.GetCycleInterval().String(),
+		"pipeline":             "product_rank → video_pool → wait → loop",
+		"tasks":                scheduler.GetAllTaskStatus(),
 	}
 
 	r.Response.WriteJsonExit(g.Map{
@@ -78,6 +89,14 @@ func (c *Controller) TriggerTask(r *ghttp.Request) {
 		r.Response.WriteJsonExit(g.Map{
 			"code":    1,
 			"message": "任务类型不能为空",
+		})
+		return
+	}
+
+	if !service.SchedulerManualTriggerEnabled(r.Context()) {
+		r.Response.WriteJsonExit(g.Map{
+			"code":    1,
+			"message": "采集调度器已关闭，无法手动触发",
 		})
 		return
 	}

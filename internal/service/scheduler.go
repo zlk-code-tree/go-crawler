@@ -59,7 +59,7 @@ func GetScheduler() *Scheduler {
 	schedulerOnce.Do(func() {
 		schedulerInstance = &Scheduler{
 			tasks:         make(map[TaskType]*ScheduleTask),
-			cycleInterval: 30 * time.Minute, // 一轮抓取完成后等待 30 分钟
+			cycleInterval: 3 * time.Hour, // 一轮抓取完成后等待 3 小时，可由配置覆盖
 			triggerCh:     make(chan TaskType, 2),
 		}
 		schedulerInstance.initDefaultTasks()
@@ -72,7 +72,7 @@ func (s *Scheduler) initDefaultTasks() {
 	s.tasks[TaskTypeProductRank] = &ScheduleTask{
 		Type:     TaskTypeProductRank,
 		Status:   TaskStatusIdle,
-		Interval: 30 * time.Minute, // 一轮完整抓取的间隔（商品+视频完成后等待 30 分钟）
+		Interval: 3 * time.Hour, // 一轮完整抓取的间隔，可由配置覆盖
 	}
 
 	s.tasks[TaskTypeVideoPool] = &ScheduleTask{
@@ -224,7 +224,11 @@ func (s *Scheduler) executeTask(taskType TaskType) {
 	// 流水线：商品榜单完成后立即触发视频池抓取
 	if taskType == TaskTypeProductRank && err == nil {
 		g.Log().Info(ctx, "[Scheduler] 商品榜单抓取完成，立即触发商品详情/视频抓取")
-		go func() { s.triggerCh <- TaskTypeVideoPool }()
+		if s.running {
+			go func() { s.triggerCh <- TaskTypeVideoPool }()
+		} else {
+			go s.executeTask(TaskTypeVideoPool)
+		}
 		return
 	}
 
@@ -257,15 +261,10 @@ func (s *Scheduler) TriggerTask(taskType TaskType) error {
 		return fmt.Errorf("任务正在运行中: %s", taskType)
 	}
 
-	// 立即执行：设置 NextRunAt 为过去时间，确保下一次 tick 能触发
-	task.Status = TaskStatusIdle
-	if task.LastRunAt.IsZero() {
-		task.LastRunAt = time.Now().Add(-time.Second) // 非零值，通过 isTaskDue 的首次检查
-	}
-	task.NextRunAt = time.Now().Add(-time.Second)
 	s.mu.Unlock()
 
 	g.Log().Infof(context.Background(), "[Scheduler] 手动触发任务: %s", taskType)
+	go s.executeTask(taskType)
 	return nil
 }
 

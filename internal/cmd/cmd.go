@@ -52,7 +52,11 @@ var (
 
 			// 接通榜单 -> 视频池爬取流水线。调度器仍由管理端显式启动。
 			crawlerWorker := crawlerLogic.New()
-			service.GetScheduler().SetTaskHandler(func(taskCtx context.Context, taskType service.TaskType) error {
+			crawlerScheduler := service.GetScheduler()
+			cycleInterval := service.SchedulerCycleInterval(ctx)
+			crawlerScheduler.SetCycleInterval(cycleInterval)
+			crawlerScheduler.SetTaskInterval(service.TaskTypeProductRank, cycleInterval)
+			crawlerScheduler.SetTaskHandler(func(taskCtx context.Context, taskType service.TaskType) error {
 				switch taskType {
 				case service.TaskTypeProductRank:
 					return crawlerWorker.RunProductRankTask(taskCtx)
@@ -949,6 +953,13 @@ var (
 
 			// 启动所有定时任务
 			cronMgr.StartAll(ctx)
+
+			if allowed, reason := service.SchedulerAutoStartDecision(ctx); allowed {
+				crawlerScheduler.Start()
+				g.Log().Infof(ctx, "[Scheduler] 采集调度器已按配置自动启动 env=%s", service.AppEnv(ctx))
+			} else {
+				g.Log().Infof(ctx, "[Scheduler] 跳过采集调度器自动启动 env=%s reason=%s", service.AppEnv(ctx), reason)
+			}
 
 			s.Run()
 			return nil

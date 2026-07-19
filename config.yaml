@@ -8,6 +8,20 @@ server:
   swaggerPath: "/swagger"
   serverMaxBodyLen: 104857600  # 100MB，最大请求体大小
 
+app:
+  env: "dev"  # dev / test / production
+
+# 采集调度器配置：
+# - 自动启动默认关闭；如生产环境需要服务启动后自动进入调度循环，将 autoStart 改为 true 且 app.env=production。
+# - 手动触发默认开启，本地和生产都可以直接触发采集任务。
+# - cycleIntervalMinutes 表示一轮完整采集（商品榜单 → 视频池）完成后，等待多久进入下一轮。
+scheduler:
+  enabled: true
+  autoStart: false
+  autoStartOnlyProduction: true
+  manualTriggerEnabled: true
+  cycleIntervalMinutes: 180
+
 # JWT 配置
 jwt:
   secret: "go-crawler-jwt-secret-2024-change-in-production"
