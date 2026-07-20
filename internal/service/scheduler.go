@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -40,13 +41,15 @@ type ScheduleTask struct {
 // Scheduler 任务调度器
 // 流水线模式：商品榜单抓取 → 商品详情/视频抓取 → 等待间隔 → 循环
 type Scheduler struct {
-	mu            sync.RWMutex
-	running       bool
-	ticker        *time.Ticker
-	tasks         map[TaskType]*ScheduleTask
-	taskHandler   func(ctx context.Context, taskType TaskType) error
-	cycleInterval time.Duration // 一轮完整抓取后的等待间隔
-	triggerCh     chan TaskType // 流水线触发通道
+	mu              sync.RWMutex
+	running         bool
+	ticker          *time.Ticker
+	tasks           map[TaskType]*ScheduleTask
+	taskHandler     func(ctx context.Context, taskType TaskType) error
+	cycleInterval   time.Duration // 一轮完整抓取后的等待间隔
+	triggerCh       chan TaskType // 流水线触发通道
+	currentCancels  map[TaskType]context.CancelFunc
+	pipelineStarted bool
 }
 
 var (
@@ -58,9 +61,10 @@ var (
 func GetScheduler() *Scheduler {
 	schedulerOnce.Do(func() {
 		schedulerInstance = &Scheduler{
-			tasks:         make(map[TaskType]*ScheduleTask),
-			cycleInterval: 3 * time.Hour, // 一轮抓取完成后等待 3 小时，可由配置覆盖
-			triggerCh:     make(chan TaskType, 2),
+			tasks:          make(map[TaskType]*ScheduleTask),
+			cycleInterval:  3 * time.Hour, // 一轮抓取完成后等待 3 小时，可由配置覆盖
+			triggerCh:      make(chan TaskType, 2),
+			currentCancels: make(map[TaskType]context.CancelFunc),
 		}
 		schedulerInstance.initDefaultTasks()
 	})
@@ -110,13 +114,16 @@ func (s *Scheduler) Start() {
 		}
 	}()
 
-	// 流水线循环：商品榜单完成 → 立即触发商品详情/视频
-	go func() {
-		for taskType := range s.triggerCh {
-			g.Log().Infof(context.Background(), "[Scheduler] 流水线触发任务: %s", taskType)
-			s.executeTask(taskType)
-		}
-	}()
+	if !s.pipelineStarted {
+		s.pipelineStarted = true
+		// 流水线循环：商品榜单完成 → 立即触发商品详情/视频
+		go func() {
+			for taskType := range s.triggerCh {
+				g.Log().Infof(context.Background(), "[Scheduler] 流水线触发任务: %s", taskType)
+				s.executeTask(taskType)
+			}
+		}()
+	}
 }
 
 // Stop 停止调度器
@@ -188,13 +195,17 @@ func (s *Scheduler) executeTask(taskType TaskType) {
 	}
 
 	// 标记为运行中
+	runCtx, cancel := context.WithCancel(context.Background())
 	task.Status = TaskStatusRunning
 	task.LastRunAt = time.Now()
 	task.RunCount++
+	s.currentCancels[taskType] = cancel
 	handler := s.taskHandler
 	if handler == nil {
 		task.Status = TaskStatusIdle
 		task.LastError = "任务处理器未注册"
+		delete(s.currentCancels, taskType)
+		cancel()
 		s.mu.Unlock()
 		g.Log().Errorf(context.Background(), "[Scheduler] 无法执行任务 %s: %s", taskType, task.LastError)
 		return
@@ -204,26 +215,33 @@ func (s *Scheduler) executeTask(taskType TaskType) {
 	g.Log().Infof(context.Background(), "[Scheduler] 开始执行任务: %s (第 %d 次)", taskType, task.RunCount)
 
 	// 执行任务
-	ctx := context.Background()
-	err := handler(ctx, taskType)
+	err := handler(runCtx, taskType)
+	if err == nil && runCtx.Err() != nil {
+		err = runCtx.Err()
+	}
 
 	// 更新任务状态
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	delete(s.currentCancels, taskType)
+	cancel()
 
-	if err != nil {
+	if errors.Is(err, context.Canceled) {
+		task.LastError = "任务已取消"
+		g.Log().Warningf(context.Background(), "[Scheduler] 任务已取消: %s", taskType)
+	} else if err != nil {
 		task.LastError = err.Error()
-		g.Log().Errorf(ctx, "[Scheduler] 任务执行失败: %s, 错误: %v", taskType, err)
+		g.Log().Errorf(context.Background(), "[Scheduler] 任务执行失败: %s, 错误: %v", taskType, err)
 	} else {
 		task.LastError = ""
-		g.Log().Infof(ctx, "[Scheduler] 任务执行完成: %s", taskType)
+		g.Log().Infof(context.Background(), "[Scheduler] 任务执行完成: %s", taskType)
 	}
 
 	task.Status = TaskStatusIdle
 
 	// 流水线：商品榜单完成后立即触发视频池抓取
 	if taskType == TaskTypeProductRank && err == nil {
-		g.Log().Info(ctx, "[Scheduler] 商品榜单抓取完成，立即触发商品详情/视频抓取")
+		g.Log().Info(context.Background(), "[Scheduler] 商品榜单抓取完成，立即触发商品详情/视频抓取")
 		if s.running {
 			go func() { s.triggerCh <- TaskTypeVideoPool }()
 		} else {
@@ -240,7 +258,7 @@ func (s *Scheduler) executeTask(taskType TaskType) {
 			cycleWait = productTask.Interval
 		}
 		productTask.NextRunAt = time.Now().Add(cycleWait)
-		g.Log().Infof(ctx, "[Scheduler] 一轮抓取完成，%v 后开始下一轮", cycleWait)
+		g.Log().Infof(context.Background(), "[Scheduler] 一轮抓取完成，%v 后开始下一轮", cycleWait)
 		return
 	}
 
@@ -266,6 +284,59 @@ func (s *Scheduler) TriggerTask(taskType TaskType) error {
 	g.Log().Infof(context.Background(), "[Scheduler] 手动触发任务: %s", taskType)
 	go s.executeTask(taskType)
 	return nil
+}
+
+// CancelRunningTasks 取消正在执行的采集任务；stopScheduler=true 时同时停止后续调度循环。
+func (s *Scheduler) CancelRunningTasks(stopScheduler bool) []TaskType {
+	s.mu.Lock()
+	cancels := make(map[TaskType]context.CancelFunc, len(s.currentCancels))
+	for taskType, cancel := range s.currentCancels {
+		cancels[taskType] = cancel
+	}
+
+	drained := 0
+	if stopScheduler {
+		s.running = false
+		if s.ticker != nil {
+			s.ticker.Stop()
+			s.ticker = nil
+		}
+		for {
+			select {
+			case <-s.triggerCh:
+				drained++
+			default:
+				goto drainedDone
+			}
+		}
+	}
+
+drainedDone:
+	s.mu.Unlock()
+
+	canceled := make([]TaskType, 0, len(cancels))
+	for taskType, cancel := range cancels {
+		cancel()
+		canceled = append(canceled, taskType)
+	}
+
+	if stopScheduler {
+		g.Log().Infof(context.Background(), "[Scheduler] 已停止调度循环，并清理待触发任务 %d 个", drained)
+	}
+	if len(canceled) > 0 {
+		g.Log().Infof(context.Background(), "[Scheduler] 已下发任务取消信号: %v", canceled)
+	} else {
+		g.Log().Info(context.Background(), "[Scheduler] 当前没有运行中的采集任务")
+	}
+
+	return canceled
+}
+
+// HasRunningTask 是否存在正在执行的采集任务。
+func (s *Scheduler) HasRunningTask() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.currentCancels) > 0
 }
 
 // SetCycleInterval 设置一轮完整抓取后的等待间隔

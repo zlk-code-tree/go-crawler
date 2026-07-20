@@ -70,14 +70,42 @@ type FinanceShopDetailRes = model.FinanceShopDetailRes
 
 // FinanceAggregateReq 手动触发聚合请求
 type FinanceAggregateReq struct {
-	g.Meta    `path:"/finance/aggregate" method:"post" tags:"Finance" summary:"手动触发日聚合任务"`
-	Date      string `json:"date" v:"required#日期不能为空" dc:"统计日期（格式：2006-01-02）"`
+	g.Meta `path:"/finance/aggregate" method:"post" tags:"Finance" summary:"手动触发日聚合任务"`
+	Date   string `json:"date" v:"required#日期不能为空" dc:"统计日期（格式：2006-01-02）"`
 }
 
 // FinanceAggregateRes 手动触发聚合响应
 type FinanceAggregateRes struct {
 	g.Meta  `mime:"application/json"`
 	Success bool   `json:"success" dc:"是否成功"`
+	Message string `json:"message" dc:"提示信息"`
+}
+
+// ==================== 财务归属口径设置 ====================
+
+// FinanceQianchuanPlanInferenceSettingReq 获取千川计划反推空白单开关
+type FinanceQianchuanPlanInferenceSettingReq struct {
+	g.Meta `path:"/finance/qianchuan-plan-inference-setting" method:"get" tags:"Finance" summary:"获取千川计划反推空白单开关"`
+}
+
+// FinanceQianchuanPlanInferenceSettingRes 千川计划反推空白单开关响应
+type FinanceQianchuanPlanInferenceSettingRes struct {
+	g.Meta  `mime:"application/json"`
+	Enabled bool   `json:"enabled" dc:"是否开启"`
+	Message string `json:"message" dc:"提示信息"`
+}
+
+// FinanceSetQianchuanPlanInferenceSettingReq 设置千川计划反推空白单开关
+type FinanceSetQianchuanPlanInferenceSettingReq struct {
+	g.Meta  `path:"/finance/qianchuan-plan-inference-setting" method:"post" tags:"Finance" summary:"设置千川计划反推空白单开关"`
+	Enabled bool `json:"enabled" dc:"是否开启"`
+}
+
+// FinanceSetQianchuanPlanInferenceSettingRes 设置千川计划反推空白单开关响应
+type FinanceSetQianchuanPlanInferenceSettingRes struct {
+	g.Meta  `mime:"application/json"`
+	Success bool   `json:"success" dc:"是否成功"`
+	Enabled bool   `json:"enabled" dc:"是否开启"`
 	Message string `json:"message" dc:"提示信息"`
 }
 

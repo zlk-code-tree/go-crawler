@@ -156,3 +156,80 @@ type PlatformAllianceOrderItem struct {
 	PhaseId            int64  `json:"phaseId"`
 	ShortId            string `json:"shortId"`
 }
+
+// ==================== 抖店售后/退款订单 ====================
+
+// PlatformRefundOrderListParams 售后/退款订单列表参数
+type PlatformRefundOrderListParams struct {
+	Platform      string  `json:"platform"`
+	Page          int     `json:"page" d:"0"`
+	PageSize      int     `json:"pageSize" d:"100"`
+	StartTime     string  `json:"startTime" dc:"开始时间 2006-01-02 15:04:05"`
+	EndTime       string  `json:"endTime" dc:"结束时间 2006-01-02 15:04:05"`
+	StoreId       int     `json:"storeId" dc:"店铺ID（store表主键）"`
+	OrderNo       string  `json:"orderNo" dc:"父订单号"`
+	AftersaleId   string  `json:"aftersaleId" dc:"售后单号"`
+	AftersaleType *int64  `json:"aftersaleType" dc:"售后类型"`
+	StatusList    []int64 `json:"statusList" dc:"售后状态列表"`
+	UseUpdateTime bool    `json:"useUpdateTime" dc:"是否按售后更新时间查询"`
+}
+
+// PlatformRefundOrderListResult 售后/退款订单列表结果
+type PlatformRefundOrderListResult struct {
+	Total   int                       `json:"total"`
+	Page    int                       `json:"page"`
+	Size    int                       `json:"size"`
+	HasMore bool                      `json:"hasMore"`
+	Orders  []PlatformRefundOrderItem `json:"orders"`
+}
+
+// PlatformRefundOrderItem 售后/退款订单
+type PlatformRefundOrderItem struct {
+	Platform                   string  `json:"platform"`
+	ShopId                     int64   `json:"shopId"`
+	ShopName                   string  `json:"shopName"`
+	ShopOrderId                string  `json:"shopOrderId"`
+	SkuOrderId                 string  `json:"skuOrderId"`
+	AftersaleId                string  `json:"aftersaleId"`
+	AftersaleOrderType         int64   `json:"aftersaleOrderType"`
+	AftersaleType              int64   `json:"aftersaleType"`
+	AftersaleTypeText          string  `json:"aftersaleTypeText"`
+	AftersaleStatus            int64   `json:"aftersaleStatus"`
+	AftersaleStatusText        string  `json:"aftersaleStatusText"`
+	AftersaleRefundType        int64   `json:"aftersaleRefundType"`
+	AftersaleRefundTypeText    string  `json:"aftersaleRefundTypeText"`
+	RefundType                 int64   `json:"refundType"`
+	RefundStatus               int64   `json:"refundStatus"`
+	ReasonText                 string  `json:"reasonText"`
+	RefundAmount               float64 `json:"refundAmount"`
+	RefundPostAmount           float64 `json:"refundPostAmount"`
+	RefundTaxAmount            float64 `json:"refundTaxAmount"`
+	ReturnPromotionAmount      float64 `json:"returnPromotionAmount"`
+	AftersaleNum               int64   `json:"aftersaleNum"`
+	PartType                   int64   `json:"partType"`
+	ApplyTime                  string  `json:"applyTime"`
+	UpdateTime                 string  `json:"updateTime"`
+	CreateTime                 string  `json:"createTime"`
+	StatusDeadline             string  `json:"statusDeadline"`
+	AftersaleStatusToFinalTime string  `json:"aftersaleStatusToFinalTime"`
+	ProductId                  string  `json:"productId"`
+	ProductName                string  `json:"productName"`
+	ProductImage               string  `json:"productImage"`
+	ProductSpec                string  `json:"productSpec"`
+	ShopSkuCode                string  `json:"shopSkuCode"`
+	ProductNum                 int64   `json:"productNum"`
+	ProductPrice               float64 `json:"productPrice"`
+	PayAmount                  float64 `json:"payAmount"`
+	PostAmount                 float64 `json:"postAmount"`
+	OrderStatus                int64   `json:"orderStatus"`
+	OrderCreateTime            string  `json:"orderCreateTime"`
+	ReturnLogisticsCode        string  `json:"returnLogisticsCode"`
+	ReturnLogisticsCompanyName string  `json:"returnLogisticsCompanyName"`
+	OrderFlag                  int64   `json:"orderFlag"`
+	RiskDecisionCode           int64   `json:"riskDecisionCode"`
+	RiskDecisionReason         string  `json:"riskDecisionReason"`
+	RiskDecisionDescription    string  `json:"riskDecisionDescription"`
+	ArbitrateStatus            int64   `json:"arbitrateStatus"`
+	Remark                     string  `json:"remark"`
+	RawJSON                    string  `json:"rawJson"`
+}

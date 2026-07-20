@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS `qianchuan_advertiser_attribution_rule` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `advertiser_id` BIGINT(20) NOT NULL COMMENT '千川广告主ID',
   `advertiser_name` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '千川账户名称快照',
+  `source_account_names` VARCHAR(500) NOT NULL DEFAULT '' COMMENT '命中后改归属的抖音账号名称，逗号分隔；空表示广告主级兜底',
   `source_trader_id` BIGINT UNSIGNED NOT NULL COMMENT '账户原负责人ID',
   `target_trader_id` BIGINT UNSIGNED NOT NULL COMMENT '临时统计负责人ID',
   `effective_start_date` DATE NOT NULL COMMENT '生效开始日期（含）',
@@ -19,6 +20,16 @@ CREATE TABLE IF NOT EXISTS `qianchuan_advertiser_attribution_rule` (
   KEY `idx_target_trader` (`target_trader_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='千川账户临时统计归属规则';
 
+ALTER TABLE `qianchuan_advertiser_attribution_rule`
+  ADD COLUMN IF NOT EXISTS `source_account_names` VARCHAR(500) NOT NULL DEFAULT ''
+  COMMENT '命中后改归属的抖音账号名称，逗号分隔；空表示广告主级兜底'
+  AFTER `advertiser_name`;
+
+UPDATE `qianchuan_advertiser_attribution_rule`
+SET `source_account_names` = '天书说故事,利云底层逻辑'
+WHERE `advertiser_id` IN (1700642741413895, 1774391159738372, 1711882704612356, 1722203379291139)
+  AND `reason` = '王梅雪临时借用李百川千川账户';
+
 UPDATE `qianchuan_advertiser_attribution_rule`
 SET `effective_start_date` = '2026-07-01'
 WHERE `advertiser_id` IN (1700642741413895, 1774391159738372, 1711882704612356, 1722203379291139)
@@ -26,9 +37,9 @@ WHERE `advertiser_id` IN (1700642741413895, 1774391159738372, 1711882704612356, 
   AND `reason` = '王梅雪临时借用李百川千川账户';
 
 INSERT IGNORE INTO `qianchuan_advertiser_attribution_rule`
-  (`advertiser_id`, `advertiser_name`, `source_trader_id`, `target_trader_id`,
+  (`advertiser_id`, `advertiser_name`, `source_account_names`, `source_trader_id`, `target_trader_id`,
    `effective_start_date`, `effective_end_date`, `reason`, `status`)
-SELECT seed.advertiser_id, seed.advertiser_name, source.id, target.id,
+SELECT seed.advertiser_id, seed.advertiser_name, '天书说故事,利云底层逻辑', source.id, target.id,
   '2026-07-01', NULL, '王梅雪临时借用李百川千川账户', 1
 FROM (
   SELECT 1700642741413895 AS advertiser_id, '天书万卷-官方号投放户' AS advertiser_name

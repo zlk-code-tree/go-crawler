@@ -8,5 +8,6 @@ CREATE TABLE IF NOT EXISTS `store` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_store_id_platform` (`store_id`, `platform`)
+  UNIQUE KEY `uk_store_id_platform` (`store_id`, `platform`),
+  KEY `idx_platform_name` (`platform`, `store_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='店铺表（外部平台店铺ID）';

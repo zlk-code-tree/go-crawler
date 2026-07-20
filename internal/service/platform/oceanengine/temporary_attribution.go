@@ -3,12 +3,14 @@ package oceanengine
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 )
 
 type qianchuanTemporaryAttributionRule struct {
 	AdvertiserID       int64
+	SourceAccountNames string
 	SourceTraderID     int64
 	TargetTraderID     int64
 	TargetCompanyID    int64
@@ -18,6 +20,11 @@ type qianchuanTemporaryAttributionRule struct {
 }
 
 type qianchuanTemporaryAttributionRules map[int64][]qianchuanTemporaryAttributionRule
+
+type qianchuanTemporaryAttributionSource struct {
+	AccountName        string
+	HasConcreteAccount bool
+}
 
 func loadQianchuanTemporaryAttributionRules(ctx context.Context, advertiserIDs []int64) qianchuanTemporaryAttributionRules {
 	result := make(qianchuanTemporaryAttributionRules)
@@ -29,7 +36,7 @@ func loadQianchuanTemporaryAttributionRules(ctx context.Context, advertiserIDs [
 		InnerJoin("trader target", "target.id = r.target_trader_id AND target.status = 1").
 		WhereIn("r.advertiser_id", advertiserIDs).
 		Where("r.status", 1).
-		Fields(`r.advertiser_id, r.source_trader_id, r.target_trader_id,
+		Fields(`r.advertiser_id, r.source_account_names, r.source_trader_id, r.target_trader_id,
 			target.company_id AS target_company_id, target.group_id AS target_department_id,
 			r.effective_start_date, r.effective_end_date`).
 		OrderDesc("r.effective_start_date, r.id").
@@ -43,6 +50,7 @@ func loadQianchuanTemporaryAttributionRules(ctx context.Context, advertiserIDs [
 		advertiserID := row["advertiser_id"].Int64()
 		result[advertiserID] = append(result[advertiserID], qianchuanTemporaryAttributionRule{
 			AdvertiserID:       advertiserID,
+			SourceAccountNames: row["source_account_names"].String(),
 			SourceTraderID:     row["source_trader_id"].Int64(),
 			TargetTraderID:     row["target_trader_id"].Int64(),
 			TargetCompanyID:    row["target_company_id"].Int64(),
@@ -54,7 +62,7 @@ func loadQianchuanTemporaryAttributionRules(ctx context.Context, advertiserIDs [
 	return result
 }
 
-func (rules qianchuanTemporaryAttributionRules) resolve(advertiserID int64, statDate string, mapping qianchuanOrgMapping) (qianchuanOrgMapping, bool) {
+func (rules qianchuanTemporaryAttributionRules) resolve(advertiserID int64, statDate string, source qianchuanTemporaryAttributionSource, mapping qianchuanOrgMapping) (qianchuanOrgMapping, bool) {
 	statDate = normalizeStatDate(statDate)
 	if statDate == "" {
 		return mapping, false
@@ -66,6 +74,9 @@ func (rules qianchuanTemporaryAttributionRules) resolve(advertiserID int64, stat
 		if rule.EffectiveEndDate != "" && statDate > rule.EffectiveEndDate {
 			continue
 		}
+		if !rule.matchesSourceAccount(source) {
+			continue
+		}
 		mapping.TraderID = rule.TargetTraderID
 		mapping.CompanyID = rule.TargetCompanyID
 		mapping.DepartmentID = rule.TargetDepartmentID
@@ -75,11 +86,30 @@ func (rules qianchuanTemporaryAttributionRules) resolve(advertiserID int64, stat
 	return mapping, false
 }
 
-func (rules qianchuanTemporaryAttributionRules) resolveFallback(advertiserID int64, statDate string, mapping qianchuanOrgMapping, hasConcreteAccount bool) (qianchuanOrgMapping, bool) {
-	if hasConcreteAccount {
-		return mapping, false
+func (rule qianchuanTemporaryAttributionRule) matchesSourceAccount(source qianchuanTemporaryAttributionSource) bool {
+	configuredNames := strings.TrimSpace(rule.SourceAccountNames)
+	if configuredNames == "" {
+		// 兼容历史广告主级规则：仅在没有准确匹配到内部账号时作为兜底，
+		// 避免把该广告主下其他明确归属的账号一起转走。
+		return !source.HasConcreteAccount
 	}
-	return rules.resolve(advertiserID, statDate, mapping)
+
+	want := normalizeTemporaryAttributionAccountName(source.AccountName)
+	if want == "" {
+		return false
+	}
+	for _, name := range strings.FieldsFunc(configuredNames, func(r rune) bool {
+		return r == ',' || r == '，' || r == ';' || r == '；'
+	}) {
+		if normalizeTemporaryAttributionAccountName(name) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeTemporaryAttributionAccountName(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 // SyncQianchuanTemporaryAttribution reapplies every stored rule to existing daily reports.
@@ -143,7 +173,8 @@ func syncQianchuanTemporaryAttributionTable(ctx context.Context, table string) e
 		return nil
 	}
 
-	// Restore everything after the first rule, then rebuild all active intervals.
+	// 先恢复原归属，再按当前启用规则重建。账号维度表优先恢复到账号自身负责人，
+	// 只有无法匹配内部账号的历史行才回退到规则记录的原负责人。
 	restoreSQL := `UPDATE ` + table + ` report
 		JOIN (
 			SELECT advertiser_id, MIN(effective_start_date) AS restore_start_date,
@@ -153,15 +184,34 @@ func syncQianchuanTemporaryAttributionTable(ctx context.Context, table string) e
 		) rule_owner
 			ON rule_owner.advertiser_id = report.advertiser_id
 			AND LEFT(report.stat_datetime, 10) >= rule_owner.restore_start_date
-		JOIN trader source ON source.id = rule_owner.source_trader_id
-		SET report.trader_id = source.id,
-			report.company_id = source.company_id,
-			report.department_id = source.group_id`
-	if table == "qianchuan_ad_report" {
-		restoreSQL += ", report.organization_id = source.company_id"
+		JOIN trader fallback_source ON fallback_source.id = rule_owner.source_trader_id`
+	if table == "qianchuan_overall_promotion_daily_report" {
+		restoreSQL += ` SET report.trader_id = fallback_source.id,
+			report.company_id = fallback_source.company_id,
+			report.department_id = fallback_source.group_id`
+	} else {
+		restoreSQL += ` LEFT JOIN account source_account ON source_account.id = report.account_id
+		LEFT JOIN (
+			SELECT account_id, MIN(trader_id) AS trader_id
+			FROM trader_account_relation
+			GROUP BY account_id
+		) account_owner ON account_owner.account_id = report.account_id
+		LEFT JOIN trader concrete_source ON concrete_source.id = account_owner.trader_id AND concrete_source.status = 1
+		SET report.trader_id = COALESCE(concrete_source.id, fallback_source.id),
+			report.company_id = COALESCE(NULLIF(source_account.company_id, 0), concrete_source.company_id, fallback_source.company_id),
+			report.department_id = COALESCE(NULLIF(source_account.department_id, 0), concrete_source.group_id, fallback_source.group_id)`
+		if table == "qianchuan_ad_report" {
+			restoreSQL += ", report.organization_id = COALESCE(NULLIF(source_account.company_id, 0), concrete_source.company_id, fallback_source.company_id)"
+		}
 	}
 	if _, err := g.DB().Ctx(ctx).Exec(ctx, restoreSQL); err != nil {
 		return err
+	}
+
+	// 账户维度汇总表没有抖音账号字段，无法安全拆分同一广告主下不同账号的消耗。
+	// 该表只恢复原归属；实际人员归属以达人日报/计划日报的账号维度数据为准。
+	if table == "qianchuan_overall_promotion_daily_report" {
+		return nil
 	}
 
 	applySQL := `UPDATE ` + table + ` report
@@ -170,12 +220,22 @@ func syncQianchuanTemporaryAttributionTable(ctx context.Context, table string) e
 			AND rule.status = 1
 			AND LEFT(report.stat_datetime, 10) >= rule.effective_start_date
 			AND (rule.effective_end_date IS NULL OR LEFT(report.stat_datetime, 10) <= rule.effective_end_date)
+		LEFT JOIN account source_account ON source_account.id = report.account_id
 		JOIN trader target ON target.id = rule.target_trader_id AND target.status = 1
 		SET report.trader_id = target.id,
 			report.company_id = target.company_id,
-			report.department_id = target.group_id`
+			report.department_id = target.group_id
+		WHERE (
+			(TRIM(rule.source_account_names) = '' AND report.account_id = 0)
+			OR FIND_IN_SET(
+				LOWER(TRIM(COALESCE(NULLIF(source_account.account_name, ''), NULLIF(report.aweme_name, ''), ''))),
+				LOWER(REPLACE(rule.source_account_names, '，', ','))
+			) > 0
+		)`
 	if table == "qianchuan_ad_report" {
-		applySQL += ", report.organization_id = target.company_id"
+		applySQL = strings.Replace(applySQL,
+			"report.department_id = target.group_id\n\t\tWHERE",
+			"report.department_id = target.group_id, report.organization_id = target.company_id\n\t\tWHERE", 1)
 	}
 	_, err := g.DB().Ctx(ctx).Exec(ctx, applySQL)
 	return err

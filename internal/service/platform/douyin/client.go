@@ -11,6 +11,8 @@ import (
 	"go-crawler/internal/model"
 	"go-crawler/internal/service/platform"
 
+	afterSaleReq "doudian.com/open/sdk_golang/api/afterSale_List/request"
+	afterSaleResp "doudian.com/open/sdk_golang/api/afterSale_List/response"
 	allianceReq "doudian.com/open/sdk_golang/api/alliance_getOrderList/request"
 	buyinReq "doudian.com/open/sdk_golang/api/buyin_queryShopAllianceOrder/request"
 	orderDetailReq "doudian.com/open/sdk_golang/api/order_orderDetail/request"
@@ -504,6 +506,202 @@ func (s *Service) GetAllianceOrderList(ctx context.Context, params model.Platfor
 	}
 
 	return result, nil
+}
+
+// GetRefundOrderList 获取抖店售后/退款订单列表。
+func (s *Service) GetRefundOrderList(ctx context.Context, params model.PlatformRefundOrderListParams) (*model.PlatformRefundOrderListResult, error) {
+	s.initConfig()
+
+	var token *doudian.AccessToken
+	if params.StoreId > 0 {
+		var err error
+		token, _, err = s.GetTokenForStore(ctx, params.StoreId)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		cfg := g.Cfg()
+		shopId := cfg.MustGet(ctx, "platform.douyin.shopId").Int64()
+		if shopId <= 0 {
+			return nil, fmt.Errorf("请提供 storeId 或在配置文件中设置 platform.douyin.shopId")
+		}
+		var err error
+		token, err = s.getTokenForShop(shopId)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	req := afterSaleReq.New()
+	req.SetConfig(s.config)
+	req.GetParams().Page = int64(params.Page)
+	req.GetParams().Size = int64(params.PageSize)
+	if req.GetParams().Size <= 0 || req.GetParams().Size > 100 {
+		req.GetParams().Size = 100
+	}
+	if params.OrderNo != "" {
+		req.GetParams().OrderId = &params.OrderNo
+	}
+	if params.AftersaleId != "" {
+		req.GetParams().AftersaleId = &params.AftersaleId
+	}
+	if params.AftersaleType != nil {
+		req.GetParams().AftersaleType = params.AftersaleType
+	}
+	if len(params.StatusList) > 0 {
+		req.GetParams().StandardAftersaleStatus = params.StatusList
+	}
+
+	cst := time.FixedZone("CST", 8*3600)
+	if params.StartTime != "" {
+		t, err := time.ParseInLocation("2006-01-02 15:04:05", params.StartTime, cst)
+		if err != nil {
+			return nil, fmt.Errorf("开始时间格式错误: %w", err)
+		}
+		ts := t.Unix()
+		if params.UseUpdateTime {
+			req.GetParams().UpdateStartTime = &ts
+		} else {
+			req.GetParams().StartTime = &ts
+		}
+	}
+	if params.EndTime != "" {
+		t, err := time.ParseInLocation("2006-01-02 15:04:05", params.EndTime, cst)
+		if err != nil {
+			return nil, fmt.Errorf("结束时间格式错误: %w", err)
+		}
+		ts := t.Unix()
+		if params.UseUpdateTime {
+			req.GetParams().UpdateEndTime = &ts
+		} else {
+			req.GetParams().EndTime = &ts
+		}
+	}
+	if params.UseUpdateTime {
+		req.GetParams().OrderBy = []string{"update_time asc"}
+	} else {
+		req.GetParams().OrderBy = []string{"apply_time asc"}
+	}
+
+	resp, err := req.Execute(token)
+	if err != nil {
+		return nil, fmt.Errorf("抖店售后/退款列表查询失败: %w", err)
+	}
+	if resp.Code != 10000 {
+		return nil, fmt.Errorf("抖店售后/退款返回错误: code=%d, msg=%s, sub_msg=%s",
+			resp.Code, resp.Msg, resp.SubMsg)
+	}
+	if resp.Data == nil {
+		return &model.PlatformRefundOrderListResult{Page: params.Page, Size: int(req.GetParams().Size)}, nil
+	}
+
+	result := &model.PlatformRefundOrderListResult{
+		Total:   int(resp.Data.Total),
+		Page:    int(resp.Data.Page),
+		Size:    int(resp.Data.Size),
+		HasMore: resp.Data.HasMore,
+	}
+	for _, item := range resp.Data.Items {
+		result.Orders = append(result.Orders, afterSaleItemToRefundOrders(item)...)
+	}
+	return result, nil
+}
+
+func afterSaleItemToRefundOrders(item afterSaleResp.ItemsItem) []model.PlatformRefundOrderItem {
+	if item.AftersaleInfo == nil {
+		return nil
+	}
+
+	rawJSON, _ := json.Marshal(item)
+	base := model.PlatformRefundOrderItem{
+		Platform:                   "douyin",
+		AftersaleId:                item.AftersaleInfo.AftersaleId,
+		AftersaleOrderType:         item.AftersaleInfo.AftersaleOrderType,
+		AftersaleType:              item.AftersaleInfo.AftersaleType,
+		AftersaleStatus:            item.AftersaleInfo.AftersaleStatus,
+		AftersaleRefundType:        item.AftersaleInfo.AftersaleRefundType,
+		RefundType:                 item.AftersaleInfo.RefundType,
+		RefundStatus:               item.AftersaleInfo.RefundStatus,
+		RefundAmount:               centsToYuan(item.AftersaleInfo.RefundAmount),
+		RefundPostAmount:           centsToYuan(item.AftersaleInfo.RefundPostAmount),
+		RefundTaxAmount:            centsToYuan(item.AftersaleInfo.RefundTaxAmount),
+		ReturnPromotionAmount:      centsToYuan(item.AftersaleInfo.ReturnPromotionAmount),
+		AftersaleNum:               item.AftersaleInfo.AftersaleNum,
+		PartType:                   item.AftersaleInfo.PartType,
+		ApplyTime:                  unixToTime(item.AftersaleInfo.ApplyTime),
+		UpdateTime:                 unixToTime(item.AftersaleInfo.UpdateTime),
+		CreateTime:                 unixToTime(item.AftersaleInfo.CreateTime),
+		StatusDeadline:             unixToTime(item.AftersaleInfo.StatusDeadline),
+		AftersaleStatusToFinalTime: unixToTime(item.AftersaleInfo.AftersaleStatusToFinalTime),
+		ReturnLogisticsCode:        item.AftersaleInfo.ReturnLogisticsCode,
+		ReturnLogisticsCompanyName: item.AftersaleInfo.ReturnLogisticsCompanyName,
+		RiskDecisionCode:           item.AftersaleInfo.RiskDecisionCode,
+		RiskDecisionReason:         item.AftersaleInfo.RiskDecisionReason,
+		RiskDecisionDescription:    item.AftersaleInfo.RiskDecisionDescription,
+		ArbitrateStatus:            item.AftersaleInfo.ArbitrateStatus,
+		Remark:                     item.AftersaleInfo.Remark,
+		RawJSON:                    string(rawJSON),
+	}
+	if item.TextPart != nil {
+		base.AftersaleTypeText = item.TextPart.AftersaleTypeText
+		base.AftersaleStatusText = item.TextPart.AftersaleStatusText
+		base.AftersaleRefundTypeText = item.TextPart.AftersaleRefundTypeText
+		base.ReasonText = item.TextPart.ReasonText
+	}
+	if item.OrderInfo != nil {
+		base.ShopOrderId = item.OrderInfo.ShopOrderId
+		base.OrderFlag = item.OrderInfo.OrderFlag
+		if len(item.OrderInfo.RelatedOrderInfo) == 0 {
+			return []model.PlatformRefundOrderItem{base}
+		}
+		orders := make([]model.PlatformRefundOrderItem, 0, len(item.OrderInfo.RelatedOrderInfo))
+		for _, related := range item.OrderInfo.RelatedOrderInfo {
+			refund := base
+			fillRefundOrderRelatedInfo(&refund, related)
+			orders = append(orders, refund)
+		}
+		return orders
+	}
+	return []model.PlatformRefundOrderItem{base}
+}
+
+func fillRefundOrderRelatedInfo(refund *model.PlatformRefundOrderItem, related afterSaleResp.RelatedOrderInfoItem) {
+	refund.SkuOrderId = related.SkuOrderId
+	refund.OrderStatus = related.OrderStatus
+	refund.PayAmount = centsToYuan(related.PayAmount)
+	refund.PostAmount = centsToYuan(related.PostAmount)
+	refund.ProductNum = related.AftersaleItemNum
+	if refund.ProductNum == 0 {
+		refund.ProductNum = related.ItemNum
+	}
+	refund.OrderCreateTime = unixToTime(related.CreateTime)
+	refund.ProductName = related.ProductName
+	if related.ProductId > 0 {
+		refund.ProductId = fmt.Sprintf("%d", related.ProductId)
+	}
+	refund.ProductImage = related.ProductImage
+	refund.ShopSkuCode = related.ShopSkuCode
+	refund.ProductPrice = centsToYuan(related.Price)
+	if related.AftersalePayAmount > 0 {
+		refund.RefundAmount = centsToYuan(related.AftersalePayAmount)
+	}
+	if related.AftersalePostAmount > 0 {
+		refund.RefundPostAmount = centsToYuan(related.AftersalePostAmount)
+	}
+	if related.AftersaleTaxAmount > 0 {
+		refund.RefundTaxAmount = centsToYuan(related.AftersaleTaxAmount)
+	}
+	if len(related.SkuSpec) > 0 {
+		parts := make([]string, 0, len(related.SkuSpec))
+		for _, spec := range related.SkuSpec {
+			parts = append(parts, spec.Name+":"+spec.Value)
+		}
+		refund.ProductSpec = fmt.Sprintf("[%s]", joinStrings(parts))
+	}
+}
+
+func centsToYuan(value int64) float64 {
+	return float64(value) / 100
 }
 
 // ==================== 辅助函数 ====================

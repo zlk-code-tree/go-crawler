@@ -82,6 +82,34 @@ func (c *DouyinPollerController) TriggerOrder(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"logId": logID}, "msg": "任务已启动，订单拉取完成后将自动匹配达人"})
 }
 
+// TriggerRefund 手动触发售后/退款订单拉取 POST /api/douyin-poller/trigger-refund
+func (c *DouyinPollerController) TriggerRefund(r *ghttp.Request) {
+	opt := douyinSvc.RefundPullParams{
+		StartTime:     r.Get("startTime").String(),
+		EndTime:       r.Get("endTime").String(),
+		StartPage:     r.Get("startPage", 0).Int(),
+		Concurrency:   r.Get("concurrency", 5).Int(),
+		UseUpdateTime: r.Get("useUpdateTime", true).Bool(),
+	}
+
+	reqParams, _ := json.Marshal(g.Map{
+		"startTime":     opt.StartTime,
+		"endTime":       opt.EndTime,
+		"startPage":     opt.StartPage,
+		"concurrency":   opt.Concurrency,
+		"useUpdateTime": opt.UseUpdateTime,
+	})
+	logID, err := service.TaskLogStart(r.Context(), "抖店售后退款拉取", "douyin_refund_pull", "/api/douyin-poller/trigger-refund", string(reqParams))
+	if err != nil {
+		g.Log().Errorf(r.Context(), "[DouyinRefundPull] 写入任务日志失败: %v", err)
+	}
+
+	g.Log().Infof(r.Context(), "[DouyinRefundPull] 收到售后退款拉取请求: startTime=%s endTime=%s logId=%d",
+		opt.StartTime, opt.EndTime, logID)
+	go c.runRefundPull(context.Background(), opt, logID, r.GetCtxVar("userId").Int64())
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"logId": logID}, "msg": "任务已启动，退款订单将写入 douyin_refund_order"})
+}
+
 func (c *DouyinPollerController) runOrderAllianceSync(ctx context.Context, opt douyinSvc.PollParams, logID, userID int64) {
 	startedAt := time.Now()
 	result, err := douyinSvc.NewOrderAllianceSyncService().Sync(ctx, opt)
@@ -100,6 +128,27 @@ func (c *DouyinPollerController) runOrderAllianceSync(ctx context.Context, opt d
 		service.TaskLogSuccess(ctx, logID, "", string(respBody), durationMs)
 		service.CreateNotification(ctx, "抖店订单及达人匹配完成", string(respBody),
 			"task_result", "douyin_order_pull", logID, service.NotifyLevelNormal, userID)
+	}
+}
+
+func (c *DouyinPollerController) runRefundPull(ctx context.Context, opt douyinSvc.RefundPullParams, logID, userID int64) {
+	startedAt := time.Now()
+	result, err := douyinSvc.NewRefundPullService().Pull(ctx, opt)
+	durationMs := int(time.Since(startedAt).Milliseconds())
+	respBody, _ := json.Marshal(result)
+	if err != nil {
+		if logID > 0 {
+			service.TaskLogFailed(ctx, logID, err.Error(), durationMs)
+			service.CreateNotification(ctx, "抖店售后退款拉取部分失败",
+				fmt.Sprintf(`{"error":%q,"result":%s}`, err.Error(), respBody),
+				"task_result", "douyin_refund_pull", logID, service.NotifyLevelImportant, userID)
+		}
+		return
+	}
+	if logID > 0 {
+		service.TaskLogSuccess(ctx, logID, "", string(respBody), durationMs)
+		service.CreateNotification(ctx, "抖店售后退款拉取完成", string(respBody),
+			"task_result", "douyin_refund_pull", logID, service.NotifyLevelNormal, userID)
 	}
 }
 

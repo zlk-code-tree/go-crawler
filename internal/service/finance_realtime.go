@@ -328,9 +328,9 @@ const effectiveQianchuanCostCTE = `WITH
 			account_id,
 			MAX(aweme_id) AS aweme_id,
 			MAX(NULLIF(aweme_name, '')) AS aweme_name,
-			MAX(company_id) AS company_id,
-			MAX(department_id) AS department_id,
-			MAX(trader_id) AS trader_id,
+			company_id,
+			department_id,
+			trader_id,
 			LEFT(stat_datetime, 10) AS stat_date,
 			COALESCE(SUM(stat_cost), 0) AS stat_cost,
 			COALESCE(SUM(pay_order_gmv), 0) AS pay_order_gmv,
@@ -339,16 +339,16 @@ const effectiveQianchuanCostCTE = `WITH
 		WHERE account_id > 0
 		  AND LEFT(stat_datetime, 10) >= ?
 		  AND LEFT(stat_datetime, 10) <= ?
-		GROUP BY account_id, LEFT(stat_datetime, 10)
+		GROUP BY account_id, company_id, department_id, trader_id, LEFT(stat_datetime, 10)
 	),
 	plan_daily AS (
 		SELECT
 			qar.account_id,
 			MAX(qar.aweme_id) AS aweme_id,
 			MAX(NULLIF(qar.aweme_name, '')) AS aweme_name,
-			MAX(qar.company_id) AS company_id,
-			MAX(qar.department_id) AS department_id,
-			MAX(qar.trader_id) AS trader_id,
+			qar.company_id,
+			qar.department_id,
+			qar.trader_id,
 			LEFT(qar.stat_datetime, 10) AS stat_date,
 			COALESCE(SUM(qar.stat_cost), 0) AS stat_cost,
 			0 AS pay_order_gmv,
@@ -369,7 +369,7 @@ const effectiveQianchuanCostCTE = `WITH
 		WHERE qar.account_id > 0
 		  AND LEFT(qar.stat_datetime, 10) >= ?
 		  AND LEFT(qar.stat_datetime, 10) <= ?
-		GROUP BY qar.account_id, LEFT(qar.stat_datetime, 10)
+		GROUP BY qar.account_id, qar.company_id, qar.department_id, qar.trader_id, LEFT(qar.stat_datetime, 10)
 	),
 	effective_qianchuan_cost AS (
 		SELECT * FROM author_daily

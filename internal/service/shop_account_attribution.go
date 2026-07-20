@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go-crawler/internal/model"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -20,8 +21,12 @@ func (s *ShopAccountAttributionService) List(ctx context.Context, req *model.Sho
 
 	if req.Keyword != "" {
 		like := "%" + req.Keyword + "%"
-		query = query.Where("(shop_name LIKE ? OR source_account_name LIKE ? OR source_account_uid LIKE ? OR target_value LIKE ?)",
-			like, like, like, like)
+		query = query.Where("(shop_name LIKE ? OR CAST(shop_id AS CHAR) LIKE ? OR source_account_name LIKE ? OR source_account_uid LIKE ? OR target_value LIKE ?)",
+			like, like, like, like, like)
+	}
+	req.ShopId = strings.TrimSpace(req.ShopId)
+	if req.ShopId != "" {
+		query = query.Where("shop_id", req.ShopId)
 	}
 	if req.ShopName != "" {
 		query = query.Where("shop_name", req.ShopName)
@@ -41,6 +46,7 @@ func (s *ShopAccountAttributionService) List(ctx context.Context, req *model.Sho
 	for i, row := range rows {
 		items[i] = g.Map{
 			"id":                row["id"],
+			"shopId":            row["shop_id"],
 			"shopName":          row["shop_name"],
 			"sourceAccountUid":  row["source_account_uid"],
 			"sourceAccountName": row["source_account_name"],
@@ -70,14 +76,52 @@ func (s *ShopAccountAttributionService) GetById(ctx context.Context, id int) (g.
 
 // Save 新增或更新
 func (s *ShopAccountAttributionService) Save(ctx context.Context, req *model.ShopAccountAttributionSaveReq) (int64, error) {
+	req.ShopId = strings.TrimSpace(req.ShopId)
+	shopName := strings.TrimSpace(req.ShopName)
+	if req.ShopId != "" {
+		store, err := g.DB().Model("store").Ctx(ctx).
+			Where("store_id", req.ShopId).
+			Where("platform", "douyin").
+			Fields("store_name").
+			One()
+		if err != nil {
+			return 0, err
+		}
+		if store.IsEmpty() {
+			return 0, fmt.Errorf("店铺ID不存在: %s", req.ShopId)
+		}
+		shopName = store["store_name"].String()
+	} else if shopName != "" {
+		store, err := g.DB().Model("store").Ctx(ctx).
+			Where("store_name", shopName).
+			Where("platform", "douyin").
+			Fields("store_id").
+			OrderAsc("id").
+			One()
+		if err != nil {
+			return 0, err
+		}
+		if !store.IsEmpty() {
+			req.ShopId = store["store_id"].String()
+		}
+	}
+	if shopName == "" {
+		return 0, fmt.Errorf("店铺不能为空")
+	}
+	status := req.Status
+	if status != 0 {
+		status = 1
+	}
+
 	data := g.Map{
-		"shop_name":           req.ShopName,
+		"shop_id":             req.ShopId,
+		"shop_name":           shopName,
 		"source_account_uid":  req.SourceAccountUid,
 		"source_account_name": req.SourceAccountName,
 		"target_type":         req.TargetType,
 		"target_value":        req.TargetValue,
 		"remark":              req.Remark,
-		"status":              1,
+		"status":              status,
 	}
 
 	if req.Id > 0 {
@@ -86,6 +130,7 @@ func (s *ShopAccountAttributionService) Save(ctx context.Context, req *model.Sho
 		if err != nil {
 			return 0, err
 		}
+		ClearEnrichedDouyinOrderCache()
 		return result.RowsAffected()
 	}
 
@@ -94,6 +139,7 @@ func (s *ShopAccountAttributionService) Save(ctx context.Context, req *model.Sho
 	if err != nil {
 		return 0, err
 	}
+	ClearEnrichedDouyinOrderCache()
 	return result.RowsAffected()
 }
 
@@ -103,18 +149,29 @@ func (s *ShopAccountAttributionService) Delete(ctx context.Context, id int) (int
 	if err != nil {
 		return 0, err
 	}
+	ClearEnrichedDouyinOrderCache()
 	return result.RowsAffected()
 }
 
 // GetShops 获取所有店铺名称列表
-func (s *ShopAccountAttributionService) GetShops(ctx context.Context) ([]string, error) {
-	rows, err := g.DB().Model("account").Fields("DISTINCT account_name").Where("platform", "douyin").Where("status", 1).Order("account_name").All()
+func (s *ShopAccountAttributionService) GetShops(ctx context.Context) ([]g.Map, error) {
+	rows, err := g.DB().Model("store").Ctx(ctx).
+		Fields("id, store_id, store_name").
+		Where("platform", "douyin").
+		Where("status", 1).
+		Order("store_name").
+		All()
 	if err != nil {
 		return nil, err
 	}
-	var shops []string
+	shops := make([]g.Map, 0, len(rows))
 	for _, row := range rows {
-		shops = append(shops, row["account_name"].String())
+		shops = append(shops, g.Map{
+			"id":       row["id"],
+			"shopId":   row["store_id"],
+			"storeId":  row["store_id"],
+			"shopName": row["store_name"],
+		})
 	}
 	return shops, nil
 }
@@ -160,13 +217,12 @@ func (s *ShopAccountAttributionService) SearchAccounts(ctx context.Context, keyw
 // GetAttributionSQL 获取归属规则的 SQL 片段（用于统计查询）
 // 返回 COALESCE 表达式，优先使用特殊规则，兜底使用默认 operator
 func (s *ShopAccountAttributionService) GetAttributionSQL() string {
-	return `COALESCE(
+	return fmt.Sprintf(`COALESCE(
 		(SELECT saa.target_value
 		 FROM shop_account_attribution saa
-		 WHERE saa.shop_name = o.shop_name
-		   AND saa.source_account_uid = o.talent_id
-		   AND saa.status = 1
+		 WHERE %s
+		 ORDER BY CASE WHEN COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') != '' THEN 0 ELSE 1 END
 		 LIMIT 1),
 		a.operator
-	)`
+	)`, shopAccountAttributionRuleSQL("o", "o.talent_id"))
 }

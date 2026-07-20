@@ -155,6 +155,20 @@ var (
 			addColumnIfMissing("qianchuan_token", "refresh_token", "refresh_token VARCHAR(512) NOT NULL DEFAULT '' COMMENT 'refresh_token' AFTER access_token")
 			addColumnIfMissing("qianchuan_token", "refresh_token_expires_at", "refresh_token_expires_at DATETIME DEFAULT NULL COMMENT 'refresh_token过期时间' AFTER expires_at")
 
+			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS store (
+				id INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+				store_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '店铺名称',
+				store_id VARCHAR(100) NOT NULL DEFAULT '' COMMENT '店铺ID（外部平台店铺ID）',
+				platform VARCHAR(50) NOT NULL DEFAULT 'douyin' COMMENT '平台：douyin/kuaishou/shipinhao',
+				status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0-禁用 1-启用',
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+				PRIMARY KEY (id),
+				UNIQUE KEY uk_store_id_platform (store_id, platform),
+				KEY idx_platform_name (platform, store_name)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='店铺表（外部平台店铺ID）'`)
+			addIndexIfMissing("store", "idx_platform_name", "KEY `idx_platform_name` (`platform`, `store_name`)")
+
 			addColumnIfMissing("tiktok_ranking_list", "shop_id", "shop_id VARCHAR(64) NOT NULL DEFAULT '' COMMENT '店铺ID' AFTER product_id")
 			addColumnIfMissing("tiktok_ranking_list", "product_url", "product_url VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '榜单详情页' AFTER shop_id")
 			addColumnIfMissing("tiktok_ranking_list", "image_url", "image_url VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '商品主图地址' AFTER product_name")
@@ -387,6 +401,7 @@ var (
 				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 				advertiser_id BIGINT(20) NOT NULL COMMENT '千川广告主ID',
 				advertiser_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '千川账户名称快照',
+				source_account_names VARCHAR(500) NOT NULL DEFAULT '' COMMENT '命中后改归属的抖音账号名称，逗号分隔；空表示广告主级兜底',
 				source_trader_id BIGINT UNSIGNED NOT NULL COMMENT '账户原负责人ID',
 				target_trader_id BIGINT UNSIGNED NOT NULL COMMENT '临时统计负责人ID',
 				effective_start_date DATE NOT NULL COMMENT '生效开始日期（含）',
@@ -402,7 +417,12 @@ var (
 				KEY idx_effective_rule (advertiser_id, status, effective_start_date, effective_end_date),
 				KEY idx_target_trader (target_trader_id, status)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='千川账户临时统计归属规则'`)
+			addColumnIfMissing("qianchuan_advertiser_attribution_rule", "source_account_names", "source_account_names VARCHAR(500) NOT NULL DEFAULT '' COMMENT '命中后改归属的抖音账号名称，逗号分隔；空表示广告主级兜底' AFTER `advertiser_name`")
 
+			g.DB().Exec(ctx, `UPDATE qianchuan_advertiser_attribution_rule
+				SET source_account_names = '天书说故事,利云底层逻辑'
+				WHERE advertiser_id IN (1700642741413895, 1774391159738372, 1711882704612356, 1722203379291139)
+					AND reason = '王梅雪临时借用李百川千川账户'`)
 			g.DB().Exec(ctx, `UPDATE qianchuan_advertiser_attribution_rule
 				SET effective_start_date = '2026-07-01'
 				WHERE advertiser_id IN (1700642741413895, 1774391159738372, 1711882704612356, 1722203379291139)
@@ -411,9 +431,9 @@ var (
 
 			// 一次性初始化当前已确认的借号关系；后续只维护规则表。
 			g.DB().Exec(ctx, `INSERT IGNORE INTO qianchuan_advertiser_attribution_rule
-				(advertiser_id, advertiser_name, source_trader_id, target_trader_id,
+				(advertiser_id, advertiser_name, source_account_names, source_trader_id, target_trader_id,
 				effective_start_date, effective_end_date, reason, status)
-			SELECT seed.advertiser_id, seed.advertiser_name, source.id, target.id,
+			SELECT seed.advertiser_id, seed.advertiser_name, '天书说故事,利云底层逻辑', source.id, target.id,
 				'2026-07-01', NULL, '王梅雪临时借用李百川千川账户', 1
 			FROM (
 				SELECT 1700642741413895 AS advertiser_id, '天书万卷-官方号投放户' AS advertiser_name
@@ -507,6 +527,7 @@ var (
 			// 店铺借用账号归属规则表
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS shop_account_attribution (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			shop_id VARCHAR(100) NOT NULL DEFAULT '' COMMENT '店铺ID（store.store_id，优先用于稳定匹配）',
 			shop_name VARCHAR(200) NOT NULL COMMENT '店铺名称',
 			source_account_uid VARCHAR(100) NOT NULL COMMENT '借用的达人UID',
 			source_account_name VARCHAR(200) DEFAULT '' COMMENT '借用的达人名称',
@@ -518,10 +539,69 @@ var (
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			UNIQUE KEY uk_shop_account (shop_name, source_account_uid),
+			INDEX idx_shop_id (shop_id),
 			INDEX idx_shop_name (shop_name),
 			INDEX idx_account_uid (source_account_uid),
 			INDEX idx_status (status)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='店铺借用账号归属规则表'`)
+			addColumnIfMissing("shop_account_attribution", "shop_id", "shop_id VARCHAR(100) NOT NULL DEFAULT '' COMMENT '店铺ID（store.store_id，优先用于稳定匹配）' AFTER id")
+			if _, err := g.DB().Exec(ctx, "ALTER TABLE `shop_account_attribution` MODIFY COLUMN `shop_id` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '店铺ID（store.store_id，优先用于稳定匹配）'"); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 修改店铺借号归属店铺ID字段失败 err=%v", err)
+			}
+			if _, err := g.DB().Exec(ctx, `
+				UPDATE shop_account_attribution saa
+				INNER JOIN store s
+					ON s.platform COLLATE utf8mb4_unicode_ci = 'douyin'
+					AND CAST(s.id AS CHAR) COLLATE utf8mb4_unicode_ci = saa.shop_id COLLATE utf8mb4_unicode_ci
+					AND s.store_id != ''
+				SET saa.shop_id = CONVERT(s.store_id USING utf8mb4) COLLATE utf8mb4_unicode_ci
+				WHERE saa.shop_id != ''
+				  AND saa.shop_id != '0'
+				  AND saa.shop_id COLLATE utf8mb4_unicode_ci != CONVERT(s.store_id USING utf8mb4) COLLATE utf8mb4_unicode_ci
+			`); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 同步店铺借号归属平台店铺ID失败 err=%v", err)
+			}
+			if _, err := g.DB().Exec(ctx, `
+				UPDATE shop_account_attribution saa
+				INNER JOIN (
+					SELECT s.store_name, s.store_id
+					FROM store s
+					INNER JOIN (
+						SELECT MIN(id) AS id
+						FROM store
+						WHERE platform COLLATE utf8mb4_unicode_ci = 'douyin'
+						  AND status = 1
+						  AND store_id != ''
+						GROUP BY store_name
+					) picked ON picked.id = s.id
+				) matched_store
+					ON matched_store.store_name COLLATE utf8mb4_unicode_ci = saa.shop_name COLLATE utf8mb4_unicode_ci
+				SET saa.shop_id = CONVERT(matched_store.store_id USING utf8mb4) COLLATE utf8mb4_unicode_ci
+				WHERE COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') = ''
+			`); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 按店铺名称补齐借号归属平台店铺ID失败 err=%v", err)
+			}
+			if _, err := g.DB().Exec(ctx, "UPDATE shop_account_attribution SET shop_id = '' WHERE shop_id = '0'"); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 清理店铺借号归属空店铺ID失败 err=%v", err)
+			}
+			if _, err := g.DB().Exec(ctx, `
+				UPDATE shop_account_attribution
+				SET remark = CONCAT(
+					'借号订单归属：',
+					COALESCE(NULLIF(source_account_name, ''), source_account_uid),
+					'（UID ',
+					source_account_uid,
+					'）在“',
+					shop_name,
+					'”出单归属',
+					target_value
+				)
+				WHERE TRIM(COALESCE(remark, '')) = ''
+				   OR remark LIKE '规则%'
+			`); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 补齐借号归属规则备注失败 err=%v", err)
+			}
+			addIndexIfMissing("shop_account_attribution", "idx_shop_id", "INDEX `idx_shop_id` (`shop_id`)")
 
 			// 抖音小店自营订单的千川归属结果（用于审计和复核）
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS douyin_order_attribution (
@@ -552,6 +632,68 @@ var (
 			INDEX idx_trader_date (trader_id, stat_date),
 			INDEX idx_main_order_no (main_order_no)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='抖音小店自营订单千川归属结果'`)
+
+			// 抖店售后/退款订单独立存储表
+			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS douyin_refund_order (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			platform VARCHAR(30) NOT NULL DEFAULT 'douyin' COMMENT '平台',
+			shop_id BIGINT NOT NULL DEFAULT 0 COMMENT '抖店店铺ID',
+			shop_name VARCHAR(200) NOT NULL DEFAULT '' COMMENT '店铺名称',
+			shop_order_id VARCHAR(100) NOT NULL DEFAULT '' COMMENT '主订单号',
+			sku_order_id VARCHAR(100) NOT NULL DEFAULT '' COMMENT '子订单号/商品单号',
+			aftersale_id VARCHAR(100) NOT NULL DEFAULT '' COMMENT '售后单号',
+			aftersale_order_type INT NOT NULL DEFAULT 0 COMMENT '售后订单类型',
+			aftersale_type INT NOT NULL DEFAULT 0 COMMENT '售后类型',
+			aftersale_type_text VARCHAR(100) NOT NULL DEFAULT '' COMMENT '售后类型文案',
+			aftersale_status INT NOT NULL DEFAULT 0 COMMENT '售后状态',
+			aftersale_status_text VARCHAR(100) NOT NULL DEFAULT '' COMMENT '售后状态文案',
+			aftersale_refund_type INT NOT NULL DEFAULT 0 COMMENT '售后退款类型',
+			aftersale_refund_type_text VARCHAR(100) NOT NULL DEFAULT '' COMMENT '售后退款类型文案',
+			refund_type INT NOT NULL DEFAULT 0 COMMENT '退款方式',
+			refund_status INT NOT NULL DEFAULT 0 COMMENT '退款状态',
+			reason_text VARCHAR(255) NOT NULL DEFAULT '' COMMENT '售后原因文案',
+			refund_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '退款金额',
+			refund_post_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '退运费金额',
+			refund_tax_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '退税费金额',
+			return_promotion_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '退优惠金额',
+			aftersale_num INT NOT NULL DEFAULT 0 COMMENT '售后数量',
+			part_type INT NOT NULL DEFAULT 0 COMMENT '部分退类型',
+			apply_time DATETIME DEFAULT NULL COMMENT '申请时间',
+			update_time DATETIME DEFAULT NULL COMMENT '售后更新时间',
+			aftersale_create_time DATETIME DEFAULT NULL COMMENT '售后单创建时间',
+			status_deadline DATETIME DEFAULT NULL COMMENT '当前节点逾期时间',
+			aftersale_final_time DATETIME DEFAULT NULL COMMENT '售后完结时间',
+			product_id VARCHAR(100) NOT NULL DEFAULT '' COMMENT '商品ID',
+			product_name VARCHAR(500) NOT NULL DEFAULT '' COMMENT '商品名称',
+			product_image VARCHAR(1000) NOT NULL DEFAULT '' COMMENT '商品图片',
+			product_spec VARCHAR(500) NOT NULL DEFAULT '' COMMENT '商品规格',
+			shop_sku_code VARCHAR(100) NOT NULL DEFAULT '' COMMENT '商家SKU编码',
+			product_num INT NOT NULL DEFAULT 0 COMMENT '售后商品数量',
+			product_price DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '商品单价',
+			pay_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '原订单支付金额',
+			post_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '原订单运费',
+			order_status INT NOT NULL DEFAULT 0 COMMENT '原订单状态',
+			order_create_time DATETIME DEFAULT NULL COMMENT '原订单下单时间',
+			return_logistics_code VARCHAR(100) NOT NULL DEFAULT '' COMMENT '退货物流单号',
+			return_logistics_company_name VARCHAR(200) NOT NULL DEFAULT '' COMMENT '退货物流公司',
+			order_flag INT NOT NULL DEFAULT 0 COMMENT '订单插旗',
+			risk_decision_code INT NOT NULL DEFAULT 0 COMMENT '风控码',
+			risk_decision_reason VARCHAR(255) NOT NULL DEFAULT '' COMMENT '风控理由',
+			risk_decision_description VARCHAR(500) NOT NULL DEFAULT '' COMMENT '风控描述',
+			arbitrate_status INT NOT NULL DEFAULT 0 COMMENT '仲裁状态',
+			remark VARCHAR(1000) NOT NULL DEFAULT '' COMMENT '售后商家备注',
+			raw_json JSON DEFAULT NULL COMMENT '原始售后数据',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			UNIQUE KEY uk_aftersale_sku (aftersale_id, sku_order_id),
+			INDEX idx_shop_update_time (shop_id, update_time),
+			INDEX idx_shop_apply_time (shop_id, apply_time),
+			INDEX idx_shop_order_id (shop_order_id),
+			INDEX idx_sku_order_id (sku_order_id),
+			INDEX idx_aftersale_status (aftersale_status),
+			INDEX idx_refund_status (refund_status)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='抖店售后退款订单表'`)
 
 			// 外部达人台账表
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS external_talent_registry (
@@ -622,6 +764,79 @@ var (
 			UNIQUE KEY uk_node (node_type, node_id, platform),
 			KEY idx_enabled (enabled)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Webhook推送配置表'`)
+
+			// 应用配置表：存放财务口径开关等全局配置
+			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS app_setting (
+			id BIGINT AUTO_INCREMENT PRIMARY KEY,
+			setting_key VARCHAR(120) NOT NULL DEFAULT '' COMMENT '配置键',
+			setting_value VARCHAR(500) NOT NULL DEFAULT '' COMMENT '配置值',
+			description VARCHAR(500) NOT NULL DEFAULT '' COMMENT '配置说明',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			UNIQUE KEY uk_setting_key (setting_key)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='应用配置表'`)
+			g.DB().Exec(ctx, `
+			INSERT INTO app_setting (setting_key, setting_value, description)
+			VALUES (?, ?, ?)
+			ON DUPLICATE KEY UPDATE
+				description = VALUES(description)
+			`,
+				service.FinanceSettingQianchuanPlanBlankOrderInferenceEnabled,
+				"1",
+				"财务佣金：达人为空/0的抖音订单是否通过千川计划反推账号归属",
+			)
+
+			g.DB().Exec(ctx, `
+			INSERT INTO sys_permission (
+				name, code, type, parent_id, path, component, icon,
+				method, api, ext_url, hide, status, sort
+			)
+			SELECT
+				'借号归属规则',
+				'finance.borrowed-account-attribution',
+				2,
+				finance.id,
+				'/finance/borrowed-account-attribution',
+				'finance/borrowed-account-attribution/index',
+				'lucide:route',
+				'',
+				'',
+				'',
+				1,
+				1,
+				3
+			FROM sys_permission finance
+			WHERE finance.code = 'finance'
+			  AND NOT EXISTS (
+			      SELECT 1 FROM sys_permission
+			      WHERE code = 'finance.borrowed-account-attribution'
+			  )
+			LIMIT 1`)
+			g.DB().Exec(ctx, `
+			UPDATE sys_permission rule_menu
+			JOIN sys_permission finance ON finance.code = 'finance'
+			SET rule_menu.name = '借号归属规则',
+				rule_menu.type = 2,
+				rule_menu.parent_id = finance.id,
+				rule_menu.path = '/finance/borrowed-account-attribution',
+				rule_menu.component = 'finance/borrowed-account-attribution/index',
+				rule_menu.icon = 'lucide:route',
+				rule_menu.method = '',
+				rule_menu.api = '',
+				rule_menu.ext_url = '',
+				rule_menu.hide = 1,
+				rule_menu.status = 1,
+				rule_menu.sort = 3
+			WHERE rule_menu.code = 'finance.borrowed-account-attribution'`)
+			g.DB().Exec(ctx, `
+			INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
+			SELECT DISTINCT parent_role.role_id, rule_menu.id
+			FROM sys_role_permission parent_role
+			JOIN sys_permission finance
+			  ON finance.id = parent_role.permission_id
+			 AND finance.code = 'finance'
+			JOIN sys_permission rule_menu
+			  ON rule_menu.code = 'finance.borrowed-account-attribution'`)
 
 			// 千川token：调用advertiser/get获取平台账户列表，再解析为千川广告主ID
 			// 注意：advertiser/get返回的是巨量引擎平台账户ID（店铺级别），
@@ -833,6 +1048,7 @@ var (
 				group.POST("/douyin-poller/trigger-alliance", douyinPollerCtrl.TriggerAlliance)
 				group.GET("/douyin/query-shop-alliance-order", douyinPollerCtrl.QueryShopAllianceOrder)
 				group.POST("/douyin-poller/trigger-order", douyinPollerCtrl.TriggerOrder)
+				group.POST("/douyin-poller/trigger-refund", douyinPollerCtrl.TriggerRefund)
 				wechatShopOrderCtrl := system.NewShipinhaoOrderController()
 				group.POST("/wechat-shop-order/trigger-pull", wechatShopOrderCtrl.WechatShopOrderPull)
 				// 千川数据拉取控制
@@ -902,6 +1118,26 @@ var (
 				endTime := now.Format("2006-01-02 15:04:05")
 				_, err := douyinSvc.NewOrderAllianceSyncService().Sync(ctx, douyinSvc.PollParams{
 					StartTime: startTime, EndTime: endTime, Concurrency: 10,
+				})
+				return err
+			})
+
+			cronMgr.RegisterBuiltin("douyin_refund_daily_pull", "0 20 1 * * *", func(ctx context.Context) error {
+				yesterday := time.Now().AddDate(0, 0, -1)
+				startTime := yesterday.Format("2006-01-02") + " 00:00:00"
+				endTime := time.Now().Format("2006-01-02") + " 00:00:00"
+				_, err := douyinSvc.NewRefundPullService().Pull(ctx, douyinSvc.RefundPullParams{
+					StartTime: startTime, EndTime: endTime, Concurrency: 10, UseUpdateTime: true,
+				})
+				return err
+			})
+
+			cronMgr.RegisterBuiltin("douyin_refund_today_pull", "0 20 12,19 * * *", func(ctx context.Context) error {
+				now := time.Now()
+				startTime := now.Format("2006-01-02") + " 00:00:00"
+				endTime := now.Format("2006-01-02 15:04:05")
+				_, err := douyinSvc.NewRefundPullService().Pull(ctx, douyinSvc.RefundPullParams{
+					StartTime: startTime, EndTime: endTime, Concurrency: 10, UseUpdateTime: true,
 				})
 				return err
 			})

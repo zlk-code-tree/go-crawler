@@ -71,6 +71,7 @@ func (c *Controller) Status(r *ghttp.Request) {
 		"schedulerEnabled":     service.SchedulerEnabled(r.Context()),
 		"manualTriggerEnabled": service.SchedulerManualTriggerEnabled(r.Context()),
 		"cycleInterval":        scheduler.GetCycleInterval().String(),
+		"hasRunningTask":       scheduler.HasRunningTask(),
 		"pipeline":             "product_rank → video_pool → wait → loop",
 		"tasks":                scheduler.GetAllTaskStatus(),
 	}
@@ -113,6 +114,25 @@ func (c *Controller) TriggerTask(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{
 		"code":    0,
 		"message": "任务已触发",
+	})
+}
+
+// Cancel 取消当前采集任务，并停止后续调度循环。
+func (c *Controller) Cancel(r *ghttp.Request) {
+	scheduler := service.GetScheduler()
+	canceled := scheduler.CancelRunningTasks(true)
+
+	message := "已停止采集调度"
+	if len(canceled) > 0 {
+		message = "已下发采集任务取消信号"
+	}
+
+	r.Response.WriteJsonExit(g.Map{
+		"code":    0,
+		"message": message,
+		"data": g.Map{
+			"canceledTasks": canceled,
+		},
 	})
 }
 

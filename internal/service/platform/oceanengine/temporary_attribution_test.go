@@ -7,6 +7,7 @@ func TestQianchuanTemporaryAttributionRulesResolve(t *testing.T) {
 		1700642741413895: {
 			{
 				AdvertiserID:       1700642741413895,
+				SourceAccountNames: "天书说故事,利云底层逻辑",
 				TargetTraderID:     22,
 				TargetCompanyID:    3,
 				TargetDepartmentID: 8,
@@ -22,12 +23,13 @@ func TestQianchuanTemporaryAttributionRulesResolve(t *testing.T) {
 		OrganizationID: 1,
 	}
 
-	before, matched := rules.resolve(1700642741413895, "2026-07-12", original)
+	source := qianchuanTemporaryAttributionSource{AccountName: "天书说故事", HasConcreteAccount: true}
+	before, matched := rules.resolve(1700642741413895, "2026-07-12", source, original)
 	if matched || before != original {
 		t.Fatalf("rule should not apply before start date: matched=%v mapping=%+v", matched, before)
 	}
 
-	after, matched := rules.resolve(1700642741413895, "2026-07-13 00:00:00", original)
+	after, matched := rules.resolve(1700642741413895, "2026-07-13 00:00:00", source, original)
 	if !matched {
 		t.Fatal("expected rule to apply on start date")
 	}
@@ -46,18 +48,20 @@ func TestQianchuanTemporaryAttributionRulesEndDate(t *testing.T) {
 		}},
 	}
 
-	if _, matched := rules.resolve(1, "2026-07-10", qianchuanOrgMapping{}); !matched {
+	source := qianchuanTemporaryAttributionSource{}
+	if _, matched := rules.resolve(1, "2026-07-10", source, qianchuanOrgMapping{}); !matched {
 		t.Fatal("expected end date to be inclusive")
 	}
-	if _, matched := rules.resolve(1, "2026-07-11", qianchuanOrgMapping{}); matched {
+	if _, matched := rules.resolve(1, "2026-07-11", source, qianchuanOrgMapping{}); matched {
 		t.Fatal("rule should not apply after end date")
 	}
 }
 
-func TestQianchuanTemporaryAttributionRulesDoNotOverrideConcreteAccount(t *testing.T) {
+func TestQianchuanTemporaryAttributionRulesOnlyOverrideConfiguredAccount(t *testing.T) {
 	rules := qianchuanTemporaryAttributionRules{
 		1: {{
 			AdvertiserID:       1,
+			SourceAccountNames: "天书说故事，利云底层逻辑",
 			TargetTraderID:     8,
 			TargetCompanyID:    1,
 			TargetDepartmentID: 14,
@@ -72,14 +76,36 @@ func TestQianchuanTemporaryAttributionRulesDoNotOverrideConcreteAccount(t *testi
 		OrganizationID: 1,
 	}
 
-	resolved, matched := rules.resolveFallback(1, "2026-07-14", concrete, true)
+	resolved, matched := rules.resolve(1, "2026-07-14", qianchuanTemporaryAttributionSource{
+		AccountName: "其他账号", HasConcreteAccount: true,
+	}, concrete)
 	if matched || resolved != concrete {
-		t.Fatalf("concrete account attribution should be preserved: matched=%v mapping=%+v", matched, resolved)
+		t.Fatalf("unconfigured account attribution should be preserved: matched=%v mapping=%+v", matched, resolved)
 	}
 
-	unmatched := qianchuanOrgMapping{CompanyID: 1, DepartmentID: 13, TraderID: 1, OrganizationID: 1}
-	resolved, matched = rules.resolveFallback(1, "2026-07-14", unmatched, false)
+	resolved, matched = rules.resolve(1, "2026-07-14", qianchuanTemporaryAttributionSource{
+		AccountName: " 利云底层逻辑 ", HasConcreteAccount: true,
+	}, concrete)
 	if !matched || resolved.TraderID != 8 || resolved.DepartmentID != 14 {
-		t.Fatalf("unmatched advertiser fallback should still apply: matched=%v mapping=%+v", matched, resolved)
+		t.Fatalf("configured concrete account should be redirected: matched=%v mapping=%+v", matched, resolved)
+	}
+}
+
+func TestQianchuanTemporaryAttributionLegacyRuleOnlyAppliesAsFallback(t *testing.T) {
+	rules := qianchuanTemporaryAttributionRules{
+		1: {{AdvertiserID: 1, TargetTraderID: 8, EffectiveStartDate: "2026-07-01"}},
+	}
+	original := qianchuanOrgMapping{AccountID: 143, TraderID: 1}
+
+	resolved, matched := rules.resolve(1, "2026-07-14", qianchuanTemporaryAttributionSource{
+		AccountName: "其他账号", HasConcreteAccount: true,
+	}, original)
+	if matched || resolved != original {
+		t.Fatalf("legacy advertiser rule must not override concrete account: matched=%v mapping=%+v", matched, resolved)
+	}
+
+	resolved, matched = rules.resolve(1, "2026-07-14", qianchuanTemporaryAttributionSource{}, qianchuanOrgMapping{TraderID: 1})
+	if !matched || resolved.TraderID != 8 {
+		t.Fatalf("legacy advertiser rule should apply to unmatched fallback: matched=%v mapping=%+v", matched, resolved)
 	}
 }

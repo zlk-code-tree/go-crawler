@@ -1236,13 +1236,20 @@ func (p *Poller) saveAuthorReports(ctx context.Context, orgMap map[int64]authorO
 			if len(statDate) >= 10 {
 				statDate = statDate[:10]
 			}
-			mapping, _ := temporaryRules.resolveFallback(item.AdvertiserID, statDate, qianchuanOrgMapping{
+			sourceAccountName := org.AccountName
+			if sourceAccountName == "" {
+				sourceAccountName = item.AwemeName
+			}
+			mapping, _ := temporaryRules.resolve(item.AdvertiserID, statDate, qianchuanTemporaryAttributionSource{
+				AccountName:        sourceAccountName,
+				HasConcreteAccount: org.AccountID > 0,
+			}, qianchuanOrgMapping{
 				AccountID:      org.AccountID,
 				CompanyID:      org.CompanyID,
 				DepartmentID:   org.DepartmentID,
 				TraderID:       org.TraderID,
 				OrganizationID: org.CompanyID,
-			}, org.AccountID > 0)
+			})
 			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?)")
 			args = append(args,
 				item.AdvertiserID, mapping.AccountID, mapping.CompanyID, mapping.DepartmentID, mapping.TraderID,
@@ -1335,7 +1342,6 @@ func (p *Poller) saveOverallPromotionReports(ctx context.Context, client *Client
 		}
 	}
 	orgMappings := p.loadOrgMappings(ctx, advIDs)
-	temporaryRules := loadQianchuanTemporaryAttributionRules(ctx, advIDs)
 	detailDerivedMappings := p.resolveOverallReportOrgMappings(ctx, client, reports, orgMappings)
 
 	const batchSize = 100
@@ -1352,14 +1358,10 @@ func (p *Poller) saveOverallPromotionReports(ctx context.Context, client *Client
 		args := make([]interface{}, 0, len(batch)*38)
 		for _, item := range batch {
 			mapping := orgMappings[item.AdvertiserID]
-			if temporaryMapping, ok := temporaryRules.resolve(item.AdvertiserID, item.StatDatetime, mapping); ok {
-				mapping = temporaryMapping
-			} else {
-				if detailMapping, exists := detailDerivedMappings[overallReportOrgCacheKey(item.AdvertiserID, item.StatDatetime)]; exists {
-					mapping = detailMapping
-				}
-				mapping = companyOnlyOverallMapping(mapping)
+			if detailMapping, exists := detailDerivedMappings[overallReportOrgCacheKey(item.AdvertiserID, item.StatDatetime)]; exists {
+				mapping = detailMapping
 			}
+			mapping = companyOnlyOverallMapping(mapping)
 			payloadBytes, _ := json.Marshal(item)
 			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 			args = append(args,
@@ -1484,9 +1486,13 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 			awemeID, _ := strconv.ParseInt(item.AwemeID, 10, 64)
 			awemeName := item.AwemeName
 			awemeShowID := item.AwemeShowID
+			sourceAccountName := item.AwemeName
 			hasConcreteAccount := false
 			if info, _, ok := authorIndex.matchPlanReport(item); ok {
 				mapping = planReportOrgMapping(info)
+				if info.AccountName != "" {
+					sourceAccountName = info.AccountName
+				}
 				awemeID = info.AwemeID
 				if awemeName == "" {
 					awemeName = info.AccountName
@@ -1497,7 +1503,10 @@ func (p *Poller) savePlanReports(ctx context.Context, reports []AdPlanDailyRepor
 				hasConcreteAccount = info.AccountID > 0
 				matched++
 			}
-			mapping, _ = temporaryRules.resolveFallback(item.AdvertiserID, item.StatDatetime, mapping, hasConcreteAccount)
+			mapping, _ = temporaryRules.resolve(item.AdvertiserID, item.StatDatetime, qianchuanTemporaryAttributionSource{
+				AccountName:        sourceAccountName,
+				HasConcreteAccount: hasConcreteAccount,
+			}, mapping)
 			placeholders = append(placeholders, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 			args = append(args,
 				mapping.OrganizationID, mapping.AccountID, mapping.CompanyID, mapping.DepartmentID, mapping.TraderID,

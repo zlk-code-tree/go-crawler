@@ -20,6 +20,7 @@ func (c *ShopAccountAttributionController) List(r *ghttp.Request) {
 	req.Page = r.Get("page", 1).Int()
 	req.PageSize = r.Get("pageSize", 10).Int()
 	req.Keyword = r.Get("keyword").String()
+	req.ShopId = r.Get("shopId").String()
 	req.ShopName = r.Get("shopName").String()
 
 	svc := service.NewShopAccountAttributionService()

@@ -130,6 +130,39 @@ func (c *FinanceController) Aggregate(ctx context.Context, req *v1.FinanceAggreg
 	}, nil
 }
 
+// QianchuanPlanInferenceSetting 获取千川计划反推空白单开关 GET /api/finance/qianchuan-plan-inference-setting
+func (c *FinanceController) QianchuanPlanInferenceSetting(ctx context.Context, req *v1.FinanceQianchuanPlanInferenceSettingReq) (res *v1.FinanceQianchuanPlanInferenceSettingRes, err error) {
+	enabled, err := service.GetQianchuanPlanBlankOrderInferenceSetting(ctx)
+	if err != nil {
+		return nil, gerror.New("查询失败: " + err.Error())
+	}
+	return &v1.FinanceQianchuanPlanInferenceSettingRes{
+		Enabled: enabled,
+		Message: "查询成功",
+	}, nil
+}
+
+// SetQianchuanPlanInferenceSetting 设置千川计划反推空白单开关 POST /api/finance/qianchuan-plan-inference-setting
+func (c *FinanceController) SetQianchuanPlanInferenceSetting(ctx context.Context, req *v1.FinanceSetQianchuanPlanInferenceSettingReq) (res *v1.FinanceSetQianchuanPlanInferenceSettingRes, err error) {
+	if err := service.SetQianchuanPlanBlankOrderInferenceSetting(ctx, req.Enabled); err != nil {
+		return &v1.FinanceSetQianchuanPlanInferenceSettingRes{
+			Success: false,
+			Enabled: req.Enabled,
+			Message: "保存失败: " + err.Error(),
+		}, nil
+	}
+
+	message := "已开启千川计划反推空白单；历史日汇总需重新重算后生效"
+	if !req.Enabled {
+		message = "已关闭千川计划反推空白单；历史日汇总需重新重算后生效"
+	}
+	return &v1.FinanceSetQianchuanPlanInferenceSettingRes{
+		Success: true,
+		Enabled: req.Enabled,
+		Message: message,
+	}, nil
+}
+
 // TraderOrders 获取投手订单列表 GET /api/finance/trader-orders
 func (c *FinanceController) TraderOrders(ctx context.Context, req *v1.FinanceTraderOrdersReq) (res *v1.FinanceTraderOrdersRes, err error) {
 	financeService := service.NewFinanceCommissionService()

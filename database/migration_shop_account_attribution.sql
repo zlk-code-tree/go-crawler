@@ -2,6 +2,7 @@
 -- 用于处理"店铺A借用达人B的账号跑数据，订单归属给指定达人C"的场景
 CREATE TABLE IF NOT EXISTS `shop_account_attribution` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `shop_id` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '店铺ID（store.store_id，优先用于稳定匹配）',
     `shop_name` VARCHAR(200) NOT NULL COMMENT '店铺名称',
     `source_account_uid` VARCHAR(100) NOT NULL COMMENT '借用的达人UID',
     `source_account_name` VARCHAR(200) DEFAULT '' COMMENT '借用的达人名称（便于识别）',
@@ -13,6 +14,7 @@ CREATE TABLE IF NOT EXISTS `shop_account_attribution` (
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_shop_account` (`shop_name`, `source_account_uid`),
+    INDEX `idx_shop_id` (`shop_id`),
     INDEX `idx_shop_name` (`shop_name`),
     INDEX `idx_account_uid` (`source_account_uid`),
     INDEX `idx_status` (`status`)

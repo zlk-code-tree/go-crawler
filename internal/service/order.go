@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -43,14 +44,16 @@ type enrichedDouyinOrderCacheEntry struct {
 }
 
 type enrichedDouyinOrderLoad struct {
-	done   chan struct{}
-	orders []g.Map
-	err    error
+	done     chan struct{}
+	revision uint64
+	orders   []g.Map
+	err      error
 }
 
 var enrichedDouyinOrderCache sync.Map
 var enrichedDouyinOrderLoadMu sync.Mutex
 var enrichedDouyinOrderLoads = make(map[string]*enrichedDouyinOrderLoad)
+var enrichedDouyinOrderCacheRevision uint64
 
 const (
 	enrichedDouyinOrderCacheTTL     = time.Minute
@@ -65,6 +68,7 @@ func NewOrderService() *OrderService {
 
 func (s *OrderService) loadEnrichedDouyinOrders(ctx context.Context, startDate, endDate string) ([]g.Map, error) {
 	cacheKey := startDate + "\x00" + endDate
+	cacheRevision := atomic.LoadUint64(&enrichedDouyinOrderCacheRevision)
 	if orders, ok := getCachedEnrichedDouyinOrders(cacheKey); ok {
 		return orders, nil
 	}
@@ -75,8 +79,8 @@ func (s *OrderService) loadEnrichedDouyinOrders(ctx context.Context, startDate, 
 		return orders, nil
 	}
 	load, loading := enrichedDouyinOrderLoads[cacheKey]
-	if !loading {
-		load = &enrichedDouyinOrderLoad{done: make(chan struct{})}
+	if !loading || load.revision != cacheRevision {
+		load = &enrichedDouyinOrderLoad{done: make(chan struct{}), revision: cacheRevision}
 		enrichedDouyinOrderLoads[cacheKey] = load
 		go s.buildEnrichedDouyinOrderCache(context.WithoutCancel(ctx), cacheKey, startDate, endDate, load)
 	}
@@ -103,12 +107,22 @@ func getCachedEnrichedDouyinOrders(cacheKey string) ([]g.Map, bool) {
 	return nil, false
 }
 
+// ClearEnrichedDouyinOrderCache 清空抖音订单增强缓存。
+// 财务归属口径配置变更后需要立即清理缓存，避免短时间内继续使用旧口径。
+func ClearEnrichedDouyinOrderCache() {
+	atomic.AddUint64(&enrichedDouyinOrderCacheRevision, 1)
+	enrichedDouyinOrderCache.Range(func(key, _ interface{}) bool {
+		enrichedDouyinOrderCache.Delete(key)
+		return true
+	})
+}
+
 func (s *OrderService) buildEnrichedDouyinOrderCache(parent context.Context, cacheKey, startDate, endDate string, load *enrichedDouyinOrderLoad) {
 	buildCtx, cancel := context.WithTimeout(parent, enrichedDouyinOrderBuildTimeout)
 	defer cancel()
 
 	load.orders, load.err = s.queryEnrichedDouyinOrders(buildCtx, startDate, endDate)
-	if load.err == nil {
+	if load.err == nil && atomic.LoadUint64(&enrichedDouyinOrderCacheRevision) == load.revision {
 		enrichedDouyinOrderCache.Store(cacheKey, enrichedDouyinOrderCacheEntry{
 			expiresAt: time.Now().Add(enrichedDouyinOrderCacheTTL),
 			orders:    load.orders,
@@ -116,16 +130,28 @@ func (s *OrderService) buildEnrichedDouyinOrderCache(parent context.Context, cac
 	}
 
 	enrichedDouyinOrderLoadMu.Lock()
-	delete(enrichedDouyinOrderLoads, cacheKey)
+	if enrichedDouyinOrderLoads[cacheKey] == load {
+		delete(enrichedDouyinOrderLoads, cacheKey)
+	}
 	close(load.done)
 	enrichedDouyinOrderLoadMu.Unlock()
 }
 
 func (s *OrderService) queryEnrichedDouyinOrders(ctx context.Context, startDate, endDate string) ([]g.Map, error) {
 	rows, err := g.DB().GetAll(ctx, `
-		SELECT o.*, COALESCE(g.base_price, 0) AS base_price
+		SELECT o.*, COALESCE(g.base_price, 0) AS base_price, COALESCE(store_match.store_id, '') AS order_store_id
 		FROM order_info o
 		LEFT JOIN (SELECT goods_code, MAX(base_price) AS base_price FROM goods GROUP BY goods_code) g ON o.seller_code = g.goods_code
+		LEFT JOIN (
+			SELECT s.store_id, s.store_name
+			FROM store s
+			INNER JOIN (
+				SELECT MIN(id) AS id
+				FROM store
+				WHERE platform = 'douyin' AND status = 1
+				GROUP BY store_name
+			) picked ON picked.id = s.id
+		) store_match ON store_match.store_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
 		WHERE o.pay_finish_time >= ?
 		  AND o.pay_finish_time < ?
 		  AND o.main_order_no IS NOT NULL
@@ -164,14 +190,13 @@ func orderListTeamOwnerExpr(alias string) string {
 	return fmt.Sprintf(`COALESCE(
 		(SELECT saa.target_value
 		 FROM shop_account_attribution saa
-		 WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = %s.shop_name COLLATE utf8mb4_unicode_ci
-		   AND saa.source_account_uid = %s
-		   AND saa.status = 1
+		 WHERE %s
+		 ORDER BY CASE WHEN COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') != '' THEN 0 ELSE 1 END
 		 LIMIT 1),
 		NULLIF(au.operator, ''),
 		NULLIF(an.operator, ''),
 		''
-	)`, alias, orderListTalentUIDExpr(alias))
+	)`, shopAccountAttributionRuleSQL(alias, orderListTalentUIDExpr(alias)))
 }
 
 func orderListCommissionExpr(alias string) string {
@@ -569,6 +594,44 @@ func orderListCompositeKey(shopName, talentUID string) string {
 	return shopName + "\x00" + talentUID
 }
 
+type shopAccountAttributionTarget struct {
+	TargetValue string
+	TraderID    int64
+}
+
+func orderListCompositeShopIDKey(shopID, talentUID string) string {
+	return "shop_id:" + strings.TrimSpace(shopID) + "\x00" + talentUID
+}
+
+func orderListLookupAttributionTarget(attributionMap map[string]shopAccountAttributionTarget, shopID, shopName, talentUID string) (shopAccountAttributionTarget, bool) {
+	shopID = strings.TrimSpace(shopID)
+	if shopID != "" {
+		if target, ok := attributionMap[orderListCompositeShopIDKey(shopID, talentUID)]; ok {
+			return target, true
+		}
+	}
+	target, ok := attributionMap[orderListCompositeKey(shopName, talentUID)]
+	return target, ok
+}
+
+func shopAccountAttributionRuleSQL(orderAlias, talentExpr string) string {
+	storeIDExpr := fmt.Sprintf(`COALESCE((
+		SELECT st.store_id
+		FROM store st
+		WHERE st.platform = 'douyin'
+		  AND st.status = 1
+		  AND st.store_name COLLATE utf8mb4_unicode_ci = %s.shop_name COLLATE utf8mb4_unicode_ci
+		ORDER BY st.id ASC
+		LIMIT 1
+	), '')`, orderAlias)
+	return fmt.Sprintf(`saa.status = 1
+		   AND saa.source_account_uid COLLATE utf8mb4_unicode_ci = %s COLLATE utf8mb4_unicode_ci
+		   AND (
+		        (COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') != '' AND saa.shop_id COLLATE utf8mb4_unicode_ci = %s COLLATE utf8mb4_unicode_ci)
+		        OR (COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') = '' AND saa.shop_name COLLATE utf8mb4_unicode_ci = %s.shop_name COLLATE utf8mb4_unicode_ci)
+		   )`, talentExpr, storeIDExpr, orderAlias)
+}
+
 func orderListExternalMatchKey(shopName, value string) string {
 	valueKey := orderListNormalizedLookupKey(value)
 	if valueKey == "" {
@@ -941,6 +1004,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	qianchuanBlankOrderInferenceEnabled := IsQianchuanPlanBlankOrderInferenceEnabled(ctx)
 
 	type accountInfo struct {
 		id               int64
@@ -1283,32 +1347,34 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 
 	qianchuanRequests := make([]qianchuanMatchRequest, 0, len(result))
 	qianchuanRequestSet := make(map[string]struct{}, len(result))
-	for _, row := range result {
-		alliance := allianceByOrder[row["sub_order_no"].String()]
-		rawTalentName := orderListFirstNonEmpty(row["talent_name"].String(), alliance["author_account"].String())
-		if orderListNormalizedTalentID(row["talent_id"].String()) != "" ||
-			strings.TrimSpace(alliance["short_id"].String()) != "" ||
-			orderListNormalizedLookupKey(rawTalentName) != "" {
-			continue
-		}
+	if qianchuanBlankOrderInferenceEnabled {
+		for _, row := range result {
+			alliance := allianceByOrder[row["sub_order_no"].String()]
+			rawTalentName := orderListFirstNonEmpty(row["talent_name"].String(), alliance["author_account"].String())
+			if orderListNormalizedTalentID(row["talent_id"].String()) != "" ||
+				strings.TrimSpace(alliance["short_id"].String()) != "" ||
+				orderListNormalizedLookupKey(rawTalentName) != "" {
+				continue
+			}
 
-		statDate := orderListStatDateFromRow(row)
-		shopName := strings.TrimSpace(row["shop_name"].String())
-		productID := strings.TrimSpace(row["product_id"].String())
-		if statDate == "" || shopName == "" || productID == "" {
-			continue
-		}
+			statDate := orderListStatDateFromRow(row)
+			shopName := strings.TrimSpace(row["shop_name"].String())
+			productID := strings.TrimSpace(row["product_id"].String())
+			if statDate == "" || shopName == "" || productID == "" {
+				continue
+			}
 
-		key := orderListQianchuanMatchKey(statDate, shopName, productID)
-		if _, exists := qianchuanRequestSet[key]; exists {
-			continue
+			key := orderListQianchuanMatchKey(statDate, shopName, productID)
+			if _, exists := qianchuanRequestSet[key]; exists {
+				continue
+			}
+			qianchuanRequestSet[key] = struct{}{}
+			qianchuanRequests = append(qianchuanRequests, qianchuanMatchRequest{
+				statDate:  statDate,
+				shopName:  shopName,
+				productID: productID,
+			})
 		}
-		qianchuanRequestSet[key] = struct{}{}
-		qianchuanRequests = append(qianchuanRequests, qianchuanMatchRequest{
-			statDate:  statDate,
-			shopName:  shopName,
-			productID: productID,
-		})
 	}
 
 	qianchuanByKey := make(map[string][]qianchuanMatchInfo, len(qianchuanRequests))
@@ -1497,6 +1563,8 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 	}
 
 	resolved := make([][]resolvedMeta, len(result))
+	shopIDs := make([]string, 0, len(result))
+	shopIDSet := make(map[string]struct{}, len(result))
 	shopNames := make([]string, 0, len(result))
 	shopNameSet := make(map[string]struct{}, len(result))
 	resolvedUIDs := make([]string, 0, len(result))
@@ -1563,7 +1631,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			})
 		}
 
-		if !hasInternal && !hasExternal && originTalentID == "" && shortID == "" && orderListNormalizedLookupKey(rawTalentName) == "" {
+		if qianchuanBlankOrderInferenceEnabled && !hasInternal && !hasExternal && originTalentID == "" && shortID == "" && orderListNormalizedLookupKey(rawTalentName) == "" {
 			orderKey := orderListFirstNonEmpty(row["main_order_no"].String(), row["sub_order_no"].String(), row["id"].String())
 			if match, matched := qianchuanAssignmentByOrder[orderKey]; matched {
 				appendResolved(match.accountInfo, "qianchuan_plan", true, match)
@@ -1581,6 +1649,12 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			appendResolved(internalInfo, internalField, hasInternal, qianchuanMatchInfo{})
 		}
 
+		if shopID := strings.TrimSpace(row["order_store_id"].String()); shopID != "" {
+			if _, ok := shopIDSet[shopID]; !ok {
+				shopIDSet[shopID] = struct{}{}
+				shopIDs = append(shopIDs, shopID)
+			}
+		}
 		if shopName := row["shop_name"].String(); shopName != "" {
 			if _, ok := shopNameSet[shopName]; !ok {
 				shopNameSet[shopName] = struct{}{}
@@ -1597,18 +1671,36 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 		}
 	}
 
-	attributionMap := make(map[string]string)
+	attributionMap := make(map[string]shopAccountAttributionTarget)
 	if len(shopNames) > 0 && len(resolvedUIDs) > 0 {
-		params := make([]interface{}, 0, len(shopNames)+len(resolvedUIDs))
-		for _, shopName := range shopNames {
-			params = append(params, shopName)
+		params := make([]interface{}, 0, len(shopIDs)+len(shopNames)+len(resolvedUIDs))
+		shopConds := make([]string, 0, 2)
+		if len(shopIDs) > 0 {
+			shopConds = append(shopConds, fmt.Sprintf("saa.shop_id IN (%s)", orderListPlaceholders(len(shopIDs))))
+			for _, shopID := range shopIDs {
+				params = append(params, shopID)
+			}
+		}
+		if len(shopNames) > 0 {
+			shopConds = append(shopConds, fmt.Sprintf("(COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') = '' AND saa.shop_name IN (%s))", orderListPlaceholders(len(shopNames))))
+			for _, shopName := range shopNames {
+				params = append(params, shopName)
+			}
 		}
 		for _, talentUID := range resolvedUIDs {
 			params = append(params, talentUID)
 		}
 		sql := fmt.Sprintf(
-			"SELECT shop_name, source_account_uid, target_value FROM shop_account_attribution WHERE status = 1 AND shop_name IN (%s) AND source_account_uid IN (%s)",
-			orderListPlaceholders(len(shopNames)),
+			`SELECT saa.shop_id, saa.shop_name, saa.source_account_uid, saa.target_value, COALESCE(t.id, 0) AS trader_id
+			 FROM shop_account_attribution saa
+			 LEFT JOIN trader t
+			   ON t.status = 1
+			  AND ((saa.target_type = 'operator' AND saa.target_value COLLATE utf8mb4_unicode_ci = t.name COLLATE utf8mb4_unicode_ci)
+			       OR (saa.target_type = 'trader' AND saa.target_value COLLATE utf8mb4_unicode_ci = CAST(t.id AS CHAR) COLLATE utf8mb4_unicode_ci))
+			 WHERE saa.status = 1
+			   AND (%s)
+			   AND saa.source_account_uid IN (%s)`,
+			strings.Join(shopConds, " OR "),
 			orderListPlaceholders(len(resolvedUIDs)),
 		)
 		if err := ctx.Err(); err != nil {
@@ -1619,9 +1711,20 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			return nil, err
 		}
 		for _, row := range rows {
+			target := shopAccountAttributionTarget{
+				TargetValue: row["target_value"].String(),
+				TraderID:    row["trader_id"].Int64(),
+			}
+			if shopID := strings.TrimSpace(row["shop_id"].String()); shopID != "" {
+				key := orderListCompositeShopIDKey(shopID, row["source_account_uid"].String())
+				if _, exists := attributionMap[key]; !exists {
+					attributionMap[key] = target
+				}
+				continue
+			}
 			key := orderListCompositeKey(row["shop_name"].String(), row["source_account_uid"].String())
 			if _, exists := attributionMap[key]; !exists {
-				attributionMap[key] = row["target_value"].String()
+				attributionMap[key] = target
 			}
 		}
 	}
@@ -1638,11 +1741,16 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				allocationRatio = 1
 			}
 			productCost := roundFloatOrder(row["base_price"].Float64()*float64(row["product_num"].Int()), 2)
+			attributionTarget, attributionMatched := orderListLookupAttributionTarget(attributionMap, row["order_store_id"].String(), row["shop_name"].String(), item.talentUID)
 			teamOwner := orderListFirstNonEmpty(
-				attributionMap[orderListCompositeKey(row["shop_name"].String(), item.talentUID)],
+				attributionTarget.TargetValue,
 				item.operator,
 				item.externalTeamName,
 			)
+			attributedTraderID := item.traderID
+			if attributionMatched && attributionTarget.TraderID > 0 {
+				attributedTraderID = attributionTarget.TraderID
+			}
 			allocationRowID := row["id"].String()
 			if len(resolved[i]) > 1 || item.qianchuanPlanID != 0 {
 				allocationRowID = fmt.Sprintf("%s_%d_%d", row["id"].String(), item.qianchuanPlanID, allocationIndex+1)
@@ -1652,6 +1760,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			orders = append(orders, g.Map{
 				"id":                            row["id"],
 				"allocationRowId":               allocationRowID,
+				"shopId":                        row["order_store_id"],
 				"shopName":                      row["shop_name"],
 				"mainOrderNo":                   row["main_order_no"],
 				"subOrderNo":                    row["sub_order_no"],
@@ -1685,7 +1794,8 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				"originalTalentId":              row["talent_id"],
 				"profitAttributionSource":       item.attributionSource,
 				"attributedAccountId":           item.accountID,
-				"attributedTraderId":            item.traderID,
+				"attributedTraderId":            attributedTraderID,
+				"specialAttributionMatched":     attributionMatched,
 				"productCost":                   productCost,
 				"originalProductCost":           roundFloatOrder(row["base_price"].Float64()*float64(row["product_num"].Int()), 2),
 				"shopServiceFee":                row["shop_service_fee"],
@@ -2170,17 +2280,29 @@ func (s *OrderService) statsDouyinOrdersByAccounts(ctx context.Context, accountI
 		return result, nil
 	}
 	rows, err := g.DB().Model("account").Ctx(ctx).
+		LeftJoin("trader_account_relation tar", "tar.account_id = account.id").
 		WhereIn("id", accountIDs).
 		Where("platform", "douyin").
 		Where("status", 1).
-		Fields("id, uid").All()
+		Fields("account.id, account.uid, MIN(tar.trader_id) AS trader_id").
+		Group("account.id, account.uid").
+		All()
 	if err != nil {
 		return nil, err
 	}
 	accountByUID := make(map[string]int, len(rows))
+	sourceTraderByAccountID := make(map[int]int64, len(rows))
+	firstAccountByTraderID := make(map[int64]int, len(rows))
 	for _, row := range rows {
 		accountID := row["id"].Int()
+		traderID := row["trader_id"].Int64()
 		result[accountID] = &model.FinanceStatsSummary{}
+		sourceTraderByAccountID[accountID] = traderID
+		if traderID > 0 {
+			if existing, ok := firstAccountByTraderID[traderID]; !ok || accountID < existing {
+				firstAccountByTraderID[traderID] = accountID
+			}
+		}
 		if uid := orderListNormalizedTalentID(row["uid"].String()); uid != "" {
 			if existing, ok := accountByUID[uid]; !ok || accountID < existing {
 				accountByUID[uid] = accountID
@@ -2215,9 +2337,28 @@ func (s *OrderService) statsDouyinOrdersByAccounts(ctx context.Context, accountI
 		if uid == "" && strings.TrimSpace(gconv.String(order["profitAttributionSource"])) == "qianchuan_plan" {
 			uid = orderListNormalizedTalentID(gconv.String(order["talentId"]))
 		}
-		accountID, matched := accountByUID[uid]
-		if !matched {
-			continue
+		accountID := 0
+		if gconv.Bool(order["specialAttributionMatched"]) {
+			targetTraderID := gconv.Int64(order["attributedTraderId"])
+			if targetTraderID <= 0 {
+				continue
+			}
+			targetAccountID, matched := firstAccountByTraderID[targetTraderID]
+			if !matched {
+				continue
+			}
+			accountID = targetAccountID
+		} else {
+			sourceAccountID, matched := accountByUID[uid]
+			if !matched {
+				continue
+			}
+			if targetTraderID := gconv.Int64(order["attributedTraderId"]); targetTraderID > 0 {
+				if sourceTraderID := sourceTraderByAccountID[sourceAccountID]; sourceTraderID > 0 && sourceTraderID != targetTraderID {
+					continue
+				}
+			}
+			accountID = sourceAccountID
 		}
 		acc := accumulators[accountID]
 		orderKey := orderListFirstNonEmpty(gconv.String(order["mainOrderNo"]), gconv.String(order["subOrderNo"]), gconv.String(order["allocationRowId"]))

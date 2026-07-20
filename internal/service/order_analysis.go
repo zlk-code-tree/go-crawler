@@ -27,12 +27,11 @@ func (s *OrderAnalysisService) getAttributionSQL(alias string) string {
 	return fmt.Sprintf(`COALESCE(
 		(SELECT saa.target_value
 		 FROM shop_account_attribution saa
-		 WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = %s.shop_name COLLATE utf8mb4_unicode_ci
-		   AND saa.source_account_uid = %s.talent_id
-		   AND saa.status = 1
+		 WHERE %s
+		 ORDER BY CASE WHEN COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') != '' THEN 0 ELSE 1 END
 		 LIMIT 1),
 		a.operator
-	)`, alias, alias)
+	)`, shopAccountAttributionRuleSQL(alias, alias+".talent_id"))
 }
 
 func NewOrderAnalysisService() *OrderAnalysisService {
@@ -530,9 +529,8 @@ func (s *OrderAnalysisService) Rank(ctx context.Context, startDate, endDate stri
 	attributionSQL := `COALESCE(
 		(SELECT saa.target_value
 		 FROM shop_account_attribution saa
-		 WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
-		   AND saa.source_account_uid = o.talent_id
-		   AND saa.status = 1
+		 WHERE ` + shopAccountAttributionRuleSQL("o", "o.talent_id") + `
+		 ORDER BY CASE WHEN COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') != '' THEN 0 ELSE 1 END
 		 LIMIT 1),
 		a.operator
 	)`
@@ -793,9 +791,8 @@ func (s *OrderAnalysisService) queryOrderDetailsByFilter(ctx context.Context, fi
 	attributionSQL := `COALESCE(
 		(SELECT saa.target_value
 		 FROM shop_account_attribution saa
-		 WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
-		   AND saa.source_account_uid = o.talent_id
-		   AND saa.status = 1
+		 WHERE ` + shopAccountAttributionRuleSQL("o", "o.talent_id") + `
+		 ORDER BY CASE WHEN COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') != '' THEN 0 ELSE 1 END
 		 LIMIT 1),
 		a.operator
 	)`

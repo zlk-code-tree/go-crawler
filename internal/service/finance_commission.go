@@ -422,11 +422,36 @@ func (s *FinanceCommissionService) getNodeCurrentQianchuanCost(ctx context.Conte
 		return getNodeQianchuanAdvertiserDailyCost(ctx, nodeID, nodeType, startDate, endDate)
 	}
 
-	accountIDs, err := s.getAccountIdsByNode(ctx, nodeID, nodeType, "douyin")
+	scope := FinanceOrgScope{}
+	switch nodeType {
+	case "trader":
+		if model.IsTraderID(nodeID) {
+			nodeID = model.DecodeTraderID(nodeID)
+		}
+		scope.TraderId = nodeID
+	case "department":
+		if model.IsDeptID(nodeID) {
+			nodeID = model.DecodeDeptID(nodeID)
+		}
+		scope.DepartmentId = nodeID
+	default:
+		return 0, nil
+	}
+	whereSQL, whereArgs, err := s.effectiveScopeWhere(ctx, scope, "effective")
 	if err != nil {
 		return 0, err
 	}
-	return s.getAdCostByAccountsRange(ctx, accountIDs, startDate, endDate), nil
+	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
+	args := []interface{}{startDate, endDate, startDate, endDate}
+	args = append(args, whereArgs...)
+	row, err := g.DB().GetOne(ctx, effectiveQianchuanCostCTE+`
+		SELECT COALESCE(SUM(effective.stat_cost), 0) AS ad_cost
+		FROM effective_qianchuan_cost effective
+		WHERE 1=1`+whereSQL, args...)
+	if err != nil {
+		return 0, fmt.Errorf("查询组织归属后的千川消耗失败: %w", err)
+	}
+	return row["ad_cost"].Float64(), nil
 }
 
 // ============================================
@@ -501,6 +526,16 @@ func (s *FinanceCommissionService) statsFinanceChildNodes(ctx context.Context, c
 			if stats := leafStats[accountID]; stats != nil {
 				mergeFinanceStatsSummary(&result[i], stats)
 			}
+		}
+		if platform == "douyin" {
+			attributedCost, err := s.getNodeCurrentQianchuanCost(ctx, childNodes[i].id, childNodes[i].nodeType, startDate, endDate)
+			if err != nil {
+				return nil, nil, err
+			}
+			oldCost := result[i].AdCostAmount
+			newCost := roundFloatFinance(attributedCost, 2)
+			result[i].AdCostAmount = newCost
+			result[i].RealtimeProfit = roundFloatFinance(result[i].RealtimeProfit+oldCost-newCost, 2)
 		}
 	}
 	return result, allAccountIDsSet, nil
@@ -1731,11 +1766,9 @@ func (s *FinanceCommissionService) attributionExcludeSQL(currentTraderName strin
 	return fmt.Sprintf(`
 		NOT EXISTS (
 			SELECT 1 FROM shop_account_attribution saa
-			WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
-			  AND saa.source_account_uid COLLATE utf8mb4_unicode_ci = o.talent_id COLLATE utf8mb4_unicode_ci
-			  AND saa.status = 1
+			WHERE %s
 			  AND saa.target_value != '%s'
-		)`, currentTraderName)
+		)`, shopAccountAttributionRuleSQL("o", "o.talent_id"), currentTraderName)
 }
 
 // attributionRedirectedSQL 生成查找从其他投手重定向到当前投手的订单的 SQL 条件
@@ -1744,11 +1777,9 @@ func (s *FinanceCommissionService) attributionRedirectedSQL(currentTraderName st
 	return fmt.Sprintf(`
 		EXISTS (
 			SELECT 1 FROM shop_account_attribution saa
-			WHERE saa.shop_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
-			  AND saa.source_account_uid COLLATE utf8mb4_unicode_ci = o.talent_id COLLATE utf8mb4_unicode_ci
-			  AND saa.status = 1
+			WHERE %s
 			  AND saa.target_value = '%s'
-		)`, currentTraderName)
+		)`, shopAccountAttributionRuleSQL("o", "o.talent_id"), currentTraderName)
 }
 
 // getTraderName 获取投手名称
@@ -2981,6 +3012,19 @@ func (s *FinanceCommissionService) exportDouyinAttributedTraderOrders(ctx contex
 			accountSet[accountID] = struct{}{}
 		}
 	}
+	traderSet := make(map[int64]struct{})
+	traderRows, err := g.DB().Model("trader_account_relation").Ctx(ctx).
+		WhereIn("account_id", accountIDs).
+		Fields("DISTINCT trader_id").
+		All()
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range traderRows {
+		if traderID := row["trader_id"].Int64(); traderID > 0 {
+			traderSet[traderID] = struct{}{}
+		}
+	}
 
 	orders, err := NewOrderService().loadEnrichedDouyinOrders(ctx, startDate, endDate)
 	if err != nil {
@@ -2989,8 +3033,14 @@ func (s *FinanceCommissionService) exportDouyinAttributedTraderOrders(ctx contex
 	rows := make([]financeExportOrderRow, 0)
 	for _, order := range orders {
 		accountID := gconv.Int(order["attributedAccountId"])
-		if _, ok := accountSet[accountID]; !ok {
-			continue
+		if gconv.Bool(order["specialAttributionMatched"]) {
+			if _, ok := traderSet[gconv.Int64(order["attributedTraderId"])]; !ok {
+				continue
+			}
+		} else {
+			if _, ok := accountSet[accountID]; !ok {
+				continue
+			}
 		}
 		orderStatus := gconv.String(order["rawOrderStatus"])
 		afterSaleStatus := gconv.String(order["afterSaleStatus"])
