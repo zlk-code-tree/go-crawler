@@ -326,6 +326,7 @@ const effectiveQianchuanCostCTE = `WITH
 	author_daily AS (
 		SELECT
 			account_id,
+			advertiser_id,
 			MAX(aweme_id) AS aweme_id,
 			MAX(NULLIF(aweme_name, '')) AS aweme_name,
 			company_id,
@@ -339,11 +340,12 @@ const effectiveQianchuanCostCTE = `WITH
 		WHERE account_id > 0
 		  AND LEFT(stat_datetime, 10) >= ?
 		  AND LEFT(stat_datetime, 10) <= ?
-		GROUP BY account_id, company_id, department_id, trader_id, LEFT(stat_datetime, 10)
+		GROUP BY account_id, advertiser_id, company_id, department_id, trader_id, LEFT(stat_datetime, 10)
 	),
 	plan_daily AS (
 		SELECT
 			qar.account_id,
+			qar.advertiser_id,
 			MAX(qar.aweme_id) AS aweme_id,
 			MAX(NULLIF(qar.aweme_name, '')) AS aweme_name,
 			qar.company_id,
@@ -369,7 +371,7 @@ const effectiveQianchuanCostCTE = `WITH
 		WHERE qar.account_id > 0
 		  AND LEFT(qar.stat_datetime, 10) >= ?
 		  AND LEFT(qar.stat_datetime, 10) <= ?
-		GROUP BY qar.account_id, qar.company_id, qar.department_id, qar.trader_id, LEFT(qar.stat_datetime, 10)
+		GROUP BY qar.account_id, qar.advertiser_id, qar.company_id, qar.department_id, qar.trader_id, LEFT(qar.stat_datetime, 10)
 	),
 	effective_qianchuan_cost AS (
 		SELECT * FROM author_daily
@@ -379,6 +381,7 @@ const effectiveQianchuanCostCTE = `WITH
 		WHERE NOT EXISTS (
 			SELECT 1 FROM author_daily
 			WHERE author_daily.account_id = plan_daily.account_id
+			  AND author_daily.advertiser_id = plan_daily.advertiser_id
 			  AND author_daily.stat_date = plan_daily.stat_date
 		)
 	)
@@ -441,6 +444,7 @@ func (s *FinanceCommissionService) getAdCostsByAccountRange(ctx context.Context,
 // AuthorCostItem 达人消耗明细
 type AuthorCostItem struct {
 	AccountID      int64   `json:"accountId"`
+	TraderID       int64   `json:"traderId"`
 	AwemeID        int64   `json:"awemeId"`
 	AwemeName      string  `json:"awemeName"`      // 兼容旧字段：抖音昵称
 	DouyinNickname string  `json:"douyinNickname"` // 抖音昵称
@@ -1060,9 +1064,13 @@ func (s *FinanceCommissionService) GetAuthorCostRanking(ctx context.Context, sta
 	totalArgs := []interface{}{startDate, endDate, startDate, endDate}
 	totalArgs = append(totalArgs, scopeArgs...)
 	totalRow, err := g.DB().GetOne(ctx, effectiveQianchuanCostCTE+`
-		SELECT COUNT(DISTINCT account_id) AS total
-		FROM effective_qianchuan_cost effective
-		WHERE 1=1`+scopeWhere, totalArgs...)
+		SELECT COUNT(1) AS total
+		FROM (
+			SELECT effective.account_id, effective.trader_id
+			FROM effective_qianchuan_cost effective
+			WHERE 1=1`+scopeWhere+`
+			GROUP BY effective.account_id, effective.trader_id
+		) grouped`, totalArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1074,17 +1082,19 @@ func (s *FinanceCommissionService) GetAuthorCostRanking(ctx context.Context, sta
 	rows, err := g.DB().GetAll(ctx, effectiveQianchuanCostCTE+`
 		SELECT
 			effective.account_id,
+			effective.trader_id,
 			MAX(effective.aweme_id) AS aweme_id,
 			COALESCE(MAX(NULLIF(effective.aweme_name, '')), MAX(NULLIF(a.platform_nickname, '')), '') AS douyin_nickname,
 			COALESCE(MAX(NULLIF(a.account_name, '')), MAX(NULLIF(effective.aweme_name, '')), '') AS author_name,
-			COALESCE(MAX(NULLIF(a.operator, '')), '') AS operator_name,
+			COALESCE(MAX(NULLIF(t.name, '')), MAX(NULLIF(a.operator, '')), '') AS operator_name,
 			COALESCE(SUM(effective.stat_cost), 0) AS stat_cost,
 			COALESCE(SUM(effective.pay_order_gmv), 0) AS pay_order_gmv,
 			COALESCE(SUM(effective.pay_order_count), 0) AS pay_order_count
 		FROM effective_qianchuan_cost effective
 		LEFT JOIN account a ON a.id = effective.account_id
+		LEFT JOIN trader t ON t.id = effective.trader_id
 		WHERE 1=1`+scopeWhere+`
-		GROUP BY effective.account_id
+		GROUP BY effective.account_id, effective.trader_id
 		ORDER BY stat_cost DESC
 		LIMIT ? OFFSET ?
 	`, listArgs...)
@@ -1097,6 +1107,7 @@ func (s *FinanceCommissionService) GetAuthorCostRanking(ctx context.Context, sta
 		douyinNickname := row["douyin_nickname"].String()
 		result[i] = AuthorCostItem{
 			AccountID:      row["account_id"].Int64(),
+			TraderID:       row["trader_id"].Int64(),
 			AwemeID:        row["aweme_id"].Int64(),
 			AwemeName:      douyinNickname,
 			DouyinNickname: douyinNickname,
