@@ -3034,8 +3034,12 @@ func (s *FinanceCommissionService) exportDouyinAttributedTraderOrders(ctx contex
 	}
 	rows := make([]financeExportOrderRow, 0)
 	for _, order := range orders {
-		if !qianchuanBlankOrderInferenceEnabled && strings.TrimSpace(gconv.String(order["profitAttributionSource"])) == "qianchuan_plan" {
-			continue
+		if !qianchuanBlankOrderInferenceEnabled {
+			attributionSource := strings.TrimSpace(gconv.String(order["profitAttributionSource"]))
+			originalTalentID := orderListNormalizedTalentID(gconv.String(order["originalTalentId"]))
+			if attributionSource == "qianchuan_plan" || originalTalentID == "" {
+				continue
+			}
 		}
 		accountID := gconv.Int(order["attributedAccountId"])
 		if gconv.Bool(order["specialAttributionMatched"]) {
