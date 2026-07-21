@@ -119,7 +119,7 @@ func GetDouyinProfitSnapshot(ctx context.Context, startDate, endDate string) (*D
 		FROM goods
 		GROUP BY goods_code
 	) gd ON o.seller_code COLLATE utf8mb4_unicode_ci = gd.goods_code COLLATE utf8mb4_unicode_ci
-	WHERE o.pay_finish_time >= ? AND o.pay_finish_time < ?`,
+	WHERE o.order_submit_time >= ? AND o.order_submit_time < ?`,
 		validCondition, invalidCondition, validCondition, validCondition,
 		validCondition, validCondition, refundCondition, refundCondition, validCondition)
 	row, err := g.DB().GetOne(ctx, query, startDate, endExclusive)

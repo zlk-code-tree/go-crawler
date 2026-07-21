@@ -1137,8 +1137,8 @@ func (s *OrgStructureService) calcShopStats(ctx context.Context, accountIds []in
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
 			LEFT JOIN account a ON o1.talent_id = a.uid
 			WHERE s.id IN (?)
-			  AND o1.pay_finish_time >= ?
-			  AND o1.pay_finish_time < ?
+			  AND o1.order_submit_time >= ?
+			  AND o1.order_submit_time < ?
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 			  AND o1.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
@@ -1201,8 +1201,8 @@ func (s *OrgStructureService) GetCommissionStats(ctx context.Context, orgId int6
 				FROM order_info o1
 				LEFT JOIN account a ON o1.talent_id = a.uid
 				WHERE s.id IN (?)
-				  AND o1.pay_finish_time >= ?
-				  AND o1.pay_finish_time < ?
+				  AND o1.order_submit_time >= ?
+				  AND o1.order_submit_time < ?
 				  AND o1.main_order_no IS NOT NULL
 				  AND o1.main_order_no != ''
 				  AND o1.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')
@@ -1245,8 +1245,8 @@ func (s *OrgStructureService) GetCommissionStats(ctx context.Context, orgId int6
 				LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
 				LEFT JOIN account a ON o1.talent_id = a.uid
 				WHERE s.id IN (?)
-				  AND o1.pay_finish_time >= ?
-				  AND o1.pay_finish_time < ?
+				  AND o1.order_submit_time >= ?
+				  AND o1.order_submit_time < ?
 				  AND o1.main_order_no IS NOT NULL
 				  AND o1.main_order_no != ''
 				  AND o1.after_sale_status NOT IN ('退款成功', '已全额退款', '待退货')

@@ -323,8 +323,8 @@ func (s *OrderAnalysisService) buildBaseQuery(startDate, endDate, extraWhere str
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.03) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
-			WHERE o1.pay_finish_time >= ?
-			  AND o1.pay_finish_time < ?
+			WHERE o1.order_submit_time >= ?
+			  AND o1.order_submit_time < ?
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 			  ` + validFilter + `
@@ -366,8 +366,8 @@ func (s *OrderAnalysisService) Overview(ctx context.Context, startDate, endDate 
 				o1.main_order_no,
 				MAX(o1.order_pay_amount + o1.platform_discount + o1.talent_discount) AS refund_amount
 			FROM order_info o1
-			WHERE o1.pay_finish_time >= ?
-			  AND o1.pay_finish_time < ?
+			WHERE o1.order_submit_time >= ?
+			  AND o1.order_submit_time < ?
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 				  AND ` + financeInvalidOrderCondition("o1") + `
@@ -458,7 +458,7 @@ func (s *OrderAnalysisService) SalesTrend(ctx context.Context, startDate, endDat
 func (s *OrderAnalysisService) queryDailyStats(ctx context.Context, startDate, endDate string, days int) ([]model.DailyTrend, error) {
 	sql := `
 		SELECT
-			DATE(o.pay_finish_time) AS stat_date,
+			DATE(o.order_submit_time) AS stat_date,
 			COUNT(DISTINCT o.main_order_no) AS order_count,
 			COALESCE(SUM(o.pay_amount), 0) AS pay_amount,
 			COALESCE(SUM(o.cost_amount), 0) AS cost_amount,
@@ -466,20 +466,20 @@ func (s *OrderAnalysisService) queryDailyStats(ctx context.Context, startDate, e
 		FROM (
 			SELECT
 				o1.main_order_no,
-				o1.pay_finish_time,
+				o1.order_submit_time,
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0)) AS pay_amount,
 				SUM(COALESCE(g.base_price, 0) * COALESCE(o1.product_num, 0)) AS cost_amount,
 				SUM(COALESCE(o1.product_price, 0) * COALESCE(o1.product_num, 0) * 0.03) AS reserve_amount
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
-			WHERE o1.pay_finish_time >= ?
-			  AND o1.pay_finish_time < ?
+			WHERE o1.order_submit_time >= ?
+			  AND o1.order_submit_time < ?
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 			  ` + s.GetValidOrderFilter() + `
-			GROUP BY o1.main_order_no, o1.pay_finish_time
+			GROUP BY o1.main_order_no, o1.order_submit_time
 		) o
-		GROUP BY DATE(o.pay_finish_time)
+		GROUP BY DATE(o.order_submit_time)
 		ORDER BY stat_date
 	`
 
@@ -816,12 +816,12 @@ func (s *OrderAnalysisService) queryOrderDetailsByFilter(ctx context.Context, fi
 			SELECT o.*
 			FROM order_info o
 			WHERE o.shop_name = ?
-			  AND o.pay_finish_time >= ?
-			  AND o.pay_finish_time <= ?
+			  AND o.order_submit_time >= ?
+			  AND o.order_submit_time <= ?
 				  AND ` + financeValidOrderCondition("o") + `
 			  AND o.main_order_no IS NOT NULL
 			  AND o.main_order_no != ''
-			ORDER BY o.pay_finish_time DESC
+			ORDER BY o.order_submit_time DESC
 		`
 		params = []interface{}{filterValue, startDate, endTime}
 	} else {
@@ -864,8 +864,8 @@ func (s *OrderAnalysisService) GetShopTalentStats(ctx context.Context, shopName,
 			FROM order_info o1
 			LEFT JOIN goods g ON o1.seller_code = g.goods_code AND g.status = 1
 			WHERE o1.shop_name = ?
-			  AND o1.pay_finish_time >= ?
-			  AND o1.pay_finish_time < ?
+			  AND o1.order_submit_time >= ?
+			  AND o1.order_submit_time < ?
 			  AND o1.main_order_no IS NOT NULL
 			  AND o1.main_order_no != ''
 				  AND ` + financeValidOrderCondition("o1") + `

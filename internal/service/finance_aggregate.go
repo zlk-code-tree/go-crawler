@@ -150,6 +150,10 @@ func (s *FinanceAggregateService) queryPlatformOrders(ctx context.Context, table
 	if collateClause != "" {
 		collate = " " + collateClause
 	}
+	timeField := "pay_finish_time"
+	if platform == "douyin" {
+		timeField = "order_submit_time"
+	}
 
 	sql := fmt.Sprintf(`
 		SELECT
@@ -165,10 +169,10 @@ func (s *FinanceAggregateService) queryPlatformOrders(ctx context.Context, table
 			COUNT(DISTINCT CASE WHEN %s AND g.base_price > 0 THEN o.%s END) AS valid_order_cost_match
 		FROM %s o
 		LEFT JOIN goods g ON o.seller_code%s = g.goods_code
-		WHERE o.pay_finish_time >= ? AND o.pay_finish_time <= ?
+		WHERE o.%s >= ? AND o.%s <= ?
 		  AND o.%s IS NOT NULL AND o.%s != ''
 		GROUP BY o.talent_id
-	`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, validCond, orderNoCol, tableName, collate, orderNoCol, orderNoCol)
+	`, orderNoCol, validCond, orderNoCol, invalidCond, orderNoCol, validCond, validCond, validCond, refundCond, refundCond, orderNoCol, validCond, orderNoCol, tableName, collate, timeField, timeField, orderNoCol, orderNoCol)
 
 	result, err := g.DB().GetAll(ctx, sql, startTime, endTime)
 	if err != nil {
@@ -422,7 +426,7 @@ func (s *FinanceAggregateService) OrderDailyAggregateJob(ctx context.Context, da
 			COUNT(DISTINCT CASE WHEN %s AND g.base_price>0 THEN o.main_order_no END) AS valid_order_cost_match
 		FROM order_info o
 		LEFT JOIN goods g ON o.seller_code = g.goods_code
-		WHERE o.pay_finish_time >= ? AND o.pay_finish_time <= ?
+		WHERE o.order_submit_time >= ? AND o.order_submit_time <= ?
 		  AND o.main_order_no IS NOT NULL AND o.main_order_no != ''
 		GROUP BY o.shop_name
 	`, validCond, invalidCond, validCond, validCond, validCond, refundCond, refundCond, validCond)

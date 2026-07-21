@@ -154,8 +154,8 @@ func (s *OrderService) queryEnrichedDouyinOrders(ctx context.Context, startDate,
 				GROUP BY store_name
 			) picked ON picked.id = s.id
 		) store_match ON store_match.store_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
-		WHERE o.pay_finish_time >= ?
-		  AND o.pay_finish_time < ?
+		WHERE o.order_submit_time >= ?
+		  AND o.order_submit_time < ?
 		  AND o.main_order_no IS NOT NULL
 		  AND o.main_order_no != ''
 		ORDER BY o.id ASC
@@ -674,7 +674,7 @@ func orderListQianchuanMatchKey(statDate, shopName, productID string) string {
 }
 
 func orderListStatTimeExpr(alias string) string {
-	return alias + ".pay_finish_time"
+	return alias + ".order_submit_time"
 }
 
 func orderListShopNameMatchKey(value string) string {
@@ -694,7 +694,7 @@ func orderListShopNameMatchKey(value string) string {
 }
 
 func orderListStatDateFromRow(row gdb.Record) string {
-	for _, field := range []string{"pay_finish_time", "order_submit_time"} {
+	for _, field := range []string{"order_submit_time", "pay_finish_time"} {
 		value := strings.TrimSpace(row[field].String())
 		if len(value) < 10 {
 			continue
@@ -953,11 +953,11 @@ func orderListFilterEnriched(orders []g.Map, keyword, shopName, orderStatus, tal
 				continue
 			}
 		}
-		payTime := formatTime(order["payFinishTime"])
-		if startTime != "" && payTime < startTime {
+		statTime := formatTime(order["orderSubmitTime"])
+		if startTime != "" && statTime < startTime {
 			continue
 		}
-		if endTime != "" && payTime > endTime {
+		if endTime != "" && statTime > endTime {
 			continue
 		}
 		filtered = append(filtered, order)
@@ -2576,7 +2576,7 @@ func (s *OrderService) List(ctx context.Context, page, pageSize int, keyword, sh
 		countParams = append(countParams, talentId, talentId, talentId, talentId)
 	}
 
-	// 时间范围与千川归属统一使用支付完成时间。
+	// 时间范围与千川归属统一使用订单创建时间。
 	if startTime != "" {
 		query += " AND " + orderListStatTimeExpr("o") + " >= ?"
 		params = append(params, startTime)
