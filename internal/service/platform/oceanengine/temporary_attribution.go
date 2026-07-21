@@ -228,8 +228,8 @@ func syncQianchuanTemporaryAttributionTable(ctx context.Context, table string) e
 		WHERE (
 			(TRIM(rule.source_account_names) = '' AND report.account_id = 0)
 			OR FIND_IN_SET(
-				LOWER(TRIM(COALESCE(NULLIF(source_account.account_name, ''), NULLIF(report.aweme_name, ''), ''))),
-				LOWER(REPLACE(rule.source_account_names, '，', ','))
+				LOWER(TRIM(COALESCE(NULLIF(source_account.account_name, ''), NULLIF(report.aweme_name, ''), ''))) COLLATE utf8mb4_unicode_ci,
+				LOWER(REPLACE(rule.source_account_names, '，', ',')) COLLATE utf8mb4_unicode_ci
 			) > 0
 		)`
 	if table == "qianchuan_ad_report" {

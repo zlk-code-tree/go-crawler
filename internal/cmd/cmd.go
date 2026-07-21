@@ -428,6 +428,11 @@ var (
 				WHERE advertiser_id IN (1700642741413895, 1774391159738372, 1711882704612356, 1722203379291139)
 					AND effective_start_date = '2026-07-13'
 					AND reason = '王梅雪临时借用李百川千川账户'`)
+			g.DB().Exec(ctx, `UPDATE qianchuan_advertiser_attribution_rule
+				SET effective_end_date = NULL,
+					status = 1
+				WHERE advertiser_id IN (1700642741413895, 1774391159738372, 1711882704612356, 1722203379291139)
+					AND reason = '王梅雪临时借用李百川千川账户'`)
 
 			// 一次性初始化当前已确认的借号关系；后续只维护规则表。
 			g.DB().Exec(ctx, `INSERT IGNORE INTO qianchuan_advertiser_attribution_rule
@@ -837,6 +842,57 @@ var (
 			 AND finance.code = 'finance'
 			JOIN sys_permission rule_menu
 			  ON rule_menu.code = 'finance.borrowed-account-attribution'`)
+			g.DB().Exec(ctx, `
+			INSERT INTO sys_permission (
+				name, code, type, parent_id, path, component, icon,
+				method, api, ext_url, hide, status, sort
+			)
+			SELECT
+				'千川归属规则',
+				'finance.qianchuan-attribution-rule',
+				2,
+				finance.id,
+				'/finance/qianchuan-attribution-rule',
+				'finance/qianchuan-attribution-rule/index',
+				'lucide:shuffle',
+				'',
+				'',
+				'',
+				1,
+				1,
+				4
+			FROM sys_permission finance
+			WHERE finance.code = 'finance'
+			  AND NOT EXISTS (
+			      SELECT 1 FROM sys_permission
+			      WHERE code = 'finance.qianchuan-attribution-rule'
+			  )
+			LIMIT 1`)
+			g.DB().Exec(ctx, `
+			UPDATE sys_permission rule_menu
+			JOIN sys_permission finance ON finance.code = 'finance'
+			SET rule_menu.name = '千川归属规则',
+				rule_menu.type = 2,
+				rule_menu.parent_id = finance.id,
+				rule_menu.path = '/finance/qianchuan-attribution-rule',
+				rule_menu.component = 'finance/qianchuan-attribution-rule/index',
+				rule_menu.icon = 'lucide:shuffle',
+				rule_menu.method = '',
+				rule_menu.api = '',
+				rule_menu.ext_url = '',
+				rule_menu.hide = 1,
+				rule_menu.status = 1,
+				rule_menu.sort = 4
+			WHERE rule_menu.code = 'finance.qianchuan-attribution-rule'`)
+			g.DB().Exec(ctx, `
+			INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
+			SELECT DISTINCT parent_role.role_id, rule_menu.id
+			FROM sys_role_permission parent_role
+			JOIN sys_permission finance
+			  ON finance.id = parent_role.permission_id
+			 AND finance.code = 'finance'
+			JOIN sys_permission rule_menu
+			  ON rule_menu.code = 'finance.qianchuan-attribution-rule'`)
 
 			// 千川token：调用advertiser/get获取平台账户列表，再解析为千川广告主ID
 			// 注意：advertiser/get返回的是巨量引擎平台账户ID（店铺级别），
@@ -980,6 +1036,17 @@ var (
 				group.GET("/shop-account-attribution/shops", saaCtrl.Shops)
 				group.GET("/shop-account-attribution/operators", saaCtrl.Operators)
 				group.GET("/shop-account-attribution/search-accounts", saaCtrl.SearchAccounts)
+
+				// 千川消耗归属规则 CRUD
+				qianchuanAttrCtrl := system.NewQianchuanAttributionRuleController()
+				group.GET("/qianchuan-attribution-rule/list", qianchuanAttrCtrl.List)
+				group.GET("/qianchuan-attribution-rule/detail", qianchuanAttrCtrl.Detail)
+				group.POST("/qianchuan-attribution-rule/save", qianchuanAttrCtrl.Save)
+				group.POST("/qianchuan-attribution-rule/delete", qianchuanAttrCtrl.Delete)
+				group.POST("/qianchuan-attribution-rule/toggle", qianchuanAttrCtrl.Toggle)
+				group.GET("/qianchuan-attribution-rule/advertisers", qianchuanAttrCtrl.Advertisers)
+				group.GET("/qianchuan-attribution-rule/traders", qianchuanAttrCtrl.Traders)
+				group.GET("/qianchuan-attribution-rule/search-accounts", qianchuanAttrCtrl.SearchAccounts)
 
 				// 外部达人台账 CRUD
 				externalTalentCtrl := system.NewExternalTalentController()

@@ -36,6 +36,12 @@ WHERE `advertiser_id` IN (1700642741413895, 1774391159738372, 1711882704612356, 
   AND `effective_start_date` = '2026-07-13'
   AND `reason` = '王梅雪临时借用李百川千川账户';
 
+UPDATE `qianchuan_advertiser_attribution_rule`
+SET `effective_end_date` = NULL,
+    `status` = 1
+WHERE `advertiser_id` IN (1700642741413895, 1774391159738372, 1711882704612356, 1722203379291139)
+  AND `reason` = '王梅雪临时借用李百川千川账户';
+
 INSERT IGNORE INTO `qianchuan_advertiser_attribution_rule`
   (`advertiser_id`, `advertiser_name`, `source_account_names`, `source_trader_id`, `target_trader_id`,
    `effective_start_date`, `effective_end_date`, `reason`, `status`)
