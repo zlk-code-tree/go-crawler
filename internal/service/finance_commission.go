@@ -3006,6 +3006,8 @@ func (s *FinanceCommissionService) exportDouyinAttributedTraderOrders(ctx contex
 	if len(accountIDs) == 0 {
 		return []financeExportOrderRow{}, nil
 	}
+	qianchuanBlankOrderInferenceEnabled := IsQianchuanPlanBlankOrderInferenceEnabled(ctx)
+	ctx = withQianchuanPlanBlankOrderInferenceSetting(ctx, qianchuanBlankOrderInferenceEnabled)
 	accountSet := make(map[int]struct{}, len(accountIDs))
 	for _, accountID := range accountIDs {
 		if accountID > 0 {
@@ -3032,6 +3034,9 @@ func (s *FinanceCommissionService) exportDouyinAttributedTraderOrders(ctx contex
 	}
 	rows := make([]financeExportOrderRow, 0)
 	for _, order := range orders {
+		if !qianchuanBlankOrderInferenceEnabled && strings.TrimSpace(gconv.String(order["profitAttributionSource"])) == "qianchuan_plan" {
+			continue
+		}
 		accountID := gconv.Int(order["attributedAccountId"])
 		if gconv.Bool(order["specialAttributionMatched"]) {
 			if _, ok := traderSet[gconv.Int64(order["attributedTraderId"])]; !ok {

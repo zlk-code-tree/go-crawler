@@ -23,6 +23,15 @@ func TestEnrichDouyinOrderRowsStopsBeforeQueriesWhenCanceled(t *testing.T) {
 	}
 }
 
+func TestQianchuanPlanBlankOrderInferenceContextOverride(t *testing.T) {
+	if IsQianchuanPlanBlankOrderInferenceEnabled(withQianchuanPlanBlankOrderInferenceSetting(context.Background(), false)) {
+		t.Fatal("context override false was ignored")
+	}
+	if !IsQianchuanPlanBlankOrderInferenceEnabled(withQianchuanPlanBlankOrderInferenceSetting(context.Background(), true)) {
+		t.Fatal("context override true was ignored")
+	}
+}
+
 func TestDouyinOrderMatchesBoundUIDUsesOriginalUIDOrExplicitQianchuanAttribution(t *testing.T) {
 	selectedUIDs := map[string]struct{}{"972381158384056": {}}
 	tests := []struct {
@@ -122,8 +131,7 @@ func TestDouyinQianchuanSelfSaleAttributionDatabaseIntegration(t *testing.T) {
 		t.Fatal("DOUYIN_SELF_SALE_ATTRIBUTION_TEST_DATE is required")
 	}
 
-	cacheKey := statDate + "\x00" + statDate
-	enrichedDouyinOrderCache.Delete(cacheKey)
+	ClearEnrichedDouyinOrderCache()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	orders, err := NewOrderService().loadEnrichedDouyinOrders(ctx, statDate, statDate)
@@ -199,8 +207,7 @@ func TestOrderTypeStatsSurviveInitialRequestCancellationIntegration(t *testing.T
 		t.Fatal("ORDER_TYPE_STATS_TEST_START_DATE and ORDER_TYPE_STATS_TEST_END_DATE are required")
 	}
 
-	cacheKey := startDate + "\x00" + endDate
-	enrichedDouyinOrderCache.Delete(cacheKey)
+	ClearEnrichedDouyinOrderCache()
 
 	service := NewOrderService()
 	canceledCtx, cancelInitial := context.WithCancel(context.Background())

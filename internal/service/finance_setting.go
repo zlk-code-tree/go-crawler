@@ -15,9 +15,20 @@ const (
 	financeSettingQianchuanPlanBlankOrderInferenceDescription = "财务佣金：达人为空/0的抖音订单是否通过千川计划反推账号归属"
 )
 
+type qianchuanPlanBlankOrderInferenceContextKey struct{}
+
+func withQianchuanPlanBlankOrderInferenceSetting(ctx context.Context, enabled bool) context.Context {
+	return context.WithValue(ctx, qianchuanPlanBlankOrderInferenceContextKey{}, enabled)
+}
+
 // IsQianchuanPlanBlankOrderInferenceEnabled 返回千川计划反推空白单开关。
 // 读取失败时返回 true，避免配置表未初始化时改变线上既有口径。
 func IsQianchuanPlanBlankOrderInferenceEnabled(ctx context.Context) bool {
+	if ctx != nil {
+		if enabled, ok := ctx.Value(qianchuanPlanBlankOrderInferenceContextKey{}).(bool); ok {
+			return enabled
+		}
+	}
 	enabled, err := GetQianchuanPlanBlankOrderInferenceSetting(ctx)
 	if err != nil {
 		g.Log().Warningf(ctx, "[FinanceSetting] 读取千川空白单反推开关失败，使用默认开启: %v", err)

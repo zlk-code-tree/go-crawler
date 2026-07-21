@@ -67,7 +67,9 @@ func NewOrderService() *OrderService {
 }
 
 func (s *OrderService) loadEnrichedDouyinOrders(ctx context.Context, startDate, endDate string) ([]g.Map, error) {
-	cacheKey := startDate + "\x00" + endDate
+	qianchuanBlankOrderInferenceEnabled := IsQianchuanPlanBlankOrderInferenceEnabled(ctx)
+	ctx = withQianchuanPlanBlankOrderInferenceSetting(ctx, qianchuanBlankOrderInferenceEnabled)
+	cacheKey := startDate + "\x00" + endDate + "\x00qianchuanBlankInference=" + strconv.FormatBool(qianchuanBlankOrderInferenceEnabled)
 	cacheRevision := atomic.LoadUint64(&enrichedDouyinOrderCacheRevision)
 	if orders, ok := getCachedEnrichedDouyinOrders(cacheKey); ok {
 		return orders, nil
@@ -2328,11 +2330,16 @@ func (s *OrderService) statsDouyinOrdersByAccounts(ctx context.Context, accountI
 		}
 	}
 
+	qianchuanBlankOrderInferenceEnabled := IsQianchuanPlanBlankOrderInferenceEnabled(ctx)
+	ctx = withQianchuanPlanBlankOrderInferenceSetting(ctx, qianchuanBlankOrderInferenceEnabled)
 	enriched, err := s.loadEnrichedDouyinOrders(ctx, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
 	for _, order := range enriched {
+		if !qianchuanBlankOrderInferenceEnabled && strings.TrimSpace(gconv.String(order["profitAttributionSource"])) == "qianchuan_plan" {
+			continue
+		}
 		uid := orderListNormalizedTalentID(gconv.String(order["originalTalentId"]))
 		if uid == "" && strings.TrimSpace(gconv.String(order["profitAttributionSource"])) == "qianchuan_plan" {
 			uid = orderListNormalizedTalentID(gconv.String(order["talentId"]))
