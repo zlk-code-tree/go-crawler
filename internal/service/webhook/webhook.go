@@ -358,7 +358,7 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 	startTime := startDate + " 00:00:00"
 	endTime := endDate + " 23:59:59"
 
-	validCond := "((o.order_status IN ('已发货','待发货','已完成') AND o.after_sale_status NOT IN ('6','7','11','12','29')) OR (o.order_status = '已关闭' AND o.after_sale_status IN ('27','28','51')))"
+	validCond := FinanceValidOrderCondition("o")
 	refundCond := "o.after_sale_status = '12' AND o.send_time IS NOT NULL"
 
 	platforms := []struct {

@@ -285,6 +285,7 @@ func TestIsValidOrderForStats(t *testing.T) {
 		{name: "normal paid order", status: "已发货", afterSale: "", want: true},
 		{name: "numeric normal order", status: "3", afterSale: "", want: true},
 		{name: "active after sale", status: "已完成", afterSale: "12", want: false},
+		{name: "closed initialized after sale", status: "已关闭", afterSale: "0", want: false},
 		{name: "closed rejected after sale", status: "已关闭", afterSale: "27", want: true},
 		{name: "closed refunded order", status: "已关闭", afterSale: "12", want: false},
 		{name: "unknown status", status: "未知", afterSale: "", want: false},

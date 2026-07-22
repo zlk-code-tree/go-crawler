@@ -1558,24 +1558,22 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			params = append(params, shopName)
 		}
 		sql := fmt.Sprintf(
-			`SELECT saa.shop_id, saa.shop_name, saa.source_account_uid, saa.target_type, saa.target_value,
+			`SELECT blank_shop.account_name AS shop_name,
+					blank_shop.blank_order_owner_name AS target_value,
 					COALESCE(t.id, 0) AS trader_id,
 					COALESCE(a.id, 0) AS account_id,
 					COALESCE(a.uid, '') AS account_uid,
 					COALESCE(a.account_name, '') AS account_name,
 					COALESCE(a.platform_nickname, '') AS platform_nickname,
-					COALESCE(NULLIF(a.operator, ''), saa.target_value) AS operator,
+					blank_shop.blank_order_owner_name AS operator,
 					COALESCE(c.name, '') AS company_name
-			 FROM shop_account_attribution saa
+			 FROM account blank_shop
 			 LEFT JOIN trader t
 			   ON t.status = 1
 			  AND (
-				(saa.target_type = 'operator' AND (
-					saa.target_value COLLATE utf8mb4_unicode_ci = t.name COLLATE utf8mb4_unicode_ci
-					OR saa.target_value COLLATE utf8mb4_unicode_ci = CONCAT(t.name, '组') COLLATE utf8mb4_unicode_ci
-					OR (saa.target_value LIKE '%%组' AND TRIM(TRAILING '组' FROM saa.target_value) COLLATE utf8mb4_unicode_ci = t.name COLLATE utf8mb4_unicode_ci)
-				))
-				OR (saa.target_type = 'trader' AND saa.target_value COLLATE utf8mb4_unicode_ci = CAST(t.id AS CHAR) COLLATE utf8mb4_unicode_ci)
+				blank_shop.blank_order_owner_name COLLATE utf8mb4_unicode_ci = t.name COLLATE utf8mb4_unicode_ci
+				OR blank_shop.blank_order_owner_name COLLATE utf8mb4_unicode_ci = CONCAT(t.name, '组') COLLATE utf8mb4_unicode_ci
+				OR (blank_shop.blank_order_owner_name LIKE '%%组' AND TRIM(TRAILING '组' FROM blank_shop.blank_order_owner_name) COLLATE utf8mb4_unicode_ci = t.name COLLATE utf8mb4_unicode_ci)
 			  )
 			 LEFT JOIN (
 				SELECT tar.trader_id, MIN(a.id) AS account_id
@@ -1585,9 +1583,12 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			 ) first_account ON first_account.trader_id = t.id
 			 LEFT JOIN account a ON a.id = first_account.account_id
 			 LEFT JOIN sys_company c ON c.id = a.company_id
-			 WHERE saa.status = 1
-			   AND saa.shop_name IN (%s)
-			 ORDER BY CASE WHEN COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') != '' THEN 0 ELSE 1 END, saa.id ASC`,
+			 WHERE blank_shop.platform = 'douyin'
+			   AND blank_shop.status = 1
+			   AND blank_shop.blank_order_enabled = 1
+			   AND blank_shop.blank_order_owner_name != ''
+			   AND blank_shop.account_name IN (%s)
+			 ORDER BY blank_shop.id ASC`,
 			orderListPlaceholders(len(resolveShopNames)),
 		)
 		if err := ctx.Err(); err != nil {
@@ -1627,23 +1628,10 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				Operator:         row["operator"].String(),
 				CompanyName:      row["company_name"].String(),
 			}
-			if row["source_account_uid"].String() == "__blank__" {
-				if target.TraderID <= 0 {
-					continue
-				}
-				if shopID := strings.TrimSpace(row["shop_id"].String()); shopID != "" {
-					blankShopAttributionMap[orderListShopAttributionIDKey(shopID)] = target
-				}
-				blankShopAttributionMap[orderListShopAttributionNameKey(row["shop_name"].String())] = target
+			if target.TraderID <= 0 || target.AccountID <= 0 || orderListNormalizedTalentID(target.AccountUID) == "" {
 				continue
 			}
-			targetKey := orderListNormalizedLookupKey(row["target_type"].String() + ":" + target.TargetValue)
-			if target.TraderID > 0 {
-				targetKey = "trader:" + strconv.FormatInt(target.TraderID, 10)
-			}
-			if shopID := strings.TrimSpace(row["shop_id"].String()); shopID != "" {
-				addBlankShopTarget(orderListShopAttributionIDKey(shopID), target, targetKey)
-			}
+			targetKey := "trader:" + strconv.FormatInt(target.TraderID, 10)
 			addBlankShopTarget(orderListShopAttributionNameKey(row["shop_name"].String()), target, targetKey)
 		}
 		for key, agg := range aggregates {
@@ -1857,11 +1845,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 									COALESCE(SUM(qar.pay_order_count), 0) AS pay_order_count,
 									COALESCE(SUM(qar.stat_cost), 0) AS stat_cost,
 									COALESCE(MAX(legacy_shop.blank_order_enabled), 0) AS blank_order_enabled,
-									COALESCE(
-										NULLIF(MAX(legacy_shop.blank_order_owner_name), ''),
-										NULLIF(MAX(legacy_shop.operator), ''),
-										''
-									) AS blank_order_owner_name,
+									COALESCE(NULLIF(MAX(legacy_shop.blank_order_owner_name), ''), '') AS blank_order_owner_name,
 									COALESCE(MAX(oi_stat.store_order_count), 0) AS store_order_count
 							FROM qianchuan_ad_report qar
 						INNER JOIN (
