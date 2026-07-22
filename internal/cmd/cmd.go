@@ -554,7 +554,8 @@ var (
 			addColumnIfMissing("account", "updated_at", "updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'")
 			addColumnIfMissing("account", "bind_status", "bind_status TINYINT NOT NULL DEFAULT 0 COMMENT '绑定状态：0=未绑定，1=被绑定'")
 			addColumnIfMissing("account", "blank_order_enabled", "blank_order_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否参与空白单归属：0=否 1=是' AFTER `bind_status`")
-			addColumnIfMissing("account", "blank_order_owner_name", "blank_order_owner_name VARCHAR(100) NOT NULL DEFAULT '' COMMENT '空白单归属人；为空默认使用运营者' AFTER `blank_order_enabled`")
+			addColumnIfMissing("account", "blank_order_owner_name", "blank_order_owner_name VARCHAR(100) NOT NULL DEFAULT '' COMMENT '空白单归属人快照' AFTER `blank_order_enabled`")
+			addColumnIfMissing("account", "blank_order_owner_trader_id", "blank_order_owner_trader_id BIGINT NOT NULL DEFAULT 0 COMMENT '空白单归属投手ID' AFTER `blank_order_owner_name`")
 			modifyColumnIfNeeded("account", "uid", "`uid` VARCHAR(100) NULL DEFAULT NULL COMMENT '达人ID（抖音UID/快手号/视频号ID）'")
 			if _, err := g.DB().Exec(ctx, "UPDATE `account` SET `uid` = NULL WHERE `uid` IS NOT NULL AND TRIM(`uid`) = ''"); err != nil {
 				g.Log().Warningf(ctx, "[DBInit] 清理空账号UID失败: %v", err)
@@ -562,10 +563,10 @@ var (
 			if _, err := g.DB().Exec(ctx, `
 					INSERT INTO account (
 						platform, uid, account_name, platform_nickname, operator,
-						blank_order_enabled, blank_order_owner_name, status, created_at, updated_at
+						blank_order_enabled, blank_order_owner_name, blank_order_owner_trader_id, status, created_at, updated_at
 					) VALUES (
 						'douyin', '2986722072732416', '欢喜图书专营店', '70228145728', '张文蔚/孟令饶组',
-						1, '张文蔚/孟令饶组', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+						1, '张文蔚/孟令饶组', COALESCE((SELECT t.id FROM trader t WHERE t.status = 1 AND t.name = '张文蔚/孟令饶组' ORDER BY t.id ASC LIMIT 1), 0), 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 					)
 					ON DUPLICATE KEY UPDATE
 						uid = VALUES(uid),
@@ -574,6 +575,7 @@ var (
 						operator = VALUES(operator),
 						blank_order_enabled = VALUES(blank_order_enabled),
 						blank_order_owner_name = VALUES(blank_order_owner_name),
+						blank_order_owner_trader_id = VALUES(blank_order_owner_trader_id),
 						status = VALUES(status),
 						updated_at = VALUES(updated_at)`); err != nil {
 				g.Log().Warningf(ctx, "[DBInit] 初始化欢喜图书专营店账号失败: %v", err)
@@ -601,12 +603,32 @@ var (
 					  )`); err != nil {
 				g.Log().Warningf(ctx, "[DBInit] 初始化账号空白单归属标记失败: %v", err)
 			}
+			if _, err := g.DB().Exec(ctx, `
+				UPDATE account a
+				SET blank_order_owner_trader_id = COALESCE((
+					SELECT t.id
+					FROM trader t
+					WHERE t.status = 1
+					  AND (
+						t.name COLLATE utf8mb4_unicode_ci = a.blank_order_owner_name COLLATE utf8mb4_unicode_ci
+						OR t.name COLLATE utf8mb4_unicode_ci = CONCAT(a.blank_order_owner_name, '组') COLLATE utf8mb4_unicode_ci
+						OR (a.blank_order_owner_name LIKE '%组' AND t.name COLLATE utf8mb4_unicode_ci = TRIM(TRAILING '组' FROM a.blank_order_owner_name) COLLATE utf8mb4_unicode_ci)
+					  )
+					ORDER BY (t.name COLLATE utf8mb4_unicode_ci = a.blank_order_owner_name COLLATE utf8mb4_unicode_ci) DESC, t.id ASC
+					LIMIT 1
+				), 0)
+				WHERE a.blank_order_enabled = 1
+				  AND a.blank_order_owner_trader_id = 0
+				  AND TRIM(a.blank_order_owner_name) != ''`); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 回填账号空白单归属投手ID失败: %v", err)
+			}
 			dropIndexIfExists("account", "uk_uid")
 
 			// account 表：唯一索引，防止重复导入
 			addIndexIfMissing("account", "uk_platform_account_name", "UNIQUE KEY `uk_platform_account_name` (`platform`, `account_name`) COMMENT '平台+账号名称唯一'")
 			addIndexIfMissing("account", "idx_bind_status", "KEY `idx_bind_status` (`bind_status`)")
 			addIndexIfMissing("account", "idx_blank_order_enabled", "KEY `idx_blank_order_enabled` (`blank_order_enabled`)")
+			addIndexIfMissing("account", "idx_blank_order_owner_trader_id", "KEY `idx_blank_order_owner_trader_id` (`blank_order_owner_trader_id`)")
 			addIndexIfMissing("account", "idx_platform_uid", "KEY `idx_platform_uid` (`platform`, `uid`)")
 			addIndexIfMissing("account", "idx_platform_nickname", "KEY `idx_platform_nickname` (`platform`, `platform_nickname`)")
 			addIndexIfMissing("alliance_orders", "idx_platform_short_id", "KEY `idx_platform_short_id` (`platform`, `short_id`)")

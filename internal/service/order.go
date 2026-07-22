@@ -1730,12 +1730,12 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 						q.stat_cost,
 							q.store_order_count,
 							q.blank_order_enabled,
-							q.blank_order_owner_name,
+							COALESCE(NULLIF(q.blank_order_owner_name, ''), t.name, '') AS blank_order_owner_name,
 							q.account_id,
 							q.account_uid AS uid,
 							q.account_name,
 							q.platform_nickname,
-							q.blank_order_owner_name AS operator,
+							COALESCE(NULLIF(q.blank_order_owner_name, ''), t.name, '') AS operator,
 							c.name AS company_name,
 							COALESCE(t.id, 0) AS trader_id
 							FROM (
@@ -1755,6 +1755,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 									COALESCE(SUM(qar.stat_cost), 0) AS stat_cost,
 									COALESCE(MAX(account_shop.blank_order_enabled), 0) AS blank_order_enabled,
 									COALESCE(NULLIF(MAX(account_shop.blank_order_owner_name), ''), '') AS blank_order_owner_name,
+									COALESCE(MAX(account_shop.blank_order_owner_trader_id), 0) AS blank_order_owner_trader_id,
 									COALESCE(MAX(oi_stat.store_order_count), 0) AS store_order_count
 							FROM qianchuan_ad_report qar
 						INNER JOIN (
@@ -1796,13 +1797,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 									GROUP BY req.stat_date, COALESCE(mapped_shop.shop_name, account_shop.account_name), req.product_id_text, qar.account_id, qar.ad_id, qar.advertiser_id
 							) q
 						LEFT JOIN trader t
-						  ON t.status = 1
-				 AND q.blank_order_owner_name != ''
-				 AND (
-					t.name COLLATE utf8mb4_unicode_ci = q.blank_order_owner_name COLLATE utf8mb4_unicode_ci
-						OR t.name COLLATE utf8mb4_unicode_ci = CONCAT(q.blank_order_owner_name, '组') COLLATE utf8mb4_unicode_ci
-						OR (q.blank_order_owner_name LIKE '%%组' AND t.name COLLATE utf8mb4_unicode_ci = TRIM(TRAILING '组' FROM q.blank_order_owner_name) COLLATE utf8mb4_unicode_ci)
-					 )
+						  ON t.status = 1 AND t.id = q.blank_order_owner_trader_id
 						LEFT JOIN sys_company c ON q.company_id = c.id
 							ORDER BY q.stat_date, q.product_id, q.store_order_count DESC, q.stat_cost DESC, q.shop_name ASC, q.ad_id ASC`,
 				strings.Join(reqSelects, " UNION ALL "),

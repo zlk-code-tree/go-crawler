@@ -76,23 +76,24 @@ func (s *ShopService) List(ctx context.Context, page, pageSize int, keyword, pla
 	shops := make([]g.Map, len(result))
 	for i, row := range result {
 		shops[i] = g.Map{
-			"id":                  row["id"],
-			"platform":            row["platform"],
-			"uid":                 row["uid"],
-			"accountName":         row["account_name"],
-			"platformNickname":    row["platform_nickname"],
-			"operator":            row["operator"],
-			"companyId":           row["company_id"],
-			"departmentId":        row["department_id"],
-			"groupType":           row["group_type"],
-			"memberName":          row["member_name"],
-			"talentImage":         row["talent_image"],
-			"bindStatus":          row["bind_status"],
-			"blankOrderEnabled":   row["blank_order_enabled"],
-			"blankOrderOwnerName": row["blank_order_owner_name"],
-			"status":              row["status"],
-			"createdAt":           row["created_at"],
-			"updatedAt":           row["updated_at"],
+			"id":                      row["id"],
+			"platform":                row["platform"],
+			"uid":                     row["uid"],
+			"accountName":             row["account_name"],
+			"platformNickname":        row["platform_nickname"],
+			"operator":                row["operator"],
+			"companyId":               row["company_id"],
+			"departmentId":            row["department_id"],
+			"groupType":               row["group_type"],
+			"memberName":              row["member_name"],
+			"talentImage":             row["talent_image"],
+			"bindStatus":              row["bind_status"],
+			"blankOrderEnabled":       row["blank_order_enabled"],
+			"blankOrderOwnerName":     row["blank_order_owner_name"],
+			"blankOrderOwnerTraderId": row["blank_order_owner_trader_id"],
+			"status":                  row["status"],
+			"createdAt":               row["created_at"],
+			"updatedAt":               row["updated_at"],
 		}
 	}
 
@@ -115,23 +116,24 @@ func (s *ShopService) Detail(ctx context.Context, id int) (g.Map, error) {
 	}
 
 	shop := g.Map{
-		"id":                  result["id"],
-		"platform":            result["platform"],
-		"uid":                 result["uid"],
-		"accountName":         result["account_name"],
-		"platformNickname":    result["platform_nickname"],
-		"operator":            result["operator"],
-		"companyId":           result["company_id"],
-		"departmentId":        result["department_id"],
-		"groupType":           result["group_type"],
-		"memberName":          result["member_name"],
-		"talentImage":         result["talent_image"],
-		"bindStatus":          result["bind_status"],
-		"blankOrderEnabled":   result["blank_order_enabled"],
-		"blankOrderOwnerName": result["blank_order_owner_name"],
-		"status":              result["status"],
-		"createdAt":           result["created_at"],
-		"updatedAt":           result["updated_at"],
+		"id":                      result["id"],
+		"platform":                result["platform"],
+		"uid":                     result["uid"],
+		"accountName":             result["account_name"],
+		"platformNickname":        result["platform_nickname"],
+		"operator":                result["operator"],
+		"companyId":               result["company_id"],
+		"departmentId":            result["department_id"],
+		"groupType":               result["group_type"],
+		"memberName":              result["member_name"],
+		"talentImage":             result["talent_image"],
+		"bindStatus":              result["bind_status"],
+		"blankOrderEnabled":       result["blank_order_enabled"],
+		"blankOrderOwnerName":     result["blank_order_owner_name"],
+		"blankOrderOwnerTraderId": result["blank_order_owner_trader_id"],
+		"status":                  result["status"],
+		"createdAt":               result["created_at"],
+		"updatedAt":               result["updated_at"],
 	}
 
 	return shop, nil
@@ -167,8 +169,20 @@ func (s *ShopService) Save(ctx context.Context, req *model.ShopSaveReq) (int64, 
 	if req.BlankOrderEnabled != nil {
 		data["blank_order_enabled"] = *req.BlankOrderEnabled
 	}
-	if req.BlankOrderOwnerName != nil {
-		data["blank_order_owner_name"] = strings.TrimSpace(*req.BlankOrderOwnerName)
+	if req.BlankOrderOwnerTraderId != nil {
+		ownerTraderID, ownerName, err := s.resolveBlankOrderOwnerTrader(ctx, *req.BlankOrderOwnerTraderId, "")
+		if err != nil {
+			return 0, err
+		}
+		data["blank_order_owner_trader_id"] = ownerTraderID
+		data["blank_order_owner_name"] = ownerName
+	} else if req.BlankOrderOwnerName != nil {
+		ownerTraderID, ownerName, err := s.resolveBlankOrderOwnerTrader(ctx, 0, *req.BlankOrderOwnerName)
+		if err != nil {
+			return 0, err
+		}
+		data["blank_order_owner_trader_id"] = ownerTraderID
+		data["blank_order_owner_name"] = ownerName
 	}
 
 	if req.Id > 0 {
@@ -183,6 +197,58 @@ func (s *ShopService) Save(ctx context.Context, req *model.ShopSaveReq) (int64, 
 		id, err := g.DB().Model("account").Data(data).InsertAndGetId()
 		return id, err
 	}
+}
+
+func (s *ShopService) resolveBlankOrderOwnerTrader(ctx context.Context, traderID int64, ownerName string) (int64, string, error) {
+	ownerName = strings.TrimSpace(ownerName)
+	if traderID > 0 {
+		row, err := g.DB().Model("trader").Ctx(ctx).
+			Where("id", traderID).
+			Where("status", 1).
+			Fields("id, name").
+			One()
+		if err != nil {
+			return 0, "", err
+		}
+		if row.IsEmpty() {
+			return 0, "", gerror.New("空白单归属达人不存在或已禁用")
+		}
+		return row["id"].Int64(), strings.TrimSpace(row["name"].String()), nil
+	}
+	if ownerName == "" {
+		return 0, "", nil
+	}
+
+	candidates := []string{ownerName}
+	if !strings.HasSuffix(ownerName, "组") {
+		candidates = append(candidates, ownerName+"组")
+	} else {
+		candidates = append(candidates, strings.TrimSuffix(ownerName, "组"))
+	}
+	seen := make(map[string]struct{}, len(candidates))
+	for _, name := range candidates {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		row, err := g.DB().Model("trader").Ctx(ctx).
+			Where("status", 1).
+			Where("name", name).
+			Fields("id, name").
+			OrderAsc("id").
+			One()
+		if err != nil {
+			return 0, "", err
+		}
+		if !row.IsEmpty() {
+			return row["id"].Int64(), strings.TrimSpace(row["name"].String()), nil
+		}
+	}
+	return 0, ownerName, nil
 }
 
 // Stats 账号平台统计

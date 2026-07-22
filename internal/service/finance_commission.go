@@ -392,16 +392,7 @@ func (s *FinanceCommissionService) fillBlankOrderAttributionStats(ctx context.Co
 		return result, nil
 	}
 
-	accountIDs, err := s.getAccountIdsByNode(ctx, nodeID, nodeType, platform)
-	if err != nil {
-		return nil, err
-	}
-	if len(accountIDs) == 0 {
-		result.Summary.BlankOrderAttributionCount = 0
-		return result, nil
-	}
-
-	blankOrderCount, err := s.getBlankOrderAttributionCountByAccountIDs(ctx, accountIDs, startDate, endDate)
+	blankOrderCount, err := s.getBlankOrderAttributionCountByNode(ctx, nodeID, nodeType, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
@@ -409,18 +400,80 @@ func (s *FinanceCommissionService) fillBlankOrderAttributionStats(ctx context.Co
 	return result, nil
 }
 
-func (s *FinanceCommissionService) getBlankOrderAttributionCountByAccountIDs(ctx context.Context, accountIDs []int, startDate, endDate string) (int, error) {
-	if len(accountIDs) == 0 {
+func (s *FinanceCommissionService) getBlankOrderAttributionCountByNode(ctx context.Context, nodeID int64, nodeType, startDate, endDate string) (int, error) {
+	traderIDs, err := s.getBlankOrderOwnerTraderIDsByNode(ctx, nodeID, nodeType)
+	if err != nil {
+		return 0, err
+	}
+	return s.getBlankOrderAttributionCountByOwnerTraderIDs(ctx, traderIDs, startDate, endDate)
+}
+
+func (s *FinanceCommissionService) getBlankOrderOwnerTraderIDsByNode(ctx context.Context, nodeID int64, nodeType string) ([]int64, error) {
+	traderIDSet := make(map[int64]struct{})
+	addTraderID := func(traderID int64) {
+		if traderID > 0 {
+			traderIDSet[traderID] = struct{}{}
+		}
+	}
+
+	switch nodeType {
+	case "company":
+		companyIDs := s.getCompanyAndChildrenIds(ctx, nodeID)
+		traderVars, err := g.DB().Model("trader").Ctx(ctx).
+			Where("company_id IN(?)", companyIDs).
+			Where("status", 1).
+			Array("id")
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range traderVars {
+			addTraderID(v.Int64())
+		}
+	case "department":
+		realDeptID := nodeID
+		if model.IsDeptID(nodeID) {
+			realDeptID = model.DecodeDeptID(nodeID)
+		}
+		deptIDs := s.getDeptAndChildrenIds(ctx, realDeptID)
+		traderVars, err := g.DB().Model("trader").Ctx(ctx).
+			Where("group_id IN(?)", deptIDs).
+			Where("status", 1).
+			Array("id")
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range traderVars {
+			addTraderID(v.Int64())
+		}
+	case "trader":
+		realTraderID := nodeID
+		if model.IsTraderID(nodeID) {
+			realTraderID = model.DecodeTraderID(nodeID)
+		}
+		addTraderID(realTraderID)
+	default:
+		return nil, nil
+	}
+
+	traderIDs := make([]int64, 0, len(traderIDSet))
+	for traderID := range traderIDSet {
+		traderIDs = append(traderIDs, traderID)
+	}
+	return traderIDs, nil
+}
+
+func (s *FinanceCommissionService) getBlankOrderAttributionCountByOwnerTraderIDs(ctx context.Context, traderIDs []int64, startDate, endDate string) (int, error) {
+	if len(traderIDs) == 0 {
 		return 0, nil
 	}
 
 	queryStart := financeDatePart(startDate)
 	queryEnd := financeDatePart(endDate)
-	placeholders := orderListPlaceholders(len(accountIDs))
-	params := make([]interface{}, 0, len(accountIDs)+2)
+	placeholders := orderListPlaceholders(len(traderIDs))
+	params := make([]interface{}, 0, len(traderIDs)+2)
 	params = append(params, queryStart, queryEnd)
-	for _, accountID := range accountIDs {
-		params = append(params, accountID)
+	for _, traderID := range traderIDs {
+		params = append(params, traderID)
 	}
 	row, err := g.DB().GetOne(ctx, fmt.Sprintf(`
 		SELECT COUNT(DISTINCT COALESCE(NULLIF(main_order_no, ''), NULLIF(sub_order_no, ''), CAST(order_info_id AS CHAR))) AS blank_order_count
@@ -428,7 +481,7 @@ func (s *FinanceCommissionService) getBlankOrderAttributionCountByAccountIDs(ctx
 		WHERE source = 'qianchuan_plan'
 		  AND stat_date >= ?
 		  AND stat_date <= ?
-		  AND account_id IN (%s)
+		  AND trader_id IN (%s)
 	`, placeholders), params...)
 	if err != nil {
 		return 0, fmt.Errorf("查询空白单归属数量失败: %v", err)
@@ -436,17 +489,17 @@ func (s *FinanceCommissionService) getBlankOrderAttributionCountByAccountIDs(ctx
 	return row["blank_order_count"].Int(), nil
 }
 
-func (s *FinanceCommissionService) getBlankOrderAttributionCountsByAccountIDs(ctx context.Context, accountIDs []int, startDate, endDate string) (map[int]int, error) {
+func (s *FinanceCommissionService) getBlankOrderAttributionCountsByAccountIDsAndOwner(ctx context.Context, accountIDs []int, ownerTraderID int64, startDate, endDate string) (map[int]int, error) {
 	result := make(map[int]int)
-	if len(accountIDs) == 0 {
+	if len(accountIDs) == 0 || ownerTraderID <= 0 {
 		return result, nil
 	}
 
 	queryStart := financeDatePart(startDate)
 	queryEnd := financeDatePart(endDate)
 	placeholders := orderListPlaceholders(len(accountIDs))
-	params := make([]interface{}, 0, len(accountIDs)+2)
-	params = append(params, queryStart, queryEnd)
+	params := make([]interface{}, 0, len(accountIDs)+3)
+	params = append(params, queryStart, queryEnd, ownerTraderID)
 	for _, accountID := range accountIDs {
 		params = append(params, accountID)
 	}
@@ -457,6 +510,7 @@ func (s *FinanceCommissionService) getBlankOrderAttributionCountsByAccountIDs(ct
 		WHERE source = 'qianchuan_plan'
 		  AND stat_date >= ?
 		  AND stat_date <= ?
+		  AND trader_id = ?
 		  AND account_id IN (%s)
 		GROUP BY account_id
 	`, placeholders), params...)
@@ -538,7 +592,7 @@ func (s *FinanceCommissionService) statsFinanceChildNodes(ctx context.Context, c
 	if err != nil {
 		return nil, nil, err
 	}
-	leafStats, err := s.statsAccountLeavesForRange(ctx, shops, startDate, endDate, "")
+	leafStats, err := s.statsAccountLeavesForRange(ctx, shops, startDate, endDate, "", 0)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -558,7 +612,7 @@ func (s *FinanceCommissionService) statsFinanceChildNodes(ctx context.Context, c
 			newCost := roundFloatFinance(attributedCost, 2)
 			result[i].AdCostAmount = newCost
 			result[i].RealtimeProfit = roundFloatFinance(result[i].RealtimeProfit+oldCost-newCost, 2)
-			blankOrderCount, err := s.getBlankOrderAttributionCountByAccountIDs(ctx, accountIDs, startDate, endDate)
+			blankOrderCount, err := s.getBlankOrderAttributionCountByNode(ctx, childNodes[i].id, childNodes[i].nodeType, startDate, endDate)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -1242,7 +1296,7 @@ func (s *FinanceCommissionService) statsAccountLeaves(ctx context.Context, shops
 }
 
 // statsAccountLeavesForRange 返回账号最小单元数据：历史日期读日汇总，当天实时计算。
-func (s *FinanceCommissionService) statsAccountLeavesForRange(ctx context.Context, shops gdb.Result, startDate, endDate, traderName string) (map[int]*model.FinanceStatsSummary, error) {
+func (s *FinanceCommissionService) statsAccountLeavesForRange(ctx context.Context, shops gdb.Result, startDate, endDate, traderName string, ownerTraderID int64) (map[int]*model.FinanceStatsSummary, error) {
 	result := make(map[int]*model.FinanceStatsSummary, len(shops))
 	accountIDs := make([]int, 0, len(shops))
 	for _, shop := range shops {
@@ -1330,7 +1384,7 @@ func (s *FinanceCommissionService) statsAccountLeavesForRange(ctx context.Contex
 			}
 		}
 	}
-	blankOrderCounts, err := s.getBlankOrderAttributionCountsByAccountIDs(ctx, douyinAccountIDs, startDate, endDate)
+	blankOrderCounts, err := s.getBlankOrderAttributionCountsByAccountIDsAndOwner(ctx, douyinAccountIDs, ownerTraderID, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
@@ -1372,7 +1426,7 @@ func (s *FinanceCommissionService) getTraderChildren(ctx context.Context, trader
 	if err != nil {
 		return nil, err
 	}
-	leafStats, err := s.statsAccountLeavesForRange(ctx, shops, startDate, endDate, trader["name"].String())
+	leafStats, err := s.statsAccountLeavesForRange(ctx, shops, startDate, endDate, trader["name"].String(), realTraderId)
 	if err != nil {
 		return nil, err
 	}
@@ -1492,20 +1546,24 @@ func (s *FinanceCommissionService) GetTraderDetail(ctx context.Context, req *mod
 
 // getTraderShopStats 获取投手关联账号的统计
 func (s *FinanceCommissionService) getTraderShopStats(ctx context.Context, traderId int64, startDate, endDate string) ([]model.ShopStatsItem, error) {
+	realTraderID := traderId
+	if model.IsTraderID(traderId) {
+		realTraderID = model.DecodeTraderID(traderId)
+	}
 	// 获取投手名称（用于归属规则）
-	traderName, _ := s.getTraderName(ctx, traderId)
+	traderName, _ := s.getTraderName(ctx, realTraderID)
 
 	// 获取投手关联的店铺
 	shops, err := g.DB().Model("account a").
 		LeftJoin("trader_account_relation tsr", "a.id = tsr.account_id").
-		Where("tsr.trader_id", traderId).
+		Where("tsr.trader_id", realTraderID).
 		Where("a.platform", "douyin").
 		Fields("a.id, a.platform, a.uid, a.account_name, a.platform_nickname").
 		All()
 	if err != nil {
 		return nil, err
 	}
-	leafStats, err := s.statsAccountLeavesForRange(ctx, shops, startDate, endDate, traderName)
+	leafStats, err := s.statsAccountLeavesForRange(ctx, shops, startDate, endDate, traderName, realTraderID)
 	if err != nil {
 		return nil, err
 	}
@@ -2204,7 +2262,7 @@ func (s *FinanceCommissionService) appendFinanceResidualAccountNode(
 	if err != nil {
 		return nil, err
 	}
-	leafStats, err := s.statsAccountLeavesForRange(ctx, shops, startDate, endDate, "")
+	leafStats, err := s.statsAccountLeavesForRange(ctx, shops, startDate, endDate, "", 0)
 	if err != nil {
 		return nil, err
 	}
