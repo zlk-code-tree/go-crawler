@@ -122,6 +122,36 @@ func TestOrderListExactWeightedAssignmentsRejectsZeroWeights(t *testing.T) {
 	}
 }
 
+func TestOrderListExactWeightedAssignmentsWithCapsLimitsOverAllocation(t *testing.T) {
+	orderKeys := []string{"o1", "o2", "o3", "o4", "o5", "o6", "o7", "o8", "o9", "o10"}
+	assignments := orderListExactWeightedAssignmentsWithCaps("scope", orderKeys, []float64{7, 3}, []int{3, 2})
+	counts := make([]int, 2)
+	for _, ownerIndex := range assignments {
+		counts[ownerIndex]++
+	}
+	if len(assignments) != 5 {
+		t.Fatalf("assigned orders = %d, want capped 5", len(assignments))
+	}
+	if counts[0] > 3 || counts[1] > 2 {
+		t.Fatalf("allocation exceeded caps: counts=%v caps=[3 2]", counts)
+	}
+}
+
+func TestOrderListExactWeightedAssignmentsWithCapsRedistributesRemainder(t *testing.T) {
+	orderKeys := []string{"o1", "o2", "o3", "o4", "o5"}
+	assignments := orderListExactWeightedAssignmentsWithCaps("scope", orderKeys, []float64{9, 1}, []int{1, 5})
+	counts := make([]int, 2)
+	for _, ownerIndex := range assignments {
+		counts[ownerIndex]++
+	}
+	if len(assignments) != 5 {
+		t.Fatalf("assigned orders = %d, want all 5 assigned within total cap", len(assignments))
+	}
+	if counts[0] != 1 || counts[1] != 4 {
+		t.Fatalf("allocation counts = %v, want [1 4]", counts)
+	}
+}
+
 func TestDouyinQianchuanSelfSaleAttributionDatabaseIntegration(t *testing.T) {
 	if os.Getenv("DOUYIN_SELF_SALE_ATTRIBUTION_DB_INTEGRATION") != "1" {
 		t.Skip("set DOUYIN_SELF_SALE_ATTRIBUTION_DB_INTEGRATION=1 to run against the configured database")
@@ -465,6 +495,36 @@ func TestStatsFromEnrichedOrdersIncludesOfflineCommissionForExternalOrders(t *te
 	stats := NewOrderService().statsFromEnrichedOrders(context.Background(), orders, "", "", "2026-07-11 00:00:00", "2026-07-11 23:59:59")
 	if got := math.Round(stats.OfflineCommission*100) / 100; got != 50 {
 		t.Fatalf("stats offline commission = %.2f, want 50.00", got)
+	}
+}
+
+func TestStatsFromEnrichedOrdersUsesLinkRefundRateForAllocatedBlankOrders(t *testing.T) {
+	orders := []g.Map{
+		{
+			"rawOrderStatus":          "已发货",
+			"afterSaleStatus":         "",
+			"productPrice":            100,
+			"productNum":              1,
+			"productCost":             40,
+			"profitAttributionSource": "qianchuan_plan",
+			"originalTalentId":        "",
+			"linkRefundCostRate":      0.25,
+		},
+		{
+			"rawOrderStatus":          "已关闭",
+			"afterSaleStatus":         "12",
+			"productPrice":            100,
+			"productNum":              1,
+			"productCost":             80,
+			"profitAttributionSource": "qianchuan_plan",
+			"originalTalentId":        "",
+			"sendTime":                "2026-07-09 10:00:00",
+		},
+	}
+
+	stats := NewOrderService().statsFromEnrichedOrders(context.Background(), orders, "", "", "2026-07-11 00:00:00", "2026-07-11 23:59:59")
+	if got := math.Round(stats.RefundCostAmount*100) / 100; got != 10 {
+		t.Fatalf("allocated blank refund cost = %.2f, want 10.00", got)
 	}
 }
 

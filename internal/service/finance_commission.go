@@ -163,25 +163,6 @@ func (s *FinanceCommissionService) GetStats(ctx context.Context, req *model.Fina
 		platform = "douyin"
 	}
 
-	if req.NodeType == "company" && (platform == "" || platform == "douyin") {
-		useFullSnapshot, scopeErr := shouldUseFullDouyinCompanySnapshot(ctx, req.NodeId)
-		if scopeErr != nil {
-			return nil, scopeErr
-		}
-		if useFullSnapshot {
-			snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
-			if snapshotErr != nil {
-				return nil, snapshotErr
-			}
-			return &model.FinanceStatsRes{
-				TimeType:  req.TimeType,
-				StartDate: startDate,
-				EndDate:   endDate,
-				Summary:   snapshot.FinanceSummary(),
-			}, nil
-		}
-	}
-
 	// 当天保持实时计算；完整历史日期直接读取账号日汇总。
 	if startDate >= today {
 		result, err := s.getStatsRealtime(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
@@ -293,19 +274,6 @@ func (s *FinanceCommissionService) getStatsFromTable(ctx context.Context, nodeId
 
 // getStatsRealtime 实时计算统计
 func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId int64, nodeType, startDate, endDate, timeType, platform string) (*model.FinanceStatsRes, error) {
-	useFullDouyinCompanySnapshot := false
-	if nodeType == "company" && (platform == "" || platform == "douyin") {
-		useFullSnapshot, scopeErr := shouldUseFullDouyinCompanySnapshot(ctx, nodeId)
-		if scopeErr != nil {
-			return nil, scopeErr
-		}
-		useFullDouyinCompanySnapshot = useFullSnapshot
-		if useFullSnapshot && platform == "" {
-			// 公司旧口径在未指定平台时即代表全量抖音，叶子汇总保持该口径。
-			platform = "douyin"
-		}
-	}
-
 	// 1. 获取该节点下的所有账号ID
 	accountIds, err := s.getAccountIdsByNode(ctx, nodeId, nodeType, platform)
 	if err != nil {
@@ -340,17 +308,6 @@ func (s *FinanceCommissionService) getStatsRealtime(ctx context.Context, nodeId 
 		g.Log().Warningf(ctx, "[Finance] statsOrdersByAccountIds 失败: accountCount=%d, err=%v", len(accountIds), err)
 		return nil, err
 	}
-	if nodeType == "company" && useFullDouyinCompanySnapshot {
-		// 公司口径 = 已归属账号叶子 + 公司未归属兜底。
-		// 兜底包含无 UID 订单和尚未归属到账号的广告费，保证层级数据守恒。
-		snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
-		if snapshotErr != nil {
-			return nil, snapshotErr
-		}
-		unassigned := subtractFinanceStatsSummary(snapshot.FinanceSummary(), *stats)
-		mergeFinanceStatsSummary(stats, &unassigned)
-	}
-
 	g.Log().Infof(ctx, "[Finance] 实时统计结果: orderCount=%d, payAmount=%.2f, commission=%.2f", stats.OrderCount, stats.PayAmount, stats.Commission)
 
 	return &model.FinanceStatsRes{
@@ -409,49 +366,16 @@ func (s *FinanceCommissionService) alignNodeQianchuanAdvertiserCost(ctx context.
 	}
 	oldAdCost := result.Summary.AdCostAmount
 	newAdCost := roundFloatFinance(adCost, 2)
-	if newAdCost == 0 && oldAdCost > 0 {
-		return result, nil
-	}
 	result.Summary.AdCostAmount = newAdCost
 	result.Summary.RealtimeProfit = roundFloatFinance(result.Summary.RealtimeProfit+oldAdCost-newAdCost, 2)
 	return result, nil
 }
 
 func (s *FinanceCommissionService) getNodeCurrentQianchuanCost(ctx context.Context, nodeID int64, nodeType, startDate, endDate string) (float64, error) {
-	if nodeType == "company" {
-		return getNodeQianchuanAdvertiserDailyCost(ctx, nodeID, nodeType, startDate, endDate)
-	}
-
-	scope := FinanceOrgScope{}
-	switch nodeType {
-	case "trader":
-		if model.IsTraderID(nodeID) {
-			nodeID = model.DecodeTraderID(nodeID)
-		}
-		scope.TraderId = nodeID
-	case "department":
-		if model.IsDeptID(nodeID) {
-			nodeID = model.DecodeDeptID(nodeID)
-		}
-		scope.DepartmentId = nodeID
-	default:
+	if nodeType != "company" && nodeType != "department" && nodeType != "trader" {
 		return 0, nil
 	}
-	whereSQL, whereArgs, err := s.effectiveScopeWhere(ctx, scope, "effective")
-	if err != nil {
-		return 0, err
-	}
-	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
-	args := []interface{}{startDate, endDate, startDate, endDate}
-	args = append(args, whereArgs...)
-	row, err := g.DB().GetOne(ctx, effectiveQianchuanCostCTE+`
-		SELECT COALESCE(SUM(effective.stat_cost), 0) AS ad_cost
-		FROM effective_qianchuan_cost effective
-		WHERE 1=1`+whereSQL, args...)
-	if err != nil {
-		return 0, fmt.Errorf("查询组织归属后的千川消耗失败: %w", err)
-	}
-	return row["ad_cost"].Float64(), nil
+	return getNodeQianchuanAdvertiserDailyCost(ctx, nodeID, nodeType, startDate, endDate)
 }
 
 // ============================================
@@ -585,34 +509,10 @@ func (s *FinanceCommissionService) getCompanyChildren(ctx context.Context, compa
 	if err != nil {
 		return nil, err
 	}
-	parentStats := nodeStats[0]
-	usedFullSnapshot := false
-	if platform == "" || platform == "douyin" {
-		useFullSnapshot, scopeErr := shouldUseFullDouyinCompanySnapshot(ctx, companyID)
-		if scopeErr != nil {
-			return nil, scopeErr
-		}
-		if useFullSnapshot {
-			snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, startDate, endDate)
-			if snapshotErr != nil {
-				return nil, snapshotErr
-			}
-			parentStats = snapshot.FinanceSummary()
-			usedFullSnapshot = true
-		}
-	}
-	if !usedFullSnapshot {
-		alignedParent, alignErr := s.alignNodeQianchuanAdvertiserCost(ctx, &model.FinanceStatsRes{Summary: parentStats}, companyID, "company", platform, startDate, endDate)
-		if alignErr != nil {
-			return nil, alignErr
-		}
-		parentStats = alignedParent.Summary
-	}
 	children := make([]model.NodeStatsItem, 0, len(childNodes)+1)
 	for i, child := range childNodes {
 		children = append(children, financeNodeStatsFromSummary(child.id, child.name, child.nodeType, nodeStats[i+1]))
 	}
-	children = appendFinanceResidualFromSummary(children, parentStats, companyID)
 
 	return &model.FinanceChildrenRes{
 		CurrentNode: model.NodeInfo{Id: companyID, Name: company["name"].String(), Type: "company"},
@@ -1393,6 +1293,21 @@ func (s *FinanceCommissionService) getTraderChildren(ctx context.Context, trader
 	if err != nil {
 		return nil, err
 	}
+	if platform == "douyin" {
+		costs, costErr := getAttributedQianchuanCostsByTraderAccountRange(ctx, realTraderId, startDate, endDate)
+		if costErr != nil {
+			return nil, costErr
+		}
+		children = alignTraderAccountNodeQianchuanCosts(children, costs, traderId)
+		parent, parentErr := s.GetStats(ctx, &model.FinanceStatsReq{
+			NodeId: traderId, NodeType: "trader", TimeType: timeType,
+			StartDate: startDate, EndDate: endDate, Platform: platform,
+		})
+		if parentErr != nil {
+			return nil, parentErr
+		}
+		children = reconcileTraderAccountNodes(children, parent.Summary)
+	}
 
 	return &model.FinanceChildrenRes{
 		CurrentNode: currentNode,
@@ -1436,6 +1351,7 @@ func (s *FinanceCommissionService) GetTraderDetail(ctx context.Context, req *mod
 	if err != nil {
 		return nil, err
 	}
+	shopStats = reconcileTraderShopItems(shopStats, stats.Summary)
 
 	return &model.FinanceTraderDetailRes{
 		TraderId:    req.TraderId,
@@ -1503,6 +1419,11 @@ func (s *FinanceCommissionService) getTraderShopStats(ctx context.Context, trade
 			RealtimeProfit:    stats.RealtimeProfit,
 		})
 	}
+	costs, err := getAttributedQianchuanCostsByTraderAccountRange(ctx, traderId, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	result = alignTraderShopQianchuanCosts(result, costs, traderId)
 
 	return result, nil
 }
@@ -1525,6 +1446,15 @@ func (s *FinanceCommissionService) GetShopDetail(ctx context.Context, req *model
 	stats, _ := s.statsOrdersByAccountIds(ctx, []int{req.AccountId}, startDate, endDate, "")
 	if stats == nil {
 		stats = &model.FinanceStatsSummary{}
+	}
+	if shop["platform"].String() == "douyin" {
+		adCost, costErr := getAttributedQianchuanCostByAccountRange(ctx, req.AccountId, startDate, endDate)
+		if costErr != nil {
+			return nil, costErr
+		}
+		oldAdCost := stats.AdCostAmount
+		stats.AdCostAmount = roundFloatFinance(adCost, 2)
+		stats.RealtimeProfit = roundFloatFinance(stats.RealtimeProfit+oldAdCost-stats.AdCostAmount, 2)
 	}
 
 	shopName := shop["account_name"].String()
@@ -1952,6 +1882,150 @@ func financeNodeStatsFromSummary(id int64, name, nodeType string, stats model.Fi
 		AdCostAmount:      stats.AdCostAmount,
 		RealtimeProfit:    stats.RealtimeProfit,
 	}
+}
+
+func alignTraderAccountNodeQianchuanCosts(children []model.NodeStatsItem, costs map[int]float64, traderNodeID int64) []model.NodeStatsItem {
+	targetAdCost := 0.0
+	oldAdCost := 0.0
+	oldProfit := 0.0
+	for _, cost := range costs {
+		targetAdCost += cost
+	}
+	for _, child := range children {
+		oldAdCost += child.AdCostAmount
+		oldProfit += child.RealtimeProfit
+	}
+	targetAdCost = roundFloatFinance(targetAdCost, 2)
+	targetProfit := roundFloatFinance(oldProfit+oldAdCost-targetAdCost, 2)
+
+	remainingCost := 0.0
+	for i := range children {
+		oldCost := children[i].AdCostAmount
+		newCost := 0.0
+		if children[i].Type == "shop" {
+			newCost = costs[int(children[i].Id)]
+			delete(costs, int(children[i].Id))
+		}
+		children[i].AdCostAmount = roundFloatFinance(newCost, 2)
+		children[i].RealtimeProfit = roundFloatFinance(children[i].RealtimeProfit+oldCost-newCost, 2)
+	}
+	for _, cost := range costs {
+		remainingCost += cost
+	}
+	remainingCost = roundFloatFinance(remainingCost, 2)
+	if math.Abs(remainingCost) >= 0.005 {
+		children = append(children, financeNodeStatsFromSummary(
+			-(1_000_000_000+traderNodeID),
+			"特殊规则/千川户归属消耗",
+			"unassigned",
+			model.FinanceStatsSummary{AdCostAmount: remainingCost, RealtimeProfit: -remainingCost},
+		))
+	}
+	if len(children) > 0 {
+		actualAdCost := 0.0
+		actualProfit := 0.0
+		for _, child := range children {
+			actualAdCost += child.AdCostAmount
+			actualProfit += child.RealtimeProfit
+		}
+		last := len(children) - 1
+		adDelta := roundFloatFinance(targetAdCost-actualAdCost, 2)
+		children[last].AdCostAmount = roundFloatFinance(children[last].AdCostAmount+adDelta, 2)
+		children[last].RealtimeProfit = roundFloatFinance(children[last].RealtimeProfit-adDelta, 2)
+		actualProfit += -adDelta
+		children[last].RealtimeProfit = roundFloatFinance(children[last].RealtimeProfit+roundFloatFinance(targetProfit-actualProfit, 2), 2)
+	}
+	return children
+}
+
+func alignTraderShopQianchuanCosts(items []model.ShopStatsItem, costs map[int]float64, traderID int64) []model.ShopStatsItem {
+	targetAdCost := 0.0
+	oldAdCost := 0.0
+	oldProfit := 0.0
+	for _, cost := range costs {
+		targetAdCost += cost
+	}
+	for _, item := range items {
+		oldAdCost += item.AdCostAmount
+		oldProfit += item.RealtimeProfit
+	}
+	targetAdCost = roundFloatFinance(targetAdCost, 2)
+	targetProfit := roundFloatFinance(oldProfit+oldAdCost-targetAdCost, 2)
+
+	remainingCost := 0.0
+	for i := range items {
+		oldCost := items[i].AdCostAmount
+		newCost := costs[items[i].AccountId]
+		delete(costs, items[i].AccountId)
+		items[i].AdCostAmount = roundFloatFinance(newCost, 2)
+		items[i].RealtimeProfit = roundFloatFinance(items[i].RealtimeProfit+oldCost-newCost, 2)
+	}
+	for _, cost := range costs {
+		remainingCost += cost
+	}
+	remainingCost = roundFloatFinance(remainingCost, 2)
+	if math.Abs(remainingCost) >= 0.005 {
+		items = append(items, model.ShopStatsItem{
+			AccountId:      -int(1_000_000_000 + traderID),
+			ShopName:       "特殊规则/千川户归属消耗",
+			Platform:       "douyin",
+			AdCostAmount:   remainingCost,
+			RealtimeProfit: -remainingCost,
+		})
+	}
+	if len(items) > 0 {
+		actualAdCost := 0.0
+		actualProfit := 0.0
+		for _, item := range items {
+			actualAdCost += item.AdCostAmount
+			actualProfit += item.RealtimeProfit
+		}
+		last := len(items) - 1
+		adDelta := roundFloatFinance(targetAdCost-actualAdCost, 2)
+		items[last].AdCostAmount = roundFloatFinance(items[last].AdCostAmount+adDelta, 2)
+		items[last].RealtimeProfit = roundFloatFinance(items[last].RealtimeProfit-adDelta, 2)
+		actualProfit += -adDelta
+		items[last].RealtimeProfit = roundFloatFinance(items[last].RealtimeProfit+roundFloatFinance(targetProfit-actualProfit, 2), 2)
+	}
+	return items
+}
+
+func reconcileTraderAccountNodes(children []model.NodeStatsItem, parent model.FinanceStatsSummary) []model.NodeStatsItem {
+	if len(children) == 0 {
+		return children
+	}
+	adCost := 0.0
+	profit := 0.0
+	for _, child := range children {
+		adCost += child.AdCostAmount
+		profit += child.RealtimeProfit
+	}
+	last := len(children) - 1
+	adDelta := roundFloatFinance(parent.AdCostAmount-adCost, 2)
+	children[last].AdCostAmount = roundFloatFinance(children[last].AdCostAmount+adDelta, 2)
+	children[last].RealtimeProfit = roundFloatFinance(children[last].RealtimeProfit-adDelta, 2)
+	profit -= adDelta
+	children[last].RealtimeProfit = roundFloatFinance(children[last].RealtimeProfit+roundFloatFinance(parent.RealtimeProfit-profit, 2), 2)
+	return children
+}
+
+func reconcileTraderShopItems(items []model.ShopStatsItem, parent model.FinanceStatsSummary) []model.ShopStatsItem {
+	if len(items) == 0 {
+		return items
+	}
+	adCost := 0.0
+	profit := 0.0
+	for _, item := range items {
+		adCost += item.AdCostAmount
+		profit += item.RealtimeProfit
+	}
+	last := len(items) - 1
+	adDelta := roundFloatFinance(parent.AdCostAmount-adCost, 2)
+	items[last].AdCostAmount = roundFloatFinance(items[last].AdCostAmount+adDelta, 2)
+	items[last].RealtimeProfit = roundFloatFinance(items[last].RealtimeProfit-adDelta, 2)
+	profit -= adDelta
+	items[last].RealtimeProfit = roundFloatFinance(items[last].RealtimeProfit+roundFloatFinance(parent.RealtimeProfit-profit, 2), 2)
+	return items
 }
 
 // appendFinanceResidualFromSummary 只做内存差额，不再次扫描订单。
@@ -2517,6 +2591,14 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		PageSize:   req.PageSize,
 		Orders:     []model.FinanceOrderItem{},
 	}
+	traderStats, err := s.GetStats(ctx, &model.FinanceStatsReq{
+		NodeId: req.TraderId, NodeType: "trader", TimeType: req.TimeType,
+		StartDate: startDate, EndDate: endDate, Platform: "douyin",
+	})
+	if err != nil {
+		return nil, err
+	}
+	res.Summary = traderStats.Summary
 
 	if len(uidShopMap) == 0 {
 		return res, nil
@@ -2814,7 +2896,7 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 	shopFee := roundFloatFinance(totalPay*0.02, 2)
 	commission := roundFloatFinance(totalPay-totalCost-totalReserve-shopFee, 2)
 	commissionDeduction := roundFloatFinance(totalPay*0.005, 2)
-	res.Summary = model.FinanceStatsSummary{
+	orderSummary := model.FinanceStatsSummary{
 		TotalOrderCount:   totalCount + invalidCount,
 		OrderCount:        totalCount,
 		InvalidOrderCount: invalidCount,
@@ -2826,6 +2908,10 @@ func (s *FinanceCommissionService) GetTraderOrderList(ctx context.Context, req *
 		RefundCostAmount:  roundFloatFinance(totalRefundCost, 2),
 		RefundOrderCount:  totalRefundCount,
 		RealtimeProfit:    roundFloatFinance(CalculateOrderProfit(totalPay, totalCost, totalReserve, totalRefundCost, shopFee, commissionDeduction, 0, 0), 2),
+	}
+	if orderSummary.OrderCount != res.Summary.OrderCount {
+		g.Log().Debugf(ctx, "[FinanceTraderOrders] 订单列表与归属汇总数不同: trader=%d list=%d summary=%d",
+			realTraderId, orderSummary.OrderCount, res.Summary.OrderCount)
 	}
 	res.Total = totalCount
 	res.Orders = allOrders
@@ -2839,7 +2925,7 @@ func roundFloatFinance(f float64, n int) float64 {
 	for i := 0; i < n; i++ {
 		pow *= 10
 	}
-	return float64(int(f*pow+0.5)) / pow
+	return math.Round(f*pow) / pow
 }
 
 // platformNameMap 平台标识→中文名称
@@ -2878,6 +2964,10 @@ func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, r
 	attributionExclude := s.attributionExcludeSQL(traderName)
 
 	// 按平台统计
+	qianchuanCost, err := getTraderQianchuanAdvertiserDailyCost(ctx, realTraderId, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
 	totalStats := &model.FinanceStatsSummary{}
 	var platformStats []model.PlatformStats
 	for platform, uids := range platformUids {
@@ -2890,6 +2980,7 @@ func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, r
 			// 小店服务费 = 定价总额 × 2%（仅抖音）
 			if platform == "douyin" {
 				stats.ShopServiceFee = roundFloatFinance(stats.PayAmount*0.02, 2)
+				stats.AdCostAmount = roundFloatFinance(qianchuanCost, 2)
 			}
 			// 佣金 = 定价总额 - 留底 - 货款 - 小店服务费
 			stats.Commission = roundFloatFinance(stats.Commission-stats.ShopServiceFee, 2)
@@ -2937,13 +3028,21 @@ func (s *FinanceCommissionService) GetTraderPlatformStats(ctx context.Context, r
 		return platformStats[i].OrderCount > platformStats[j].OrderCount
 	})
 
+	alignedStats, err := s.GetStats(ctx, &model.FinanceStatsReq{
+		NodeId: req.TraderId, NodeType: "trader", TimeType: req.TimeType,
+		StartDate: startDate, EndDate: endDate, Platform: "douyin",
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return &model.FinanceTraderPlatformStatsRes{
 		TraderId:      req.TraderId,
 		TraderName:    trader["name"].String(),
 		TimeType:      req.TimeType,
 		StartDate:     startDate,
 		EndDate:       endDate,
-		Summary:       *totalStats,
+		Summary:       alignedStats.Summary,
 		PlatformStats: platformStats,
 	}, nil
 }
@@ -3589,6 +3688,14 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 	shopFee := roundFloatFinance(totalPay*0.02, 2)
 	comm := totalPay - totalCost - totalReserve - shopFee
 	commissionDeduction := roundFloatFinance(totalPay*0.005, 2)
+	adCost := 0.0
+	if shop["platform"].String() == "douyin" {
+		adCost, err = getAttributedQianchuanCostByAccountRange(ctx, req.AccountId, startDate, endDate)
+		if err != nil {
+			return nil, err
+		}
+		adCost = roundFloatFinance(adCost, 2)
+	}
 	return &model.FinanceAccountOrdersRes{
 		AccountId:   req.AccountId,
 		AccountName: accountName,
@@ -3603,7 +3710,8 @@ func (s *FinanceCommissionService) GetAccountOrderList(ctx context.Context, req 
 			Commission:           roundFloatFinance(comm, 2),
 			RefundCostAmount:     roundFloatFinance(totalRefundCost, 2),
 			RefundOrderCount:     totalRefundCount,
-			RealtimeProfit:       roundFloatFinance(CalculateOrderProfit(totalPay, totalCost, totalReserve, totalRefundCost, shopFee, commissionDeduction, 0, 0), 2),
+			AdCostAmount:         adCost,
+			RealtimeProfit:       roundFloatFinance(CalculateOrderProfit(totalPay, totalCost, totalReserve, totalRefundCost, shopFee, commissionDeduction, 0, adCost), 2),
 			CommissionOrderCount: totalCount,
 		},
 		Total: totalCount, Page: page, PageSize: pageSize,

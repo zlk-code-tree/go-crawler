@@ -14,8 +14,10 @@ import (
 const (
 	QianchuanHierarchyLevelStore      = "store"
 	QianchuanHierarchyLevelAweme      = "aweme"
+	QianchuanHierarchyLevelTalent     = "talent"
 	QianchuanHierarchyLevelAdvertiser = "advertiser"
 	QianchuanHierarchyLevelPlan       = "plan"
+	qianchuanUnassignedTalentKey      = "unassigned"
 )
 
 type QianchuanPlanHierarchyRequest struct {
@@ -29,7 +31,9 @@ type QianchuanPlanHierarchyRequest struct {
 	AdvertiserID int64
 	AwemeID      int64
 	AwemeShowID  string
+	TalentKey    string
 	GroupByDate  bool
+	AllStores    bool
 }
 
 type QianchuanPlanHierarchyNode struct {
@@ -48,6 +52,7 @@ type QianchuanPlanHierarchyNode struct {
 	ProductName      string  `json:"productName"`
 	AwemeName        string  `json:"awemeName"`
 	AwemeShowID      string  `json:"awemeShowId"`
+	TalentKey        string  `json:"talentKey"`
 	HasChildren      bool    `json:"hasChildren"`
 	Matched          bool    `json:"matched"`
 	AdvertiserCount  int64   `json:"advertiserCount"`
@@ -74,6 +79,7 @@ type QianchuanPlanHierarchyNode struct {
 type QianchuanPlanHierarchySummary struct {
 	StoreCount           int64   `json:"storeCount"`
 	AwemeCount           int64   `json:"awemeCount"`
+	TalentCount          int64   `json:"talentCount"`
 	AccountCount         int64   `json:"accountCount"`
 	AdvertiserCount      int64   `json:"advertiserCount"`
 	PlanCount            int64   `json:"planCount"`
@@ -215,6 +221,8 @@ func (s *QianchuanPlanHierarchyService) Query(ctx context.Context, req Qianchuan
 		list, err = s.queryStores(ctx, req, endExclusive)
 	case QianchuanHierarchyLevelAweme:
 		list, err = s.queryAwemes(ctx, req, endExclusive)
+	case QianchuanHierarchyLevelTalent:
+		list, err = s.queryTalents(ctx, req, endExclusive)
 	case QianchuanHierarchyLevelAdvertiser:
 		list, err = s.queryAdvertisers(ctx, req, endExclusive)
 	case QianchuanHierarchyLevelPlan:
@@ -245,7 +253,7 @@ func (s *QianchuanPlanHierarchyService) Query(ctx context.Context, req Qianchuan
 
 func isUnfilteredQianchuanProfitRequest(req QianchuanPlanHierarchyRequest) bool {
 	return req.Keyword == "" && req.ProductID == "" && req.StoreID == 0 && req.AccountID == 0 &&
-		req.AdvertiserID == 0 && req.AwemeID == 0 && req.AwemeShowID == ""
+		req.AdvertiserID == 0 && req.AwemeID == 0 && req.AwemeShowID == "" && req.TalentKey == ""
 }
 
 func applyDouyinProfitSnapshot(summary *QianchuanPlanHierarchySummary, snapshot *DouyinProfitSnapshot) {
@@ -621,6 +629,175 @@ func (s *QianchuanPlanHierarchyService) queryAwemes(ctx context.Context, req Qia
 	return list, nil
 }
 
+type qianchuanTalentOwner struct {
+	Key     string
+	Name    string
+	Matched bool
+}
+
+func loadQianchuanTalentOwners(ctx context.Context) (map[int64]qianchuanTalentOwner, error) {
+	rows, err := g.DB().Model("qianchuan_account_owner_mapping").Ctx(ctx).
+		Fields("advertiser_id, owner_name, trader_id").
+		Where("status", 1).
+		All()
+	if err != nil {
+		return nil, err
+	}
+	owners := make(map[int64]qianchuanTalentOwner, len(rows))
+	for _, row := range rows {
+		name := strings.TrimSpace(row["owner_name"].String())
+		traderID := row["trader_id"].Int64()
+		if name == "" || traderID <= 0 {
+			continue
+		}
+		owners[row["advertiser_id"].Int64()] = qianchuanTalentOwner{
+			Key:     fmt.Sprintf("trader:%d", traderID),
+			Name:    name,
+			Matched: true,
+		}
+	}
+	return owners, nil
+}
+
+func qianchuanTalentOwnerForAdvertiser(owners map[int64]qianchuanTalentOwner, advertiserID int64) qianchuanTalentOwner {
+	if owner, ok := owners[advertiserID]; ok {
+		return owner
+	}
+	return qianchuanTalentOwner{
+		Key:  qianchuanUnassignedTalentKey,
+		Name: "未归属达人",
+	}
+}
+
+func (s *QianchuanPlanHierarchyService) queryTalents(ctx context.Context, req QianchuanPlanHierarchyRequest, endExclusive string) ([]QianchuanPlanHierarchyNode, error) {
+	owners, err := loadQianchuanTalentOwners(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	advertiserReq := req
+	advertiserReq.Level = QianchuanHierarchyLevelAdvertiser
+	advertiserReq.TalentKey = ""
+	advertiserReq.AllStores = true
+	advertisers, err := s.queryAdvertisers(ctx, advertiserReq, endExclusive)
+	if err != nil {
+		return nil, err
+	}
+
+	keyword := strings.TrimSpace(req.Keyword)
+	matchingOwners := make(map[string]struct{})
+	if keyword != "" {
+		for _, owner := range owners {
+			if strings.Contains(strings.ToLower(owner.Name), strings.ToLower(keyword)) {
+				matchingOwners[owner.Key] = struct{}{}
+			}
+		}
+	}
+	if len(matchingOwners) > 0 {
+		fullReq := advertiserReq
+		fullReq.Keyword = ""
+		fullAdvertisers, fullErr := s.queryAdvertisers(ctx, fullReq, endExclusive)
+		if fullErr != nil {
+			return nil, fullErr
+		}
+		selected := make(map[string]QianchuanPlanHierarchyNode, len(advertisers)+len(fullAdvertisers))
+		for _, item := range advertisers {
+			selected[item.NodeKey] = item
+		}
+		for _, item := range fullAdvertisers {
+			owner := qianchuanTalentOwnerForAdvertiser(owners, item.AdvertiserID)
+			if _, ok := matchingOwners[owner.Key]; ok {
+				selected[item.NodeKey] = item
+			}
+		}
+		advertisers = advertisers[:0]
+		for _, item := range selected {
+			advertisers = append(advertisers, item)
+		}
+	}
+
+	return groupQianchuanTalentNodes(advertisers, owners), nil
+}
+
+type qianchuanTalentNodeAccumulator struct {
+	node        QianchuanPlanHierarchyNode
+	advertisers map[int64]struct{}
+	accounts    map[int64]struct{}
+	stores      map[int64]struct{}
+}
+
+func groupQianchuanTalentNodes(advertisers []QianchuanPlanHierarchyNode, owners map[int64]qianchuanTalentOwner) []QianchuanPlanHierarchyNode {
+	groups := make(map[string]*qianchuanTalentNodeAccumulator)
+	for _, item := range advertisers {
+		owner := qianchuanTalentOwnerForAdvertiser(owners, item.AdvertiserID)
+		group := groups[owner.Key]
+		if group == nil {
+			group = &qianchuanTalentNodeAccumulator{
+				node: QianchuanPlanHierarchyNode{
+					NodeKey:   "talent:" + owner.Key,
+					NodeType:  QianchuanHierarchyLevelTalent,
+					Name:      owner.Name,
+					TalentKey: owner.Key,
+					Matched:   owner.Matched,
+				},
+				advertisers: make(map[int64]struct{}),
+				accounts:    make(map[int64]struct{}),
+				stores:      make(map[int64]struct{}),
+			}
+			groups[owner.Key] = group
+		}
+		group.advertisers[item.AdvertiserID] = struct{}{}
+		if item.AccountID > 0 {
+			group.accounts[item.AccountID] = struct{}{}
+		}
+		if item.StoreID > 0 {
+			group.stores[item.StoreID] = struct{}{}
+		}
+		group.node.PlanCount += item.PlanCount
+		group.node.ProductCount += item.ProductCount
+		group.node.ProductQuantity += item.ProductQuantity
+		group.node.PayAmount += item.PayAmount
+		group.node.StatCost += item.StatCost
+		group.node.Commission += item.Commission
+		group.node.ValidOrderCount += item.ValidOrderCount
+		group.node.CostAmount += item.CostAmount
+		group.node.Profit += item.Profit
+		group.node.PayOrderCount += item.PayOrderCount
+		group.node.CreateOrderCount += item.CreateOrderCount
+		group.node.ShowCnt += item.ShowCnt
+		group.node.ClickCnt += item.ClickCnt
+		group.node.ConvertCnt += item.ConvertCnt
+	}
+
+	list := make([]QianchuanPlanHierarchyNode, 0, len(groups))
+	for _, group := range groups {
+		group.node.AdvertiserCount = int64(len(group.advertisers))
+		group.node.AccountCount = int64(len(group.accounts))
+		group.node.StoreCount = int64(len(group.stores))
+		group.node.HasChildren = group.node.AdvertiserCount > 0
+		group.node.SecondaryName = fmt.Sprintf("%d 个千川账户 · %d 个计划", group.node.AdvertiserCount, group.node.PlanCount)
+		group.node.ProductQuantity = roundQianchuanHierarchy(group.node.ProductQuantity)
+		group.node.PayAmount = roundQianchuanHierarchy(group.node.PayAmount)
+		group.node.StatCost = roundQianchuanHierarchy(group.node.StatCost)
+		group.node.Commission = roundQianchuanHierarchy(group.node.Commission)
+		group.node.ValidOrderCount = roundQianchuanHierarchy(group.node.ValidOrderCount)
+		group.node.CostAmount = roundQianchuanHierarchy(group.node.CostAmount)
+		group.node.Profit = roundQianchuanHierarchy(group.node.Profit)
+		group.node.PayOrderCount = roundQianchuanHierarchy(group.node.PayOrderCount)
+		group.node.CreateOrderCount = roundQianchuanHierarchy(group.node.CreateOrderCount)
+		group.node.Ctr = ratioQianchuanHierarchy(float64(group.node.ClickCnt), float64(group.node.ShowCnt))
+		group.node.ConvertCost = ratioQianchuanHierarchy(group.node.StatCost, float64(group.node.ConvertCnt))
+		list = append(list, group.node)
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].StatCost == list[j].StatCost {
+			return list[i].Name < list[j].Name
+		}
+		return list[i].StatCost > list[j].StatCost
+	})
+	return list
+}
+
 func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, req QianchuanPlanHierarchyRequest, endExclusive string) ([]QianchuanPlanHierarchyNode, error) {
 	keywordSQL, keywordArgs := qianchuanHierarchyKeyword("qar", req.Keyword)
 	allScopeSQL := ""
@@ -633,7 +810,7 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 		qScopeSQL += " AND COALESCE(sqm.store_id, 0) = ?"
 		allScopeArgs = append(allScopeArgs, req.StoreID)
 		qScopeArgs = append(qScopeArgs, req.StoreID)
-	} else if !hasAwemeScope {
+	} else if !hasAwemeScope && req.TalentKey == "" && !req.AllStores {
 		allScopeSQL += " AND COALESCE(sqm.store_id, 0) = 0"
 		qScopeSQL += " AND COALESCE(sqm.store_id, 0) = 0"
 	}
@@ -757,9 +934,19 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 		return nil, err
 	}
 
+	var talentOwners map[int64]qianchuanTalentOwner
+	if req.TalentKey != "" {
+		talentOwners, err = loadQianchuanTalentOwners(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
 	list := make([]QianchuanPlanHierarchyNode, 0, len(rows))
 	for _, row := range rows {
 		advertiserID := row["advertiser_id"].Int64()
+		if req.TalentKey != "" && qianchuanTalentOwnerForAdvertiser(talentOwners, advertiserID).Key != req.TalentKey {
+			continue
+		}
 		name := row["advertiser_name"].String()
 		if name == "" {
 			name = fmt.Sprintf("千川账户 %d", advertiserID)
@@ -787,6 +974,7 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 			AwemeID:          row["aweme_id"].Int64(),
 			AwemeName:        row["aweme_name"].String(),
 			AwemeShowID:      row["aweme_show_id"].String(),
+			TalentKey:        req.TalentKey,
 			HasChildren:      row["plan_count"].Int64() > 0,
 			Matched:          row["store_id"].Int64() > 0,
 			PlanCount:        row["plan_count"].Int64(),
@@ -1069,6 +1257,13 @@ func summarizeQianchuanHierarchyNodes(list []QianchuanPlanHierarchyNode, level s
 		}
 		if level == QianchuanHierarchyLevelAweme {
 			summary.AwemeCount++
+			summary.StoreCount += item.StoreCount
+			summary.AccountCount += item.AccountCount
+		}
+		if level == QianchuanHierarchyLevelTalent {
+			if item.Matched {
+				summary.TalentCount++
+			}
 			summary.StoreCount += item.StoreCount
 			summary.AccountCount += item.AccountCount
 		}

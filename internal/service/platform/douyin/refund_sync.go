@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go-crawler/internal/model"
+	"go-crawler/internal/service"
 
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -28,6 +29,7 @@ type RefundPullResult struct {
 	FailedPages  int                     `json:"failedPages"`
 	TotalOrders  int                     `json:"totalOrders"`
 	TotalSaved   int                     `json:"totalSaved"`
+	SyncedOrders int64                   `json:"syncedOrders"`
 	DurationMs   int                     `json:"durationMs"`
 	StoreResults []RefundStorePullResult `json:"storeResults"`
 }
@@ -216,11 +218,108 @@ func (s *RefundPullService) Pull(ctx context.Context, opt RefundPullParams) (*Re
 		result.StoreResults = append(result.StoreResults, storeResult)
 	}
 
+	syncedOrders, syncErr := SyncRefundStatusesToOrders(ctx)
+	if syncErr != nil {
+		g.Log().Errorf(ctx, "[DouyinRefundPull] 同步售后状态到抖音订单失败: %v", syncErr)
+	} else {
+		result.SyncedOrders = syncedOrders
+		g.Log().Infof(ctx, "[DouyinRefundPull] 已同步%d条抖音订单售后状态", syncedOrders)
+	}
+
 	result.DurationMs = int(time.Since(startedAt).Milliseconds())
 	if result.FailedStores > 0 {
-		return result, fmt.Errorf("抖店售后/退款拉取部分失败: %d个店铺、%d个分页", result.FailedStores, result.FailedPages)
+		pullErr := fmt.Errorf("抖店售后/退款拉取部分失败: %d个店铺、%d个分页", result.FailedStores, result.FailedPages)
+		if syncErr != nil {
+			return result, fmt.Errorf("%v；同步抖音订单售后状态失败: %w", pullErr, syncErr)
+		}
+		return result, pullErr
+	}
+	if syncErr != nil {
+		return result, fmt.Errorf("同步抖音订单售后状态失败: %w", syncErr)
 	}
 	return result, nil
+}
+
+// SyncRefundStatusesToOrders 将退款表里最新的售后状态同步回抖音订单表。
+func SyncRefundStatusesToOrders(ctx context.Context) (int64, error) {
+	skuSortExpr := refundStatusSortExpr("r")
+	skuLatestSortExpr := refundStatusSortExpr("r2")
+	mainSortExpr := refundStatusSortExpr("r")
+	mainLatestSortExpr := refundStatusSortExpr("r2")
+	emptyValue := "_utf8mb4'' COLLATE utf8mb4_unicode_ci"
+	statusExpr := "CAST(latest_refund.aftersale_status AS CHAR) COLLATE utf8mb4_unicode_ci"
+
+	skuSQL := fmt.Sprintf(`
+		UPDATE order_info o
+		JOIN (
+			SELECT r.sku_order_id, r.aftersale_status
+			FROM douyin_refund_order r
+			JOIN (
+				SELECT r2.sku_order_id, MAX(%s) AS latest_key
+				FROM douyin_refund_order r2
+				WHERE r2.platform = 'douyin'
+				  AND r2.aftersale_status > 0
+				  AND r2.sku_order_id <> %s
+				GROUP BY r2.sku_order_id
+			) latest ON latest.sku_order_id COLLATE utf8mb4_unicode_ci = r.sku_order_id COLLATE utf8mb4_unicode_ci AND latest.latest_key = %s
+			WHERE r.platform = 'douyin'
+			  AND r.aftersale_status > 0
+			  AND r.sku_order_id <> %s
+		) latest_refund ON latest_refund.sku_order_id COLLATE utf8mb4_unicode_ci = o.sub_order_no COLLATE utf8mb4_unicode_ci
+		SET o.after_sale_status = %s
+		WHERE o.sub_order_no <> %s
+		  AND (o.after_sale_status IS NULL OR o.after_sale_status COLLATE utf8mb4_unicode_ci <> %s)
+	`, skuLatestSortExpr, emptyValue, skuSortExpr, emptyValue, statusExpr, emptyValue, statusExpr)
+
+	skuRes, err := g.DB().Exec(ctx, skuSQL)
+	if err != nil {
+		return 0, err
+	}
+	synced, _ := skuRes.RowsAffected()
+
+	mainSQL := fmt.Sprintf(`
+		UPDATE order_info o
+		JOIN (
+			SELECT r.shop_order_id, r.aftersale_status
+			FROM douyin_refund_order r
+			JOIN (
+				SELECT r2.shop_order_id, MAX(%s) AS latest_key
+				FROM douyin_refund_order r2
+				WHERE r2.platform = 'douyin'
+				  AND r2.aftersale_status > 0
+				  AND r2.sku_order_id = %s
+				  AND r2.shop_order_id <> %s
+				GROUP BY r2.shop_order_id
+			) latest ON latest.shop_order_id COLLATE utf8mb4_unicode_ci = r.shop_order_id COLLATE utf8mb4_unicode_ci AND latest.latest_key = %s
+			WHERE r.platform = 'douyin'
+			  AND r.aftersale_status > 0
+			  AND r.sku_order_id = %s
+			  AND r.shop_order_id <> %s
+		) latest_refund ON latest_refund.shop_order_id COLLATE utf8mb4_unicode_ci = o.main_order_no COLLATE utf8mb4_unicode_ci
+		SET o.after_sale_status = %s
+		WHERE o.main_order_no <> %s
+		  AND (o.after_sale_status IS NULL OR o.after_sale_status COLLATE utf8mb4_unicode_ci <> %s)
+	`, mainLatestSortExpr, emptyValue, emptyValue, mainSortExpr, emptyValue, emptyValue, statusExpr, emptyValue, statusExpr)
+
+	mainRes, err := g.DB().Exec(ctx, mainSQL)
+	if err != nil {
+		return synced, err
+	}
+	mainSynced, _ := mainRes.RowsAffected()
+	synced += mainSynced
+	if synced > 0 {
+		service.ClearEnrichedDouyinOrderCache()
+	}
+	return synced, nil
+}
+
+func refundStatusSortExpr(alias string) string {
+	prefix := ""
+	if alias != "" {
+		prefix = alias + "."
+	}
+	return fmt.Sprintf("CONCAT(DATE_FORMAT(COALESCE(%supdate_time, %saftersale_final_time, %saftersale_create_time, %sapply_time, %screated_at), '%%Y%%m%%d%%H%%i%%s'), LPAD(%sid, 20, '0')) COLLATE utf8mb4_unicode_ci",
+		prefix, prefix, prefix, prefix, prefix, prefix)
 }
 
 func fillRefundStoreFields(orders []model.PlatformRefundOrderItem, shopID int64, shopName string) {

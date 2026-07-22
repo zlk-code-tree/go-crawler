@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS `douyin_order_attribution` (
     `sub_order_no` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '子订单号',
     `stat_date` DATE NOT NULL COMMENT '归属日期',
     `shop_name` VARCHAR(200) NOT NULL DEFAULT '' COMMENT '店铺名称',
+    `allocated_store_name` VARCHAR(200) NOT NULL DEFAULT '' COMMENT '千川分配命中的投流店铺',
+    `blank_order_owner_name` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '空白单最终归属人快照',
     `product_id` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '商品ID',
     `source` VARCHAR(30) NOT NULL DEFAULT 'qianchuan_plan' COMMENT '归属来源',
     `account_id` BIGINT NOT NULL DEFAULT 0 COMMENT '归属达人账号ID',

@@ -161,12 +161,34 @@ var (
 				store_id VARCHAR(100) NOT NULL DEFAULT '' COMMENT '店铺ID（外部平台店铺ID）',
 				platform VARCHAR(50) NOT NULL DEFAULT 'douyin' COMMENT '平台：douyin/kuaishou/shipinhao',
 				status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0-禁用 1-启用',
+				blank_order_enabled TINYINT NOT NULL DEFAULT 1 COMMENT '是否参与空白单归属：0=否 1=是',
+				blank_order_owner_name VARCHAR(100) NOT NULL DEFAULT '' COMMENT '空白单最终归属人',
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
 				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
 				PRIMARY KEY (id),
 				UNIQUE KEY uk_store_id_platform (store_id, platform),
 				KEY idx_platform_name (platform, store_name)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='店铺表（外部平台店铺ID）'`)
+			addColumnIfMissing("store", "blank_order_enabled", "blank_order_enabled TINYINT NOT NULL DEFAULT 1 COMMENT '是否参与空白单归属：0=否 1=是' AFTER `status`")
+			addColumnIfMissing("store", "blank_order_owner_name", "blank_order_owner_name VARCHAR(100) NOT NULL DEFAULT '' COMMENT '空白单最终归属人' AFTER `blank_order_enabled`")
+			if _, err := g.DB().Exec(ctx, `
+				UPDATE store
+				SET blank_order_enabled = 1,
+				    blank_order_owner_name = '王梅雪'
+				WHERE platform = 'douyin'
+				  AND store_name IN ('天书说故事', '利云底层逻辑')
+			`); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 初始化特殊店铺空白单归属失败: %v", err)
+			}
+			if _, err := g.DB().Exec(ctx, `
+				UPDATE store
+				SET blank_order_owner_name = ''
+				WHERE platform = 'douyin'
+				  AND store_name = '闻道清北图书旗舰店'
+				  AND blank_order_owner_name = '王梅雪'
+			`); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 清理闻道清北店铺级空白单归属失败: %v", err)
+			}
 			addIndexIfMissing("store", "idx_platform_name", "KEY `idx_platform_name` (`platform`, `store_name`)")
 
 			addColumnIfMissing("tiktok_ranking_list", "shop_id", "shop_id VARCHAR(64) NOT NULL DEFAULT '' COMMENT '店铺ID' AFTER product_id")
@@ -466,6 +488,47 @@ var (
 			if seedErr != nil || seedCount["cnt"].Int() != 4 {
 				g.Log().Warningf(ctx, "[DBInit] 千川临时归属初始化未完成，需确认李百川（组）、王梅雪（组）均为启用人员: count=%d err=%v", seedCount["cnt"].Int(), seedErr)
 			}
+			g.DB().Exec(ctx, `UPDATE qianchuan_advertiser_attribution_rule
+				SET advertiser_name = '利云文化图书旗舰店-一组IP L',
+					source_account_names = '雷妈说教育,雷老师讲学业规划,汤圆老师说教育.,汤圆老师说教育.有因有果,汤圆老师讲教育有因有果,张可乐校长说学习方法,汤圆教育说-有因有果,汤圆老师数学规划圈,可乐老师来帮忙',
+					effective_start_date = '2026-06-11',
+					effective_end_date = NULL,
+					status = 1
+				WHERE advertiser_id = 1805996971742284
+					AND reason = '张文蔚/孟令饶组抖音号在李百川千川户消耗归属李百川'`)
+			g.DB().Exec(ctx, `INSERT IGNORE INTO qianchuan_advertiser_attribution_rule
+				(advertiser_id, advertiser_name, source_account_names, source_trader_id, target_trader_id,
+				effective_start_date, effective_end_date, reason, status)
+			SELECT 1805996971742284, '利云文化图书旗舰店-一组IP L',
+				'雷妈说教育,雷老师讲学业规划,汤圆老师说教育.,汤圆老师说教育.有因有果,汤圆老师讲教育有因有果,张可乐校长说学习方法,汤圆教育说-有因有果,汤圆老师数学规划圈,可乐老师来帮忙',
+				source.id, target.id, '2026-06-11', NULL,
+				'张文蔚/孟令饶组抖音号在李百川千川户消耗归属李百川', 1
+			FROM DUAL
+			JOIN trader source ON source.id = (
+				SELECT id FROM trader
+				WHERE name IN ('张文蔚/孟令饶组', '张文蔚/孟令饶') AND status = 1
+				ORDER BY (name = '张文蔚/孟令饶组') DESC, id ASC LIMIT 1
+			)
+			JOIN trader target ON target.id = (
+				SELECT id FROM trader
+				WHERE name IN ('李百川', '李百川组') AND status = 1
+				ORDER BY (name = '李百川组') DESC, id ASC LIMIT 1
+			)
+			WHERE NOT EXISTS (
+				SELECT 1 FROM qianchuan_advertiser_attribution_rule existing
+				WHERE existing.advertiser_id = 1805996971742284
+			)`)
+			liBaichuanSeedCount, liBaichuanSeedErr := g.DB().GetOne(ctx, `SELECT COUNT(1) AS cnt
+				FROM qianchuan_advertiser_attribution_rule
+				WHERE advertiser_id = 1805996971742284
+					AND target_trader_id = (
+						SELECT id FROM trader
+						WHERE name IN ('李百川', '李百川组') AND status = 1
+						ORDER BY (name = '李百川组') DESC, id ASC LIMIT 1
+					)`)
+			if liBaichuanSeedErr != nil || liBaichuanSeedCount["cnt"].Int() != 1 {
+				g.Log().Warningf(ctx, "[DBInit] 李百川千川借号归属初始化未完成，需确认李百川组、张文蔚/孟令饶组均为启用人员: count=%d err=%v", liBaichuanSeedCount["cnt"].Int(), liBaichuanSeedErr)
+			}
 
 			addColumnIfMissing("qianchuan_ad_report", "organization_id", "organization_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '组织ID（默认公司ID）' AFTER `id`")
 			addColumnIfMissing("qianchuan_ad_report", "account_id", "account_id INT(11) NOT NULL DEFAULT 0 COMMENT '内部账号ID，关联account.id' AFTER `organization_id`")
@@ -474,25 +537,76 @@ var (
 			addColumnIfMissing("qianchuan_ad_report", "trader_id", "trader_id BIGINT(20) NOT NULL DEFAULT 0 COMMENT '投手/运营ID' AFTER `department_id`")
 			addColumnIfMissing("qianchuan_ad_report", "pay_order_count", "pay_order_count BIGINT(20) NOT NULL DEFAULT 0 COMMENT '成交订单数' AFTER `convert_cost`")
 			addColumnIfMissing("qianchuan_ad_report", "create_order_count", "create_order_count BIGINT(20) NOT NULL DEFAULT 0 COMMENT '下单数' AFTER `pay_order_count`")
+			addIndexIfMissing("qianchuan_ad_report", "idx_product_stat_advertiser_ad", "KEY `idx_product_stat_advertiser_ad` (`product_id`, `stat_datetime`, `advertiser_id`, `ad_id`)")
+			addIndexIfMissing("order_info", "idx_product_submit_shop_order", "KEY `idx_product_submit_shop_order` (`product_id`, `order_submit_time`, `shop_name`, `main_order_no`)")
 
-			if err := oceanengine.SyncQianchuanTemporaryAttribution(ctx); err != nil {
-				g.Log().Warningf(ctx, "[DBInit] 同步千川临时归属失败: %v", err)
-			}
+			go func() {
+				syncCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				if err := oceanengine.SyncQianchuanTemporaryAttribution(syncCtx); err != nil {
+					g.Log().Warningf(ctx, "[DBInit] 同步千川临时归属失败: %v", err)
+				}
+			}()
 
 			// account 表：status 字段，用于支持软删除
 			addColumnIfMissing("account", "status", "status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0=已删除 1=正常'")
 			addColumnIfMissing("account", "created_at", "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'")
 			addColumnIfMissing("account", "updated_at", "updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'")
 			addColumnIfMissing("account", "bind_status", "bind_status TINYINT NOT NULL DEFAULT 0 COMMENT '绑定状态：0=未绑定，1=被绑定'")
+			addColumnIfMissing("account", "blank_order_enabled", "blank_order_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否参与空白单归属：0=否 1=是' AFTER `bind_status`")
+			addColumnIfMissing("account", "blank_order_owner_name", "blank_order_owner_name VARCHAR(100) NOT NULL DEFAULT '' COMMENT '空白单归属人；为空默认使用运营者' AFTER `blank_order_enabled`")
 			modifyColumnIfNeeded("account", "uid", "`uid` VARCHAR(100) NULL DEFAULT NULL COMMENT '达人ID（抖音UID/快手号/视频号ID）'")
 			if _, err := g.DB().Exec(ctx, "UPDATE `account` SET `uid` = NULL WHERE `uid` IS NOT NULL AND TRIM(`uid`) = ''"); err != nil {
 				g.Log().Warningf(ctx, "[DBInit] 清理空账号UID失败: %v", err)
+			}
+			if _, err := g.DB().Exec(ctx, `
+					INSERT INTO account (
+						platform, uid, account_name, platform_nickname, operator,
+						blank_order_enabled, blank_order_owner_name, status, created_at, updated_at
+					) VALUES (
+						'douyin', '2986722072732416', '欢喜图书专营店', '70228145728', '张文蔚/孟令饶组',
+						1, '张文蔚/孟令饶组', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+					)
+					ON DUPLICATE KEY UPDATE
+						uid = VALUES(uid),
+						account_name = VALUES(account_name),
+						platform_nickname = VALUES(platform_nickname),
+						operator = VALUES(operator),
+						blank_order_enabled = VALUES(blank_order_enabled),
+						blank_order_owner_name = VALUES(blank_order_owner_name),
+						status = VALUES(status),
+						updated_at = VALUES(updated_at)`); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 初始化欢喜图书专营店账号失败: %v", err)
+			}
+			if _, err := g.DB().Exec(ctx, `
+						UPDATE account
+						SET blank_order_enabled = 1,
+					    blank_order_owner_name = CASE
+							WHEN account_name IN ('天书说故事', '利云底层逻辑') THEN '王梅雪组'
+							ELSE COALESCE(NULLIF(TRIM(operator), ''), blank_order_owner_name)
+						END
+					WHERE account_name IN (
+						'闻道清北图书旗舰店',
+						'利云学习文化旗舰店',
+						'利云文化官方旗舰店',
+						'金抖云图书专营店',
+						'利云图书专营店',
+						'利云文化千玺进口图书旗舰店',
+						'欢喜图书专营店',
+						'利云成长课堂',
+						'天书说故事',
+						'利云底层逻辑',
+						'利云文化文创旗舰店',
+						'利云文化早教益智旗舰店'
+					  )`); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 初始化账号空白单归属标记失败: %v", err)
 			}
 			dropIndexIfExists("account", "uk_uid")
 
 			// account 表：唯一索引，防止重复导入
 			addIndexIfMissing("account", "uk_platform_account_name", "UNIQUE KEY `uk_platform_account_name` (`platform`, `account_name`) COMMENT '平台+账号名称唯一'")
 			addIndexIfMissing("account", "idx_bind_status", "KEY `idx_bind_status` (`bind_status`)")
+			addIndexIfMissing("account", "idx_blank_order_enabled", "KEY `idx_blank_order_enabled` (`blank_order_enabled`)")
 			addIndexIfMissing("account", "idx_platform_uid", "KEY `idx_platform_uid` (`platform`, `uid`)")
 			addIndexIfMissing("account", "idx_platform_nickname", "KEY `idx_platform_nickname` (`platform`, `platform_nickname`)")
 			addIndexIfMissing("alliance_orders", "idx_platform_short_id", "KEY `idx_platform_short_id` (`platform`, `short_id`)")
@@ -590,6 +704,23 @@ var (
 				g.Log().Warningf(ctx, "[DBInit] 清理店铺借号归属空店铺ID失败 err=%v", err)
 			}
 			if _, err := g.DB().Exec(ctx, `
+				INSERT INTO shop_account_attribution (
+					shop_id, shop_name, source_account_uid, source_account_name,
+					target_type, target_value, remark, status
+				)
+				SELECT '33415411', '闻道清北图书旗舰店', '__blank__', '空白单',
+					'operator', '王梅雪组',
+					'空白单借号归属：闻道清北图书旗舰店空白单归属王梅雪组', 1
+				WHERE NOT EXISTS (
+					SELECT 1
+					FROM shop_account_attribution
+					WHERE shop_name = '闻道清北图书旗舰店'
+					  AND source_account_uid = '__blank__'
+				)
+			`); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 初始化闻道清北空白单借号归属失败 err=%v", err)
+			}
+			if _, err := g.DB().Exec(ctx, `
 				UPDATE shop_account_attribution
 				SET remark = CONCAT(
 					'借号订单归属：',
@@ -618,6 +749,8 @@ var (
 			shop_name VARCHAR(200) NOT NULL DEFAULT '' COMMENT '店铺名称',
 			product_id VARCHAR(100) NOT NULL DEFAULT '' COMMENT '商品ID',
 			source VARCHAR(30) NOT NULL DEFAULT 'qianchuan_plan' COMMENT '归属来源',
+			allocated_store_name VARCHAR(200) NOT NULL DEFAULT '' COMMENT '千川分配命中的投流店铺',
+			blank_order_owner_name VARCHAR(100) NOT NULL DEFAULT '' COMMENT '空白单最终归属人快照',
 			account_id BIGINT NOT NULL DEFAULT 0 COMMENT '归属达人账号ID',
 			trader_id BIGINT NOT NULL DEFAULT 0 COMMENT '归属投手ID快照',
 			talent_uid VARCHAR(100) NOT NULL DEFAULT '' COMMENT '归属达人UID',
@@ -637,6 +770,35 @@ var (
 			INDEX idx_trader_date (trader_id, stat_date),
 			INDEX idx_main_order_no (main_order_no)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='抖音小店自营订单千川归属结果'`)
+			addColumnIfMissing("douyin_order_attribution", "allocated_store_name", "allocated_store_name VARCHAR(200) NOT NULL DEFAULT '' COMMENT '千川分配命中的投流店铺' AFTER `shop_name`")
+			addColumnIfMissing("douyin_order_attribution", "blank_order_owner_name", "blank_order_owner_name VARCHAR(100) NOT NULL DEFAULT '' COMMENT '空白单最终归属人快照' AFTER `allocated_store_name`")
+
+			if _, err := g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS blank_order_allocation_exception (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			order_info_id BIGINT NOT NULL DEFAULT 0 COMMENT '抖音订单明细ID',
+			main_order_no VARCHAR(100) NOT NULL DEFAULT '' COMMENT '主订单号',
+			sub_order_no VARCHAR(100) NOT NULL DEFAULT '' COMMENT '子订单号',
+			stat_date DATE DEFAULT NULL COMMENT '归属日期',
+			shop_name VARCHAR(200) NOT NULL DEFAULT '' COMMENT '空白单来源店铺',
+			product_id VARCHAR(100) NOT NULL DEFAULT '' COMMENT '商品ID',
+			exception_type VARCHAR(50) NOT NULL DEFAULT '' COMMENT '异常类型',
+			exception_reason VARCHAR(500) NOT NULL DEFAULT '' COMMENT '异常原因',
+			qianchuan_plan_snapshot JSON DEFAULT NULL COMMENT '千川计划候选快照',
+			shop_owner_snapshot JSON DEFAULT NULL COMMENT '店铺归属快照',
+			status VARCHAR(30) NOT NULL DEFAULT 'pending' COMMENT '状态：pending/resolved_auto/resolved_manual/ignored',
+			resolved_owner VARCHAR(100) NOT NULL DEFAULT '' COMMENT '人工指定归属人',
+			resolved_by VARCHAR(100) NOT NULL DEFAULT '' COMMENT '处理人',
+			resolved_at DATETIME DEFAULT NULL COMMENT '处理时间',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			UNIQUE KEY uk_order_source (order_info_id, exception_type),
+			KEY idx_status_date (status, stat_date),
+			KEY idx_shop_product_date (shop_name, product_id, stat_date),
+			KEY idx_main_order_no (main_order_no)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='空白单千川归属异常池'`); err != nil {
+				g.Log().Warningf(ctx, "[DBInit] 创建空白单千川归属异常池失败: %v", err)
+			}
 
 			// 抖店售后/退款订单独立存储表
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS douyin_refund_order (
@@ -749,6 +911,31 @@ var (
 			UNIQUE KEY uk_account_company (account_id, company_id),
 			KEY idx_advertiser_id (qianchuan_advertiser_id)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='内部账号与千川广告主映射表'`)
+
+			// 千川账户管理表：千川广告主归属到达人/投手，用于后续消耗统计归属。
+			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS qianchuan_account_owner_mapping (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			advertiser_id BIGINT(20) NOT NULL COMMENT '千川广告主ID/千川户号',
+			advertiser_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '千川户名称',
+			owner_name VARCHAR(100) NOT NULL DEFAULT '' COMMENT 'Excel中的达人/归属名称',
+			trader_id BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '匹配到的投手/达人ID，0表示未匹配或备用',
+			company_id BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '归属公司ID',
+			department_id BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '归属部门ID',
+			remark VARCHAR(500) NOT NULL DEFAULT '' COMMENT '备注',
+			status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0=停用 1=启用',
+			source_file VARCHAR(255) NOT NULL DEFAULT '' COMMENT '来源文件',
+			source_sheet VARCHAR(100) NOT NULL DEFAULT '' COMMENT '来源工作表',
+			source_row_no INT NOT NULL DEFAULT 0 COMMENT '来源行号',
+			created_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			updated_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			UNIQUE KEY uk_advertiser_id (advertiser_id),
+			KEY idx_owner_name (owner_name),
+			KEY idx_trader_id (trader_id),
+			KEY idx_status (status)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='千川账户管理表'`)
 
 			// Webhook推送配置表（按节点配置不同机器人群）
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS webhook_config (
@@ -893,6 +1080,58 @@ var (
 			 AND finance.code = 'finance'
 			JOIN sys_permission rule_menu
 			  ON rule_menu.code = 'finance.qianchuan-attribution-rule'`)
+
+			g.DB().Exec(ctx, `
+			INSERT INTO sys_permission (
+				name, code, type, parent_id, path, component, icon,
+				method, api, ext_url, hide, status, sort
+			)
+			SELECT
+				'千川账户管理',
+				'finance.qianchuan-account',
+				2,
+				finance.id,
+				'/finance/qianchuan-account',
+				'finance/qianchuan-account/index',
+				'lucide:badge-dollar-sign',
+				'',
+				'',
+				'',
+				1,
+				1,
+				5
+			FROM sys_permission finance
+			WHERE finance.code = 'finance'
+			  AND NOT EXISTS (
+			      SELECT 1 FROM sys_permission
+			      WHERE code = 'finance.qianchuan-account'
+			  )
+			LIMIT 1`)
+			g.DB().Exec(ctx, `
+			UPDATE sys_permission account_menu
+			JOIN sys_permission finance ON finance.code = 'finance'
+			SET account_menu.name = '千川账户管理',
+				account_menu.type = 2,
+				account_menu.parent_id = finance.id,
+				account_menu.path = '/finance/qianchuan-account',
+				account_menu.component = 'finance/qianchuan-account/index',
+				account_menu.icon = 'lucide:badge-dollar-sign',
+				account_menu.method = '',
+				account_menu.api = '',
+				account_menu.ext_url = '',
+				account_menu.hide = 1,
+				account_menu.status = 1,
+				account_menu.sort = 5
+			WHERE account_menu.code = 'finance.qianchuan-account'`)
+			g.DB().Exec(ctx, `
+			INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
+			SELECT DISTINCT parent_role.role_id, account_menu.id
+			FROM sys_role_permission parent_role
+			JOIN sys_permission finance
+			  ON finance.id = parent_role.permission_id
+			 AND finance.code = 'finance'
+			JOIN sys_permission account_menu
+			  ON account_menu.code = 'finance.qianchuan-account'`)
 
 			// 千川token：调用advertiser/get获取平台账户列表，再解析为千川广告主ID
 			// 注意：advertiser/get返回的是巨量引擎平台账户ID（店铺级别），
@@ -1047,6 +1286,15 @@ var (
 				group.GET("/qianchuan-attribution-rule/advertisers", qianchuanAttrCtrl.Advertisers)
 				group.GET("/qianchuan-attribution-rule/traders", qianchuanAttrCtrl.Traders)
 				group.GET("/qianchuan-attribution-rule/search-accounts", qianchuanAttrCtrl.SearchAccounts)
+
+				qianchuanAccountCtrl := system.NewQianchuanAccountOwnerController()
+				group.GET("/qianchuan-account/list", qianchuanAccountCtrl.List)
+				group.POST("/qianchuan-account/save", qianchuanAccountCtrl.Save)
+				group.POST("/qianchuan-account/delete", qianchuanAccountCtrl.Delete)
+				group.POST("/qianchuan-account/toggle", qianchuanAccountCtrl.Toggle)
+				group.GET("/qianchuan-account/owners", qianchuanAccountCtrl.Owners)
+				group.GET("/qianchuan-account/traders", qianchuanAccountCtrl.Traders)
+				group.POST("/qianchuan-account/sync-reports", qianchuanAccountCtrl.SyncReports)
 
 				// 外部达人台账 CRUD
 				externalTalentCtrl := system.NewExternalTalentController()

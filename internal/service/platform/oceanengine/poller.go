@@ -1303,6 +1303,26 @@ func (p *Poller) loadOrgMappings(ctx context.Context, advertiserIDs []int64) map
 		return result
 	}
 
+	ownerRows, ownerErr := g.DB().Model("qianchuan_account_owner_mapping owner").Ctx(ctx).
+		WhereIn("owner.advertiser_id", advertiserIDs).
+		Where("owner.status", 1).
+		Where("owner.trader_id > 0").
+		Fields("owner.advertiser_id, owner.trader_id, owner.company_id, owner.department_id").
+		All()
+	if ownerErr != nil {
+		g.Log().Warningf(ctx, "[QianchuanPoller] 查询千川账户归属管理失败: %v", ownerErr)
+	} else {
+		for _, row := range ownerRows {
+			companyID := row["company_id"].Int64()
+			result[row["advertiser_id"].Int64()] = qianchuanOrgMapping{
+				CompanyID:      companyID,
+				DepartmentID:   row["department_id"].Int64(),
+				TraderID:       row["trader_id"].Int64(),
+				OrganizationID: companyID,
+			}
+		}
+	}
+
 	rows, err := g.DB().Model("account_qianchuan_mapping aqm").
 		LeftJoin("account a", "aqm.account_id = a.id").
 		LeftJoin("trader_account_relation tar", "aqm.account_id = tar.account_id").
@@ -1316,8 +1336,12 @@ func (p *Poller) loadOrgMappings(ctx context.Context, advertiserIDs []int64) map
 		return result
 	}
 	for _, row := range rows {
+		advertiserID := row["qianchuan_advertiser_id"].Int64()
+		if _, exists := result[advertiserID]; exists {
+			continue
+		}
 		companyID := row["company_id"].Int64()
-		result[row["qianchuan_advertiser_id"].Int64()] = qianchuanOrgMapping{
+		result[advertiserID] = qianchuanOrgMapping{
 			AccountID:      row["account_id"].Int(),
 			CompanyID:      companyID,
 			DepartmentID:   fallbackDepartmentID(row["department_id"].Int64(), row["trader_group_id"].Int64()),

@@ -240,6 +240,7 @@ func (c *Client) GetAllAdPlans(ctx context.Context, advertiserID int64) ([]AdPla
 					AdvertiserId(advertiserID).
 					Filtering(models.QianchuanAdGetV10Filtering{
 						MarketingGoal: goal,
+						Status:        models.ALL_INCLUDE_DELETED_QianchuanAdGetV10FilteringStatus.Ptr(),
 					}).
 					Page(page).
 					PageSize(pageSize).
@@ -615,6 +616,9 @@ func (c *Client) GetUniPromotionPlanReport(ctx context.Context, advertiserID int
 								EndTime(endTime).
 								MarketingGoal(goal).
 								Fields(fields).
+								Filtering(models.QianchuanUniPromotionListV10Filtering{
+									Status: models.ALL_INCLUDE_DELETED_QianchuanUniPromotionListV10FilteringStatus.Ptr(),
+								}).
 								AdlabScene(scene.scene).
 								Page(page).
 								PageSize(models.Enum_100_QianchuanUniPromotionListV10PageSize).
@@ -1538,6 +1542,7 @@ func (c *Client) GetAdPlanReport(ctx context.Context, advertiserID int64, startD
 				Fields(reportFields).
 				Filtering(models.QianchuanReportAdGetV10Filtering{
 					MarketingGoal: models.ALL_QianchuanReportAdGetV10FilteringMarketingGoal,
+					Status:        models.ALL_INCLUDE_DELETED_QianchuanReportAdGetV10FilteringStatus.Ptr(),
 				}).
 				TimeGranularity(models.TIME_GRANULARITY_DAILY_QianchuanReportAdGetV10TimeGranularity).
 				Page(page).

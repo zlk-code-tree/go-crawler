@@ -858,6 +858,7 @@ func (c *QianchuanPollerController) PlanHierarchy(r *ghttp.Request) {
 		AdvertiserID: r.Get("advertiserId", int64(0)).Int64(),
 		AwemeID:      r.Get("awemeId", int64(0)).Int64(),
 		AwemeShowID:  r.Get("awemeShowId").String(),
+		TalentKey:    r.Get("talentKey").String(),
 	}
 	result, err := service.NewQianchuanPlanHierarchyService().Query(r.Context(), req)
 	if err != nil {
@@ -934,15 +935,16 @@ func (c *QianchuanPollerController) OverallReportList(r *ghttp.Request) {
 		whereSQL += " AND qopr.advertiser_id = ?"
 		args = append(args, advertiserId)
 	}
-	if traderId > 0 {
-		whereSQL += " AND qopr.trader_id = ?"
-		args = append(args, traderId)
-	} else if departmentId > 0 {
-		whereSQL += " AND qopr.department_id = ?"
-		args = append(args, departmentId)
-	} else if companyId > 0 {
-		whereSQL += " AND qopr.company_id = ?"
-		args = append(args, companyId)
+	companyScopeIDs, scopeErr := resolveOverallReportCompanyScope(ctx, companyId, departmentId, traderId)
+	if scopeErr != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "解析乘方组织范围失败: " + scopeErr.Error()})
+		return
+	}
+	if len(companyScopeIDs) > 0 {
+		whereSQL += fmt.Sprintf(" AND qopr.company_id IN (%s)", qianchuanQueryPlaceholders(len(companyScopeIDs)))
+		for _, id := range companyScopeIDs {
+			args = append(args, id)
+		}
 	}
 
 	groupSQL := `
@@ -1111,6 +1113,86 @@ func (c *QianchuanPollerController) OverallReportList(r *ghttp.Request) {
 		},
 		"msg": "ok",
 	})
+}
+
+func resolveOverallReportCompanyScope(ctx context.Context, companyId, departmentId, traderId int64) ([]int64, error) {
+	if traderId > 0 {
+		row, err := g.DB().Model("trader").Ctx(ctx).
+			Where("id", traderId).
+			Where("status", 1).
+			Fields("company_id").
+			One()
+		if err != nil || row.IsEmpty() {
+			return nil, err
+		}
+		companyId = row["company_id"].Int64()
+	} else if departmentId > 0 {
+		row, err := g.DB().Model("sys_department").Ctx(ctx).
+			Where("id", departmentId).
+			Where("status", 1).
+			Fields("company_id").
+			One()
+		if err != nil || row.IsEmpty() {
+			return nil, err
+		}
+		companyId = row["company_id"].Int64()
+	}
+	if companyId <= 0 {
+		return nil, nil
+	}
+	rootCompanyID, err := resolveOverallReportRootCompany(ctx, companyId)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := g.DB().GetAll(ctx, `
+		WITH RECURSIVE company_tree AS (
+			SELECT id FROM sys_company WHERE id = ? AND status = 1
+			UNION ALL
+			SELECT child.id
+			FROM sys_company child
+			INNER JOIN company_tree parent ON child.parent_id = parent.id
+			WHERE child.status = 1
+		)
+		SELECT id FROM company_tree
+	`, rootCompanyID)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		if id := row["id"].Int64(); id > 0 {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
+func resolveOverallReportRootCompany(ctx context.Context, companyId int64) (int64, error) {
+	currentID := companyId
+	for currentID > 0 {
+		row, err := g.DB().Model("sys_company").Ctx(ctx).
+			Where("id", currentID).
+			Where("status", 1).
+			Fields("id, parent_id").
+			One()
+		if err != nil || row.IsEmpty() {
+			return currentID, err
+		}
+		parentID := row["parent_id"].Int64()
+		if parentID <= 0 {
+			return row["id"].Int64(), nil
+		}
+		currentID = parentID
+	}
+	return companyId, nil
+}
+
+func qianchuanQueryPlaceholders(count int) string {
+	if count <= 0 {
+		return ""
+	}
+	return strings.TrimRight(strings.Repeat("?,", count), ",")
 }
 
 // OverallReportDetailList 查询千川乘方明细（达人维度） GET /api/qianchuan-poller/overall-report-detail

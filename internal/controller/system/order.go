@@ -63,6 +63,7 @@ func (c *OrderController) OrderList(r *ghttp.Request) {
 	startTime := r.Get("startTime").String()
 	endTime := r.Get("endTime").String()
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	orderService := service.NewOrderService()
 	orders, total, err := orderService.List(r.Context(), page, pageSize, keyword, shopName, orderStatus, talentId, orderType, startTime, endTime)
 	if err != nil {

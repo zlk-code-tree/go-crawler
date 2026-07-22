@@ -170,24 +170,6 @@ func (s DouyinProfitSnapshot) FinanceSummary() model.FinanceStatsSummary {
 	}
 }
 
-func isRootFinanceCompany(ctx context.Context, companyID int64) (bool, error) {
-	if companyID <= 0 {
-		return false, nil
-	}
-	row, err := g.DB().Model("sys_company").Ctx(ctx).Where("id", companyID).Fields("parent_id").One()
-	if err != nil {
-		return false, err
-	}
-	return !row.IsEmpty() && row["parent_id"].Int64() == 0, nil
-}
-
-// shouldUseFullDouyinCompanySnapshot 判断公司统计是否应覆盖全量抖音订单。
-// 只有组织树根公司能使用全量快照；具体公司节点必须按自身账号/部门归属统计，
-// 避免某个公司覆盖全部账号时把全平台千川消耗都归到该公司。
-func shouldUseFullDouyinCompanySnapshot(ctx context.Context, companyID int64) (bool, error) {
-	return isRootFinanceCompany(ctx, companyID)
-}
-
 func getNodeQianchuanAdvertiserDailyCost(ctx context.Context, nodeID int64, nodeType, startDate, endDate string) (float64, error) {
 	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	if nodeID <= 0 {
@@ -222,26 +204,19 @@ func getNodeQianchuanAdvertiserDailyCost(ctx context.Context, nodeID int64, node
 }
 
 func getCompanyQianchuanAdvertiserDailyCost(ctx context.Context, companyID int64, startDate, endDate string) (float64, error) {
-	row, err := g.DB().GetOne(ctx, `
-		WITH RECURSIVE company_tree AS (
+	row, err := g.DB().GetOne(ctx, attributedQianchuanCostCTE+`,
+		company_tree AS (
 			SELECT id FROM sys_company WHERE id = ? AND status = 1
 			UNION ALL
 			SELECT child.id
 			FROM sys_company child
 			INNER JOIN company_tree parent ON child.parent_id = parent.id
 			WHERE child.status = 1
-		),
-		scoped_advertisers AS (
-			SELECT DISTINCT qianchuan_advertiser_id
-			FROM account_qianchuan_mapping
-			WHERE company_id IN (SELECT id FROM company_tree)
 		)
-		SELECT COALESCE(SUM(report.stat_cost), 0) AS ad_cost
-		FROM qianchuan_advertiser_daily_report report
-		INNER JOIN scoped_advertisers scoped
-			ON scoped.qianchuan_advertiser_id = report.advertiser_id
-		WHERE LEFT(report.stat_datetime, 10) >= ?
-		  AND LEFT(report.stat_datetime, 10) <= ?`, companyID, startDate, endDate)
+		SELECT COALESCE(SUM(cost.stat_cost), 0) AS ad_cost
+		FROM attributed_qianchuan_cost cost
+		INNER JOIN trader owner ON owner.id = cost.resolved_trader_id AND owner.status = 1
+		WHERE owner.company_id IN (SELECT id FROM company_tree)`, startDate, endDate, startDate, endDate, companyID)
 	if err != nil {
 		return 0, fmt.Errorf("查询公司千川账户实扣消耗失败: %w", err)
 	}
@@ -249,29 +224,19 @@ func getCompanyQianchuanAdvertiserDailyCost(ctx context.Context, companyID int64
 }
 
 func getDepartmentQianchuanAdvertiserDailyCost(ctx context.Context, departmentID int64, startDate, endDate string) (float64, error) {
-	row, err := g.DB().GetOne(ctx, `
-		WITH RECURSIVE dept_tree AS (
+	row, err := g.DB().GetOne(ctx, attributedQianchuanCostCTE+`,
+		dept_tree AS (
 			SELECT id FROM sys_department WHERE id = ? AND status = 1
 			UNION ALL
 			SELECT child.id
 			FROM sys_department child
 			INNER JOIN dept_tree parent ON child.parent_id = parent.id
 			WHERE child.status = 1
-		),
-		scoped_advertisers AS (
-			SELECT DISTINCT aqm.qianchuan_advertiser_id
-			FROM trader t
-			INNER JOIN trader_account_relation tar ON tar.trader_id = t.id
-			INNER JOIN account_qianchuan_mapping aqm ON aqm.account_id = tar.account_id
-			WHERE t.status = 1
-			  AND t.group_id IN (SELECT id FROM dept_tree)
 		)
-		SELECT COALESCE(SUM(report.stat_cost), 0) AS ad_cost
-		FROM qianchuan_advertiser_daily_report report
-		INNER JOIN scoped_advertisers scoped
-			ON scoped.qianchuan_advertiser_id = report.advertiser_id
-		WHERE LEFT(report.stat_datetime, 10) >= ?
-		  AND LEFT(report.stat_datetime, 10) <= ?`, departmentID, startDate, endDate)
+		SELECT COALESCE(SUM(cost.stat_cost), 0) AS ad_cost
+		FROM attributed_qianchuan_cost cost
+		INNER JOIN trader owner ON owner.id = cost.resolved_trader_id AND owner.status = 1
+		WHERE owner.group_id IN (SELECT id FROM dept_tree)`, startDate, endDate, startDate, endDate, departmentID)
 	if err != nil {
 		return 0, fmt.Errorf("查询部门千川账户实扣消耗失败: %w", err)
 	}
@@ -279,22 +244,10 @@ func getDepartmentQianchuanAdvertiserDailyCost(ctx context.Context, departmentID
 }
 
 func getTraderQianchuanAdvertiserDailyCost(ctx context.Context, traderID int64, startDate, endDate string) (float64, error) {
-	row, err := g.DB().GetOne(ctx, `
-		WITH scoped_advertisers AS (
-			SELECT DISTINCT aqm.qianchuan_advertiser_id
-			FROM trader_account_relation tar
-			INNER JOIN account_qianchuan_mapping aqm ON aqm.account_id = tar.account_id
-			INNER JOIN account a ON a.id = tar.account_id
-			WHERE tar.trader_id = ?
-			  AND a.platform = 'douyin'
-			  AND a.status = 1
-		)
-		SELECT COALESCE(SUM(report.stat_cost), 0) AS ad_cost
-		FROM qianchuan_advertiser_daily_report report
-		INNER JOIN scoped_advertisers scoped
-			ON scoped.qianchuan_advertiser_id = report.advertiser_id
-		WHERE LEFT(report.stat_datetime, 10) >= ?
-		  AND LEFT(report.stat_datetime, 10) <= ?`, traderID, startDate, endDate)
+	row, err := g.DB().GetOne(ctx, attributedQianchuanCostCTE+`
+		SELECT COALESCE(SUM(stat_cost), 0) AS ad_cost
+		FROM attributed_qianchuan_cost
+		WHERE resolved_trader_id = ?`, startDate, endDate, startDate, endDate, traderID)
 	if err != nil {
 		return 0, fmt.Errorf("查询投手千川账户实扣消耗失败: %w", err)
 	}

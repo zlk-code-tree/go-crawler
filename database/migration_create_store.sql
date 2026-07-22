@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS `store` (
   `store_id` varchar(100) NOT NULL DEFAULT '' COMMENT '店铺ID（外部平台店铺ID）',
   `platform` varchar(50) NOT NULL DEFAULT 'douyin' COMMENT '平台：douyin/kuaishou/shipinhao',
   `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态：0-禁用 1-启用',
+  `blank_order_enabled` tinyint NOT NULL DEFAULT 1 COMMENT '是否参与空白单归属：0=否 1=是',
+  `blank_order_owner_name` varchar(100) NOT NULL DEFAULT '' COMMENT '空白单最终归属人',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),

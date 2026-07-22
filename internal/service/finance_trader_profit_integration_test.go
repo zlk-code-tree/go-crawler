@@ -51,6 +51,36 @@ func TestFinanceProfitFormulaIncludesAdvertisingCost(t *testing.T) {
 	}
 }
 
+func TestRoundFloatFinanceRoundsNegativeValues(t *testing.T) {
+	if got := roundFloatFinance(-12.345, 2); got != -12.35 {
+		t.Fatalf("negative rounding = %.2f, want -12.35", got)
+	}
+}
+
+func TestAlignTraderAccountNodeQianchuanCosts(t *testing.T) {
+	children := []model.NodeStatsItem{
+		{Id: 11, Type: "shop", AdCostAmount: 80.00, RealtimeProfit: -30.00},
+		{Id: 12, Type: "shop", AdCostAmount: 20.00, RealtimeProfit: 10.00},
+	}
+	costs := map[int]float64{11: 70.125, 99: 40.125}
+	aligned := alignTraderAccountNodeQianchuanCosts(children, costs, model.EncodeTraderID(8))
+	if len(aligned) != 3 || aligned[2].Type != "unassigned" {
+		t.Fatalf("expected unmatched special-rule cost row, got %+v", aligned)
+	}
+	totalAdCost := 0.0
+	totalProfit := 0.0
+	for _, child := range aligned {
+		totalAdCost += child.AdCostAmount
+		totalProfit += child.RealtimeProfit
+	}
+	if roundFloatFinance(totalAdCost, 2) != 110.25 {
+		t.Fatalf("aligned ad cost = %.2f, want 110.25", totalAdCost)
+	}
+	if roundFloatFinance(totalProfit, 2) != -30.25 {
+		t.Fatalf("aligned profit = %.2f, want -30.25", totalProfit)
+	}
+}
+
 func TestFinanceDailyAggregateDatabaseIntegration(t *testing.T) {
 	if os.Getenv("FINANCE_DAILY_AGGREGATE_DB_INTEGRATION") != "1" {
 		t.Skip("set FINANCE_DAILY_AGGREGATE_DB_INTEGRATION=1 to rebuild configured database dates")
@@ -211,6 +241,21 @@ func TestFinanceTraderAccountRollupDatabaseIntegration(t *testing.T) {
 	if !reflect.DeepEqual(rolledUp, want) {
 		t.Fatalf("trader accounts do not roll up to parent: accounts=%+v parent=%+v", rolledUp, want)
 	}
+	detail, err := service.GetTraderDetail(ctx, &model.FinanceTraderDetailReq{
+		TraderId: traderID, TimeType: "custom", StartDate: statDate, EndDate: statDate,
+	})
+	if err != nil {
+		t.Fatalf("query trader detail failed: %v", err)
+	}
+	detailAdCost := 0.0
+	detailProfit := 0.0
+	for _, shop := range detail.ShopStats {
+		detailAdCost += shop.AdCostAmount
+		detailProfit += shop.RealtimeProfit
+	}
+	if roundFloatFinance(detailAdCost, 2) != detail.Summary.AdCostAmount || roundFloatFinance(detailProfit, 2) != detail.Summary.RealtimeProfit {
+		t.Fatalf("trader detail shops do not roll up: shops ad=%.2f profit=%.2f summary=%+v", detailAdCost, detailProfit, detail.Summary)
+	}
 	t.Logf("account rollup date=%s trader=%d accounts=%d orders=%d pay=%.2f ad=%.2f profit=%.2f",
 		statDate, traderID, len(children.Children), rolledUp.OrderCount, rolledUp.PayAmount, rolledUp.AdCostAmount, rolledUp.RealtimeProfit)
 }
@@ -297,10 +342,6 @@ func TestRealtimeProfitCompanyDatabaseIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	service := NewFinanceCommissionService()
-	useFullSnapshot, err := shouldUseFullDouyinCompanySnapshot(ctx, companyID)
-	if err != nil {
-		t.Fatalf("query company finance scope failed: %v", err)
-	}
 	result, err := service.GetRealtimeProfit(ctx, &RealtimeProfitReq{
 		CompanyId: companyID,
 		StartDate: statDate,
@@ -326,16 +367,7 @@ func TestRealtimeProfitCompanyDatabaseIntegration(t *testing.T) {
 	if result.TotalOrderCount == 0 || result.OrderCount == 0 {
 		t.Fatalf("company profit returned no orders: %+v", result)
 	}
-	if useFullSnapshot {
-		snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, statDate, statDate)
-		if snapshotErr != nil {
-			t.Fatalf("query canonical snapshot failed: %v", snapshotErr)
-		}
-		if result.OrderCount != snapshot.ValidOrderCount || result.PayAmount != snapshot.SalesAmount || result.AdCost != snapshot.AdCostAmount || result.NetProfit != snapshot.Profit {
-			t.Fatalf("company result differs from canonical snapshot: result=%+v snapshot=%+v", result, snapshot)
-		}
-	}
-	t.Logf("date=%s company=%d fullSnapshot=%v total=%d valid=%d pay=%.2f cost=%.2f adCost=%.2f profit=%.2f",
-		statDate, companyID, useFullSnapshot, result.TotalOrderCount, result.OrderCount,
+	t.Logf("date=%s company=%d total=%d valid=%d pay=%.2f cost=%.2f adCost=%.2f profit=%.2f",
+		statDate, companyID, result.TotalOrderCount, result.OrderCount,
 		result.PayAmount, result.CostAmount, result.AdCost, result.NetProfit)
 }

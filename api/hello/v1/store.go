@@ -34,15 +34,17 @@ type StoreDetailRes = model.Store
 
 // StoreSaveReq 保存店铺请求
 type StoreSaveReq struct {
-	g.Meta          `path:"/store/save" method:"post" tags:"Store" summary:"保存店铺"`
-	Id              int    `json:"id" dc:"店铺ID（更新时传）"`
-	StoreName       string `json:"storeName" v:"required#店铺名称不能为空" dc:"店铺名称"`
-	StoreId         string `json:"storeId" v:"required#店铺ID不能为空" dc:"店铺ID（外部平台店铺ID）"`
-	Platform        string `json:"platform" v:"required|in:douyin,kuaishou,shipinhao#平台不能为空|平台非法" dc:"平台"`
-	Status          int    `json:"status" d:"1" dc:"状态：0-禁用 1-启用"`
-	Author          int    `json:"author" d:"0" dc:"授权状态：0-未授权 1-已授权"`
-	WechatAppId     string `json:"wechatAppId" dc:"视频号店铺微信小店 AppID"`
-	WechatAppSecret string `json:"wechatAppSecret" dc:"视频号店铺微信小店 AppSecret"`
+	g.Meta              `path:"/store/save" method:"post" tags:"Store" summary:"保存店铺"`
+	Id                  int    `json:"id" dc:"店铺ID（更新时传）"`
+	StoreName           string `json:"storeName" v:"required#店铺名称不能为空" dc:"店铺名称"`
+	StoreId             string `json:"storeId" v:"required#店铺ID不能为空" dc:"店铺ID（外部平台店铺ID）"`
+	Platform            string `json:"platform" v:"required|in:douyin,kuaishou,shipinhao#平台不能为空|平台非法" dc:"平台"`
+	Status              int    `json:"status" d:"1" dc:"状态：0-禁用 1-启用"`
+	Author              int    `json:"author" d:"0" dc:"授权状态：0-未授权 1-已授权"`
+	BlankOrderEnabled   int    `json:"blankOrderEnabled" d:"1" dc:"是否参与空白单归属：0-否 1-是"`
+	BlankOrderOwnerName string `json:"blankOrderOwnerName" dc:"空白单最终归属人"`
+	WechatAppId         string `json:"wechatAppId" dc:"视频号店铺微信小店 AppID"`
+	WechatAppSecret     string `json:"wechatAppSecret" dc:"视频号店铺微信小店 AppSecret"`
 }
 
 // StoreSaveRes 保存店铺响应

@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	v1 "go-crawler/api/hello/v1"
 	"go-crawler/internal/model"
 	"go-crawler/internal/service"
+	douyinSvc "go-crawler/internal/service/platform/douyin"
 	"go-crawler/internal/service/platform/oceanengine"
 
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -25,6 +28,18 @@ func NewFinanceController() *FinanceController {
 	return &FinanceController{}
 }
 
+const douyinRefundQueryRefreshMinInterval = time.Minute
+const douyinRefundLocalSyncMinInterval = 15 * time.Second
+
+var (
+	douyinRefundQueryRefreshMu          sync.Mutex
+	douyinRefundQueryRefreshRunning     bool
+	douyinRefundQueryRefreshLastStarted time.Time
+	douyinRefundLocalSyncMu             sync.Mutex
+	douyinRefundLocalSyncRunning        bool
+	douyinRefundLocalSyncLastStarted    time.Time
+)
+
 func financeOrgScopeFromRequest(r *ghttp.Request) service.FinanceOrgScope {
 	return service.FinanceOrgScope{
 		CompanyId:    r.Get("company_id", r.Get("companyId", 0).Int64()).Int64(),
@@ -33,8 +48,95 @@ func financeOrgScopeFromRequest(r *ghttp.Request) service.FinanceOrgScope {
 	}
 }
 
+func refreshDouyinRefundOrdersForFinanceQuery(ctx context.Context, platform string) {
+	normalizedPlatform := strings.ToLower(strings.TrimSpace(platform))
+	if normalizedPlatform != "" && normalizedPlatform != "douyin" && normalizedPlatform != "all" && normalizedPlatform != "全部" {
+		return
+	}
+
+	triggerDouyinRefundLocalSyncAsync(ctx)
+	triggerDouyinRefundRefreshAsync(ctx)
+}
+
+func triggerDouyinRefundLocalSyncAsync(ctx context.Context) {
+	now := time.Now()
+	douyinRefundLocalSyncMu.Lock()
+	if douyinRefundLocalSyncRunning {
+		douyinRefundLocalSyncMu.Unlock()
+		g.Log().Debug(ctx, "[DouyinRefundRefresh] 本地退款状态同步正在执行，跳过本次触发")
+		return
+	}
+	if !douyinRefundLocalSyncLastStarted.IsZero() && now.Sub(douyinRefundLocalSyncLastStarted) < douyinRefundLocalSyncMinInterval {
+		douyinRefundLocalSyncMu.Unlock()
+		return
+	}
+	douyinRefundLocalSyncRunning = true
+	douyinRefundLocalSyncLastStarted = now
+	douyinRefundLocalSyncMu.Unlock()
+
+	go func() {
+		bgCtx := context.Background()
+		defer func() {
+			douyinRefundLocalSyncMu.Lock()
+			douyinRefundLocalSyncRunning = false
+			douyinRefundLocalSyncMu.Unlock()
+		}()
+
+		if synced, err := douyinSvc.SyncRefundStatusesToOrders(bgCtx); err != nil {
+			g.Log().Warningf(bgCtx, "[DouyinRefundRefresh] 后台同步本地退款状态失败: %v", err)
+		} else if synced > 0 {
+			g.Log().Infof(bgCtx, "[DouyinRefundRefresh] 后台已同步%d条本地退款状态", synced)
+		}
+	}()
+}
+
+func triggerDouyinRefundRefreshAsync(ctx context.Context) {
+	now := time.Now()
+	douyinRefundQueryRefreshMu.Lock()
+	if douyinRefundQueryRefreshRunning {
+		douyinRefundQueryRefreshMu.Unlock()
+		g.Log().Debug(ctx, "[DouyinRefundRefresh] 后台退款刷新正在执行，跳过本次触发")
+		return
+	}
+	if !douyinRefundQueryRefreshLastStarted.IsZero() && now.Sub(douyinRefundQueryRefreshLastStarted) < douyinRefundQueryRefreshMinInterval {
+		douyinRefundQueryRefreshMu.Unlock()
+		return
+	}
+	douyinRefundQueryRefreshRunning = true
+	douyinRefundQueryRefreshLastStarted = now
+	douyinRefundQueryRefreshMu.Unlock()
+
+	go func() {
+		bgCtx := context.Background()
+		defer func() {
+			douyinRefundQueryRefreshMu.Lock()
+			douyinRefundQueryRefreshRunning = false
+			douyinRefundQueryRefreshMu.Unlock()
+		}()
+
+		cst := time.FixedZone("CST", 8*3600)
+		end := time.Now().In(cst)
+		start := time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, cst)
+		result, err := douyinSvc.NewRefundPullService().Pull(bgCtx, douyinSvc.RefundPullParams{
+			StartTime:     start.Format("2006-01-02 15:04:05"),
+			EndTime:       end.Format("2006-01-02 15:04:05"),
+			StartPage:     0,
+			Concurrency:   10,
+			UseUpdateTime: true,
+		})
+		if err != nil {
+			g.Log().Warningf(bgCtx, "[DouyinRefundRefresh] 后台刷新抖音退款订单失败: %v", err)
+			return
+		}
+		if result != nil {
+			g.Log().Infof(bgCtx, "[DouyinRefundRefresh] 后台刷新抖音退款订单完成: saved=%d synced=%d", result.TotalSaved, result.SyncedOrders)
+		}
+	}()
+}
+
 // CommissionStats 获取佣金统计 GET /api/finance/commission-stats
 func (c *FinanceController) CommissionStats(ctx context.Context, req *v1.FinanceStatsReq) (res *v1.FinanceStatsRes, err error) {
+	refreshDouyinRefundOrdersForFinanceQuery(ctx, req.Platform)
 	financeService := service.NewFinanceCommissionService()
 
 	statsReq := &model.FinanceStatsReq{
@@ -56,6 +158,7 @@ func (c *FinanceController) CommissionStats(ctx context.Context, req *v1.Finance
 
 // CommissionChildren 获取下级节点统计 GET /api/finance/commission-children
 func (c *FinanceController) CommissionChildren(ctx context.Context, req *v1.FinanceChildrenReq) (res *v1.FinanceChildrenRes, err error) {
+	refreshDouyinRefundOrdersForFinanceQuery(ctx, req.Platform)
 	financeService := service.NewFinanceCommissionService()
 
 	childrenReq := &model.FinanceChildrenReq{
@@ -77,6 +180,7 @@ func (c *FinanceController) CommissionChildren(ctx context.Context, req *v1.Fina
 
 // TraderDetail 获取投手详情统计 GET /api/finance/trader-detail
 func (c *FinanceController) TraderDetail(ctx context.Context, req *v1.FinanceTraderDetailReq) (res *v1.FinanceTraderDetailRes, err error) {
+	refreshDouyinRefundOrdersForFinanceQuery(ctx, "")
 	financeService := service.NewFinanceCommissionService()
 
 	detailReq := &model.FinanceTraderDetailReq{
@@ -96,6 +200,7 @@ func (c *FinanceController) TraderDetail(ctx context.Context, req *v1.FinanceTra
 
 // ShopDetail 获取账号明细统计 GET /api/finance/shop-detail
 func (c *FinanceController) ShopDetail(ctx context.Context, req *v1.FinanceShopDetailReq) (res *v1.FinanceShopDetailRes, err error) {
+	refreshDouyinRefundOrdersForFinanceQuery(ctx, "")
 	financeService := service.NewFinanceCommissionService()
 
 	detailReq := &model.FinanceShopDetailReq{
@@ -165,6 +270,7 @@ func (c *FinanceController) SetQianchuanPlanInferenceSetting(ctx context.Context
 
 // TraderOrders 获取投手订单列表 GET /api/finance/trader-orders
 func (c *FinanceController) TraderOrders(ctx context.Context, req *v1.FinanceTraderOrdersReq) (res *v1.FinanceTraderOrdersRes, err error) {
+	refreshDouyinRefundOrdersForFinanceQuery(ctx, "")
 	financeService := service.NewFinanceCommissionService()
 
 	ordersReq := &model.FinanceTraderOrdersReq{
@@ -186,6 +292,7 @@ func (c *FinanceController) TraderOrders(ctx context.Context, req *v1.FinanceTra
 
 // TraderPlatformStats 获取投手平台统计明细 GET /api/finance/trader-platform-stats
 func (c *FinanceController) TraderPlatformStats(ctx context.Context, req *v1.FinanceTraderPlatformStatsReq) (res *v1.FinanceTraderPlatformStatsRes, err error) {
+	refreshDouyinRefundOrdersForFinanceQuery(ctx, "")
 	financeService := service.NewFinanceCommissionService()
 
 	statsReq := &model.FinanceTraderPlatformStatsReq{
@@ -252,6 +359,7 @@ func (c *FinanceController) TraderExport(r *ghttp.Request) {
 		return
 	}
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	financeService := service.NewFinanceCommissionService()
 	filename, err := financeService.ExportTraderOrders(r.Context(), traderId, timeType, startDate, endDate)
 	if err != nil {
@@ -267,6 +375,7 @@ func (c *FinanceController) TraderExport(r *ghttp.Request) {
 
 // AccountOrders 获取账号订单列表 GET /api/finance/account-orders
 func (c *FinanceController) AccountOrders(ctx context.Context, req *v1.FinanceAccountOrdersReq) (res *v1.FinanceAccountOrdersRes, err error) {
+	refreshDouyinRefundOrdersForFinanceQuery(ctx, "")
 	financeService := service.NewFinanceCommissionService()
 	result, err := financeService.GetAccountOrderList(ctx, &model.FinanceAccountOrdersReq{
 		AccountId: req.AccountId,
@@ -294,6 +403,7 @@ func (c *FinanceController) AccountExport(r *ghttp.Request) {
 		return
 	}
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	financeService := service.NewFinanceCommissionService()
 	filename, err := financeService.ExportAccountOrders(r.Context(), accountId, timeType, startDate, endDate)
 	if err != nil {
@@ -317,6 +427,7 @@ func (c *FinanceController) CostRankingExport(r *ghttp.Request) {
 	dimension := r.Get("dimension", "trader").String()
 	scope := financeOrgScopeFromRequest(r)
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	filename, err := service.NewFinanceCommissionService().ExportCostRanking(r.Context(), startDate, endDate, dimension, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
@@ -337,6 +448,7 @@ func (c *FinanceController) AuthorCostRankingExport(r *ghttp.Request) {
 	}
 	scope := financeOrgScopeFromRequest(r)
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	filename, err := service.NewFinanceCommissionService().ExportAuthorCostRanking(r.Context(), startDate, endDate, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
@@ -362,6 +474,7 @@ func (c *FinanceController) CostDetailExport(r *ghttp.Request) {
 		return
 	}
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	filename, err := service.NewFinanceCommissionService().ExportCostDetails(r.Context(), startDate, endDate, dimension, id)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
@@ -383,6 +496,7 @@ func (c *FinanceController) StoreCostDetailExport(r *ghttp.Request) {
 	storeId := r.Get("storeId", 0).Int64()
 	scope := financeOrgScopeFromRequest(r)
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	filename, err := service.NewFinanceCommissionService().ExportStoreCostDetail(r.Context(), startDate, endDate, storeId, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
@@ -403,6 +517,7 @@ func (c *FinanceController) StoreCostAllDetailExport(r *ghttp.Request) {
 	}
 	scope := financeOrgScopeFromRequest(r)
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	filename, err := service.NewFinanceCommissionService().ExportAllStoreCostDetail(r.Context(), startDate, endDate, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
@@ -424,6 +539,7 @@ func (c *FinanceController) SubjectCostDetailExport(r *ghttp.Request) {
 	subjectId := r.Get("subjectId", 0).Int64()
 	scope := financeOrgScopeFromRequest(r)
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	filename, err := service.NewFinanceCommissionService().ExportSubjectCostDetail(r.Context(), startDate, endDate, subjectId, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
@@ -520,6 +636,7 @@ func (c *FinanceController) TodayCost(r *ghttp.Request) {
 		return
 	}
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	financeService := service.NewFinanceCommissionService()
 	result, err := financeService.GetRealtimeProfit(r.Context(), &service.RealtimeProfitReq{
 		TraderId:     traderId,
@@ -549,6 +666,7 @@ func (c *FinanceController) CostRanking(r *ghttp.Request) {
 	limit := r.Get("limit", 20).Int()
 	scope := financeOrgScopeFromRequest(r)
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	financeService := service.NewFinanceCommissionService()
 	result, err := financeService.GetCostRanking(r.Context(), startDate, endDate, dimension, limit, scope)
 	if err != nil {
@@ -569,6 +687,7 @@ func (c *FinanceController) StoreCostStats(r *ghttp.Request) {
 	limit := r.Get("limit", 100).Int()
 	scope := financeOrgScopeFromRequest(r)
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	result, err := service.NewFinanceCommissionService().GetStoreCostStats(r.Context(), startDate, endDate, limit, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
@@ -598,6 +717,7 @@ func (c *FinanceController) StoreCostDetail(r *ghttp.Request) {
 	}
 	scope := financeOrgScopeFromRequest(r)
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	list, total, err := service.NewFinanceCommissionService().GetStoreCostDetail(r.Context(), startDate, endDate, storeId, page, pageSize, scope)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
@@ -618,6 +738,7 @@ func (c *FinanceController) SubjectCostStats(r *ghttp.Request) {
 	limit := r.Get("limit", 10).Int()
 	scope := financeOrgScopeFromRequest(r)
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	financeService := service.NewFinanceCommissionService()
 	result, err := financeService.GetSubjectCostStats(r.Context(), startDate, endDate, limit, scope)
 	if err != nil {
@@ -649,6 +770,7 @@ func (c *FinanceController) SubjectCostDetail(r *ghttp.Request) {
 	}
 	scope := financeOrgScopeFromRequest(r)
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	financeService := service.NewFinanceCommissionService()
 	list, total, err := financeService.GetSubjectCostDetail(r.Context(), startDate, endDate, subjectId, page, pageSize, scope)
 	if err != nil {
@@ -684,6 +806,7 @@ func (c *FinanceController) AuthorCostRanking(r *ghttp.Request) {
 	}
 	scope := financeOrgScopeFromRequest(r)
 
+	refreshDouyinRefundOrdersForFinanceQuery(r.Context(), "")
 	financeService := service.NewFinanceCommissionService()
 	list, total, err := financeService.GetAuthorCostRanking(r.Context(), startDate, endDate, page, pageSize, scope)
 	if err != nil {

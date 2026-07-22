@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -189,16 +190,32 @@ func orderListDouyinAccountExpr() string {
 }
 
 func orderListTeamOwnerExpr(alias string) string {
+	talentExpr := orderListTalentUIDExpr(alias)
 	return fmt.Sprintf(`COALESCE(
 		(SELECT saa.target_value
 		 FROM shop_account_attribution saa
 		 WHERE %s
 		 ORDER BY CASE WHEN COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') != '' THEN 0 ELSE 1 END
 		 LIMIT 1),
+		(SELECT saa.target_value
+		 FROM shop_account_attribution saa
+		 WHERE COALESCE(%s, '') = ''
+		   AND saa.status = 1
+		   AND saa.source_account_uid = '__blank__'
+		   AND %s
+		 ORDER BY CASE WHEN COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') != '' THEN 0 ELSE 1 END
+		 LIMIT 1),
+		(SELECT MIN(saa.target_value)
+		 FROM shop_account_attribution saa
+		 WHERE COALESCE(%s, '') = ''
+		   AND %s
+		 GROUP BY COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), saa.shop_name)
+		 HAVING COUNT(DISTINCT CONCAT(saa.target_type, ':', TRIM(saa.target_value))) = 1
+		 LIMIT 1),
 		NULLIF(au.operator, ''),
 		NULLIF(an.operator, ''),
 		''
-	)`, shopAccountAttributionRuleSQL(alias, orderListTalentUIDExpr(alias)))
+	)`, shopAccountAttributionRuleSQL(alias, talentExpr), talentExpr, shopAccountAttributionShopRuleSQL(alias), talentExpr, shopAccountAttributionShopRuleSQL(alias))
 }
 
 func orderListCommissionExpr(alias string) string {
@@ -449,6 +466,8 @@ func orderListMatchFieldLabel(field string) string {
 		return "抖音号"
 	case "shop_account":
 		return "店铺账号"
+	case "shop_account_blank":
+		return "店铺借号空白单"
 	case "qianchuan_plan":
 		return "千川计划"
 	case "qianchuan_unique":
@@ -597,12 +616,26 @@ func orderListCompositeKey(shopName, talentUID string) string {
 }
 
 type shopAccountAttributionTarget struct {
-	TargetValue string
-	TraderID    int64
+	TargetValue      string
+	TraderID         int64
+	AccountID        int64
+	AccountUID       string
+	AccountName      string
+	PlatformNickname string
+	Operator         string
+	CompanyName      string
 }
 
 func orderListCompositeShopIDKey(shopID, talentUID string) string {
 	return "shop_id:" + strings.TrimSpace(shopID) + "\x00" + talentUID
+}
+
+func orderListShopAttributionIDKey(shopID string) string {
+	return "shop_id:" + strings.TrimSpace(shopID)
+}
+
+func orderListShopAttributionNameKey(shopName string) string {
+	return "shop_name:" + orderListNormalizedLookupKey(shopName)
 }
 
 func orderListLookupAttributionTarget(attributionMap map[string]shopAccountAttributionTarget, shopID, shopName, talentUID string) (shopAccountAttributionTarget, bool) {
@@ -616,8 +649,19 @@ func orderListLookupAttributionTarget(attributionMap map[string]shopAccountAttri
 	return target, ok
 }
 
-func shopAccountAttributionRuleSQL(orderAlias, talentExpr string) string {
-	storeIDExpr := fmt.Sprintf(`COALESCE((
+func orderListLookupShopAttributionTarget(attributionMap map[string]shopAccountAttributionTarget, shopID, shopName string) (shopAccountAttributionTarget, bool) {
+	shopID = strings.TrimSpace(shopID)
+	if shopID != "" {
+		if target, ok := attributionMap[orderListShopAttributionIDKey(shopID)]; ok {
+			return target, true
+		}
+	}
+	target, ok := attributionMap[orderListShopAttributionNameKey(shopName)]
+	return target, ok
+}
+
+func shopAccountAttributionStoreIDExpr(orderAlias string) string {
+	return fmt.Sprintf(`COALESCE((
 		SELECT st.store_id
 		FROM store st
 		WHERE st.platform = 'douyin'
@@ -626,12 +670,20 @@ func shopAccountAttributionRuleSQL(orderAlias, talentExpr string) string {
 		ORDER BY st.id ASC
 		LIMIT 1
 	), '')`, orderAlias)
-	return fmt.Sprintf(`saa.status = 1
-		   AND saa.source_account_uid COLLATE utf8mb4_unicode_ci = %s COLLATE utf8mb4_unicode_ci
-		   AND (
+}
+
+func shopAccountAttributionShopRuleSQL(orderAlias string) string {
+	storeIDExpr := shopAccountAttributionStoreIDExpr(orderAlias)
+	return fmt.Sprintf(`(
 		        (COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') != '' AND saa.shop_id COLLATE utf8mb4_unicode_ci = %s COLLATE utf8mb4_unicode_ci)
 		        OR (COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') = '' AND saa.shop_name COLLATE utf8mb4_unicode_ci = %s.shop_name COLLATE utf8mb4_unicode_ci)
-		   )`, talentExpr, storeIDExpr, orderAlias)
+		   )`, storeIDExpr, orderAlias)
+}
+
+func shopAccountAttributionRuleSQL(orderAlias, talentExpr string) string {
+	return fmt.Sprintf(`saa.status = 1
+		   AND saa.source_account_uid COLLATE utf8mb4_unicode_ci = %s COLLATE utf8mb4_unicode_ci
+		   AND %s`, talentExpr, shopAccountAttributionShopRuleSQL(orderAlias))
 }
 
 func orderListExternalMatchKey(shopName, value string) string {
@@ -671,6 +723,30 @@ func orderListResolveExternalTalent(shopName, uid, showID, talentName string, ex
 
 func orderListQianchuanMatchKey(statDate, shopName, productID string) string {
 	return strings.TrimSpace(statDate) + "\x00" + strings.TrimSpace(shopName) + "\x00" + strings.TrimSpace(productID)
+}
+
+func orderListQianchuanProductMatchKey(statDate, productID string) string {
+	return strings.TrimSpace(statDate) + "\x00" + strings.TrimSpace(productID)
+}
+
+func orderListUsesAllocatedBlankRefundRate(order g.Map) bool {
+	switch strings.TrimSpace(gconv.String(order["profitAttributionSource"])) {
+	case "qianchuan_plan", "shop_account_blank":
+		return strings.TrimSpace(gconv.String(order["originalTalentId"])) == ""
+	default:
+		return false
+	}
+}
+
+func orderListAllocatedBlankRefundCost(order g.Map) float64 {
+	if !orderListUsesAllocatedBlankRefundRate(order) {
+		return 0
+	}
+	rate := gconv.Float64(order["linkRefundCostRate"])
+	if rate <= 0 {
+		return 0
+	}
+	return gconv.Float64(order["productCost"]) * rate
 }
 
 func orderListStatTimeExpr(alias string) string {
@@ -797,6 +873,112 @@ func orderListExactWeightedAssignments(scopeKey string, orderKeys []string, rati
 	for i := 0; allocated < len(uniqueKeys); i++ {
 		quotas[remainders[i%len(remainders)].index]++
 		allocated++
+	}
+
+	sort.SliceStable(uniqueKeys, func(i, j int) bool {
+		left := sha256.Sum256([]byte(scopeKey + "\x00" + uniqueKeys[i]))
+		right := sha256.Sum256([]byte(scopeKey + "\x00" + uniqueKeys[j]))
+		if left == right {
+			return uniqueKeys[i] < uniqueKeys[j]
+		}
+		return string(left[:]) < string(right[:])
+	})
+
+	position := 0
+	for ownerIndex, quota := range quotas {
+		for count := 0; count < quota && position < len(uniqueKeys); count++ {
+			assignments[uniqueKeys[position]] = ownerIndex
+			position++
+		}
+	}
+	return assignments
+}
+
+func orderListExactWeightedAssignmentsWithCaps(scopeKey string, orderKeys []string, ratios []float64, caps []int) map[string]int {
+	assignments := make(map[string]int)
+	if len(orderKeys) == 0 || len(ratios) == 0 || len(ratios) != len(caps) {
+		return assignments
+	}
+
+	uniqueKeys := make([]string, 0, len(orderKeys))
+	seen := make(map[string]struct{}, len(orderKeys))
+	for _, orderKey := range orderKeys {
+		if orderKey == "" {
+			continue
+		}
+		if _, exists := seen[orderKey]; exists {
+			continue
+		}
+		seen[orderKey] = struct{}{}
+		uniqueKeys = append(uniqueKeys, orderKey)
+	}
+	if len(uniqueKeys) == 0 {
+		return assignments
+	}
+
+	totalWeight := 0.0
+	totalCap := 0
+	for i, ratio := range ratios {
+		if ratio <= 0 || caps[i] <= 0 {
+			continue
+		}
+		totalWeight += ratio
+		totalCap += caps[i]
+	}
+	if totalWeight <= 0 || totalCap <= 0 {
+		return assignments
+	}
+
+	target := len(uniqueKeys)
+	if totalCap < target {
+		target = totalCap
+	}
+
+	type remainderItem struct {
+		index     int
+		remainder float64
+	}
+	quotas := make([]int, len(ratios))
+	remainders := make([]remainderItem, 0, len(ratios))
+	allocated := 0
+	for i, ratio := range ratios {
+		if ratio <= 0 || caps[i] <= 0 {
+			continue
+		}
+		exactQuota := float64(target) * ratio / totalWeight
+		baseQuota := int(math.Floor(exactQuota))
+		if baseQuota > caps[i] {
+			baseQuota = caps[i]
+		}
+		quotas[i] = baseQuota
+		allocated += baseQuota
+		if quotas[i] < caps[i] {
+			remainders = append(remainders, remainderItem{index: i, remainder: exactQuota - math.Floor(exactQuota)})
+		}
+	}
+
+	sort.SliceStable(remainders, func(i, j int) bool {
+		if math.Abs(remainders[i].remainder-remainders[j].remainder) > 1e-12 {
+			return remainders[i].remainder > remainders[j].remainder
+		}
+		return remainders[i].index < remainders[j].index
+	})
+	for allocated < target {
+		progressed := false
+		for _, item := range remainders {
+			if quotas[item.index] >= caps[item.index] {
+				continue
+			}
+			quotas[item.index]++
+			allocated++
+			progressed = true
+			if allocated >= target {
+				break
+			}
+		}
+		if !progressed {
+			break
+		}
 	}
 
 	sort.SliceStable(uniqueKeys, func(i, j int) bool {
@@ -1002,8 +1184,90 @@ func buildTimeRangeWhere(column, startTime, endTime string) (string, []interface
 	return strings.Join(whereParts, " AND "), params
 }
 
+func (s *OrderService) loadDouyinLinkRefundCostRates(ctx context.Context, rows gdb.Result) (map[string]float64, error) {
+	rates := make(map[string]float64)
+	if len(rows) == 0 {
+		return rates, nil
+	}
+
+	productSet := make(map[string]struct{})
+	products := make([]string, 0)
+	startDate := ""
+	endExclusive := ""
+	for _, row := range rows {
+		statDate := orderListStatDateFromRow(row)
+		productID := strings.TrimSpace(row["product_id"].String())
+		if statDate == "" || productID == "" {
+			continue
+		}
+		parsed, err := time.Parse("2006-01-02", statDate)
+		if err != nil {
+			continue
+		}
+		nextDate := parsed.AddDate(0, 0, 1).Format("2006-01-02")
+		if startDate == "" || statDate < startDate {
+			startDate = statDate
+		}
+		if endExclusive == "" || nextDate > endExclusive {
+			endExclusive = nextDate
+		}
+		if _, ok := productSet[productID]; !ok {
+			productSet[productID] = struct{}{}
+			products = append(products, productID)
+		}
+	}
+	if startDate == "" || endExclusive == "" || len(products) == 0 {
+		return rates, nil
+	}
+
+	validCondition := FinanceValidOrderCondition("o")
+	refundCondition := financeRefundOrderCondition("o")
+	params := make([]interface{}, 0, 2+len(products))
+	params = append(params, startDate+" 00:00:00", endExclusive+" 00:00:00")
+	for _, productID := range products {
+		params = append(params, productID)
+	}
+	sql := fmt.Sprintf(`
+		SELECT
+			LEFT(o.order_submit_time, 10) AS stat_date,
+			o.shop_name,
+			CAST(o.product_id AS CHAR) AS product_id,
+			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS valid_cost_amount,
+			COALESCE(SUM(CASE WHEN %s THEN COALESCE(g.base_price, 0) * o.product_num ELSE 0 END), 0) AS refund_cost_amount
+		FROM order_info o
+		LEFT JOIN (
+			SELECT goods_code, MAX(base_price) AS base_price
+			FROM goods
+			GROUP BY goods_code
+		) g ON o.seller_code = g.goods_code
+		WHERE o.order_submit_time >= ?
+		  AND o.order_submit_time < ?
+		  AND o.product_id IN (%s)
+		  AND o.shop_name IS NOT NULL
+		  AND o.shop_name != ''
+		GROUP BY LEFT(o.order_submit_time, 10), o.shop_name, CAST(o.product_id AS CHAR)`,
+		validCondition, refundCondition, orderListPlaceholders(len(products)))
+	result, err := g.DB().GetAll(ctx, sql, params...)
+	if err != nil {
+		return nil, fmt.Errorf("查询链接整体退货成本率失败: %w", err)
+	}
+	for _, row := range result {
+		validCost := row["valid_cost_amount"].Float64()
+		if validCost <= 0 {
+			continue
+		}
+		key := orderListQianchuanMatchKey(row["stat_date"].String(), row["shop_name"].String(), row["product_id"].String())
+		rates[key] = row["refund_cost_amount"].Float64() / validCost
+	}
+	return rates, nil
+}
+
 func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Result) ([]g.Map, error) {
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	linkRefundCostRateByScope, err := s.loadDouyinLinkRefundCostRates(ctx, result)
+	if err != nil {
 		return nil, err
 	}
 	qianchuanBlankOrderInferenceEnabled := IsQianchuanPlanBlankOrderInferenceEnabled(ctx)
@@ -1287,6 +1551,109 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 		return orderListResolveExternalTalent(shopName, uid, showID, talentName, externalByUID, externalByShowID, externalByName)
 	}
 
+	blankShopAttributionMap := make(map[string]shopAccountAttributionTarget)
+	if len(resolveShopNames) > 0 {
+		params := make([]interface{}, 0, len(resolveShopNames))
+		for _, shopName := range resolveShopNames {
+			params = append(params, shopName)
+		}
+		sql := fmt.Sprintf(
+			`SELECT saa.shop_id, saa.shop_name, saa.source_account_uid, saa.target_type, saa.target_value,
+					COALESCE(t.id, 0) AS trader_id,
+					COALESCE(a.id, 0) AS account_id,
+					COALESCE(a.uid, '') AS account_uid,
+					COALESCE(a.account_name, '') AS account_name,
+					COALESCE(a.platform_nickname, '') AS platform_nickname,
+					COALESCE(NULLIF(a.operator, ''), saa.target_value) AS operator,
+					COALESCE(c.name, '') AS company_name
+			 FROM shop_account_attribution saa
+			 LEFT JOIN trader t
+			   ON t.status = 1
+			  AND (
+				(saa.target_type = 'operator' AND (
+					saa.target_value COLLATE utf8mb4_unicode_ci = t.name COLLATE utf8mb4_unicode_ci
+					OR saa.target_value COLLATE utf8mb4_unicode_ci = CONCAT(t.name, '组') COLLATE utf8mb4_unicode_ci
+					OR (saa.target_value LIKE '%%组' AND TRIM(TRAILING '组' FROM saa.target_value) COLLATE utf8mb4_unicode_ci = t.name COLLATE utf8mb4_unicode_ci)
+				))
+				OR (saa.target_type = 'trader' AND saa.target_value COLLATE utf8mb4_unicode_ci = CAST(t.id AS CHAR) COLLATE utf8mb4_unicode_ci)
+			  )
+			 LEFT JOIN (
+				SELECT tar.trader_id, MIN(a.id) AS account_id
+				FROM trader_account_relation tar
+				INNER JOIN account a ON a.id = tar.account_id AND a.platform = 'douyin' AND a.status = 1
+				GROUP BY tar.trader_id
+			 ) first_account ON first_account.trader_id = t.id
+			 LEFT JOIN account a ON a.id = first_account.account_id
+			 LEFT JOIN sys_company c ON c.id = a.company_id
+			 WHERE saa.status = 1
+			   AND saa.shop_name IN (%s)
+			 ORDER BY CASE WHEN COALESCE(NULLIF(NULLIF(TRIM(saa.shop_id), ''), '0'), '') != '' THEN 0 ELSE 1 END, saa.id ASC`,
+			orderListPlaceholders(len(resolveShopNames)),
+		)
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		rows, err := g.DB().GetAll(ctx, sql, params...)
+		if err != nil {
+			return nil, err
+		}
+		type blankShopAggregate struct {
+			target   shopAccountAttributionTarget
+			key      string
+			conflict bool
+		}
+		aggregates := make(map[string]*blankShopAggregate)
+		addBlankShopTarget := func(key string, target shopAccountAttributionTarget, targetKey string) {
+			if key == "" || targetKey == "" {
+				return
+			}
+			agg := aggregates[key]
+			if agg == nil {
+				aggregates[key] = &blankShopAggregate{target: target, key: targetKey}
+				return
+			}
+			if agg.key != targetKey {
+				agg.conflict = true
+			}
+		}
+		for _, row := range rows {
+			target := shopAccountAttributionTarget{
+				TargetValue:      row["target_value"].String(),
+				TraderID:         row["trader_id"].Int64(),
+				AccountID:        row["account_id"].Int64(),
+				AccountUID:       row["account_uid"].String(),
+				AccountName:      row["account_name"].String(),
+				PlatformNickname: row["platform_nickname"].String(),
+				Operator:         row["operator"].String(),
+				CompanyName:      row["company_name"].String(),
+			}
+			if row["source_account_uid"].String() == "__blank__" {
+				if target.TraderID <= 0 {
+					continue
+				}
+				if shopID := strings.TrimSpace(row["shop_id"].String()); shopID != "" {
+					blankShopAttributionMap[orderListShopAttributionIDKey(shopID)] = target
+				}
+				blankShopAttributionMap[orderListShopAttributionNameKey(row["shop_name"].String())] = target
+				continue
+			}
+			targetKey := orderListNormalizedLookupKey(row["target_type"].String() + ":" + target.TargetValue)
+			if target.TraderID > 0 {
+				targetKey = "trader:" + strconv.FormatInt(target.TraderID, 10)
+			}
+			if shopID := strings.TrimSpace(row["shop_id"].String()); shopID != "" {
+				addBlankShopTarget(orderListShopAttributionIDKey(shopID), target, targetKey)
+			}
+			addBlankShopTarget(orderListShopAttributionNameKey(row["shop_name"].String()), target, targetKey)
+		}
+		for key, agg := range aggregates {
+			if agg == nil || agg.conflict || agg.target.TraderID <= 0 {
+				continue
+			}
+			blankShopAttributionMap[key] = agg.target
+		}
+	}
+
 	type qianchuanMatchRequest struct {
 		statDate  string
 		shopName  string
@@ -1294,29 +1661,51 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 	}
 	type qianchuanMatchInfo struct {
 		accountInfo
-		planID          int64
-		planName        string
-		planCount       int
-		awemeShowID     string
-		statCost        float64
-		payOrderCount   int64
-		allocationRatio float64
-		allocationBasis string
+		planID              int64
+		planName            string
+		planCount           int
+		awemeShowID         string
+		allocatedStoreName  string
+		blankOrderOwnerName string
+		storeOrderCount     int64
+		statCost            float64
+		payOrderCount       int64
+		allocationRatio     float64
+		allocationBasis     string
+	}
+	type qianchuanCandidateStats struct {
+		total         int
+		zeroOrder     int
+		zeroPlanOrder int
+		disabled      int
+		missingOwner  int
+		zeroCost      int
+		valid         int
+		plans         []g.Map
+		owners        []g.Map
 	}
 	mergeQianchuanMatchesByOwner := func(matches []qianchuanMatchInfo) []qianchuanMatchInfo {
 		merged := make([]qianchuanMatchInfo, 0, len(matches))
 		indexByOwner := make(map[string]int, len(matches))
 		for _, match := range matches {
-			ownerKey := orderListFirstNonEmpty(match.uid, match.awemeShowID)
+			traderKey := ""
+			if match.traderID > 0 {
+				traderKey = strconv.FormatInt(match.traderID, 10)
+			}
+			ownerKey := orderListFirstNonEmpty(traderKey, match.blankOrderOwnerName, match.uid, match.awemeShowID)
 			if ownerKey == "" {
 				continue
 			}
 			if index, ok := indexByOwner[ownerKey]; ok {
 				merged[index].statCost += match.statCost
 				merged[index].payOrderCount += match.payOrderCount
+				merged[index].storeOrderCount += match.storeOrderCount
 				merged[index].planCount++
 				merged[index].planID = 0
-				merged[index].planName = fmt.Sprintf("多个计划（%d个）", merged[index].planCount)
+				merged[index].planName = fmt.Sprintf("多个店铺/计划（%d个）", merged[index].planCount)
+				if !strings.Contains(merged[index].allocatedStoreName, match.allocatedStoreName) && match.allocatedStoreName != "" {
+					merged[index].allocatedStoreName = orderListFirstNonEmpty(merged[index].allocatedStoreName, match.allocatedStoreName)
+				}
 				continue
 			}
 			match.planCount = 1
@@ -1365,6 +1754,9 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			if statDate == "" || shopName == "" || productID == "" {
 				continue
 			}
+			if _, matched := orderListLookupShopAttributionTarget(blankShopAttributionMap, row["order_store_id"].String(), shopName); matched {
+				continue
+			}
 
 			key := orderListQianchuanMatchKey(statDate, shopName, productID)
 			if _, exists := qianchuanRequestSet[key]; exists {
@@ -1380,8 +1772,9 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 	}
 
 	qianchuanByKey := make(map[string][]qianchuanMatchInfo, len(qianchuanRequests))
+	qianchuanCandidateByKey := make(map[string]*qianchuanCandidateStats, len(qianchuanRequests))
 	if len(qianchuanRequests) > 0 {
-		const qianchuanBatchSize = 200
+		const qianchuanBatchSize = 50
 		for start := 0; start < len(qianchuanRequests); start += qianchuanBatchSize {
 			end := start + qianchuanBatchSize
 			if end > len(qianchuanRequests) {
@@ -1389,70 +1782,141 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			}
 
 			batch := qianchuanRequests[start:end]
-			conds := make([]string, 0, len(batch))
-			params := make([]interface{}, 0, len(batch)*3)
+			reqSelects := make([]string, 0, len(batch))
+			reqParams := make([]interface{}, 0, len(batch)*4)
+			productIDs := make([]string, 0, len(batch))
+			productIDSet := make(map[string]struct{}, len(batch))
+			batchStartDate := ""
+			batchEndExclusive := ""
 			for _, req := range batch {
-				conds = append(conds, "(LEFT(qar.stat_datetime, 10) = ? AND COALESCE(mapped_shop.shop_name, legacy_shop.account_name) COLLATE utf8mb4_unicode_ci = CAST(? AS CHAR) COLLATE utf8mb4_unicode_ci AND CAST(qar.product_id AS CHAR) COLLATE utf8mb4_unicode_ci = CAST(? AS CHAR) COLLATE utf8mb4_unicode_ci)")
-				params = append(params, req.statDate, req.shopName, req.productID)
+				statDate := strings.TrimSpace(req.statDate)
+				shopName := strings.TrimSpace(req.shopName)
+				productID := strings.TrimSpace(req.productID)
+				parsedDate, parseErr := time.Parse("2006-01-02", statDate)
+				if parseErr != nil || shopName == "" || productID == "" {
+					continue
+				}
+				nextDate := parsedDate.AddDate(0, 0, 1).Format("2006-01-02")
+				reqSelects = append(reqSelects, "SELECT ? AS stat_date, ? AS next_date, ? AS shop_name, ? AS product_id_text, CAST(? AS UNSIGNED) AS product_id_num")
+				reqParams = append(reqParams, statDate, nextDate, shopName, productID, productID)
+				if _, exists := productIDSet[productID]; !exists {
+					productIDSet[productID] = struct{}{}
+					productIDs = append(productIDs, productID)
+				}
+				if batchStartDate == "" || statDate < batchStartDate {
+					batchStartDate = statDate
+				}
+				if batchEndExclusive == "" || nextDate > batchEndExclusive {
+					batchEndExclusive = nextDate
+				}
+			}
+			if len(reqSelects) == 0 {
+				continue
+			}
+			productPlaceholders := orderListPlaceholders(len(productIDs))
+			params := make([]interface{}, 0, len(reqParams)+2+len(productIDs))
+			params = append(params, reqParams...)
+			params = append(params, batchStartDate+" 00:00:00", batchEndExclusive+" 00:00:00")
+			for _, productID := range productIDs {
+				params = append(params, productID)
 			}
 
 			sql := fmt.Sprintf(`
-					SELECT
-						q.stat_date,
-						q.shop_name,
+						SELECT
+							q.stat_date,
+						q.shop_name AS allocated_store_name,
 						q.product_id,
 						q.ad_id,
 						q.ad_name,
-						q.aweme_show_id,
-						q.aweme_id,
+						q.advertiser_id,
 						q.pay_order_count,
 						q.stat_cost,
-						a.id AS account_id,
-						a.uid,
-						a.account_name,
-						a.platform_nickname,
-					a.operator,
-					c.name AS company_name,
-					(SELECT MIN(tar.trader_id) FROM trader_account_relation tar WHERE tar.account_id = a.id) AS trader_id
-				FROM (
-					SELECT
-							LEFT(qar.stat_datetime, 10) AS stat_date,
-							COALESCE(mapped_shop.shop_name, legacy_shop.account_name) AS shop_name,
-							CAST(qar.product_id AS CHAR) AS product_id,
-							qar.ad_id AS ad_id,
-							MAX(qar.ad_name) AS ad_name,
-							MAX(qar.aweme_id) AS aweme_id,
-							qar.aweme_show_id AS aweme_show_id,
-							COALESCE(SUM(qar.pay_order_count), 0) AS pay_order_count,
-							COALESCE(SUM(qar.stat_cost), 0) AS stat_cost
-					FROM qianchuan_ad_report qar
-					LEFT JOIN account legacy_shop ON legacy_shop.id = qar.account_id
-					LEFT JOIN (
-						SELECT sqm.qianchuan_advertiser_id, MAX(s.store_name) AS shop_name
+							q.store_order_count,
+							q.blank_order_enabled,
+							q.blank_order_owner_name,
+							q.account_id,
+							q.account_uid AS uid,
+							q.account_name,
+							q.platform_nickname,
+							q.blank_order_owner_name AS operator,
+							c.name AS company_name,
+							COALESCE(t.id, 0) AS trader_id
+						FROM (
+							SELECT
+									req.stat_date AS stat_date,
+									COALESCE(mapped_shop.shop_name, legacy_shop.account_name) AS shop_name,
+									req.product_id_text AS product_id,
+									qar.account_id AS account_id,
+									qar.ad_id AS ad_id,
+									qar.advertiser_id,
+									MAX(legacy_shop.uid) AS account_uid,
+									MAX(legacy_shop.account_name) AS account_name,
+									MAX(legacy_shop.platform_nickname) AS platform_nickname,
+									MAX(legacy_shop.company_id) AS company_id,
+									MAX(qar.ad_name) AS ad_name,
+									COALESCE(SUM(qar.pay_order_count), 0) AS pay_order_count,
+									COALESCE(SUM(qar.stat_cost), 0) AS stat_cost,
+									COALESCE(MAX(legacy_shop.blank_order_enabled), 0) AS blank_order_enabled,
+									COALESCE(
+										NULLIF(MAX(legacy_shop.blank_order_owner_name), ''),
+										NULLIF(MAX(legacy_shop.operator), ''),
+										''
+									) AS blank_order_owner_name,
+									COALESCE(MAX(oi_stat.store_order_count), 0) AS store_order_count
+							FROM qianchuan_ad_report qar
+						INNER JOIN (
+							%s
+						) req
+						  ON qar.product_id = req.product_id_num
+						 AND qar.stat_datetime >= req.stat_date
+						 AND qar.stat_datetime < req.next_date
+							LEFT JOIN account legacy_shop ON legacy_shop.id = qar.account_id AND legacy_shop.platform = 'douyin' AND legacy_shop.status = 1
+						LEFT JOIN (
+							SELECT
+								sqm.qianchuan_advertiser_id,
+							MAX(s.store_name) AS shop_name,
+							MAX(s.blank_order_enabled) AS blank_order_enabled,
+							MAX(s.blank_order_owner_name) AS blank_order_owner_name
 						FROM store_qianchuan_mapping sqm
-						INNER JOIN store s ON s.id = sqm.store_id
-						GROUP BY sqm.qianchuan_advertiser_id
-					) mapped_shop ON mapped_shop.qianchuan_advertiser_id = qar.advertiser_id
-					WHERE qar.product_id IS NOT NULL
-					  AND qar.product_id != ''
-					  AND qar.aweme_show_id IS NOT NULL
-						  AND qar.aweme_show_id != ''
-						  AND qar.stat_cost > 0
-						  AND COALESCE(mapped_shop.shop_name, legacy_shop.account_name) IS NOT NULL
-						  AND (%s)
-					GROUP BY LEFT(qar.stat_datetime, 10), COALESCE(mapped_shop.shop_name, legacy_shop.account_name), CAST(qar.product_id AS CHAR), qar.ad_id, qar.aweme_show_id
-				) q
-					INNER JOIN account a
-					  ON a.platform = 'douyin'
-					 AND a.status = 1
-					 AND (
-						(q.aweme_id > 0 AND a.uid COLLATE utf8mb4_unicode_ci = CAST(q.aweme_id AS CHAR) COLLATE utf8mb4_unicode_ci)
-						OR
-						(q.aweme_id = 0 AND q.aweme_show_id != '' AND a.platform_nickname COLLATE utf8mb4_unicode_ci = q.aweme_show_id COLLATE utf8mb4_unicode_ci)
+							INNER JOIN store s ON s.id = sqm.store_id
+							GROUP BY sqm.qianchuan_advertiser_id
+						) mapped_shop ON mapped_shop.qianchuan_advertiser_id = qar.advertiser_id
+						LEFT JOIN (
+							SELECT
+								LEFT(oi.order_submit_time, 10) AS stat_date,
+								oi.shop_name,
+								CAST(oi.product_id AS CHAR) AS product_id,
+								COUNT(DISTINCT oi.main_order_no) AS store_order_count
+							FROM order_info oi
+							WHERE oi.order_submit_time >= ?
+							  AND oi.order_submit_time < ?
+							  AND oi.product_id IN (%s)
+							  AND oi.main_order_no IS NOT NULL
+							  AND oi.main_order_no != ''
+							GROUP BY LEFT(oi.order_submit_time, 10), oi.shop_name, CAST(oi.product_id AS CHAR)
+						) oi_stat
+						  ON oi_stat.stat_date = req.stat_date
+						 AND oi_stat.shop_name COLLATE utf8mb4_unicode_ci = COALESCE(mapped_shop.shop_name, legacy_shop.account_name) COLLATE utf8mb4_unicode_ci
+						 AND oi_stat.product_id COLLATE utf8mb4_unicode_ci = req.product_id_text COLLATE utf8mb4_unicode_ci
+							WHERE qar.product_id IS NOT NULL
+							  AND qar.product_id != ''
+								  AND (qar.stat_cost > 0 OR qar.pay_order_count > 0 OR qar.create_order_count > 0)
+								  AND COALESCE(mapped_shop.shop_name, legacy_shop.account_name) IS NOT NULL
+								  AND COALESCE(mapped_shop.shop_name, legacy_shop.account_name) COLLATE utf8mb4_unicode_ci = req.shop_name COLLATE utf8mb4_unicode_ci
+								GROUP BY req.stat_date, COALESCE(mapped_shop.shop_name, legacy_shop.account_name), req.product_id_text, qar.account_id, qar.ad_id, qar.advertiser_id
+						) q
+						LEFT JOIN trader t
+						  ON t.status = 1
+				 AND q.blank_order_owner_name != ''
+				 AND (
+					t.name COLLATE utf8mb4_unicode_ci = q.blank_order_owner_name COLLATE utf8mb4_unicode_ci
+						OR t.name COLLATE utf8mb4_unicode_ci = CONCAT(q.blank_order_owner_name, '组') COLLATE utf8mb4_unicode_ci
+						OR (q.blank_order_owner_name LIKE '%%组' AND t.name COLLATE utf8mb4_unicode_ci = TRIM(TRAILING '组' FROM q.blank_order_owner_name) COLLATE utf8mb4_unicode_ci)
 					 )
-				LEFT JOIN sys_company c ON a.company_id = c.id
-					ORDER BY q.stat_date, q.shop_name, q.product_id, q.pay_order_count DESC, q.stat_cost DESC, a.id DESC, q.ad_id ASC`,
-				strings.Join(conds, " OR "),
+						LEFT JOIN sys_company c ON q.company_id = c.id
+							ORDER BY q.stat_date, q.product_id, q.store_order_count DESC, q.stat_cost DESC, q.shop_name ASC, q.ad_id ASC`,
+				strings.Join(reqSelects, " UNION ALL "),
+				productPlaceholders,
 			)
 			if err := ctx.Err(); err != nil {
 				return nil, err
@@ -1462,10 +1926,55 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				return nil, err
 			}
 			for _, row := range rows {
-				key := orderListQianchuanMatchKey(row["stat_date"].String(), row["shop_name"].String(), row["product_id"].String())
+				key := orderListQianchuanMatchKey(row["stat_date"].String(), row["allocated_store_name"].String(), row["product_id"].String())
 				if key == "\x00\x00" {
 					continue
 				}
+				stats := qianchuanCandidateByKey[key]
+				if stats == nil {
+					stats = &qianchuanCandidateStats{}
+					qianchuanCandidateByKey[key] = stats
+				}
+				stats.total++
+				ownerName := strings.TrimSpace(row["blank_order_owner_name"].String())
+				storeName := strings.TrimSpace(row["allocated_store_name"].String())
+				stats.plans = append(stats.plans, g.Map{
+					"storeName":       storeName,
+					"planId":          row["ad_id"].Int64(),
+					"planName":        row["ad_name"].String(),
+					"statCost":        row["stat_cost"].Float64(),
+					"payOrderCount":   row["pay_order_count"].Int64(),
+					"storeOrderCount": row["store_order_count"].Int64(),
+				})
+				stats.owners = append(stats.owners, g.Map{
+					"storeName":           storeName,
+					"blankOrderEnabled":   row["blank_order_enabled"].Int(),
+					"blankOrderOwnerName": ownerName,
+					"matchedTraderId":     row["trader_id"].Int64(),
+					"matchedAccountId":    row["account_id"].Int64(),
+					"matchedAccountUid":   row["uid"].String(),
+				})
+				if row["stat_cost"].Float64() <= 0 {
+					stats.zeroCost++
+					continue
+				}
+				if row["pay_order_count"].Int64() <= 0 {
+					stats.zeroPlanOrder++
+					continue
+				}
+				if row["store_order_count"].Int64() <= 0 {
+					stats.zeroOrder++
+					continue
+				}
+				if row["blank_order_enabled"].Int() == 0 {
+					stats.disabled++
+					continue
+				}
+				if ownerName == "" || row["trader_id"].Int64() <= 0 || row["account_id"].Int64() <= 0 || orderListNormalizedTalentID(row["uid"].String()) == "" {
+					stats.missingOwner++
+					continue
+				}
+				stats.valid++
 				qianchuanByKey[key] = append(qianchuanByKey[key], qianchuanMatchInfo{
 					accountInfo: accountInfo{
 						id:               row["account_id"].Int64(),
@@ -1476,11 +1985,13 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 						operator:         row["operator"].String(),
 						companyName:      row["company_name"].String(),
 					},
-					planID:        row["ad_id"].Int64(),
-					planName:      row["ad_name"].String(),
-					awemeShowID:   row["aweme_show_id"].String(),
-					statCost:      row["stat_cost"].Float64(),
-					payOrderCount: row["pay_order_count"].Int64(),
+					planID:              row["ad_id"].Int64(),
+					planName:            row["ad_name"].String(),
+					allocatedStoreName:  storeName,
+					blankOrderOwnerName: ownerName,
+					storeOrderCount:     row["store_order_count"].Int64(),
+					statCost:            row["stat_cost"].Float64(),
+					payOrderCount:       row["pay_order_count"].Int64(),
 				})
 			}
 		}
@@ -1500,8 +2011,14 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			orderListNormalizedLookupKey(rawTalentName) != "" {
 			continue
 		}
+		if !IsValidOrderForStats(row["order_status"].String(), row["after_sale_status"].String()) {
+			continue
+		}
 		scopeKey := orderListQianchuanMatchKey(orderListStatDateFromRow(row), row["shop_name"].String(), row["product_id"].String())
 		if len(qianchuanByKey[scopeKey]) == 0 {
+			continue
+		}
+		if _, matched := orderListLookupShopAttributionTarget(blankShopAttributionMap, row["order_store_id"].String(), row["shop_name"].String()); matched {
 			continue
 		}
 		orderKey := orderListFirstNonEmpty(row["main_order_no"].String(), row["sub_order_no"].String(), row["id"].String())
@@ -1524,44 +2041,103 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			}
 		}
 		ratios := make([]float64, len(matches))
+		caps := make([]int, len(matches))
 		for i, match := range matches {
 			ratios[i] = match.allocationRatio
+			caps[i] = int(match.payOrderCount)
 		}
-		for orderKey, ownerIndex := range orderListExactWeightedAssignments(scopeKey, availableOrderKeys, ratios) {
+		for orderKey, ownerIndex := range orderListExactWeightedAssignmentsWithCaps(scopeKey, availableOrderKeys, ratios, caps) {
 			if ownerIndex >= 0 && ownerIndex < len(matches) {
 				qianchuanAssignmentByOrder[orderKey] = matches[ownerIndex]
 			}
 		}
 	}
+	qianchuanExceptionByOrder := make(map[string]g.Map)
+	qianchuanCandidatePlans := func(stats *qianchuanCandidateStats) []g.Map {
+		if stats == nil {
+			return nil
+		}
+		return stats.plans
+	}
+	qianchuanCandidateOwners := func(stats *qianchuanCandidateStats) []g.Map {
+		if stats == nil {
+			return nil
+		}
+		return stats.owners
+	}
+	buildQianchuanException := func(row gdb.Record, scopeKey string) g.Map {
+		stats := qianchuanCandidateByKey[scopeKey]
+		exceptionType := "NO_QIANCHUAN_PLAN"
+		reason := "未匹配到同日期同商品的千川计划"
+		if stats != nil && stats.total > 0 {
+			switch {
+			case stats.valid == 0 && stats.zeroCost == stats.total:
+				exceptionType = "ZERO_QIANCHUAN_COST"
+				reason = "匹配到千川计划，但候选计划消耗均为0"
+			case stats.valid == 0 && stats.zeroPlanOrder+stats.zeroCost == stats.total && stats.zeroPlanOrder > 0:
+				exceptionType = "ZERO_QIANCHUAN_ORDER_COUNT"
+				reason = "匹配到千川计划，但候选计划成交订单数均为0"
+			case stats.valid == 0 && stats.zeroOrder+stats.zeroPlanOrder+stats.zeroCost == stats.total && stats.zeroOrder > 0:
+				exceptionType = "ALL_SHOPS_ZERO_ORDER"
+				reason = "匹配到千川投流店铺，但候选店铺同日同商品出单量均为0"
+			case stats.valid == 0 && stats.disabled+stats.zeroOrder+stats.zeroPlanOrder+stats.zeroCost == stats.total && stats.disabled > 0:
+				exceptionType = "ALL_SHOPS_DISABLED"
+				reason = "匹配到千川投流店铺，但候选店铺均未开启空白单归属"
+			case stats.valid == 0 && stats.missingOwner > 0:
+				exceptionType = "SHOP_OWNER_MISSING"
+				reason = "匹配到千川投流店铺，但候选店铺缺少空白单归属人或归属人未匹配到可统计账号"
+			case stats.valid > 0:
+				exceptionType = "QIANCHUAN_ORDER_CAP_REACHED"
+				reason = "空白单数量超过千川计划成交订单数上限，剩余订单不自动分配"
+			default:
+				exceptionType = "NO_VALID_SHOP"
+				reason = "匹配到千川计划，但没有满足分配条件的有效店铺"
+			}
+		}
+		return g.Map{
+			"orderInfoId":           row["id"].Int64(),
+			"mainOrderNo":           row["main_order_no"].String(),
+			"subOrderNo":            row["sub_order_no"].String(),
+			"statDate":              orderListStatDateFromRow(row),
+			"shopName":              row["shop_name"].String(),
+			"productId":             row["product_id"].String(),
+			"exceptionType":         exceptionType,
+			"exceptionReason":       reason,
+			"qianchuanPlanSnapshot": orderListMarshalJSON(qianchuanCandidatePlans(stats)),
+			"shopOwnerSnapshot":     orderListMarshalJSON(qianchuanCandidateOwners(stats)),
+		}
+	}
 
 	type resolvedMeta struct {
-		accountID           int64
-		traderID            int64
-		attributionSource   string
-		talentUID           string
-		talentName          string
-		commissionRate      string
-		douyinAccount       string
-		operator            string
-		companyName         string
-		externalTeamName    string
-		commission          float64
-		talentOwnership     string
-		talentOwnershipTag  string
-		orderOwnership      string
-		orderOwnershipTag   string
-		matchedBy           string
-		isShopSelfSale      bool
-		allocationRatio     float64
-		qianchuanPlanID     int64
-		qianchuanPlanName   string
-		qianchuanPlanCount  int
-		qianchuanAwemeID    string
-		qianchuanStatCost   float64
-		qianchuanPayOrders  int64
-		allocationBasis     string
-		externalOnlineRate  float64
-		externalOfflineRate float64
+		accountID                   int64
+		traderID                    int64
+		attributionSource           string
+		talentUID                   string
+		talentName                  string
+		commissionRate              string
+		douyinAccount               string
+		operator                    string
+		companyName                 string
+		externalTeamName            string
+		commission                  float64
+		talentOwnership             string
+		talentOwnershipTag          string
+		orderOwnership              string
+		orderOwnershipTag           string
+		matchedBy                   string
+		isShopSelfSale              bool
+		allocationRatio             float64
+		qianchuanPlanID             int64
+		qianchuanPlanName           string
+		qianchuanPlanCount          int
+		qianchuanAwemeID            string
+		qianchuanAllocatedStoreName string
+		blankOrderOwnerName         string
+		qianchuanStatCost           float64
+		qianchuanPayOrders          int64
+		allocationBasis             string
+		externalOnlineRate          float64
+		externalOfflineRate         float64
 	}
 
 	resolved := make([][]resolvedMeta, len(result))
@@ -1603,40 +2179,58 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			commission := orderListCommissionAmount(row)
 
 			resolved[i] = append(resolved[i], resolvedMeta{
-				accountID:           internalInfo.id,
-				traderID:            internalInfo.traderID,
-				attributionSource:   internalField,
-				talentUID:           talentUID,
-				talentName:          talentName,
-				commissionRate:      orderListActualCommissionRate(row, commission),
-				douyinAccount:       douyinAccount,
-				operator:            operator,
-				companyName:         internalInfo.companyName,
-				externalTeamName:    externalInfo.teamName,
-				commission:          commission,
-				talentOwnership:     talentOwnership,
-				talentOwnershipTag:  talentOwnershipCode,
-				orderOwnership:      orderOwnership,
-				orderOwnershipTag:   orderOwnershipCode,
-				matchedBy:           matchedBy,
-				isShopSelfSale:      isShopSelfSale,
-				allocationRatio:     allocationRatio,
-				qianchuanPlanID:     qianchuanMatch.planID,
-				qianchuanPlanName:   qianchuanMatch.planName,
-				qianchuanPlanCount:  qianchuanMatch.planCount,
-				qianchuanAwemeID:    qianchuanMatch.awemeShowID,
-				qianchuanStatCost:   qianchuanMatch.statCost,
-				qianchuanPayOrders:  qianchuanMatch.payOrderCount,
-				allocationBasis:     qianchuanMatch.allocationBasis,
-				externalOnlineRate:  externalInfo.onlineCommissionRate,
-				externalOfflineRate: externalInfo.offlineCommissionRate,
+				accountID:                   internalInfo.id,
+				traderID:                    internalInfo.traderID,
+				attributionSource:           internalField,
+				talentUID:                   talentUID,
+				talentName:                  talentName,
+				commissionRate:              orderListActualCommissionRate(row, commission),
+				douyinAccount:               douyinAccount,
+				operator:                    operator,
+				companyName:                 internalInfo.companyName,
+				externalTeamName:            externalInfo.teamName,
+				commission:                  commission,
+				talentOwnership:             talentOwnership,
+				talentOwnershipTag:          talentOwnershipCode,
+				orderOwnership:              orderOwnership,
+				orderOwnershipTag:           orderOwnershipCode,
+				matchedBy:                   matchedBy,
+				isShopSelfSale:              isShopSelfSale,
+				allocationRatio:             allocationRatio,
+				qianchuanPlanID:             qianchuanMatch.planID,
+				qianchuanPlanName:           qianchuanMatch.planName,
+				qianchuanPlanCount:          qianchuanMatch.planCount,
+				qianchuanAwemeID:            qianchuanMatch.awemeShowID,
+				qianchuanAllocatedStoreName: qianchuanMatch.allocatedStoreName,
+				blankOrderOwnerName:         qianchuanMatch.blankOrderOwnerName,
+				qianchuanStatCost:           qianchuanMatch.statCost,
+				qianchuanPayOrders:          qianchuanMatch.payOrderCount,
+				allocationBasis:             qianchuanMatch.allocationBasis,
+				externalOnlineRate:          externalInfo.onlineCommissionRate,
+				externalOfflineRate:         externalInfo.offlineCommissionRate,
 			})
 		}
 
-		if qianchuanBlankOrderInferenceEnabled && !hasInternal && !hasExternal && originTalentID == "" && shortID == "" && orderListNormalizedLookupKey(rawTalentName) == "" {
+		if !hasInternal && !hasExternal && originTalentID == "" && shortID == "" && orderListNormalizedLookupKey(rawTalentName) == "" {
+			if target, matched := orderListLookupShopAttributionTarget(blankShopAttributionMap, row["order_store_id"].String(), row["shop_name"].String()); matched {
+				appendResolved(accountInfo{
+					id:               target.AccountID,
+					traderID:         target.TraderID,
+					uid:              target.AccountUID,
+					accountName:      target.AccountName,
+					platformNickname: target.PlatformNickname,
+					operator:         orderListFirstNonEmpty(target.Operator, target.TargetValue),
+					companyName:      target.CompanyName,
+				}, "shop_account_blank", true, qianchuanMatchInfo{})
+			}
+		}
+		if qianchuanBlankOrderInferenceEnabled && len(resolved[i]) == 0 && !hasInternal && !hasExternal && originTalentID == "" && shortID == "" && orderListNormalizedLookupKey(rawTalentName) == "" {
 			orderKey := orderListFirstNonEmpty(row["main_order_no"].String(), row["sub_order_no"].String(), row["id"].String())
 			if match, matched := qianchuanAssignmentByOrder[orderKey]; matched {
 				appendResolved(match.accountInfo, "qianchuan_plan", true, match)
+			} else if orderKey != "" {
+				scopeKey := orderListQianchuanMatchKey(orderListStatDateFromRow(row), row["shop_name"].String(), row["product_id"].String())
+				qianchuanExceptionByOrder[orderKey] = buildQianchuanException(row, scopeKey)
 			}
 		}
 		if len(resolved[i]) == 0 && !hasInternal && !hasExternal && originTalentID == "" && shortID == "" && rawTalentName == "" {
@@ -1757,6 +2351,10 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 			if len(resolved[i]) > 1 || item.qianchuanPlanID != 0 {
 				allocationRowID = fmt.Sprintf("%s_%d_%d", row["id"].String(), item.qianchuanPlanID, allocationIndex+1)
 			}
+			orderKey := orderListFirstNonEmpty(row["main_order_no"].String(), row["sub_order_no"].String(), row["id"].String())
+			qianchuanException := qianchuanExceptionByOrder[orderKey]
+			attributionStatDate := orderListStatDateFromRow(row)
+			linkRefundCostRate := linkRefundCostRateByScope[orderListQianchuanMatchKey(attributionStatDate, row["shop_name"].String(), row["product_id"].String())]
 
 			// talentId 是列表展示使用的归属结果，可能由千川计划反推；利润归属必须保留订单原始 UID。
 			orders = append(orders, g.Map{
@@ -1771,7 +2369,7 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				"productNum":                    row["product_num"],
 				"originalProductNum":            row["product_num"],
 				"productId":                     row["product_id"],
-				"attributionStatDate":           orderListStatDateFromRow(row),
+				"attributionStatDate":           attributionStatDate,
 				"productPrice":                  row["product_price"],
 				"orderPayAmount":                row["order_pay_amount"],
 				"originalOrderPayAmount":        row["order_pay_amount"],
@@ -1797,9 +2395,11 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				"profitAttributionSource":       item.attributionSource,
 				"attributedAccountId":           item.accountID,
 				"attributedTraderId":            attributedTraderID,
-				"specialAttributionMatched":     attributionMatched,
+				"specialAttributionMatched":     attributionMatched || item.attributionSource == "qianchuan_plan" || item.attributionSource == "shop_account_blank",
 				"productCost":                   productCost,
 				"originalProductCost":           roundFloatOrder(row["base_price"].Float64()*float64(row["product_num"].Int()), 2),
+				"linkRefundCostRate":            roundFloatOrder(linkRefundCostRate, 8),
+				"allocatedRefundCost":           roundFloatOrder(productCost*linkRefundCostRate, 2),
 				"shopServiceFee":                row["shop_service_fee"],
 				"originalShopServiceFee":        row["shop_service_fee"],
 				"commissionRate":                item.commissionRate,
@@ -1826,10 +2426,16 @@ func (s *OrderService) enrichDouyinOrderRows(ctx context.Context, result gdb.Res
 				"qianchuanPlanName":             item.qianchuanPlanName,
 				"qianchuanPlanCount":            item.qianchuanPlanCount,
 				"qianchuanAwemeShowId":          item.qianchuanAwemeID,
+				"qianchuanAllocatedStoreName":   item.qianchuanAllocatedStoreName,
+				"blankOrderOwnerName":           item.blankOrderOwnerName,
 				"qianchuanStatCost":             roundFloatOrder(item.qianchuanStatCost, 2),
 				"qianchuanPayOrderCount":        item.qianchuanPayOrders,
 				"qianchuanAllocationBasis":      item.allocationBasis,
-				"qianchuanAllocationMatched":    item.qianchuanAwemeID != "",
+				"qianchuanAllocationMatched":    item.qianchuanAllocatedStoreName != "" || item.qianchuanAwemeID != "",
+				"qianchuanExceptionType":        qianchuanException["exceptionType"],
+				"qianchuanExceptionReason":      qianchuanException["exceptionReason"],
+				"qianchuanPlanSnapshot":         qianchuanException["qianchuanPlanSnapshot"],
+				"shopOwnerSnapshot":             qianchuanException["shopOwnerSnapshot"],
 			})
 		}
 	}
@@ -1844,6 +2450,7 @@ func persistDouyinQianchuanAttributions(ctx context.Context, orders []g.Map) {
 	if len(orders) == 0 || ctx.Err() != nil {
 		return
 	}
+	persistDouyinQianchuanAttributionExceptions(ctx, orders)
 	exists, err := g.DB().GetOne(ctx, `
 		SELECT COUNT(*) AS cnt
 		FROM information_schema.tables
@@ -1858,9 +2465,10 @@ func persistDouyinQianchuanAttributions(ctx context.Context, orders []g.Map) {
 
 	// 审计归属批量落库，减少统计请求中的串行写入次数。
 	const batchSize = 2000
+	resolvedOrderIDs := make([]int64, 0)
 	for start := 0; start < len(orders); {
 		values := make([]string, 0, batchSize)
-		params := make([]interface{}, 0, batchSize*16)
+		params := make([]interface{}, 0, batchSize*18)
 		for start < len(orders) && len(values) < batchSize {
 			order := orders[start]
 			start++
@@ -1869,13 +2477,16 @@ func persistDouyinQianchuanAttributions(ctx context.Context, orders []g.Map) {
 				strings.TrimSpace(gconv.String(order["attributionStatDate"])) == "" {
 				continue
 			}
-			values = append(values, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			resolvedOrderIDs = append(resolvedOrderIDs, gconv.Int64(order["id"]))
+			values = append(values, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			params = append(params,
 				gconv.Int64(order["id"]),
 				gconv.String(order["mainOrderNo"]),
 				gconv.String(order["subOrderNo"]),
 				gconv.String(order["attributionStatDate"]),
 				gconv.String(order["shopName"]),
+				gconv.String(order["qianchuanAllocatedStoreName"]),
+				gconv.String(order["blankOrderOwnerName"]),
 				gconv.String(order["productId"]),
 				"qianchuan_plan",
 				gconv.Int64(order["attributedAccountId"]),
@@ -1893,7 +2504,7 @@ func persistDouyinQianchuanAttributions(ctx context.Context, orders []g.Map) {
 			continue
 		}
 		sql := `INSERT INTO douyin_order_attribution (
-			order_info_id, main_order_no, sub_order_no, stat_date, shop_name, product_id,
+			order_info_id, main_order_no, sub_order_no, stat_date, shop_name, allocated_store_name, blank_order_owner_name, product_id,
 			source, account_id, trader_id, talent_uid, qianchuan_plan_id, qianchuan_plan_count,
 			qianchuan_stat_cost, allocation_ratio, allocation_basis, rule_version
 		) VALUES ` + strings.Join(values, ",") + `
@@ -1902,6 +2513,8 @@ func persistDouyinQianchuanAttributions(ctx context.Context, orders []g.Map) {
 			sub_order_no = VALUES(sub_order_no),
 			stat_date = VALUES(stat_date),
 			shop_name = VALUES(shop_name),
+			allocated_store_name = VALUES(allocated_store_name),
+			blank_order_owner_name = VALUES(blank_order_owner_name),
 			product_id = VALUES(product_id),
 			account_id = VALUES(account_id),
 			trader_id = VALUES(trader_id),
@@ -1918,6 +2531,153 @@ func persistDouyinQianchuanAttributions(ctx context.Context, orders []g.Map) {
 			return
 		}
 	}
+	markResolvedDouyinQianchuanAttributionExceptions(ctx, resolvedOrderIDs)
+}
+
+func persistDouyinQianchuanAttributionExceptions(ctx context.Context, orders []g.Map) {
+	if err := ensureBlankOrderAllocationExceptionTable(ctx); err != nil {
+		g.Log().Warningf(ctx, "[BlankOrderAllocationException] 创建异常池表失败: %v", err)
+		return
+	}
+
+	const batchSize = 1000
+	for start := 0; start < len(orders); {
+		values := make([]string, 0, batchSize)
+		params := make([]interface{}, 0, batchSize*11)
+		for start < len(orders) && len(values) < batchSize {
+			order := orders[start]
+			start++
+			exceptionType := strings.TrimSpace(gconv.String(order["qianchuanExceptionType"]))
+			if exceptionType == "" || gconv.Int64(order["id"]) <= 0 {
+				continue
+			}
+			values = append(values, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')")
+			params = append(params,
+				gconv.Int64(order["id"]),
+				gconv.String(order["mainOrderNo"]),
+				gconv.String(order["subOrderNo"]),
+				orderListNilIfEmpty(gconv.String(order["attributionStatDate"])),
+				gconv.String(order["shopName"]),
+				gconv.String(order["productId"]),
+				exceptionType,
+				gconv.String(order["qianchuanExceptionReason"]),
+				orderListNilIfEmpty(gconv.String(order["qianchuanPlanSnapshot"])),
+				orderListNilIfEmpty(gconv.String(order["shopOwnerSnapshot"])),
+			)
+		}
+		if len(values) == 0 {
+			continue
+		}
+		sql := `INSERT INTO blank_order_allocation_exception (
+			order_info_id, main_order_no, sub_order_no, stat_date, shop_name, product_id,
+			exception_type, exception_reason, qianchuan_plan_snapshot, shop_owner_snapshot, status
+		) VALUES ` + strings.Join(values, ",") + `
+		ON DUPLICATE KEY UPDATE
+			main_order_no = VALUES(main_order_no),
+			sub_order_no = VALUES(sub_order_no),
+			stat_date = VALUES(stat_date),
+			shop_name = VALUES(shop_name),
+			product_id = VALUES(product_id),
+			exception_reason = VALUES(exception_reason),
+			qianchuan_plan_snapshot = VALUES(qianchuan_plan_snapshot),
+			shop_owner_snapshot = VALUES(shop_owner_snapshot),
+			status = IF(status IN ('resolved_manual', 'ignored'), status, 'pending')`
+		if _, err := g.DB().Exec(ctx, sql, params...); err != nil {
+			g.Log().Warningf(ctx, "[BlankOrderAllocationException] 保存异常池失败: %v", err)
+			return
+		}
+	}
+}
+
+func markResolvedDouyinQianchuanAttributionExceptions(ctx context.Context, orderIDs []int64) {
+	if len(orderIDs) == 0 {
+		return
+	}
+	if err := ensureBlankOrderAllocationExceptionTable(ctx); err != nil {
+		g.Log().Warningf(ctx, "[BlankOrderAllocationException] 创建异常池表失败: %v", err)
+		return
+	}
+	uniqueIDs := make([]int64, 0, len(orderIDs))
+	seen := make(map[int64]struct{}, len(orderIDs))
+	for _, id := range orderIDs {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		uniqueIDs = append(uniqueIDs, id)
+	}
+	const batchSize = 1000
+	for start := 0; start < len(uniqueIDs); start += batchSize {
+		end := start + batchSize
+		if end > len(uniqueIDs) {
+			end = len(uniqueIDs)
+		}
+		batch := uniqueIDs[start:end]
+		params := make([]interface{}, 0, len(batch))
+		for _, id := range batch {
+			params = append(params, id)
+		}
+		sql := fmt.Sprintf(`
+			UPDATE blank_order_allocation_exception
+			SET status = 'resolved_auto',
+			    resolved_at = CURRENT_TIMESTAMP
+			WHERE status = 'pending'
+			  AND order_info_id IN (%s)`, orderListPlaceholders(len(batch)))
+		if _, err := g.DB().Exec(ctx, sql, params...); err != nil {
+			g.Log().Warningf(ctx, "[BlankOrderAllocationException] 自动解决异常失败: %v", err)
+			return
+		}
+	}
+}
+
+func ensureBlankOrderAllocationExceptionTable(ctx context.Context) error {
+	_, err := g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS blank_order_allocation_exception (
+		id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+		order_info_id BIGINT NOT NULL DEFAULT 0 COMMENT '抖音订单明细ID',
+		main_order_no VARCHAR(100) NOT NULL DEFAULT '' COMMENT '主订单号',
+		sub_order_no VARCHAR(100) NOT NULL DEFAULT '' COMMENT '子订单号',
+		stat_date DATE DEFAULT NULL COMMENT '归属日期',
+		shop_name VARCHAR(200) NOT NULL DEFAULT '' COMMENT '空白单来源店铺',
+		product_id VARCHAR(100) NOT NULL DEFAULT '' COMMENT '商品ID',
+		exception_type VARCHAR(50) NOT NULL DEFAULT '' COMMENT '异常类型',
+		exception_reason VARCHAR(500) NOT NULL DEFAULT '' COMMENT '异常原因',
+		qianchuan_plan_snapshot JSON DEFAULT NULL COMMENT '千川计划候选快照',
+		shop_owner_snapshot JSON DEFAULT NULL COMMENT '店铺归属快照',
+		status VARCHAR(30) NOT NULL DEFAULT 'pending' COMMENT '状态：pending/resolved_auto/resolved_manual/ignored',
+		resolved_owner VARCHAR(100) NOT NULL DEFAULT '' COMMENT '人工指定归属人',
+		resolved_by VARCHAR(100) NOT NULL DEFAULT '' COMMENT '处理人',
+		resolved_at DATETIME DEFAULT NULL COMMENT '处理时间',
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		PRIMARY KEY (id),
+		UNIQUE KEY uk_order_source (order_info_id, exception_type),
+		KEY idx_status_date (status, stat_date),
+		KEY idx_shop_product_date (shop_name, product_id, stat_date),
+		KEY idx_main_order_no (main_order_no)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='空白单千川归属异常池'`)
+	return err
+}
+
+func orderListMarshalJSON(value interface{}) string {
+	if value == nil {
+		return ""
+	}
+	data, err := json.Marshal(value)
+	if err != nil || string(data) == "null" {
+		return ""
+	}
+	return string(data)
+}
+
+func orderListNilIfEmpty(value string) interface{} {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	return value
 }
 
 // OrderStats 订单统计数据
@@ -2112,7 +2872,7 @@ func (s *OrderService) statsFromEnrichedOrders(ctx context.Context, orders []g.M
 			if IsInvalidOrderForStats(afterSaleStatus) {
 				stats.InvalidOrderCount++
 			}
-			if IsRefundCostOrderForStats(afterSaleStatus, gconv.String(order["sendTime"])) {
+			if !orderListUsesAllocatedBlankRefundRate(order) && IsRefundCostOrderForStats(afterSaleStatus, gconv.String(order["sendTime"])) {
 				stats.RefundOrderCount++
 				stats.RefundCostAmount += gconv.Float64(order["productCost"])
 			}
@@ -2132,6 +2892,7 @@ func (s *OrderService) statsFromEnrichedOrders(ctx context.Context, orders []g.M
 			stats.CommissionOrderCount++
 		}
 		stats.OfflineCommission += orderListOfflineCommissionAmount(order)
+		stats.RefundCostAmount += orderListAllocatedBlankRefundCost(order)
 	}
 
 	stats.UnmatchedOrderCount = stats.TotalOrderCount - stats.ValidOrderCount - stats.InvalidOrderCount
@@ -2227,7 +2988,7 @@ func (s *OrderService) statsDouyinOrdersByOwnerLegacy(ctx context.Context, accou
 			if IsInvalidOrderForStats(afterSaleStatus) {
 				invalidOrders[orderKey] = struct{}{}
 			}
-			if IsRefundCostOrderForStats(afterSaleStatus, gconv.String(order["sendTime"])) {
+			if !orderListUsesAllocatedBlankRefundRate(order) && IsRefundCostOrderForStats(afterSaleStatus, gconv.String(order["sendTime"])) {
 				refundOrders[orderKey] = struct{}{}
 				stats.RefundCostAmount += gconv.Float64(order["productCost"])
 			}
@@ -2246,6 +3007,7 @@ func (s *OrderService) statsDouyinOrdersByOwnerLegacy(ctx context.Context, accou
 		if gconv.Float64(order["commission"]) != 0 {
 			commissionOrders[orderKey] = struct{}{}
 		}
+		stats.RefundCostAmount += orderListAllocatedBlankRefundCost(order)
 	}
 
 	stats.TotalOrderCount = len(totalOrders)
@@ -2379,7 +3141,7 @@ func (s *OrderService) statsDouyinOrdersByAccounts(ctx context.Context, accountI
 			if IsInvalidOrderForStats(afterSaleStatus) {
 				acc.invalidOrders[orderKey] = struct{}{}
 			}
-			if IsRefundCostOrderForStats(afterSaleStatus, gconv.String(order["sendTime"])) {
+			if !orderListUsesAllocatedBlankRefundRate(order) && IsRefundCostOrderForStats(afterSaleStatus, gconv.String(order["sendTime"])) {
 				acc.refundOrders[orderKey] = struct{}{}
 				acc.stats.RefundCostAmount += gconv.Float64(order["productCost"])
 			}
@@ -2397,6 +3159,7 @@ func (s *OrderService) statsDouyinOrdersByAccounts(ctx context.Context, accountI
 		if gconv.Float64(order["commission"]) != 0 {
 			acc.commissionOrders[orderKey] = struct{}{}
 		}
+		acc.stats.RefundCostAmount += orderListAllocatedBlankRefundCost(order)
 	}
 
 	for _, acc := range accumulators {

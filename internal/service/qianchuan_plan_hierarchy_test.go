@@ -85,6 +85,38 @@ func TestSummarizeQianchuanAwemeNodes(t *testing.T) {
 	}
 }
 
+func TestGroupQianchuanTalentNodes(t *testing.T) {
+	owners := map[int64]qianchuanTalentOwner{
+		101: {Key: "trader:9", Name: "王梅雪组", Matched: true},
+		102: {Key: "trader:9", Name: "王梅雪组", Matched: true},
+	}
+	list := groupQianchuanTalentNodes([]QianchuanPlanHierarchyNode{
+		{AdvertiserID: 101, AccountID: 1, StoreID: 11, PlanCount: 2, ProductCount: 1, StatCost: 80, Profit: 15, ShowCnt: 100, ClickCnt: 10},
+		{AdvertiserID: 102, AccountID: 2, StoreID: 11, PlanCount: 3, ProductCount: 2, StatCost: 20, Profit: 5, ShowCnt: 100, ClickCnt: 30},
+		{AdvertiserID: 103, AccountID: 3, StoreID: 12, PlanCount: 1, ProductCount: 1, StatCost: 10, Profit: -2},
+	}, owners)
+
+	if len(list) != 2 {
+		t.Fatalf("expected talent and unassigned groups, got %d: %+v", len(list), list)
+	}
+	talent := list[0]
+	if talent.Name != "王梅雪组" || talent.AdvertiserCount != 2 || talent.StoreCount != 1 || talent.PlanCount != 5 {
+		t.Fatalf("unexpected talent aggregation: %+v", talent)
+	}
+	if talent.StatCost != 100 || talent.Profit != 20 || talent.Ctr != 0.2 {
+		t.Fatalf("unexpected talent metrics: %+v", talent)
+	}
+	unassigned := list[1]
+	if unassigned.TalentKey != qianchuanUnassignedTalentKey || unassigned.Matched || unassigned.AdvertiserCount != 1 {
+		t.Fatalf("unexpected unassigned aggregation: %+v", unassigned)
+	}
+
+	summary := summarizeQianchuanHierarchyNodes(list, QianchuanHierarchyLevelTalent)
+	if summary.TalentCount != 1 || summary.AdvertiserCount != 3 || summary.TotalCost != 110 {
+		t.Fatalf("unexpected talent summary: %+v", summary)
+	}
+}
+
 func TestQianchuanPlanAwemeExportValidation(t *testing.T) {
 	if err := validateQianchuanPlanAwemeExportRequest(QianchuanPlanHierarchyRequest{
 		Level:   QianchuanHierarchyLevelStore,

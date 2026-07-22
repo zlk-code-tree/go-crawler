@@ -73,6 +73,8 @@ func (s *StoreService) List(ctx context.Context, page, pageSize int, keyword, pl
 			Platform:              row["platform"].String(),
 			Status:                row["status"].Int(),
 			Author:                row["author"].Int(),
+			BlankOrderEnabled:     row["blank_order_enabled"].Int(),
+			BlankOrderOwnerName:   row["blank_order_owner_name"].String(),
 			WechatAppId:           row["wechat_app_id"].String(),
 			HasWechatAppSecret:    row["has_wechat_app_secret"].Int(),
 			MaskedWechatAppSecret: maskAppSecret(row["wechat_app_id"].String(), row["has_wechat_app_secret"].Int()),
@@ -131,6 +133,8 @@ func (s *StoreService) Detail(ctx context.Context, id int) (*model.Store, error)
 		Platform:              row["platform"].String(),
 		Status:                row["status"].Int(),
 		Author:                row["author"].Int(),
+		BlankOrderEnabled:     row["blank_order_enabled"].Int(),
+		BlankOrderOwnerName:   row["blank_order_owner_name"].String(),
 		WechatAppId:           row["wechat_app_id"].String(),
 		HasWechatAppSecret:    row["has_wechat_app_secret"].Int(),
 		MaskedWechatAppSecret: maskAppSecret(row["wechat_app_id"].String(), row["has_wechat_app_secret"].Int()),
@@ -172,11 +176,13 @@ func (s *StoreService) Save(ctx context.Context, req *model.StoreSaveReq) (int64
 	}
 
 	data := g.Map{
-		"store_name": req.StoreName,
-		"store_id":   req.StoreId,
-		"platform":   req.Platform,
-		"status":     req.Status,
-		"author":     req.Author,
+		"store_name":             req.StoreName,
+		"store_id":               req.StoreId,
+		"platform":               req.Platform,
+		"status":                 req.Status,
+		"author":                 req.Author,
+		"blank_order_enabled":    req.BlankOrderEnabled,
+		"blank_order_owner_name": strings.TrimSpace(req.BlankOrderOwnerName),
 	}
 
 	now := time.Now()
@@ -320,7 +326,7 @@ func (s *StoreService) ExportToExcel(ctx context.Context, keyword, platform stri
 	sheetName := "店铺信息"
 	f.NewSheet(sheetName)
 
-	headers := []string{"店铺名称", "店铺ID", "平台", "状态", "授权"}
+	headers := []string{"店铺名称", "店铺ID", "平台", "状态", "授权", "是否参与空白单归属", "空白单归属人"}
 	for i, header := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheetName, cell, header)
@@ -352,6 +358,12 @@ func (s *StoreService) ExportToExcel(ctx context.Context, keyword, platform stri
 		f.SetCellValue(sheetName, fmt.Sprintf("D%d", rowNum), statusMap[s])
 		a := row["author"].Int64()
 		f.SetCellValue(sheetName, fmt.Sprintf("E%d", rowNum), authorMap[a])
+		enabled := "是"
+		if row["blank_order_enabled"].Int() == 0 {
+			enabled = "否"
+		}
+		f.SetCellValue(sheetName, fmt.Sprintf("F%d", rowNum), enabled)
+		f.SetCellValue(sheetName, fmt.Sprintf("G%d", rowNum), row["blank_order_owner_name"])
 	}
 
 	f.SetColWidth(sheetName, "A", "A", 30)
@@ -359,6 +371,7 @@ func (s *StoreService) ExportToExcel(ctx context.Context, keyword, platform stri
 	f.SetColWidth(sheetName, "C", "C", 15)
 	f.SetColWidth(sheetName, "D", "D", 10)
 	f.SetColWidth(sheetName, "E", "E", 10)
+	f.SetColWidth(sheetName, "F", "G", 20)
 	f.DeleteSheet("Sheet1")
 
 	exportDir := "./exports"
@@ -379,7 +392,7 @@ func (s *StoreService) ExportTemplate(ctx context.Context) (string, error) {
 	sheetName := "店铺信息"
 	f.NewSheet(sheetName)
 
-	headers := []string{"店铺名称", "店铺ID", "平台", "状态", "授权"}
+	headers := []string{"店铺名称", "店铺ID", "平台", "状态", "授权", "是否参与空白单归属", "空白单归属人"}
 	for i, header := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheetName, cell, header)
@@ -397,8 +410,8 @@ func (s *StoreService) ExportTemplate(ctx context.Context) (string, error) {
 
 	// 示例数据
 	samples := [][]string{
-		{"利云文化官方旗舰店", "21739359", "douyin", "启用", "已授权"},
-		{"示例店铺", "12345678", "kuaishou", "启用", "未授权"},
+		{"利云文化官方旗舰店", "21739359", "douyin", "启用", "已授权", "是", "王梅雪"},
+		{"示例店铺", "12345678", "kuaishou", "启用", "未授权", "否", ""},
 	}
 	for i, sample := range samples {
 		for j, val := range sample {
@@ -412,6 +425,7 @@ func (s *StoreService) ExportTemplate(ctx context.Context) (string, error) {
 	f.SetColWidth(sheetName, "C", "C", 15)
 	f.SetColWidth(sheetName, "D", "D", 10)
 	f.SetColWidth(sheetName, "E", "E", 10)
+	f.SetColWidth(sheetName, "F", "G", 20)
 
 	helpSheet := "填写说明"
 	f.NewSheet(helpSheet)
@@ -421,7 +435,9 @@ func (s *StoreService) ExportTemplate(ctx context.Context) (string, error) {
 	f.SetCellValue(helpSheet, "A4", "【平台】必填，支持：douyin/抖音、kuaishou/快手、shipinhao/视频号")
 	f.SetCellValue(helpSheet, "A5", "【状态】选填，启用/禁用，默认启用")
 	f.SetCellValue(helpSheet, "A6", "【授权】选填，已授权/未授权，默认未授权")
-	f.SetCellValue(helpSheet, "A8", "注意：同一平台下店铺ID不能重复")
+	f.SetCellValue(helpSheet, "A7", "【是否参与空白单归属】选填，是/否，默认是")
+	f.SetCellValue(helpSheet, "A8", "【空白单归属人】选填，参与空白单归属时建议填写最终运营者/投手名称")
+	f.SetCellValue(helpSheet, "A10", "注意：同一平台下店铺ID不能重复")
 	helpStyle, _ := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true, Size: 12}})
 	f.SetCellStyle(helpSheet, "A1", "A1", helpStyle)
 	f.SetColWidth(helpSheet, "A", "A", 60)
@@ -468,15 +484,19 @@ func (s *StoreService) ImportFromExcel(ctx context.Context, filePath string) (*I
 
 	// 表头映射：支持中英文
 	headerMapping := map[string]string{
-		"store_name": "store_name",
-		"店铺名称":       "store_name",
-		"store_id":   "store_id",
-		"店铺ID":       "store_id",
-		"平台":         "platform",
-		"platform":   "platform",
-		"状态":         "status",
-		"授权":         "author",
-		"author":     "author",
+		"store_name":             "store_name",
+		"店铺名称":                   "store_name",
+		"store_id":               "store_id",
+		"店铺ID":                   "store_id",
+		"平台":                     "platform",
+		"platform":               "platform",
+		"状态":                     "status",
+		"授权":                     "author",
+		"author":                 "author",
+		"是否参与空白单归属":              "blank_order_enabled",
+		"blank_order_enabled":    "blank_order_enabled",
+		"空白单归属人":                 "blank_order_owner_name",
+		"blank_order_owner_name": "blank_order_owner_name",
 	}
 	headerIndex := make(map[string]int)
 	for i, h := range headers {
@@ -513,6 +533,8 @@ func (s *StoreService) ImportFromExcel(ctx context.Context, filePath string) (*I
 		storeId := getCol("store_id")
 		platform := normalizePlatform(getCol("platform"))
 		statusStr := getCol("status")
+		blankOrderEnabledStr := getCol("blank_order_enabled")
+		blankOrderOwnerName := getCol("blank_order_owner_name")
 
 		if storeName == "" || storeId == "" || platform == "" {
 			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: 店铺名称/店铺ID/平台不能为空", rowNum))
@@ -530,6 +552,10 @@ func (s *StoreService) ImportFromExcel(ctx context.Context, filePath string) (*I
 		if authorStr != "" && (strings.Contains(authorStr, "已授权") || authorStr == "1") {
 			author = 1
 		}
+		blankOrderEnabled := 1
+		if blankOrderEnabledStr != "" && (strings.Contains(blankOrderEnabledStr, "否") || blankOrderEnabledStr == "0") {
+			blankOrderEnabled = 0
+		}
 
 		// 检查是否已存在
 		count, _ := g.DB().Model("store").Ctx(ctx).
@@ -542,13 +568,15 @@ func (s *StoreService) ImportFromExcel(ctx context.Context, filePath string) (*I
 		}
 
 		_, err = g.DB().Model("store").Ctx(ctx).Data(g.Map{
-			"store_name": storeName,
-			"store_id":   storeId,
-			"platform":   platform,
-			"status":     status,
-			"author":     author,
-			"created_at": time.Now(),
-			"updated_at": time.Now(),
+			"store_name":             storeName,
+			"store_id":               storeId,
+			"platform":               platform,
+			"status":                 status,
+			"author":                 author,
+			"blank_order_enabled":    blankOrderEnabled,
+			"blank_order_owner_name": blankOrderOwnerName,
+			"created_at":             time.Now(),
+			"updated_at":             time.Now(),
 		}).Insert()
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("第%d行: %v", rowNum, err))

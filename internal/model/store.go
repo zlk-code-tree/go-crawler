@@ -10,6 +10,8 @@ type Store struct {
 	Platform              string     `json:"platform"`  // 平台：douyin/kuaishou/shipinhao
 	Status                int        `json:"status"`    // 状态：0-禁用 1-启用
 	Author                int        `json:"author"`    // 授权状态：0-未授权 1-已授权
+	BlankOrderEnabled     int        `json:"blankOrderEnabled"`
+	BlankOrderOwnerName   string     `json:"blankOrderOwnerName"`
 	LastPollTime          *time.Time `json:"lastPollTime,omitempty"`
 	WechatAppId           string     `json:"wechatAppId,omitempty"`
 	HasWechatAppSecret    int        `json:"hasWechatAppSecret,omitempty"`
@@ -22,12 +24,14 @@ type Store struct {
 
 // StoreSaveReq 保存店铺请求
 type StoreSaveReq struct {
-	Id              int    `json:"id"`
-	StoreName       string `json:"storeName" v:"required#店铺名称不能为空"`
-	StoreId         string `json:"storeId" v:"required#店铺ID不能为空"`
-	Platform        string `json:"platform" v:"required|in:douyin,kuaishou,shipinhao#平台不能为空|平台非法"`
-	Status          int    `json:"status" d:"1"`
-	Author          int    `json:"author" d:"0"`
-	WechatAppId     string `json:"wechatAppId"`
-	WechatAppSecret string `json:"wechatAppSecret"`
+	Id                  int    `json:"id"`
+	StoreName           string `json:"storeName" v:"required#店铺名称不能为空"`
+	StoreId             string `json:"storeId" v:"required#店铺ID不能为空"`
+	Platform            string `json:"platform" v:"required|in:douyin,kuaishou,shipinhao#平台不能为空|平台非法"`
+	Status              int    `json:"status" d:"1"`
+	Author              int    `json:"author" d:"0"`
+	BlankOrderEnabled   int    `json:"blankOrderEnabled" d:"1"`
+	BlankOrderOwnerName string `json:"blankOrderOwnerName"`
+	WechatAppId         string `json:"wechatAppId"`
+	WechatAppSecret     string `json:"wechatAppSecret"`
 }

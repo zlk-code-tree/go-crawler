@@ -67,3 +67,35 @@ WHERE NOT EXISTS (
   SELECT 1 FROM qianchuan_advertiser_attribution_rule existing
   WHERE existing.advertiser_id = seed.advertiser_id
 );
+
+UPDATE `qianchuan_advertiser_attribution_rule`
+SET `advertiser_name` = '利云文化图书旗舰店-一组IP L',
+    `source_account_names` = '雷妈说教育,雷老师讲学业规划,汤圆老师说教育.,汤圆老师说教育.有因有果,汤圆老师讲教育有因有果,张可乐校长说学习方法,汤圆教育说-有因有果,汤圆老师数学规划圈,可乐老师来帮忙',
+    `effective_start_date` = '2026-06-11',
+    `effective_end_date` = NULL,
+    `status` = 1
+WHERE `advertiser_id` = 1805996971742284
+  AND `reason` = '张文蔚/孟令饶组抖音号在李百川千川户消耗归属李百川';
+
+INSERT IGNORE INTO `qianchuan_advertiser_attribution_rule`
+  (`advertiser_id`, `advertiser_name`, `source_account_names`, `source_trader_id`, `target_trader_id`,
+   `effective_start_date`, `effective_end_date`, `reason`, `status`)
+SELECT 1805996971742284, '利云文化图书旗舰店-一组IP L',
+  '雷妈说教育,雷老师讲学业规划,汤圆老师说教育.,汤圆老师说教育.有因有果,汤圆老师讲教育有因有果,张可乐校长说学习方法,汤圆教育说-有因有果,汤圆老师数学规划圈,可乐老师来帮忙',
+  source.id, target.id, '2026-06-11', NULL,
+  '张文蔚/孟令饶组抖音号在李百川千川户消耗归属李百川', 1
+FROM DUAL
+JOIN trader source ON source.id = (
+  SELECT id FROM trader
+  WHERE name IN ('张文蔚/孟令饶组', '张文蔚/孟令饶') AND status = 1
+  ORDER BY (name = '张文蔚/孟令饶组') DESC, id ASC LIMIT 1
+)
+JOIN trader target ON target.id = (
+  SELECT id FROM trader
+  WHERE name IN ('李百川', '李百川组') AND status = 1
+  ORDER BY (name = '李百川组') DESC, id ASC LIMIT 1
+)
+WHERE NOT EXISTS (
+  SELECT 1 FROM qianchuan_advertiser_attribution_rule existing
+  WHERE existing.advertiser_id = 1805996971742284
+);
