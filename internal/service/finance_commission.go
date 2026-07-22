@@ -169,14 +169,14 @@ func (s *FinanceCommissionService) GetStats(ctx context.Context, req *model.Fina
 		if err != nil {
 			return nil, err
 		}
-		return s.alignNodeQianchuanAdvertiserCost(ctx, result, req.NodeId, req.NodeType, platform, startDate, endDate)
+		return s.finalizeStatsResponse(ctx, result, req.NodeId, req.NodeType, platform, startDate, endDate)
 	}
 	if endDate < today {
 		result, err := s.getStatsFromTable(ctx, req.NodeId, req.NodeType, startDate, endDate, req.TimeType, platform)
 		if err != nil {
 			return nil, err
 		}
-		return s.alignNodeQianchuanAdvertiserCost(ctx, result, req.NodeId, req.NodeType, platform, startDate, endDate)
+		return s.finalizeStatsResponse(ctx, result, req.NodeId, req.NodeType, platform, startDate, endDate)
 	}
 
 	// 跨越当天：历史汇总 + 当天实时结果。
@@ -189,7 +189,7 @@ func (s *FinanceCommissionService) GetStats(ctx context.Context, req *model.Fina
 	if err != nil {
 		return nil, err
 	}
-	return s.alignNodeQianchuanAdvertiserCost(ctx, s.mergeStats(history, realtime, req.TimeType, startDate, endDate), req.NodeId, req.NodeType, platform, startDate, endDate)
+	return s.finalizeStatsResponse(ctx, s.mergeStats(history, realtime, req.TimeType, startDate, endDate), req.NodeId, req.NodeType, platform, startDate, endDate)
 }
 
 // getStatsFromTable 从预聚合表查询
@@ -331,21 +331,22 @@ func (s *FinanceCommissionService) mergeStats(history, realtime *model.FinanceSt
 	rs := realtime.Summary
 
 	summary := model.FinanceStatsSummary{
-		TotalOrderCount:      hs.TotalOrderCount + rs.TotalOrderCount,
-		OrderCount:           hs.OrderCount + rs.OrderCount,
-		InvalidOrderCount:    hs.InvalidOrderCount + rs.InvalidOrderCount,
-		ProductNum:           hs.ProductNum + rs.ProductNum,
-		PayAmount:            roundFloatFinance(hs.PayAmount+rs.PayAmount, 2),
-		CostAmount:           roundFloatFinance(hs.CostAmount+rs.CostAmount, 2),
-		ReserveAmount:        roundFloatFinance(hs.ReserveAmount+rs.ReserveAmount, 2),
-		Commission:           roundFloatFinance(hs.Commission+rs.Commission, 2),
-		RefundCostAmount:     roundFloatFinance(hs.RefundCostAmount+rs.RefundCostAmount, 2),
-		RefundOrderCount:     hs.RefundOrderCount + rs.RefundOrderCount,
-		ShopServiceFee:       roundFloatFinance(hs.ShopServiceFee+rs.ShopServiceFee, 2),
-		AdCostAmount:         hs.AdCostAmount + rs.AdCostAmount,
-		ValidOrderCostMatch:  hs.ValidOrderCostMatch + rs.ValidOrderCostMatch,
-		CommissionOrderCount: hs.CommissionOrderCount + rs.CommissionOrderCount,
-		RealtimeProfit:       roundFloatFinance(hs.RealtimeProfit+rs.RealtimeProfit, 2),
+		TotalOrderCount:            hs.TotalOrderCount + rs.TotalOrderCount,
+		OrderCount:                 hs.OrderCount + rs.OrderCount,
+		InvalidOrderCount:          hs.InvalidOrderCount + rs.InvalidOrderCount,
+		BlankOrderAttributionCount: hs.BlankOrderAttributionCount + rs.BlankOrderAttributionCount,
+		ProductNum:                 hs.ProductNum + rs.ProductNum,
+		PayAmount:                  roundFloatFinance(hs.PayAmount+rs.PayAmount, 2),
+		CostAmount:                 roundFloatFinance(hs.CostAmount+rs.CostAmount, 2),
+		ReserveAmount:              roundFloatFinance(hs.ReserveAmount+rs.ReserveAmount, 2),
+		Commission:                 roundFloatFinance(hs.Commission+rs.Commission, 2),
+		RefundCostAmount:           roundFloatFinance(hs.RefundCostAmount+rs.RefundCostAmount, 2),
+		RefundOrderCount:           hs.RefundOrderCount + rs.RefundOrderCount,
+		ShopServiceFee:             roundFloatFinance(hs.ShopServiceFee+rs.ShopServiceFee, 2),
+		AdCostAmount:               hs.AdCostAmount + rs.AdCostAmount,
+		ValidOrderCostMatch:        hs.ValidOrderCostMatch + rs.ValidOrderCostMatch,
+		CommissionOrderCount:       hs.CommissionOrderCount + rs.CommissionOrderCount,
+		RealtimeProfit:             roundFloatFinance(hs.RealtimeProfit+rs.RealtimeProfit, 2),
 	}
 
 	return &model.FinanceStatsRes{
@@ -354,6 +355,14 @@ func (s *FinanceCommissionService) mergeStats(history, realtime *model.FinanceSt
 		EndDate:   endDate,
 		Summary:   summary,
 	}
+}
+
+func (s *FinanceCommissionService) finalizeStatsResponse(ctx context.Context, result *model.FinanceStatsRes, nodeID int64, nodeType, platform, startDate, endDate string) (*model.FinanceStatsRes, error) {
+	result, err := s.alignNodeQianchuanAdvertiserCost(ctx, result, nodeID, nodeType, platform, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	return s.fillBlankOrderAttributionStats(ctx, result, nodeID, nodeType, platform, startDate, endDate)
 }
 
 func (s *FinanceCommissionService) alignNodeQianchuanAdvertiserCost(ctx context.Context, result *model.FinanceStatsRes, nodeID int64, nodeType, platform, startDate, endDate string) (*model.FinanceStatsRes, error) {
@@ -368,6 +377,95 @@ func (s *FinanceCommissionService) alignNodeQianchuanAdvertiserCost(ctx context.
 	newAdCost := roundFloatFinance(adCost, 2)
 	result.Summary.AdCostAmount = newAdCost
 	result.Summary.RealtimeProfit = roundFloatFinance(result.Summary.RealtimeProfit+oldAdCost-newAdCost, 2)
+	return result, nil
+}
+
+func (s *FinanceCommissionService) fillBlankOrderAttributionStats(ctx context.Context, result *model.FinanceStatsRes, nodeID int64, nodeType, platform, startDate, endDate string) (*model.FinanceStatsRes, error) {
+	if result == nil {
+		return result, nil
+	}
+
+	enabled := IsQianchuanPlanBlankOrderInferenceEnabled(ctx)
+	result.BlankOrderInferenceEnabled = enabled
+	if platform != "douyin" {
+		result.Summary.BlankOrderAttributionCount = 0
+		return result, nil
+	}
+
+	accountIDs, err := s.getAccountIdsByNode(ctx, nodeID, nodeType, platform)
+	if err != nil {
+		return nil, err
+	}
+	if len(accountIDs) == 0 {
+		result.Summary.BlankOrderAttributionCount = 0
+		return result, nil
+	}
+
+	blankOrderCount, err := s.getBlankOrderAttributionCountByAccountIDs(ctx, accountIDs, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	result.Summary.BlankOrderAttributionCount = blankOrderCount
+	return result, nil
+}
+
+func (s *FinanceCommissionService) getBlankOrderAttributionCountByAccountIDs(ctx context.Context, accountIDs []int, startDate, endDate string) (int, error) {
+	if len(accountIDs) == 0 {
+		return 0, nil
+	}
+
+	queryStart := financeDatePart(startDate)
+	queryEnd := financeDatePart(endDate)
+	placeholders := orderListPlaceholders(len(accountIDs))
+	params := make([]interface{}, 0, len(accountIDs)+2)
+	params = append(params, queryStart, queryEnd)
+	for _, accountID := range accountIDs {
+		params = append(params, accountID)
+	}
+	row, err := g.DB().GetOne(ctx, fmt.Sprintf(`
+		SELECT COUNT(DISTINCT COALESCE(NULLIF(main_order_no, ''), NULLIF(sub_order_no, ''), CAST(order_info_id AS CHAR))) AS blank_order_count
+		FROM douyin_order_attribution
+		WHERE source = 'qianchuan_plan'
+		  AND stat_date >= ?
+		  AND stat_date <= ?
+		  AND account_id IN (%s)
+	`, placeholders), params...)
+	if err != nil {
+		return 0, fmt.Errorf("查询空白单归属数量失败: %v", err)
+	}
+	return row["blank_order_count"].Int(), nil
+}
+
+func (s *FinanceCommissionService) getBlankOrderAttributionCountsByAccountIDs(ctx context.Context, accountIDs []int, startDate, endDate string) (map[int]int, error) {
+	result := make(map[int]int)
+	if len(accountIDs) == 0 {
+		return result, nil
+	}
+
+	queryStart := financeDatePart(startDate)
+	queryEnd := financeDatePart(endDate)
+	placeholders := orderListPlaceholders(len(accountIDs))
+	params := make([]interface{}, 0, len(accountIDs)+2)
+	params = append(params, queryStart, queryEnd)
+	for _, accountID := range accountIDs {
+		params = append(params, accountID)
+	}
+	rows, err := g.DB().GetAll(ctx, fmt.Sprintf(`
+		SELECT account_id,
+		       COUNT(DISTINCT COALESCE(NULLIF(main_order_no, ''), NULLIF(sub_order_no, ''), CAST(order_info_id AS CHAR))) AS blank_order_count
+		FROM douyin_order_attribution
+		WHERE source = 'qianchuan_plan'
+		  AND stat_date >= ?
+		  AND stat_date <= ?
+		  AND account_id IN (%s)
+		GROUP BY account_id
+	`, placeholders), params...)
+	if err != nil {
+		return nil, fmt.Errorf("查询空白单归属数量失败: %v", err)
+	}
+	for _, row := range rows {
+		result[row["account_id"].Int()] = row["blank_order_count"].Int()
+	}
 	return result, nil
 }
 
@@ -460,6 +558,11 @@ func (s *FinanceCommissionService) statsFinanceChildNodes(ctx context.Context, c
 			newCost := roundFloatFinance(attributedCost, 2)
 			result[i].AdCostAmount = newCost
 			result[i].RealtimeProfit = roundFloatFinance(result[i].RealtimeProfit+oldCost-newCost, 2)
+			blankOrderCount, err := s.getBlankOrderAttributionCountByAccountIDs(ctx, accountIDs, startDate, endDate)
+			if err != nil {
+				return nil, nil, err
+			}
+			result[i].BlankOrderAttributionCount = blankOrderCount
 		}
 	}
 	return result, allAccountIDsSet, nil
@@ -748,22 +851,23 @@ func (s *FinanceCommissionService) getCompanyChildrenLegacy(ctx context.Context,
 		st.ShopServiceFee = roundFloatFinance(st.ShopServiceFee, 2)
 		st.RealtimeProfit = roundFloatFinance(st.RealtimeProfit, 2)
 		children = append(children, model.NodeStatsItem{
-			Id:                cn.id,
-			Name:              cn.name,
-			Type:              cn.nodeType,
-			TotalOrderCount:   st.TotalOrderCount,
-			OrderCount:        st.OrderCount,
-			InvalidOrderCount: st.InvalidOrderCount,
-			ProductNum:        st.ProductNum,
-			PayAmount:         st.PayAmount,
-			CostAmount:        st.CostAmount,
-			ReserveAmount:     st.ReserveAmount,
-			Commission:        st.Commission,
-			RefundCostAmount:  st.RefundCostAmount,
-			RefundOrderCount:  st.RefundOrderCount,
-			ShopServiceFee:    st.ShopServiceFee,
-			AdCostAmount:      st.AdCostAmount,
-			RealtimeProfit:    st.RealtimeProfit,
+			Id:                         cn.id,
+			Name:                       cn.name,
+			Type:                       cn.nodeType,
+			TotalOrderCount:            st.TotalOrderCount,
+			OrderCount:                 st.OrderCount,
+			InvalidOrderCount:          st.InvalidOrderCount,
+			BlankOrderAttributionCount: st.BlankOrderAttributionCount,
+			ProductNum:                 st.ProductNum,
+			PayAmount:                  st.PayAmount,
+			CostAmount:                 st.CostAmount,
+			ReserveAmount:              st.ReserveAmount,
+			Commission:                 st.Commission,
+			RefundCostAmount:           st.RefundCostAmount,
+			RefundOrderCount:           st.RefundOrderCount,
+			ShopServiceFee:             st.ShopServiceFee,
+			AdCostAmount:               st.AdCostAmount,
+			RealtimeProfit:             st.RealtimeProfit,
 		})
 	}
 	children, err = s.appendFinanceResidualNode(ctx, children, companyId, "company", startDate, endDate, timeType, platform)
@@ -1056,22 +1160,23 @@ func (s *FinanceCommissionService) getDepartmentChildrenLegacy(ctx context.Conte
 		st.ShopServiceFee = roundFloatFinance(st.ShopServiceFee, 2)
 		st.RealtimeProfit = roundFloatFinance(st.RealtimeProfit, 2)
 		children = append(children, model.NodeStatsItem{
-			Id:                cn.id,
-			Name:              cn.name,
-			Type:              cn.nodeType,
-			TotalOrderCount:   st.TotalOrderCount,
-			OrderCount:        st.OrderCount,
-			InvalidOrderCount: st.InvalidOrderCount,
-			ProductNum:        st.ProductNum,
-			PayAmount:         st.PayAmount,
-			CostAmount:        st.CostAmount,
-			ReserveAmount:     st.ReserveAmount,
-			Commission:        st.Commission,
-			RefundCostAmount:  st.RefundCostAmount,
-			RefundOrderCount:  st.RefundOrderCount,
-			ShopServiceFee:    st.ShopServiceFee,
-			AdCostAmount:      st.AdCostAmount,
-			RealtimeProfit:    st.RealtimeProfit,
+			Id:                         cn.id,
+			Name:                       cn.name,
+			Type:                       cn.nodeType,
+			TotalOrderCount:            st.TotalOrderCount,
+			OrderCount:                 st.OrderCount,
+			InvalidOrderCount:          st.InvalidOrderCount,
+			BlankOrderAttributionCount: st.BlankOrderAttributionCount,
+			ProductNum:                 st.ProductNum,
+			PayAmount:                  st.PayAmount,
+			CostAmount:                 st.CostAmount,
+			ReserveAmount:              st.ReserveAmount,
+			Commission:                 st.Commission,
+			RefundCostAmount:           st.RefundCostAmount,
+			RefundOrderCount:           st.RefundOrderCount,
+			ShopServiceFee:             st.ShopServiceFee,
+			AdCostAmount:               st.AdCostAmount,
+			RealtimeProfit:             st.RealtimeProfit,
 		})
 	}
 	children, err = s.appendFinanceResidualNode(ctx, children, deptId, "department", startDate, endDate, timeType, platform)
@@ -1217,6 +1322,24 @@ func (s *FinanceCommissionService) statsAccountLeavesForRange(ctx context.Contex
 			mergeFinanceStatsSummary(result[accountID], stats)
 		}
 	}
+	douyinAccountIDs := make([]int, 0, len(shops))
+	for _, shop := range shops {
+		if shop["platform"].String() == "douyin" {
+			if accountID := shop["id"].Int(); accountID > 0 {
+				douyinAccountIDs = append(douyinAccountIDs, accountID)
+			}
+		}
+	}
+	blankOrderCounts, err := s.getBlankOrderAttributionCountsByAccountIDs(ctx, douyinAccountIDs, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	for accountID, count := range blankOrderCounts {
+		if result[accountID] == nil {
+			result[accountID] = &model.FinanceStatsSummary{}
+		}
+		result[accountID].BlankOrderAttributionCount = count
+	}
 	return result, nil
 }
 
@@ -1265,24 +1388,25 @@ func (s *FinanceCommissionService) getTraderChildren(ctx context.Context, trader
 			shopName = shop["platform_nickname"].String()
 		}
 		children = append(children, model.NodeStatsItem{
-			Id:                int64(shop["id"].Int()),
-			Name:              shopName,
-			Type:              "shop",
-			DouyinNickname:    shop["account_name"].String(),
-			Uid:               shop["uid"].String(),
-			TotalOrderCount:   stats.TotalOrderCount,
-			OrderCount:        stats.OrderCount,
-			InvalidOrderCount: stats.InvalidOrderCount,
-			ProductNum:        stats.ProductNum,
-			PayAmount:         stats.PayAmount,
-			CostAmount:        stats.CostAmount,
-			ReserveAmount:     stats.ReserveAmount,
-			Commission:        stats.Commission,
-			RefundCostAmount:  stats.RefundCostAmount,
-			RefundOrderCount:  stats.RefundOrderCount,
-			ShopServiceFee:    stats.ShopServiceFee,
-			AdCostAmount:      stats.AdCostAmount,
-			RealtimeProfit:    stats.RealtimeProfit,
+			Id:                         int64(shop["id"].Int()),
+			Name:                       shopName,
+			Type:                       "shop",
+			DouyinNickname:             shop["account_name"].String(),
+			Uid:                        shop["uid"].String(),
+			TotalOrderCount:            stats.TotalOrderCount,
+			OrderCount:                 stats.OrderCount,
+			InvalidOrderCount:          stats.InvalidOrderCount,
+			BlankOrderAttributionCount: stats.BlankOrderAttributionCount,
+			ProductNum:                 stats.ProductNum,
+			PayAmount:                  stats.PayAmount,
+			CostAmount:                 stats.CostAmount,
+			ReserveAmount:              stats.ReserveAmount,
+			Commission:                 stats.Commission,
+			RefundCostAmount:           stats.RefundCostAmount,
+			RefundOrderCount:           stats.RefundOrderCount,
+			ShopServiceFee:             stats.ShopServiceFee,
+			AdCostAmount:               stats.AdCostAmount,
+			RealtimeProfit:             stats.RealtimeProfit,
 		})
 	}
 	assignedAccountIDs := make(map[int]struct{}, len(shops))
@@ -1800,6 +1924,7 @@ func mergeFinanceStatsSummary(dst, src *model.FinanceStatsSummary) {
 	dst.TotalOrderCount += src.TotalOrderCount
 	dst.OrderCount += src.OrderCount
 	dst.InvalidOrderCount += src.InvalidOrderCount
+	dst.BlankOrderAttributionCount += src.BlankOrderAttributionCount
 	dst.ProductNum += src.ProductNum
 	dst.PayAmount = addFinanceMoney(dst.PayAmount, src.PayAmount)
 	dst.CostAmount = addFinanceMoney(dst.CostAmount, src.CostAmount)
@@ -1820,44 +1945,46 @@ func addFinanceMoney(left, right float64) float64 {
 
 func subtractFinanceStatsSummary(total, assigned model.FinanceStatsSummary) model.FinanceStatsSummary {
 	return model.FinanceStatsSummary{
-		TotalOrderCount:      total.TotalOrderCount - assigned.TotalOrderCount,
-		OrderCount:           total.OrderCount - assigned.OrderCount,
-		InvalidOrderCount:    total.InvalidOrderCount - assigned.InvalidOrderCount,
-		ProductNum:           total.ProductNum - assigned.ProductNum,
-		PayAmount:            roundFloatFinance(total.PayAmount-assigned.PayAmount, 2),
-		CostAmount:           roundFloatFinance(total.CostAmount-assigned.CostAmount, 2),
-		ReserveAmount:        roundFloatFinance(total.ReserveAmount-assigned.ReserveAmount, 2),
-		Commission:           roundFloatFinance(total.Commission-assigned.Commission, 2),
-		RefundCostAmount:     roundFloatFinance(total.RefundCostAmount-assigned.RefundCostAmount, 2),
-		RefundOrderCount:     total.RefundOrderCount - assigned.RefundOrderCount,
-		ShopServiceFee:       roundFloatFinance(total.ShopServiceFee-assigned.ShopServiceFee, 2),
-		AdCostAmount:         roundFloatFinance(total.AdCostAmount-assigned.AdCostAmount, 2),
-		ValidOrderCostMatch:  total.ValidOrderCostMatch - assigned.ValidOrderCostMatch,
-		CommissionOrderCount: total.CommissionOrderCount - assigned.CommissionOrderCount,
-		RealtimeProfit:       roundFloatFinance(total.RealtimeProfit-assigned.RealtimeProfit, 2),
+		TotalOrderCount:            total.TotalOrderCount - assigned.TotalOrderCount,
+		OrderCount:                 total.OrderCount - assigned.OrderCount,
+		InvalidOrderCount:          total.InvalidOrderCount - assigned.InvalidOrderCount,
+		BlankOrderAttributionCount: total.BlankOrderAttributionCount - assigned.BlankOrderAttributionCount,
+		ProductNum:                 total.ProductNum - assigned.ProductNum,
+		PayAmount:                  roundFloatFinance(total.PayAmount-assigned.PayAmount, 2),
+		CostAmount:                 roundFloatFinance(total.CostAmount-assigned.CostAmount, 2),
+		ReserveAmount:              roundFloatFinance(total.ReserveAmount-assigned.ReserveAmount, 2),
+		Commission:                 roundFloatFinance(total.Commission-assigned.Commission, 2),
+		RefundCostAmount:           roundFloatFinance(total.RefundCostAmount-assigned.RefundCostAmount, 2),
+		RefundOrderCount:           total.RefundOrderCount - assigned.RefundOrderCount,
+		ShopServiceFee:             roundFloatFinance(total.ShopServiceFee-assigned.ShopServiceFee, 2),
+		AdCostAmount:               roundFloatFinance(total.AdCostAmount-assigned.AdCostAmount, 2),
+		ValidOrderCostMatch:        total.ValidOrderCostMatch - assigned.ValidOrderCostMatch,
+		CommissionOrderCount:       total.CommissionOrderCount - assigned.CommissionOrderCount,
+		RealtimeProfit:             roundFloatFinance(total.RealtimeProfit-assigned.RealtimeProfit, 2),
 	}
 }
 
 func financeSummaryFromNodeStats(item model.NodeStatsItem) model.FinanceStatsSummary {
 	return model.FinanceStatsSummary{
-		TotalOrderCount:   item.TotalOrderCount,
-		OrderCount:        item.OrderCount,
-		InvalidOrderCount: item.InvalidOrderCount,
-		ProductNum:        item.ProductNum,
-		PayAmount:         item.PayAmount,
-		CostAmount:        item.CostAmount,
-		ReserveAmount:     item.ReserveAmount,
-		Commission:        item.Commission,
-		RefundCostAmount:  item.RefundCostAmount,
-		RefundOrderCount:  item.RefundOrderCount,
-		ShopServiceFee:    item.ShopServiceFee,
-		AdCostAmount:      item.AdCostAmount,
-		RealtimeProfit:    item.RealtimeProfit,
+		TotalOrderCount:            item.TotalOrderCount,
+		OrderCount:                 item.OrderCount,
+		InvalidOrderCount:          item.InvalidOrderCount,
+		BlankOrderAttributionCount: item.BlankOrderAttributionCount,
+		ProductNum:                 item.ProductNum,
+		PayAmount:                  item.PayAmount,
+		CostAmount:                 item.CostAmount,
+		ReserveAmount:              item.ReserveAmount,
+		Commission:                 item.Commission,
+		RefundCostAmount:           item.RefundCostAmount,
+		RefundOrderCount:           item.RefundOrderCount,
+		ShopServiceFee:             item.ShopServiceFee,
+		AdCostAmount:               item.AdCostAmount,
+		RealtimeProfit:             item.RealtimeProfit,
 	}
 }
 
 func financeResidualHasValues(stats model.FinanceStatsSummary) bool {
-	return stats.TotalOrderCount != 0 || stats.OrderCount != 0 || stats.InvalidOrderCount != 0 || stats.ProductNum != 0 ||
+	return stats.TotalOrderCount != 0 || stats.OrderCount != 0 || stats.InvalidOrderCount != 0 || stats.BlankOrderAttributionCount != 0 || stats.ProductNum != 0 ||
 		math.Abs(stats.PayAmount) >= 0.005 || math.Abs(stats.CostAmount) >= 0.005 || math.Abs(stats.ReserveAmount) >= 0.005 ||
 		math.Abs(stats.Commission) >= 0.005 || math.Abs(stats.RefundCostAmount) >= 0.005 || stats.RefundOrderCount != 0 ||
 		math.Abs(stats.ShopServiceFee) >= 0.005 || math.Abs(stats.AdCostAmount) >= 0.005 || math.Abs(stats.RealtimeProfit) >= 0.005
@@ -1865,22 +1992,23 @@ func financeResidualHasValues(stats model.FinanceStatsSummary) bool {
 
 func financeNodeStatsFromSummary(id int64, name, nodeType string, stats model.FinanceStatsSummary) model.NodeStatsItem {
 	return model.NodeStatsItem{
-		Id:                id,
-		Name:              name,
-		Type:              nodeType,
-		TotalOrderCount:   stats.TotalOrderCount,
-		OrderCount:        stats.OrderCount,
-		InvalidOrderCount: stats.InvalidOrderCount,
-		ProductNum:        stats.ProductNum,
-		PayAmount:         stats.PayAmount,
-		CostAmount:        stats.CostAmount,
-		ReserveAmount:     stats.ReserveAmount,
-		Commission:        stats.Commission,
-		RefundCostAmount:  stats.RefundCostAmount,
-		RefundOrderCount:  stats.RefundOrderCount,
-		ShopServiceFee:    stats.ShopServiceFee,
-		AdCostAmount:      stats.AdCostAmount,
-		RealtimeProfit:    stats.RealtimeProfit,
+		Id:                         id,
+		Name:                       name,
+		Type:                       nodeType,
+		TotalOrderCount:            stats.TotalOrderCount,
+		OrderCount:                 stats.OrderCount,
+		InvalidOrderCount:          stats.InvalidOrderCount,
+		BlankOrderAttributionCount: stats.BlankOrderAttributionCount,
+		ProductNum:                 stats.ProductNum,
+		PayAmount:                  stats.PayAmount,
+		CostAmount:                 stats.CostAmount,
+		ReserveAmount:              stats.ReserveAmount,
+		Commission:                 stats.Commission,
+		RefundCostAmount:           stats.RefundCostAmount,
+		RefundOrderCount:           stats.RefundOrderCount,
+		ShopServiceFee:             stats.ShopServiceFee,
+		AdCostAmount:               stats.AdCostAmount,
+		RealtimeProfit:             stats.RealtimeProfit,
 	}
 }
 

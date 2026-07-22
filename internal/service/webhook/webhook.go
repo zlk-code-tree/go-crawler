@@ -358,7 +358,7 @@ func (s *WebhookPushService) queryPeriodProfitForNode(ctx context.Context, days 
 	startTime := startDate + " 00:00:00"
 	endTime := endDate + " 23:59:59"
 
-	validCond := FinanceValidOrderCondition("o")
+	validCond := financeService.FinanceValidOrderCondition("o")
 	refundCond := "o.after_sale_status = '12' AND o.send_time IS NOT NULL"
 
 	platforms := []struct {

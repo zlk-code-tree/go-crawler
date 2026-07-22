@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS `douyin_order_attribution` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_order_source` (`order_info_id`, `source`),
     INDEX `idx_stat_shop_product` (`stat_date`, `shop_name`, `product_id`),
+    INDEX `idx_source_account_date` (`source`, `account_id`, `stat_date`),
     INDEX `idx_account_date` (`account_id`, `stat_date`),
     INDEX `idx_trader_date` (`trader_id`, `stat_date`),
     INDEX `idx_main_order_no` (`main_order_no`)

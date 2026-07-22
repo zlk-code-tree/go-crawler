@@ -853,6 +853,7 @@ func (c *QianchuanPollerController) PlanHierarchy(r *ghttp.Request) {
 		EndDate:      r.Get("endDate").String(),
 		Keyword:      r.Get("keyword").String(),
 		ProductID:    r.Get("productId").String(),
+		AwemeKeyword: r.Get("awemeKeyword").String(),
 		StoreID:      r.Get("storeId", int64(0)).Int64(),
 		AccountID:    r.Get("accountId", int64(0)).Int64(),
 		AdvertiserID: r.Get("advertiserId", int64(0)).Int64(),

@@ -26,6 +26,7 @@ type QianchuanPlanHierarchyRequest struct {
 	EndDate      string
 	Keyword      string
 	ProductID    string
+	AwemeKeyword string
 	StoreID      int64
 	AccountID    int64
 	AdvertiserID int64
@@ -44,6 +45,7 @@ type QianchuanPlanHierarchyNode struct {
 	StatDate         string  `json:"statDate"`
 	AdvertiserName   string  `json:"advertiserName"`
 	StoreID          int64   `json:"storeId"`
+	StoreName        string  `json:"storeName"`
 	AccountID        int64   `json:"accountId"`
 	AdvertiserID     int64   `json:"advertiserId"`
 	AwemeID          int64   `json:"awemeId"`
@@ -208,6 +210,7 @@ func (s *QianchuanPlanHierarchyService) Query(ctx context.Context, req Qianchuan
 	req.EndDate = endDate
 	req.Keyword = strings.TrimSpace(req.Keyword)
 	req.ProductID = strings.TrimSpace(req.ProductID)
+	req.AwemeKeyword = strings.TrimSpace(req.AwemeKeyword)
 	req.AwemeShowID = strings.TrimSpace(req.AwemeShowID)
 
 	level := req.Level
@@ -252,7 +255,7 @@ func (s *QianchuanPlanHierarchyService) Query(ctx context.Context, req Qianchuan
 }
 
 func isUnfilteredQianchuanProfitRequest(req QianchuanPlanHierarchyRequest) bool {
-	return req.Keyword == "" && req.ProductID == "" && req.StoreID == 0 && req.AccountID == 0 &&
+	return req.Keyword == "" && req.ProductID == "" && req.AwemeKeyword == "" && req.StoreID == 0 && req.AccountID == 0 &&
 		req.AdvertiserID == 0 && req.AwemeID == 0 && req.AwemeShowID == "" && req.TalentKey == ""
 }
 
@@ -304,6 +307,17 @@ func qianchuanHierarchyKeyword(alias, keyword string) (string, []interface{}) {
 		)
 	)`, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias)
 	return clause, []interface{}{like, like, like, like, like, like, like, like, like, like}
+}
+
+func qianchuanAwemeKeyword(alias, keyword string) (string, []interface{}) {
+	if keyword == "" {
+		return "", nil
+	}
+	like := "%" + keyword + "%"
+	clause := fmt.Sprintf(` AND (
+		%s.aweme_show_id = ? OR CAST(%s.aweme_id AS CHAR) = ? OR %s.aweme_name LIKE ?
+	)`, alias, alias, alias)
+	return clause, []interface{}{keyword, keyword, like}
 }
 
 func qianchuanOrderStatsCTE(validCondition string) string {
@@ -1000,6 +1014,7 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 
 func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req QianchuanPlanHierarchyRequest, endExclusive string) ([]QianchuanPlanHierarchyNode, error) {
 	keywordSQL, keywordArgs := qianchuanHierarchyKeyword("daily", req.Keyword)
+	awemeKeywordSQL, awemeKeywordArgs := qianchuanAwemeKeyword("daily", req.AwemeKeyword)
 	filterSQL := ""
 	filterArgs := make([]interface{}, 0, 6)
 	if req.AdvertiserID > 0 {
@@ -1029,6 +1044,7 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 	FROM (
 		SELECT
 			COALESCE(sqm.store_id, 0) AS store_id,
+			COALESCE(NULLIF(st.store_name, ''), '未匹配店铺') AS store_name,
 			qar.account_id, qar.advertiser_id, qar.ad_id, qar.ad_name,
 			COALESCE(NULLIF(qar.advertiser_name, ''), NULLIF(sqm.qianchuan_advertiser_name, ''), '') AS advertiser_name,
 			CAST(qar.product_id AS CHAR) AS product_id, qar.product_name,
@@ -1045,14 +1061,17 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 		FROM qianchuan_ad_report qar
 		LEFT JOIN store_qianchuan_mapping sqm
 			ON sqm.qianchuan_advertiser_id = qar.advertiser_id
+		LEFT JOIN store st
+			ON st.id = COALESCE(sqm.store_id, 0)
 		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?
 	) daily
-	WHERE 1 = 1%s%s
-	ORDER BY daily.stat_date DESC, daily.ad_id ASC`, filterSQL, keywordSQL)
+	WHERE 1 = 1%s%s%s
+	ORDER BY daily.stat_date DESC, daily.ad_id ASC`, filterSQL, keywordSQL, awemeKeywordSQL)
 
 	args := []interface{}{req.StartDate, endExclusive}
 	args = append(args, filterArgs...)
 	args = append(args, keywordArgs...)
+	args = append(args, awemeKeywordArgs...)
 	rows, err := g.DB().GetAll(ctx, sql, args...)
 	if err != nil {
 		return nil, err
@@ -1104,6 +1123,7 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 				StatDate:       statDate,
 				AdvertiserName: row["advertiser_name"].String(),
 				StoreID:        row["store_id"].Int64(),
+				StoreName:      row["store_name"].String(),
 				AccountID:      row["account_id"].Int64(),
 				AdvertiserID:   row["advertiser_id"].Int64(),
 				AwemeID:        row["aweme_id"].Int64(),
@@ -1149,7 +1169,7 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 	list := make([]QianchuanPlanHierarchyNode, 0, len(nodeMap))
 	for mapKey, node := range nodeMap {
 		adID := node.AdID
-		node.SecondaryName = planHierarchySecondaryName(node.ProductName, node.ProductID, adID)
+		node.SecondaryName = planHierarchySecondaryNameWithStore(node.ProductName, node.ProductID, node.StoreName, adID)
 		node.StatCost = roundQianchuanHierarchy(node.StatCost)
 		node.Commission = roundQianchuanHierarchy(node.Commission)
 		node.ValidOrderCount = roundQianchuanHierarchy(node.ValidOrderCount)
@@ -1328,6 +1348,15 @@ func planHierarchySecondaryName(productName, productID string, adID int64) strin
 		return fmt.Sprintf("商品ID %s · 计划ID %d", productID, adID)
 	}
 	return fmt.Sprintf("计划ID %d", adID)
+}
+
+func planHierarchySecondaryNameWithStore(productName, productID, storeName string, adID int64) string {
+	planName := planHierarchySecondaryName(productName, productID, adID)
+	storeName = strings.TrimSpace(storeName)
+	if storeName == "" {
+		return planName
+	}
+	return fmt.Sprintf("%s · %s", storeName, planName)
 }
 
 func roundQianchuanHierarchy(value float64) float64 {

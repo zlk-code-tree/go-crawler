@@ -766,12 +766,14 @@ var (
 			PRIMARY KEY (id),
 			UNIQUE KEY uk_order_source (order_info_id, source),
 			INDEX idx_stat_shop_product (stat_date, shop_name, product_id),
+			INDEX idx_source_account_date (source, account_id, stat_date),
 			INDEX idx_account_date (account_id, stat_date),
 			INDEX idx_trader_date (trader_id, stat_date),
 			INDEX idx_main_order_no (main_order_no)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='抖音小店自营订单千川归属结果'`)
 			addColumnIfMissing("douyin_order_attribution", "allocated_store_name", "allocated_store_name VARCHAR(200) NOT NULL DEFAULT '' COMMENT '千川分配命中的投流店铺' AFTER `shop_name`")
 			addColumnIfMissing("douyin_order_attribution", "blank_order_owner_name", "blank_order_owner_name VARCHAR(100) NOT NULL DEFAULT '' COMMENT '空白单最终归属人快照' AFTER `allocated_store_name`")
+			addIndexIfMissing("douyin_order_attribution", "idx_source_account_date", "KEY `idx_source_account_date` (`source`, `account_id`, `stat_date`)")
 
 			if _, err := g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS blank_order_allocation_exception (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
