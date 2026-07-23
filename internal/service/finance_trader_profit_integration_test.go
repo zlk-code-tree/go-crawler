@@ -57,6 +57,19 @@ func TestRoundFloatFinanceRoundsNegativeValues(t *testing.T) {
 	}
 }
 
+func TestFinanceAggregateInferenceContextSnapshotsCurrentSetting(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		source := withQianchuanPlanBlankOrderInferenceSetting(context.Background(), enabled)
+		snapshot, got := financeAggregateInferenceContext(source)
+		if got != enabled {
+			t.Fatalf("snapshot enabled = %t, want %t", got, enabled)
+		}
+		if IsQianchuanPlanBlankOrderInferenceEnabled(snapshot) != enabled {
+			t.Fatalf("snapshot context ignored enabled = %t", enabled)
+		}
+	}
+}
+
 func TestAlignTraderAccountNodeQianchuanCosts(t *testing.T) {
 	children := []model.NodeStatsItem{
 		{Id: 11, Type: "shop", AdCostAmount: 80.00, RealtimeProfit: -30.00},

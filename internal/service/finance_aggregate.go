@@ -19,13 +19,24 @@ func NewFinanceAggregateService() *FinanceAggregateService {
 	return &FinanceAggregateService{}
 }
 
+func financeAggregateInferenceContext(ctx context.Context) (context.Context, bool) {
+	enabled := IsQianchuanPlanBlankOrderInferenceEnabled(ctx)
+	return withQianchuanPlanBlankOrderInferenceSetting(ctx, enabled), enabled
+}
+
 // DailyAggregateJob 每日聚合任务
 // 建议在每天凌晨2点执行，统计前一天的数据
 func (s *FinanceAggregateService) DailyAggregateJob(ctx context.Context, date string) error {
 	if _, err := time.Parse("2006-01-02", date); err != nil {
 		return fmt.Errorf("日期格式错误，期望 2006-01-02: %s", date)
 	}
-	g.Log().Infof(ctx, "[FinanceAggregate] 开始执行日聚合任务, 日期: %s", date)
+	ctx, qianchuanBlankOrderInferenceEnabled := financeAggregateInferenceContext(ctx)
+	g.Log().Infof(
+		ctx,
+		"[FinanceAggregate] 开始执行日聚合任务, 日期: %s, 空白单反推: %t",
+		date,
+		qianchuanBlankOrderInferenceEnabled,
+	)
 
 	// 历史汇总必须复用实时页面的账号叶子计算器，避免出现两套订单归属、广告费和利润公式。
 	shops, err := g.DB().Model("account").Ctx(ctx).
@@ -363,6 +374,15 @@ func (s *FinanceAggregateService) AggregateRange(ctx context.Context, startDate,
 	if err != nil {
 		return fmt.Errorf("结束日期格式错误: %v", err)
 	}
+
+	ctx, qianchuanBlankOrderInferenceEnabled := financeAggregateInferenceContext(ctx)
+	g.Log().Infof(
+		ctx,
+		"[FinanceAggregate] 开始区间回填, 日期: %s~%s, 空白单反推: %t",
+		startDate,
+		endDate,
+		qianchuanBlankOrderInferenceEnabled,
+	)
 
 	// 收集所有日期
 	var dates []string
