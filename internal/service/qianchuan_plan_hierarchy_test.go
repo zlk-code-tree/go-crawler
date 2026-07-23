@@ -2,6 +2,7 @@ package service
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -16,6 +17,20 @@ func TestNormalizeQianchuanHierarchyDates(t *testing.T) {
 
 	if _, _, _, err = normalizeQianchuanHierarchyDates("2026-07-10", "2026-07-08"); err == nil {
 		t.Fatal("expected reversed date range to fail")
+	}
+}
+
+func TestQianchuanOrderStoreMatchSQLPrefersStoreIDAndFallsBackToName(t *testing.T) {
+	condition := qianchuanOrderStoreMatchSQL("orders", "stores")
+	for _, fragment := range []string{
+		"TRIM(orders.store_id)",
+		"orders.store_id COLLATE utf8mb4_unicode_ci = stores.store_id COLLATE utf8mb4_unicode_ci",
+		"COALESCE(NULLIF(NULLIF(TRIM(orders.store_id), ''), '0'), '') = ''",
+		"stores.store_name COLLATE utf8mb4_unicode_ci = orders.shop_name COLLATE utf8mb4_unicode_ci",
+	} {
+		if !strings.Contains(condition, fragment) {
+			t.Fatalf("store match condition missing %q:\n%s", fragment, condition)
+		}
 	}
 }
 

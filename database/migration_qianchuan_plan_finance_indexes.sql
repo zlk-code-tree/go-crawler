@@ -45,6 +45,14 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SELECT COUNT(*) INTO @idx_exists
 FROM information_schema.statistics
+WHERE table_schema = @db AND table_name = 'order_info' AND index_name = 'idx_store_product_pay_time';
+SET @sql = IF(@idx_exists = 0,
+  'ALTER TABLE `order_info` ADD INDEX `idx_store_product_pay_time` (`store_id`, `product_id`, `pay_finish_time`)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @idx_exists
+FROM information_schema.statistics
 WHERE table_schema = @db AND table_name = 'order_info' AND index_name = 'idx_product_submit_shop_order';
 SET @sql = IF(@idx_exists = 0,
   'ALTER TABLE `order_info` ADD INDEX `idx_product_submit_shop_order` (`product_id`, `order_submit_time`, `shop_name`, `main_order_no`)',

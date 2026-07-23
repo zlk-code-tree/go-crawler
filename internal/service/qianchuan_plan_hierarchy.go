@@ -364,7 +364,20 @@ func qianchuanAwemeKeyword(alias, keyword string) (string, []interface{}) {
 	return clause, []interface{}{keyword, keyword, like}
 }
 
+func qianchuanOrderStoreMatchSQL(orderAlias, storeAlias string) string {
+	orderStoreID := fmt.Sprintf("%s.store_id", orderAlias)
+	storePlatformID := fmt.Sprintf("%s.store_id", storeAlias)
+	return fmt.Sprintf(`(
+		(COALESCE(NULLIF(NULLIF(TRIM(%s), ''), '0'), '') != ''
+			AND %s COLLATE utf8mb4_unicode_ci = %s COLLATE utf8mb4_unicode_ci)
+		OR
+		(COALESCE(NULLIF(NULLIF(TRIM(%s), ''), '0'), '') = ''
+			AND %s.store_name COLLATE utf8mb4_unicode_ci = %s.shop_name COLLATE utf8mb4_unicode_ci)
+	)`, orderStoreID, orderStoreID, storePlatformID, orderStoreID, storeAlias, orderAlias)
+}
+
 func qianchuanOrderStatsCTE(validCondition string) string {
+	storeMatchCondition := qianchuanOrderStoreMatchSQL("o", "s")
 	return fmt.Sprintf(`
 	order_stats AS (
 		SELECT
@@ -385,7 +398,7 @@ func qianchuanOrderStatsCTE(validCondition string) string {
 		INNER JOIN store s
 			ON s.platform = 'douyin'
 			AND s.status = 1
-			AND s.store_name COLLATE utf8mb4_unicode_ci = o.shop_name COLLATE utf8mb4_unicode_ci
+			AND %s
 		INNER JOIN q_keys qk
 			ON qk.store_id = s.id
 			AND qk.product_id = CAST(o.product_id AS CHAR)
@@ -394,7 +407,7 @@ func qianchuanOrderStatsCTE(validCondition string) string {
 			ON o.seller_code COLLATE utf8mb4_unicode_ci = gd.goods_code COLLATE utf8mb4_unicode_ci
 		WHERE o.pay_finish_time >= ? AND o.pay_finish_time < ?
 		GROUP BY s.id, CAST(o.product_id AS CHAR), LEFT(o.pay_finish_time, 10)
-	)`, validCondition, validCondition, validCondition, validCondition, validCondition)
+	)`, validCondition, validCondition, validCondition, validCondition, validCondition, storeMatchCondition)
 }
 
 func (s *QianchuanPlanHierarchyService) queryStores(ctx context.Context, req QianchuanPlanHierarchyRequest, endExclusive string) ([]QianchuanPlanHierarchyNode, error) {
