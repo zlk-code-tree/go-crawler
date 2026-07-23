@@ -344,6 +344,8 @@ func (s *FinanceCommissionService) mergeStats(history, realtime *model.FinanceSt
 		RefundOrderCount:           hs.RefundOrderCount + rs.RefundOrderCount,
 		ShopServiceFee:             roundFloatFinance(hs.ShopServiceFee+rs.ShopServiceFee, 2),
 		AdCostAmount:               hs.AdCostAmount + rs.AdCostAmount,
+		AdCostNormalAmount:         hs.AdCostNormalAmount + rs.AdCostNormalAmount,
+		AdCostGapAmount:            hs.AdCostGapAmount + rs.AdCostGapAmount,
 		ValidOrderCostMatch:        hs.ValidOrderCostMatch + rs.ValidOrderCostMatch,
 		CommissionOrderCount:       hs.CommissionOrderCount + rs.CommissionOrderCount,
 		RealtimeProfit:             roundFloatFinance(hs.RealtimeProfit+rs.RealtimeProfit, 2),
@@ -369,13 +371,17 @@ func (s *FinanceCommissionService) alignNodeQianchuanAdvertiserCost(ctx context.
 	if result == nil || platform != "douyin" {
 		return result, nil
 	}
-	adCost, err := s.getNodeCurrentQianchuanCost(ctx, nodeID, nodeType, startDate, endDate)
+	breakdown, err := s.getNodeCurrentQianchuanCostBreakdown(ctx, nodeID, nodeType, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
 	oldAdCost := result.Summary.AdCostAmount
-	newAdCost := roundFloatFinance(adCost, 2)
+	normalCost := roundFloatFinance(breakdown.Normal, 2)
+	gapCost := roundFloatFinance(breakdown.Gap, 2)
+	newAdCost := roundFloatFinance(normalCost+gapCost, 2)
 	result.Summary.AdCostAmount = newAdCost
+	result.Summary.AdCostNormalAmount = normalCost
+	result.Summary.AdCostGapAmount = gapCost
 	result.Summary.RealtimeProfit = roundFloatFinance(result.Summary.RealtimeProfit+oldAdCost-newAdCost, 2)
 	return result, nil
 }
@@ -1512,10 +1518,33 @@ func (s *FinanceCommissionService) ExportValidOrderAttributions(ctx context.Cont
 }
 
 func (s *FinanceCommissionService) getNodeCurrentQianchuanCost(ctx context.Context, nodeID int64, nodeType, startDate, endDate string) (float64, error) {
+	breakdown, err := s.getNodeCurrentQianchuanCostBreakdown(ctx, nodeID, nodeType, startDate, endDate)
+	return breakdown.Total(), err
+}
+
+func (s *FinanceCommissionService) getNodeCurrentQianchuanCostBreakdown(ctx context.Context, nodeID int64, nodeType, startDate, endDate string) (qianchuanCostBreakdown, error) {
 	if nodeType != "company" && nodeType != "department" && nodeType != "trader" {
-		return 0, nil
+		return qianchuanCostBreakdown{}, nil
 	}
-	return getNodeQianchuanAdvertiserDailyCost(ctx, nodeID, nodeType, startDate, endDate)
+	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
+	switch nodeType {
+	case "company":
+		return getCompanyQianchuanAdvertiserDailyCostBreakdown(ctx, nodeID, startDate, endDate)
+	case "department":
+		departmentID := nodeID
+		if model.IsDeptID(nodeID) {
+			departmentID = model.DecodeDeptID(nodeID)
+		}
+		return getDepartmentQianchuanAdvertiserDailyCostBreakdown(ctx, departmentID, startDate, endDate)
+	case "trader":
+		traderID := nodeID
+		if model.IsTraderID(nodeID) {
+			traderID = model.DecodeTraderID(nodeID)
+		}
+		return getTraderQianchuanAdvertiserDailyCostBreakdown(ctx, traderID, startDate, endDate)
+	default:
+		return qianchuanCostBreakdown{}, nil
+	}
 }
 
 // ============================================
@@ -2624,6 +2653,8 @@ func (s *FinanceCommissionService) GetShopDetail(ctx context.Context, req *model
 		}
 		oldAdCost := stats.AdCostAmount
 		stats.AdCostAmount = roundFloatFinance(adCost, 2)
+		stats.AdCostNormalAmount = stats.AdCostAmount
+		stats.AdCostGapAmount = 0
 		stats.RealtimeProfit = roundFloatFinance(stats.RealtimeProfit+oldAdCost-stats.AdCostAmount, 2)
 	}
 
@@ -2980,6 +3011,8 @@ func mergeFinanceStatsSummary(dst, src *model.FinanceStatsSummary) {
 	dst.RefundOrderCount += src.RefundOrderCount
 	dst.ShopServiceFee = addFinanceMoney(dst.ShopServiceFee, src.ShopServiceFee)
 	dst.AdCostAmount = addFinanceMoney(dst.AdCostAmount, src.AdCostAmount)
+	dst.AdCostNormalAmount = addFinanceMoney(dst.AdCostNormalAmount, src.AdCostNormalAmount)
+	dst.AdCostGapAmount = addFinanceMoney(dst.AdCostGapAmount, src.AdCostGapAmount)
 	dst.ValidOrderCostMatch += src.ValidOrderCostMatch
 	dst.CommissionOrderCount += src.CommissionOrderCount
 	dst.RealtimeProfit = addFinanceMoney(dst.RealtimeProfit, src.RealtimeProfit)

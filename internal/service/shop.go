@@ -436,13 +436,16 @@ func (s *ShopService) ExportToExcel(ctx context.Context, keyword, platform, oper
 
 // ImportResult 导入结果
 type ImportResult struct {
-	TotalRows    int                        `json:"totalRows"`              // 总行数
-	SuccessCount int                        `json:"successCount"`           // 成功导入数（新增）
-	UpdateCount  int                        `json:"updateCount"`            // 更新数（已存在账号被更新）
-	SkipCount    int                        `json:"skipCount"`              // 跳过数
-	FailCount    int                        `json:"failCount"`              // 失败数
-	Errors       []string                   `json:"errors"`                 // 错误信息列表
-	RelationSync *TraderRelationSyncSummary `json:"relationSync,omitempty"` // 导入后账号-投手关系同步结果
+	TotalRows             int                        `json:"totalRows"`                       // 总行数
+	SuccessCount          int                        `json:"successCount"`                    // 成功导入数（新增）
+	UpdateCount           int                        `json:"updateCount"`                     // 更新数（已存在账号被更新）
+	SkipCount             int                        `json:"skipCount"`                       // 跳过数
+	FailCount             int                        `json:"failCount"`                       // 失败数
+	Errors                []string                   `json:"errors"`                          // 错误信息列表
+	PendingDeleteCount    int                        `json:"pendingDeleteCount"`              // 全量覆盖待删除数（dryRun 预览）
+	PendingDeleteSamples  []string                   `json:"pendingDeleteSamples,omitempty"`  // 待删除账号示例（dryRun 预览，前若干个）
+	DeletedCount          int                        `json:"deletedCount"`                    // 全量覆盖实际软删除数
+	RelationSync          *TraderRelationSyncSummary `json:"relationSync,omitempty"`          // 导入后账号-投手关系同步结果
 }
 
 // ImportFromExcel 从Excel导入账号数据（优化版：流式处理+事务批量upsert）
@@ -452,8 +455,11 @@ type ImportResult struct {
 //  2. 数据库层：INSERT ... ON DUPLICATE KEY UPDATE 兜底（需 uk_platform_account_name 唯一索引）
 //
 // 平台信息从Excel的"平台"列读取
-func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*ImportResult, error) {
-	g.Log().Infof(ctx, "开始导入账号文件: %s", filePath)
+//
+// 全量覆盖（fullReplace=true）：以 Excel 为准，库里活跃账号但不在 Excel 中的将被软删除（status=0）。
+// dryRun=true：仅解析 Excel 并计算待删除数，不执行任何写入/删除，返回 PendingDeleteCount 预览。
+func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, fullReplace bool, dryRun bool) (*ImportResult, error) {
+	g.Log().Infof(ctx, "开始导入账号文件: %s fullReplace=%v dryRun=%v", filePath, fullReplace, dryRun)
 
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
@@ -571,18 +577,25 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 	}
 	g.Log().Infof(ctx, "[ImportFromExcel] 预加载已有账号 %d 条用于去重", len(existingKeys))
 
-	// ===== 关键优化2：开启事务，保证一致性 =====
-	tx, err := g.DB().Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("开启事务失败：%w", err)
-	}
-	// 事务结束后自动回滚未提交的变更
-	defer func() {
-		if rec := recover(); rec != nil {
-			tx.Rollback()
-			panic(rec)
+	// excelKeys 记录本次 Excel 出现过的所有账号 key，用于全量覆盖时判定哪些库内记录需要软删除
+	excelKeys := make(map[string]struct{})
+
+	// dryRun 模式：只解析 Excel + 算待删除，不开启事务、不写入
+	var tx gdb.TX
+	if !dryRun {
+		// ===== 关键优化2：开启事务，保证一致性 =====
+		tx, err = g.DB().Begin(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("开启事务失败：%w", err)
 		}
-	}()
+		// 事务结束后自动回滚未提交的变更
+		defer func() {
+			if rec := recover(); rec != nil {
+				tx.Rollback()
+				panic(rec)
+			}
+		}()
+	}
 
 	// 批量处理配置
 	const batchSize = 500
@@ -643,24 +656,36 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 		// 检查同一平台下 account_name 是否已存在
 		// ===== 关键优化3：同文件内重复也通过 updateData 走批量upsert处理 =====
 		key := platform + "|" + accountName
-		if existing, ok := existingKeys[key]; ok && existing.has {
-			// 已存在（数据库中已有或同文件前面已出现）：加入更新批次
-			updateData := g.Map{
-				"operator":          operator,
-				"platform_nickname": platformNickname,
-				"status":            1,
-				"updated_at":        time.Now(),
+		excelKeys[key] = struct{}{}
+		if !dryRun {
+			if existing, ok := existingKeys[key]; ok && existing.has {
+				// 已存在（数据库中已有或同文件前面已出现）：加入更新批次
+				updateData := g.Map{
+					"operator":          operator,
+					"platform_nickname": platformNickname,
+					"status":            1,
+					"updated_at":        time.Now(),
+				}
+				if platformAccountId != "" {
+					updateData["uid"] = platformAccountId
+				}
+				_, err := tx.Model("account").Ctx(ctx).Where("id", existing.id).Data(updateData).Update()
+				if err != nil {
+					result.FailCount++
+					result.Errors = append(result.Errors, fmt.Sprintf("第%d行: 更新账号[%s]失败 - %v", rowNum, accountName, err))
+				} else {
+					result.UpdateCount++
+				}
+				continue
 			}
-			if platformAccountId != "" {
-				updateData["uid"] = platformAccountId
-			}
-			_, err := tx.Model("account").Ctx(ctx).Where("id", existing.id).Data(updateData).Update()
-			if err != nil {
-				result.FailCount++
-				result.Errors = append(result.Errors, fmt.Sprintf("第%d行: 更新账号[%s]失败 - %v", rowNum, accountName, err))
-			} else {
+		} else {
+			// dryRun：仅统计将新增/更新的数量，不写入
+			if _, ok := existingKeys[key]; ok {
 				result.UpdateCount++
+			} else {
+				result.SuccessCount++
 			}
+			existingKeys[key] = existingAccount{has: true}
 			continue
 		}
 
@@ -698,7 +723,7 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 	}
 
 	// 处理剩余的数据
-	if len(batch) > 0 {
+	if !dryRun && len(batch) > 0 {
 		if err := s.batchUpsert(ctx, tx, batch); err != nil {
 			tx.Rollback()
 			result.FailCount += len(batch)
@@ -708,15 +733,32 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 		result.SuccessCount += len(batch)
 	}
 
+	// 全量覆盖：软删除库里活跃但不在 Excel 中的账号
+	if fullReplace {
+		pendingDeletes, pendingSamples := s.collectAccountsToDelete(ctx, excelKeys)
+		result.PendingDeleteCount = len(pendingDeletes)
+		result.PendingDeleteSamples = pendingSamples
+		if !dryRun && len(pendingDeletes) > 0 {
+			deleted, delErr := s.softDeleteAccounts(ctx, tx, pendingDeletes)
+			if delErr != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("软删除多余账号失败: %v", delErr))
+			} else {
+				result.DeletedCount = deleted
+			}
+		}
+	}
+
 	// 提交事务
-	if err := tx.Commit(); err != nil {
-		return result, fmt.Errorf("提交事务失败: %w", err)
+	if !dryRun {
+		if err := tx.Commit(); err != nil {
+			return result, fmt.Errorf("提交事务失败: %w", err)
+		}
 	}
 
 	g.Log().Infof(ctx, "[ImportFromExcel] 导入完成: 总行%d, 新增%d, 更新%d, 跳过%d, 失败%d",
 		result.TotalRows, result.SuccessCount, result.UpdateCount, result.SkipCount, result.FailCount)
 
-	if result.SuccessCount+result.UpdateCount > 0 {
+	if !dryRun && result.SuccessCount+result.UpdateCount > 0 {
 		syncSummary, syncErr := s.SyncTraderAccountRelationsFromAccounts(ctx, false)
 		if syncErr != nil {
 			g.Log().Warningf(ctx, "[ImportFromExcel] 同步账号投手关系失败: %v", syncErr)
@@ -734,6 +776,45 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string) (*Im
 	}
 
 	return result, nil
+}
+
+// collectAccountsToDelete 找出库里所有活跃账号中、不在本次 Excel keys 里的记录。
+// 返回待删除 id 列表与示例账号名（前 10 个，用于前端预览）。
+func (s *ShopService) collectAccountsToDelete(ctx context.Context, excelKeys map[string]struct{}) ([]int64, []string) {
+	rows, err := g.DB().Model("account").Where("status", 1).Fields("id, platform, account_name").All()
+	if err != nil {
+		g.Log().Warningf(ctx, "[collectAccountsToDelete] 查询活跃账号失败: %v", err)
+		return nil, nil
+	}
+	var ids []int64
+	var samples []string
+	for _, row := range rows {
+		key := row["platform"].String() + "|" + row["account_name"].String()
+		if _, ok := excelKeys[key]; ok {
+			continue
+		}
+		ids = append(ids, row["id"].Int64())
+		if len(samples) < 10 {
+			samples = append(samples, row["account_name"].String())
+		}
+	}
+	return ids, samples
+}
+
+// softDeleteAccounts 软删除（status=0）指定 id 的账号，返回受影响行数。
+func (s *ShopService) softDeleteAccounts(ctx context.Context, tx gdb.TX, ids []int64) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res, err := tx.Model("account").Ctx(ctx).WhereIn("id", ids).Data(g.Map{
+		"status":     0,
+		"updated_at": time.Now(),
+	}).Update()
+	if err != nil {
+		return 0, err
+	}
+	affected, _ := res.RowsAffected()
+	return int(affected), nil
 }
 
 // batchUpsert 使用 INSERT ... ON DUPLICATE KEY UPDATE 批量写入

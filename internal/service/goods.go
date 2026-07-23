@@ -243,16 +243,22 @@ func (s *GoodsService) ExportToExcel(ctx context.Context, keyword string) (strin
 
 // ImportResult 导入结果
 type GoodsImportResult struct {
-	TotalRows    int      `json:"totalRows"`
-	SuccessCount int      `json:"successCount"`
-	SkipCount    int      `json:"skipCount"`
-	FailCount    int      `json:"failCount"`
-	Errors       []string `json:"errors"`
+	TotalRows            int      `json:"totalRows"`
+	SuccessCount         int      `json:"successCount"`
+	SkipCount            int      `json:"skipCount"`
+	FailCount            int      `json:"failCount"`
+	Errors               []string `json:"errors"`
+	PendingDeleteCount   int      `json:"pendingDeleteCount"`             // 全量覆盖待删除数（dryRun 预览）
+	PendingDeleteSamples []string `json:"pendingDeleteSamples,omitempty"` // 待删除商品示例（dryRun 预览）
+	DeletedCount         int      `json:"deletedCount"`                   // 全量覆盖实际软删除数
 }
 
 // ImportFromExcel 从Excel导入商品数据
-func (s *GoodsService) ImportFromExcel(ctx context.Context, filePath string) (*GoodsImportResult, error) {
-	g.Log().Infof(ctx, "开始导入商品文件: %s", filePath)
+//
+// 全量覆盖（fullReplace=true）：以 Excel 为准，库里活跃商品但不在 Excel 中的将被软删除（status=3）。
+// dryRun=true：仅解析 Excel 并计算待删除数，不执行任何写入/删除，返回 PendingDeleteCount 预览。
+func (s *GoodsService) ImportFromExcel(ctx context.Context, filePath string, fullReplace bool, dryRun bool) (*GoodsImportResult, error) {
+	g.Log().Infof(ctx, "开始导入商品文件: %s fullReplace=%v dryRun=%v", filePath, fullReplace, dryRun)
 
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
@@ -333,6 +339,7 @@ func (s *GoodsService) ImportFromExcel(ctx context.Context, filePath string) (*G
 	}
 
 	// 流式读取并批量处理
+	excelCodes := make(map[string]struct{}) // 本次 Excel 出现过的所有商品编码，用于全量覆盖判定
 	for rows.Next() {
 		rowNum++
 		cols, err := rows.Columns()
@@ -376,6 +383,25 @@ func (s *GoodsService) ImportFromExcel(ctx context.Context, filePath string) (*G
 		}
 
 		// 检查商品编码是否已存在
+		excelCodes[goodsCode] = struct{}{}
+		if dryRun {
+			// dryRun：仅统计将新增/更新/跳过的数量，不写入
+			if goodsMap, exists := existingGoodsMap[goodsCode]; exists {
+				if existingPrice, nameExists := goodsMap[goodsName]; nameExists {
+					if existingPrice == basePrice {
+						result.SkipCount++
+					} else {
+						result.SuccessCount++
+					}
+				} else {
+					result.SuccessCount++
+				}
+			} else {
+				result.SuccessCount++
+				existingGoodsMap[goodsCode] = map[string]float64{goodsName: basePrice}
+			}
+			continue
+		}
 		if goodsMap, exists := existingGoodsMap[goodsCode]; exists {
 			if existingPrice, nameExists := goodsMap[goodsName]; nameExists {
 				// 商品编码和名称都相同
@@ -472,6 +498,21 @@ func (s *GoodsService) ImportFromExcel(ctx context.Context, filePath string) (*G
 		}
 	}
 
+	// 全量覆盖：软删除库里活跃但不在 Excel 中的商品
+	if fullReplace {
+		pendingDeletes, pendingSamples := s.collectGoodsToDelete(ctx, excelCodes)
+		result.PendingDeleteCount = len(pendingDeletes)
+		result.PendingDeleteSamples = pendingSamples
+		if !dryRun && len(pendingDeletes) > 0 {
+			deleted, delErr := s.softDeleteGoods(ctx, pendingDeletes)
+			if delErr != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("软删除多余商品失败: %v", delErr))
+			} else {
+				result.DeletedCount = deleted
+			}
+		}
+	}
+
 	// 记录所有错误信息到日志
 	if len(result.Errors) > 0 {
 		g.Log().Errorf(ctx, "商品导入失败详情（共%d条错误）:", len(result.Errors))
@@ -492,6 +533,44 @@ func (s *GoodsService) ImportFromExcel(ctx context.Context, filePath string) (*G
 	g.Log().Infof(ctx, "商品导入完成: 成功%d条，跳过%d条，失败%d条", result.SuccessCount, result.SkipCount, result.FailCount)
 
 	return result, nil
+}
+
+// collectGoodsToDelete 找出库里所有活跃商品中、不在本次 Excel codes 里的记录。
+// 返回待删除 id 列表与示例商品名（前 10 个，用于前端预览）。
+func (s *GoodsService) collectGoodsToDelete(ctx context.Context, excelCodes map[string]struct{}) ([]int64, []string) {
+	rows, err := g.DB().Model("goods").Where("status != ?", 3).Fields("id, goods_code, goods_name").All()
+	if err != nil {
+		g.Log().Warningf(ctx, "[collectGoodsToDelete] 查询活跃商品失败: %v", err)
+		return nil, nil
+	}
+	var ids []int64
+	var samples []string
+	for _, row := range rows {
+		if _, ok := excelCodes[row["goods_code"].String()]; ok {
+			continue
+		}
+		ids = append(ids, row["id"].Int64())
+		if len(samples) < 10 {
+			samples = append(samples, row["goods_name"].String())
+		}
+	}
+	return ids, samples
+}
+
+// softDeleteGoods 软删除（status=3）指定 id 的商品，返回受影响行数。
+func (s *GoodsService) softDeleteGoods(ctx context.Context, ids []int64) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res, err := g.DB().Model("goods").WhereIn("id", ids).Data(g.Map{
+		"status":      3,
+		"update_time": time.Now(),
+	}).Update()
+	if err != nil {
+		return 0, err
+	}
+	affected, _ := res.RowsAffected()
+	return int(affected), nil
 }
 
 // batchInsert 批量插入商品数据

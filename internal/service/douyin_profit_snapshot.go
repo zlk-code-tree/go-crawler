@@ -204,6 +204,12 @@ func getNodeQianchuanAdvertiserDailyCost(ctx context.Context, nodeID int64, node
 }
 
 func getCompanyQianchuanAdvertiserDailyCost(ctx context.Context, companyID int64, startDate, endDate string) (float64, error) {
+	breakdown, err := getCompanyQianchuanAdvertiserDailyCostBreakdown(ctx, companyID, startDate, endDate)
+	return breakdown.Total(), err
+}
+
+func getCompanyQianchuanAdvertiserDailyCostBreakdown(ctx context.Context, companyID int64, startDate, endDate string) (qianchuanCostBreakdown, error) {
+	args := append(qianchuanAttributionDateArgs(startDate, endDate), companyID)
 	row, err := g.DB().GetOne(ctx, attributedQianchuanCostCTE+`,
 		company_tree AS (
 			SELECT id FROM sys_company WHERE id = ? AND status = 1
@@ -213,17 +219,25 @@ func getCompanyQianchuanAdvertiserDailyCost(ctx context.Context, companyID int64
 			INNER JOIN company_tree parent ON child.parent_id = parent.id
 			WHERE child.status = 1
 		)
-		SELECT COALESCE(SUM(cost.stat_cost), 0) AS ad_cost
+		SELECT
+			COALESCE(SUM(CASE WHEN cost.cost_type = 'normal' THEN cost.stat_cost ELSE 0 END), 0) AS normal_cost,
+			COALESCE(SUM(CASE WHEN cost.cost_type = 'gap' THEN cost.stat_cost ELSE 0 END), 0) AS gap_cost
 		FROM attributed_qianchuan_cost cost
 		INNER JOIN trader owner ON owner.id = cost.resolved_trader_id AND owner.status = 1
-		WHERE owner.company_id IN (SELECT id FROM company_tree)`, startDate, endDate, startDate, endDate, companyID)
+		WHERE owner.company_id IN (SELECT id FROM company_tree)`, args...)
 	if err != nil {
-		return 0, fmt.Errorf("查询公司千川账户实扣消耗失败: %w", err)
+		return qianchuanCostBreakdown{}, fmt.Errorf("查询公司千川账户实扣消耗失败: %w", err)
 	}
-	return row["ad_cost"].Float64(), nil
+	return qianchuanCostBreakdownFromRecord(row), nil
 }
 
 func getDepartmentQianchuanAdvertiserDailyCost(ctx context.Context, departmentID int64, startDate, endDate string) (float64, error) {
+	breakdown, err := getDepartmentQianchuanAdvertiserDailyCostBreakdown(ctx, departmentID, startDate, endDate)
+	return breakdown.Total(), err
+}
+
+func getDepartmentQianchuanAdvertiserDailyCostBreakdown(ctx context.Context, departmentID int64, startDate, endDate string) (qianchuanCostBreakdown, error) {
+	args := append(qianchuanAttributionDateArgs(startDate, endDate), departmentID)
 	row, err := g.DB().GetOne(ctx, attributedQianchuanCostCTE+`,
 		dept_tree AS (
 			SELECT id FROM sys_department WHERE id = ? AND status = 1
@@ -233,23 +247,33 @@ func getDepartmentQianchuanAdvertiserDailyCost(ctx context.Context, departmentID
 			INNER JOIN dept_tree parent ON child.parent_id = parent.id
 			WHERE child.status = 1
 		)
-		SELECT COALESCE(SUM(cost.stat_cost), 0) AS ad_cost
+		SELECT
+			COALESCE(SUM(CASE WHEN cost.cost_type = 'normal' THEN cost.stat_cost ELSE 0 END), 0) AS normal_cost,
+			COALESCE(SUM(CASE WHEN cost.cost_type = 'gap' THEN cost.stat_cost ELSE 0 END), 0) AS gap_cost
 		FROM attributed_qianchuan_cost cost
 		INNER JOIN trader owner ON owner.id = cost.resolved_trader_id AND owner.status = 1
-		WHERE owner.group_id IN (SELECT id FROM dept_tree)`, startDate, endDate, startDate, endDate, departmentID)
+		WHERE owner.group_id IN (SELECT id FROM dept_tree)`, args...)
 	if err != nil {
-		return 0, fmt.Errorf("查询部门千川账户实扣消耗失败: %w", err)
+		return qianchuanCostBreakdown{}, fmt.Errorf("查询部门千川账户实扣消耗失败: %w", err)
 	}
-	return row["ad_cost"].Float64(), nil
+	return qianchuanCostBreakdownFromRecord(row), nil
 }
 
 func getTraderQianchuanAdvertiserDailyCost(ctx context.Context, traderID int64, startDate, endDate string) (float64, error) {
+	breakdown, err := getTraderQianchuanAdvertiserDailyCostBreakdown(ctx, traderID, startDate, endDate)
+	return breakdown.Total(), err
+}
+
+func getTraderQianchuanAdvertiserDailyCostBreakdown(ctx context.Context, traderID int64, startDate, endDate string) (qianchuanCostBreakdown, error) {
+	args := append(qianchuanAttributionDateArgs(startDate, endDate), traderID)
 	row, err := g.DB().GetOne(ctx, attributedQianchuanCostCTE+`
-		SELECT COALESCE(SUM(stat_cost), 0) AS ad_cost
+		SELECT
+			COALESCE(SUM(CASE WHEN cost_type = 'normal' THEN stat_cost ELSE 0 END), 0) AS normal_cost,
+			COALESCE(SUM(CASE WHEN cost_type = 'gap' THEN stat_cost ELSE 0 END), 0) AS gap_cost
 		FROM attributed_qianchuan_cost
-		WHERE resolved_trader_id = ?`, startDate, endDate, startDate, endDate, traderID)
+		WHERE resolved_trader_id = ?`, args...)
 	if err != nil {
-		return 0, fmt.Errorf("查询投手千川账户实扣消耗失败: %w", err)
+		return qianchuanCostBreakdown{}, fmt.Errorf("查询投手千川账户实扣消耗失败: %w", err)
 	}
-	return row["ad_cost"].Float64(), nil
+	return qianchuanCostBreakdownFromRecord(row), nil
 }

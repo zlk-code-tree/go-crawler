@@ -41,10 +41,14 @@ func TestQianchuanAttributionDatabaseDiagnostics(t *testing.T) {
 		t.Fatalf("query owner-only cost failed: %v", err)
 	}
 
+	attributedArgs := append(qianchuanAttributionDateArgs(statDate, statDate), traderID)
 	attributed, err := g.DB().GetOne(ctx, attributedQianchuanCostCTE+`
-		SELECT COALESCE(SUM(stat_cost), 0) AS ad_cost
+		SELECT
+			COALESCE(SUM(stat_cost), 0) AS ad_cost,
+			COALESCE(SUM(CASE WHEN cost_type = 'normal' THEN stat_cost ELSE 0 END), 0) AS normal_cost,
+			COALESCE(SUM(CASE WHEN cost_type = 'gap' THEN stat_cost ELSE 0 END), 0) AS gap_cost
 		FROM attributed_qianchuan_cost
-		WHERE resolved_trader_id = ?`, statDate, statDate, statDate, statDate, traderID)
+		WHERE resolved_trader_id = ?`, attributedArgs...)
 	if err != nil {
 		t.Fatalf("query attributed cost failed: %v", err)
 	}
@@ -80,13 +84,14 @@ func TestQianchuanAttributionDatabaseDiagnostics(t *testing.T) {
 			ON account.id = cost.account_id
 		WHERE cost.resolved_trader_id = ?
 		GROUP BY cost.advertiser_id, cost.account_id
-		ORDER BY special_rule_hit DESC, ad_cost DESC`, statDate, statDate, statDate, statDate, traderID)
+		ORDER BY special_rule_hit DESC, ad_cost DESC`, attributedArgs...)
 	if err != nil {
 		t.Fatalf("query attribution detail failed: %v", err)
 	}
 
-	t.Logf("date=%s trader=%d owner_only_ad=%.2f attributed_ad=%.2f rows=%d",
-		statDate, traderID, ownerOnly["ad_cost"].Float64(), attributed["ad_cost"].Float64(), len(rows))
+	t.Logf("date=%s trader=%d owner_only_ad=%.2f attributed_ad=%.2f normal_ad=%.2f gap_ad=%.2f rows=%d",
+		statDate, traderID, ownerOnly["ad_cost"].Float64(), attributed["ad_cost"].Float64(),
+		attributed["normal_cost"].Float64(), attributed["gap_cost"].Float64(), len(rows))
 	for _, row := range rows {
 		t.Logf("advertiser=%d account=%d accountName=%s nickname=%s ad=%.2f specialRule=%d accountOwner=%d",
 			row["advertiser_id"].Int64(), row["account_id"].Int(), row["account_name"].String(),

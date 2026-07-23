@@ -218,17 +218,27 @@ func (c *AccountController) ShopImport(r *ghttp.Request) {
 
 	// 导入数据（流式处理+批量入库）
 	shopService := service.NewShopService()
-	result, err := shopService.ImportFromExcel(r.Context(), tempFile)
+	fullReplace := r.Get("fullReplace").Bool()
+	dryRun := r.Get("dryRun").Bool()
+	result, err := shopService.ImportFromExcel(r.Context(), tempFile, fullReplace, dryRun)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导入失败: " + err.Error()})
 		return
 	}
 
 	// 返回详细的导入结果
+	msg := fmt.Sprintf("导入完成：新增%d条，更新%d条，跳过%d条，失败%d条", result.SuccessCount, result.UpdateCount, result.SkipCount, result.FailCount)
+	if fullReplace {
+		if dryRun {
+			msg = fmt.Sprintf("预览：新增%d条，更新%d条，待删除%d条，跳过%d条", result.SuccessCount, result.UpdateCount, result.PendingDeleteCount, result.SkipCount)
+		} else {
+			msg = fmt.Sprintf("导入完成：新增%d条，更新%d条，删除%d条，跳过%d条，失败%d条", result.SuccessCount, result.UpdateCount, result.DeletedCount, result.SkipCount, result.FailCount)
+		}
+	}
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
 		"data": result,
-		"msg":  fmt.Sprintf("导入完成：新增%d条，更新%d条，跳过%d条，失败%d条", result.SuccessCount, result.UpdateCount, result.SkipCount, result.FailCount),
+		"msg":  msg,
 	})
 }
 

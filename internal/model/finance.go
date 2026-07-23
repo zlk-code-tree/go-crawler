@@ -102,6 +102,8 @@ type FinanceStatsSummary struct {
 	RefundOrderCount           int     `json:"refundOrderCount"`
 	ShopServiceFee             float64 `json:"shopServiceFee"`
 	AdCostAmount               float64 `json:"adCostAmount"`
+	AdCostNormalAmount         float64 `json:"adCostNormalAmount"`
+	AdCostGapAmount            float64 `json:"adCostGapAmount"`
 	ValidOrderCostMatch        int     `json:"validOrderCostMatch"`
 	CommissionOrderCount       int     `json:"commissionOrderCount"`
 	RealtimeProfit             float64 `json:"realtimeProfit"`

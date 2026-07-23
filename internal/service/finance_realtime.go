@@ -387,10 +387,67 @@ const effectiveQianchuanCostCTE = `WITH RECURSIVE
 	)
 `
 
-// attributedQianchuanCostCTE 在账号明细粒度解析千川消耗归属。
-// 普通消耗要求千川户负责人和账号负责人一致；命中生效中的特殊规则时，规则目标优先。
-// 广告主日报比达人/计划下钻消耗多出的正差额，作为未下钻消耗兜底归属给千川户负责人。
-const attributedQianchuanCostCTE = effectiveQianchuanCostCTE + `,
+// attributedQianchuanCostCTE 按计划投放账号解析千川消耗归属。
+// 可下钻计划归投放账号所属达人，特殊规则优先；无法下钻及户实扣差额归千川户负责人。
+const attributedQianchuanCostCTE = `WITH RECURSIVE
+	active_owner AS (
+		SELECT owner.*
+		FROM qianchuan_account_owner_mapping owner
+		WHERE owner.status = 1
+		  AND owner.trader_id > 0
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM qianchuan_account_owner_mapping newer
+			WHERE newer.advertiser_id = owner.advertiser_id
+			  AND newer.status = 1
+			  AND newer.trader_id > 0
+			  AND newer.id > owner.id
+		  )
+	),
+	plan_all_daily AS (
+		SELECT
+			advertiser_id,
+			LEFT(stat_datetime, 10) AS stat_date,
+			COALESCE(SUM(stat_cost), 0) AS stat_cost
+		FROM qianchuan_ad_report
+		WHERE LEFT(stat_datetime, 10) >= ?
+		  AND LEFT(stat_datetime, 10) <= ?
+		  AND stat_cost > 0
+		GROUP BY advertiser_id, LEFT(stat_datetime, 10)
+	),
+	plan_account_daily AS (
+		SELECT
+			qar.account_id,
+			qar.advertiser_id,
+			MAX(qar.aweme_id) AS aweme_id,
+			MAX(NULLIF(qar.aweme_name, '')) AS aweme_name,
+			MAX(qar.company_id) AS company_id,
+			MAX(qar.department_id) AS department_id,
+			MAX(qar.trader_id) AS trader_id,
+			LEFT(qar.stat_datetime, 10) AS stat_date,
+			COALESCE(SUM(qar.stat_cost), 0) AS stat_cost,
+			0 AS pay_order_gmv,
+			COALESCE(SUM(qar.pay_order_count), 0) AS pay_order_count
+		FROM qianchuan_ad_report qar
+		INNER JOIN account matched_account
+			ON matched_account.id = qar.account_id
+			AND matched_account.platform = 'douyin'
+			AND matched_account.status = 1
+			AND (
+				(matched_account.uid REGEXP '^[0-9]+$' AND CAST(matched_account.uid AS UNSIGNED) = qar.aweme_id)
+				OR (NULLIF(TRIM(matched_account.platform_nickname), '') IS NOT NULL
+					AND LOWER(TRIM(matched_account.platform_nickname)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(qar.aweme_show_id)) COLLATE utf8mb4_unicode_ci)
+				OR (NULLIF(TRIM(matched_account.platform_nickname), '') IS NOT NULL
+					AND LOWER(TRIM(matched_account.platform_nickname)) COLLATE utf8mb4_unicode_ci = LOWER(CAST(qar.aweme_id AS CHAR)) COLLATE utf8mb4_unicode_ci)
+				OR (NULLIF(TRIM(matched_account.account_name), '') IS NOT NULL
+					AND LOWER(TRIM(matched_account.account_name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(qar.aweme_name)) COLLATE utf8mb4_unicode_ci)
+			)
+		WHERE qar.account_id > 0
+		  AND LEFT(qar.stat_datetime, 10) >= ?
+		  AND LEFT(qar.stat_datetime, 10) <= ?
+		  AND qar.stat_cost > 0
+		GROUP BY qar.account_id, qar.advertiser_id, LEFT(qar.stat_datetime, 10)
+	),
 	advertiser_daily AS (
 		SELECT
 			advertiser_id,
@@ -398,17 +455,81 @@ const attributedQianchuanCostCTE = effectiveQianchuanCostCTE + `,
 			LEFT(stat_datetime, 10) AS stat_date,
 			COALESCE(SUM(stat_cost), 0) AS stat_cost
 		FROM qianchuan_advertiser_daily_report
-		WHERE LEFT(stat_datetime, 10) IN (
-			SELECT DISTINCT stat_date FROM effective_qianchuan_cost
-		)
+		WHERE LEFT(stat_datetime, 10) >= ?
+		  AND LEFT(stat_datetime, 10) <= ?
 		GROUP BY advertiser_id, LEFT(stat_datetime, 10)
 	),
-	effective_by_advertiser AS (
+	plan_scaled AS (
 		SELECT
-			advertiser_id,
-			stat_date,
-			COALESCE(SUM(stat_cost), 0) AS stat_cost
-		FROM effective_qianchuan_cost
+			plan.*,
+			CASE
+				WHEN daily.stat_cost IS NOT NULL
+				 AND all_plan.stat_cost > daily.stat_cost
+				 AND all_plan.stat_cost > 0
+				THEN plan.stat_cost * daily.stat_cost / all_plan.stat_cost
+				ELSE plan.stat_cost
+			END AS allocated_stat_cost
+		FROM plan_account_daily plan
+		LEFT JOIN plan_all_daily all_plan
+			ON all_plan.advertiser_id = plan.advertiser_id
+			AND all_plan.stat_date = plan.stat_date
+		LEFT JOIN advertiser_daily daily
+			ON daily.advertiser_id = plan.advertiser_id
+			AND daily.stat_date = plan.stat_date
+	),
+	resolved_plan_cost AS (
+		SELECT
+			plan.account_id,
+			plan.advertiser_id,
+			plan.aweme_id,
+			plan.aweme_name,
+			plan.company_id,
+			plan.department_id,
+			plan.trader_id,
+			plan.stat_date,
+			plan.allocated_stat_cost AS stat_cost,
+			plan.pay_order_gmv,
+			plan.pay_order_count,
+			COALESCE(
+				(
+					SELECT rule.target_trader_id
+					FROM qianchuan_advertiser_attribution_rule rule
+					WHERE rule.advertiser_id = plan.advertiser_id
+					  AND rule.status = 1
+					  AND plan.stat_date >= rule.effective_start_date
+					  AND (rule.effective_end_date IS NULL OR plan.stat_date <= rule.effective_end_date)
+					  AND FIND_IN_SET(
+						LOWER(TRIM(COALESCE(NULLIF(matched_account.account_name, ''), NULLIF(plan.aweme_name, ''), ''))) COLLATE utf8mb4_unicode_ci,
+						LOWER(REPLACE(rule.source_account_names, '，', ',')) COLLATE utf8mb4_unicode_ci
+					  ) > 0
+					ORDER BY rule.effective_start_date DESC, rule.id DESC
+					LIMIT 1
+				),
+				(
+					SELECT MIN(account_owner.trader_id)
+					FROM trader_account_relation account_owner
+					INNER JOIN trader account_trader
+						ON account_trader.id = account_owner.trader_id
+						AND account_trader.status = 1
+					WHERE account_owner.account_id = plan.account_id
+				)
+			) AS resolved_trader_id
+		FROM plan_scaled plan
+		INNER JOIN account matched_account
+			ON matched_account.id = plan.account_id
+			AND matched_account.platform = 'douyin'
+	),
+	attributed_plan_cost AS (
+		SELECT
+			resolved.*,
+			'normal' AS cost_type
+		FROM resolved_plan_cost resolved
+		WHERE resolved.resolved_trader_id > 0
+		  AND resolved.stat_cost >= 0.005
+	),
+	attributed_plan_by_advertiser AS (
+		SELECT advertiser_id, stat_date, COALESCE(SUM(stat_cost), 0) AS stat_cost
+		FROM attributed_plan_cost
 		GROUP BY advertiser_id, stat_date
 	),
 	advertiser_daily_gap AS (
@@ -416,66 +537,50 @@ const attributedQianchuanCostCTE = effectiveQianchuanCostCTE + `,
 			0 AS account_id,
 			daily.advertiser_id,
 			0 AS aweme_id,
-			CONCAT('广告主未下钻消耗:', COALESCE(daily.advertiser_name, CAST(daily.advertiser_id AS CHAR))) AS aweme_name,
+			CONCAT('千川户差额消耗:', COALESCE(daily.advertiser_name, CAST(daily.advertiser_id AS CHAR))) AS aweme_name,
 			owner.company_id,
 			owner.department_id,
 			owner.trader_id,
 			daily.stat_date,
-			daily.stat_cost - COALESCE(effective.stat_cost, 0) AS stat_cost,
+			daily.stat_cost - COALESCE(attributed.stat_cost, 0) AS stat_cost,
 			0 AS pay_order_gmv,
 			0 AS pay_order_count,
-			owner.trader_id AS resolved_trader_id
+			owner.trader_id AS resolved_trader_id,
+			'gap' AS cost_type
 		FROM advertiser_daily daily
-		INNER JOIN qianchuan_account_owner_mapping owner
+		INNER JOIN active_owner owner
 			ON owner.advertiser_id = daily.advertiser_id
-			AND owner.status = 1
-			AND owner.trader_id > 0
-		LEFT JOIN effective_by_advertiser effective
-			ON effective.advertiser_id = daily.advertiser_id
-			AND effective.stat_date = daily.stat_date
-		WHERE daily.stat_cost - COALESCE(effective.stat_cost, 0) >= 0.005
+		LEFT JOIN attributed_plan_by_advertiser attributed
+			ON attributed.advertiser_id = daily.advertiser_id
+			AND attributed.stat_date = daily.stat_date
+		WHERE daily.stat_cost - COALESCE(attributed.stat_cost, 0) >= 0.005
 	),
 	attributed_qianchuan_cost AS (
-		SELECT resolved.*
-		FROM (
-			SELECT
-				effective.*,
-				COALESCE(
-					(
-						SELECT rule.target_trader_id
-						FROM qianchuan_advertiser_attribution_rule rule
-						WHERE rule.advertiser_id = effective.advertiser_id
-						  AND rule.status = 1
-						  AND effective.stat_date >= rule.effective_start_date
-						  AND (rule.effective_end_date IS NULL OR effective.stat_date <= rule.effective_end_date)
-						  AND FIND_IN_SET(
-							LOWER(TRIM(COALESCE(NULLIF(matched_account.account_name, ''), NULLIF(effective.aweme_name, ''), ''))) COLLATE utf8mb4_unicode_ci,
-							LOWER(REPLACE(rule.source_account_names, '，', ',')) COLLATE utf8mb4_unicode_ci
-						  ) > 0
-						ORDER BY rule.effective_start_date DESC, rule.id DESC
-						LIMIT 1
-					),
-					CASE WHEN EXISTS (
-						SELECT 1
-						FROM trader_account_relation account_owner
-						WHERE account_owner.account_id = effective.account_id
-						  AND account_owner.trader_id = owner.trader_id
-					) THEN owner.trader_id ELSE 0 END
-				) AS resolved_trader_id
-			FROM effective_qianchuan_cost effective
-			INNER JOIN qianchuan_account_owner_mapping owner
-				ON owner.advertiser_id = effective.advertiser_id
-				AND owner.status = 1
-				AND owner.trader_id > 0
-			INNER JOIN account matched_account
-				ON matched_account.id = effective.account_id
-				AND matched_account.platform = 'douyin'
-		) resolved
-		WHERE resolved.resolved_trader_id > 0
+		SELECT * FROM attributed_plan_cost
 		UNION ALL
 		SELECT * FROM advertiser_daily_gap
 	)
 `
+
+type qianchuanCostBreakdown struct {
+	Normal float64
+	Gap    float64
+}
+
+func (b qianchuanCostBreakdown) Total() float64 {
+	return b.Normal + b.Gap
+}
+
+func qianchuanAttributionDateArgs(startDate, endDate string) []interface{} {
+	return []interface{}{startDate, endDate, startDate, endDate, startDate, endDate}
+}
+
+func qianchuanCostBreakdownFromRecord(row gdb.Record) qianchuanCostBreakdown {
+	return qianchuanCostBreakdown{
+		Normal: row["normal_cost"].Float64(),
+		Gap:    row["gap_cost"].Float64(),
+	}
+}
 
 func getAttributedQianchuanCostsByTraderAccountRange(ctx context.Context, traderID int64, startDate, endDate string) (map[int]float64, error) {
 	result := make(map[int]float64)
@@ -483,11 +588,12 @@ func getAttributedQianchuanCostsByTraderAccountRange(ctx context.Context, trader
 		return result, nil
 	}
 	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
+	args := append(qianchuanAttributionDateArgs(startDate, endDate), traderID)
 	rows, err := g.DB().GetAll(ctx, attributedQianchuanCostCTE+`
 		SELECT account_id, COALESCE(SUM(stat_cost), 0) AS ad_cost
 		FROM attributed_qianchuan_cost
 		WHERE resolved_trader_id = ?
-		GROUP BY account_id`, startDate, endDate, startDate, endDate, traderID)
+		GROUP BY account_id`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("查询达人账号双重校验千川消耗失败: %w", err)
 	}
@@ -502,10 +608,11 @@ func getAttributedQianchuanCostByAccountRange(ctx context.Context, accountID int
 		return 0, nil
 	}
 	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
+	args := append(qianchuanAttributionDateArgs(startDate, endDate), accountID)
 	row, err := g.DB().GetOne(ctx, attributedQianchuanCostCTE+`
 		SELECT COALESCE(SUM(stat_cost), 0) AS ad_cost
 		FROM attributed_qianchuan_cost
-		WHERE account_id = ?`, startDate, endDate, startDate, endDate, accountID)
+		WHERE account_id = ?`, args...)
 	if err != nil {
 		return 0, fmt.Errorf("查询账号双重校验千川消耗失败: %w", err)
 	}

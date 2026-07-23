@@ -191,7 +191,9 @@ func (c *GoodsController) GoodsImport(r *ghttp.Request) {
 
 	// 导入数据（流式处理+批量入库）
 	goodsService := service.NewGoodsService()
-	result, err := goodsService.ImportFromExcel(r.Context(), tempFile)
+	fullReplace := r.Get("fullReplace").Bool()
+	dryRun := r.Get("dryRun").Bool()
+	result, err := goodsService.ImportFromExcel(r.Context(), tempFile, fullReplace, dryRun)
 	if err != nil {
 		g.Log().Error(r.Context(), "商品导入失败:", err)
 		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导入失败: " + err.Error()})
@@ -201,9 +203,17 @@ func (c *GoodsController) GoodsImport(r *ghttp.Request) {
 	g.Log().Infof(r.Context(), "商品导入完成: 成功%d条，跳过%d条，失败%d条", result.SuccessCount, result.SkipCount, result.FailCount)
 
 	// 返回详细的导入结果
+	msg := fmt.Sprintf("导入完成：成功%d条，跳过%d条，失败%d条", result.SuccessCount, result.SkipCount, result.FailCount)
+	if fullReplace {
+		if dryRun {
+			msg = fmt.Sprintf("预览：成功%d条，待删除%d条，跳过%d条", result.SuccessCount, result.PendingDeleteCount, result.SkipCount)
+		} else {
+			msg = fmt.Sprintf("导入完成：成功%d条，删除%d条，跳过%d条，失败%d条", result.SuccessCount, result.DeletedCount, result.SkipCount, result.FailCount)
+		}
+	}
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
 		"data": result,
-		"msg":  fmt.Sprintf("导入完成：成功%d条，跳过%d条，失败%d条", result.SuccessCount, result.SkipCount, result.FailCount),
+		"msg":  msg,
 	})
 }
