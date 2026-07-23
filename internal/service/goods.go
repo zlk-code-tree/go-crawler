@@ -406,8 +406,7 @@ func (s *GoodsService) ImportFromExcel(ctx context.Context, filePath string, ful
 			if existingPrice, nameExists := goodsMap[goodsName]; nameExists {
 				// 商品编码和名称都相同
 				if existingPrice == basePrice {
-					// 价格也相同，跳过
-					result.Errors = append(result.Errors, fmt.Sprintf("第%d行: 商品编码=%s, 商品名称=%s 已存在且价格相同，跳过", rowNum, goodsCode, goodsName))
+					// 价格也相同，跳过（不计入错误明细，仅统计跳过数）
 					result.SkipCount++
 					continue
 				} else {
@@ -472,14 +471,17 @@ func (s *GoodsService) ImportFromExcel(ctx context.Context, filePath string, ful
 
 		// 达到批次大小，执行批量插入
 		if len(batch) >= batchSize {
-			if err := s.batchInsert(ctx, batch); err != nil {
+			ok, rowErrs, err := s.batchInsert(ctx, batch)
+			if err != nil {
 				errMsg := fmt.Sprintf("批量插入失败（约第%d-%d行）: %v", rowNum-batchSize+1, rowNum, err)
 				result.Errors = append(result.Errors, errMsg)
+				result.Errors = append(result.Errors, rowErrs...)
 				g.Log().Errorf(ctx, "商品导入%s", errMsg)
-				result.FailCount += len(batch)
+				result.FailCount += len(batch) - ok
+				result.SuccessCount += ok
 			} else {
 				g.Log().Infof(ctx, "批量插入成功：%d条（约第%d-%d行）", len(batch), rowNum-batchSize+1, rowNum)
-				result.SuccessCount += len(batch)
+				result.SuccessCount += ok
 			}
 			batch = batch[:0]
 		}
@@ -487,14 +489,17 @@ func (s *GoodsService) ImportFromExcel(ctx context.Context, filePath string, ful
 
 	// 处理剩余数据
 	if len(batch) > 0 {
-		if err := s.batchInsert(ctx, batch); err != nil {
+		ok, rowErrs, err := s.batchInsert(ctx, batch)
+		if err != nil {
 			errMsg := fmt.Sprintf("批量插入失败（最后%d行）: %v", len(batch), err)
 			result.Errors = append(result.Errors, errMsg)
+			result.Errors = append(result.Errors, rowErrs...)
 			g.Log().Errorf(ctx, "商品导入%s", errMsg)
-			result.FailCount += len(batch)
+			result.FailCount += len(batch) - ok
+			result.SuccessCount += ok
 		} else {
 			g.Log().Infof(ctx, "批量插入成功：%d条（最后一批）", len(batch))
-			result.SuccessCount += len(batch)
+			result.SuccessCount += ok
 		}
 	}
 
@@ -573,13 +578,28 @@ func (s *GoodsService) softDeleteGoods(ctx context.Context, ids []int64) (int, e
 	return int(affected), nil
 }
 
-// batchInsert 批量插入商品数据
-func (s *GoodsService) batchInsert(ctx context.Context, batch []g.Map) error {
+// batchInsert 批量插入商品数据；整批失败时降级为逐条插入并收集每条失败原因。
+// 返回：成功条数、逐条失败明细（编码+原因）、整批错误。
+func (s *GoodsService) batchInsert(ctx context.Context, batch []g.Map) (int, []string, error) {
 	if len(batch) == 0 {
-		return nil
+		return 0, nil, nil
 	}
 	_, err := g.DB().Model("goods").Ctx(ctx).Data(batch).Insert()
-	return err
+	if err == nil {
+		return len(batch), nil, nil
+	}
+	// 整批失败：逐条插入以定位具体失败行（如唯一索引冲突等）
+	success := 0
+	var rowErrs []string
+	for i, data := range batch {
+		if _, e := g.DB().Model("goods").Ctx(ctx).Data(data).Insert(); e != nil {
+			rowErrs = append(rowErrs, fmt.Sprintf("编码=%s 名称=%s: %v", data["goods_code"], data["goods_name"], e))
+			g.Log().Errorf(ctx, "商品导入逐条插入失败 第%d条: goods_code=%s err=%v", i+1, data["goods_code"], e)
+		} else {
+			success++
+		}
+	}
+	return success, rowErrs, err
 }
 
 // 辅助函数：解析价格
