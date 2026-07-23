@@ -523,6 +523,994 @@ func (s *FinanceCommissionService) getBlankOrderAttributionCountsByAccountIDsAnd
 	return result, nil
 }
 
+func normalizeBlankOrderNodeType(nodeType string) string {
+	switch strings.ToLower(strings.TrimSpace(nodeType)) {
+	case "branch", "company":
+		return "company"
+	case "department", "group", "manager":
+		return "department"
+	case "employee", "trader":
+		return "trader"
+	default:
+		return strings.ToLower(strings.TrimSpace(nodeType))
+	}
+}
+
+func (s *FinanceCommissionService) buildBlankOrderAttributionQuery(ctx context.Context, req *model.FinanceBlankOrderAttributionReq) (string, []interface{}, string, string, error) {
+	if req == nil {
+		return "", nil, "", "", fmt.Errorf("请求不能为空")
+	}
+	startDate, endDate := s.ParseTimeRange(req.TimeType, req.StartDate, req.EndDate)
+	nodeType := normalizeBlankOrderNodeType(req.NodeType)
+	traderIDs, err := s.getBlankOrderOwnerTraderIDsByNode(ctx, req.NodeId, nodeType)
+	if err != nil {
+		return "", nil, startDate, endDate, err
+	}
+	if len(traderIDs) == 0 {
+		return "", nil, startDate, endDate, nil
+	}
+
+	conditions := []string{
+		"doa.source = 'qianchuan_plan'",
+		"doa.stat_date >= ?",
+		"doa.stat_date <= ?",
+		fmt.Sprintf("doa.trader_id IN (%s)", orderListPlaceholders(len(traderIDs))),
+	}
+	params := make([]interface{}, 0, len(traderIDs)+3)
+	params = append(params, financeDatePart(startDate), financeDatePart(endDate))
+	for _, traderID := range traderIDs {
+		params = append(params, traderID)
+	}
+	if req.AccountId > 0 {
+		conditions = append(conditions, "doa.account_id = ?")
+		params = append(params, req.AccountId)
+	}
+	return strings.Join(conditions, " AND "), params, startDate, endDate, nil
+}
+
+func blankOrderAttributionSelectSQL() string {
+	return `
+		SELECT
+			doa.id AS attribution_id,
+			doa.order_info_id,
+			doa.main_order_no,
+			doa.sub_order_no,
+			DATE_FORMAT(doa.stat_date, '%Y-%m-%d') AS stat_date,
+			doa.shop_name,
+			doa.allocated_store_name,
+			doa.account_id AS source_account_id,
+			COALESCE(a.account_name, '') AS source_account_name,
+			COALESCE(a.platform_nickname, '') AS source_account_nickname,
+			doa.trader_id AS owner_trader_id,
+			COALESCE(t.name, doa.blank_order_owner_name, '') AS owner_trader_name,
+			doa.product_id,
+			COALESCE(oi.product_name, '') AS product_name,
+			COALESCE(oi.product_num, 0) AS product_num,
+			COALESCE(oi.product_price, 0) AS product_price,
+			COALESCE(oi.order_pay_amount, oi.product_price * oi.product_num, 0) AS order_pay_amount,
+			COALESCE(gd.base_price, 0) * COALESCE(oi.product_num, 0) AS product_cost,
+			COALESCE(oi.order_status, '') AS order_status,
+			COALESCE(oi.after_sale_status, '') AS after_sale_status,
+			COALESCE(oi.pay_finish_time, '') AS pay_finish_time,
+			COALESCE(oi.order_submit_time, '') AS order_submit_time,
+			doa.qianchuan_plan_id,
+			CASE
+				WHEN doa.qianchuan_plan_id = 0 AND doa.qianchuan_plan_count > 1 THEN CONCAT('多个计划（', doa.qianchuan_plan_count, '个）')
+				ELSE COALESCE((
+					SELECT MAX(qar.ad_name)
+					FROM qianchuan_ad_report qar
+					WHERE qar.ad_id = doa.qianchuan_plan_id
+					  AND qar.account_id = doa.account_id
+					  AND CAST(qar.product_id AS CHAR) COLLATE utf8mb4_unicode_ci = doa.product_id COLLATE utf8mb4_unicode_ci
+					  AND LEFT(qar.stat_datetime, 10) = DATE_FORMAT(doa.stat_date, '%Y-%m-%d')
+				), '')
+			END AS qianchuan_plan_name,
+			doa.qianchuan_plan_count,
+			doa.qianchuan_stat_cost,
+			doa.allocation_ratio,
+			doa.allocation_basis,
+			doa.rule_version,
+			DATE_FORMAT(doa.calculated_at, '%Y-%m-%d %H:%i:%s') AS calculated_at,
+			'千川计划反推' AS attribution_source
+		FROM douyin_order_attribution doa
+		LEFT JOIN order_info oi ON oi.id = doa.order_info_id
+		LEFT JOIN account a ON a.id = doa.account_id
+		LEFT JOIN trader t ON t.id = doa.trader_id
+		LEFT JOIN goods gd ON oi.seller_code COLLATE utf8mb4_unicode_ci = gd.goods_code COLLATE utf8mb4_unicode_ci
+	`
+}
+
+func financeBlankOrderAttributionFromRow(row gdb.Record) model.FinanceBlankOrderAttribution {
+	payFinishTime := row["pay_finish_time"].String()
+	if len(payFinishTime) >= 19 {
+		payFinishTime = payFinishTime[:19]
+	}
+	orderSubmitTime := row["order_submit_time"].String()
+	if len(orderSubmitTime) >= 19 {
+		orderSubmitTime = orderSubmitTime[:19]
+	}
+	return model.FinanceBlankOrderAttribution{
+		AttributionId:         row["attribution_id"].Int64(),
+		OrderInfoId:           row["order_info_id"].Int64(),
+		MainOrderNo:           row["main_order_no"].String(),
+		SubOrderNo:            row["sub_order_no"].String(),
+		StatDate:              row["stat_date"].String(),
+		ShopName:              row["shop_name"].String(),
+		AllocatedStoreName:    row["allocated_store_name"].String(),
+		SourceAccountId:       row["source_account_id"].Int64(),
+		SourceAccountName:     row["source_account_name"].String(),
+		SourceAccountNickname: row["source_account_nickname"].String(),
+		OwnerTraderId:         row["owner_trader_id"].Int64(),
+		OwnerTraderName:       row["owner_trader_name"].String(),
+		ProductId:             row["product_id"].String(),
+		ProductName:           row["product_name"].String(),
+		ProductNum:            row["product_num"].Int(),
+		ProductPrice:          roundFloatFinance(row["product_price"].Float64(), 2),
+		OrderPayAmount:        roundFloatFinance(row["order_pay_amount"].Float64(), 2),
+		ProductCost:           roundFloatFinance(row["product_cost"].Float64(), 2),
+		OrderStatus:           row["order_status"].String(),
+		AfterSaleStatus:       row["after_sale_status"].String(),
+		PayFinishTime:         payFinishTime,
+		OrderSubmitTime:       orderSubmitTime,
+		QianchuanPlanId:       row["qianchuan_plan_id"].Int64(),
+		QianchuanPlanName:     row["qianchuan_plan_name"].String(),
+		QianchuanPlanCount:    row["qianchuan_plan_count"].Int(),
+		QianchuanStatCost:     roundFloatFinance(row["qianchuan_stat_cost"].Float64(), 2),
+		AllocationRatio:       roundFloatFinance(row["allocation_ratio"].Float64(), 6),
+		AllocationBasis:       row["allocation_basis"].String(),
+		RuleVersion:           row["rule_version"].String(),
+		CalculatedAt:          row["calculated_at"].String(),
+		AttributionSource:     row["attribution_source"].String(),
+	}
+}
+
+// GetBlankOrderAttributionList 获取空白单归属明细，口径与空白单数量统计一致。
+func (s *FinanceCommissionService) GetBlankOrderAttributionList(ctx context.Context, req *model.FinanceBlankOrderAttributionReq) (*model.FinanceBlankOrderAttributionRes, error) {
+	if req.Page < 1 {
+		req.Page = 1
+	}
+	if req.PageSize < 1 || req.PageSize > 200 {
+		req.PageSize = 20
+	}
+
+	whereSQL, params, startDate, endDate, err := s.buildBlankOrderAttributionQuery(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	res := &model.FinanceBlankOrderAttributionRes{
+		NodeId:    req.NodeId,
+		NodeType:  normalizeBlankOrderNodeType(req.NodeType),
+		AccountId: req.AccountId,
+		TimeType:  req.TimeType,
+		StartDate: startDate,
+		EndDate:   endDate,
+		Page:      req.Page,
+		PageSize:  req.PageSize,
+		Orders:    []model.FinanceBlankOrderAttribution{},
+	}
+	if whereSQL == "" {
+		return res, nil
+	}
+
+	countRow, err := g.DB().GetOne(ctx, fmt.Sprintf(`
+		SELECT COUNT(DISTINCT COALESCE(NULLIF(doa.main_order_no, ''), NULLIF(doa.sub_order_no, ''), CAST(doa.order_info_id AS CHAR))) AS total
+		FROM douyin_order_attribution doa
+		WHERE %s
+	`, whereSQL), params...)
+	if err != nil {
+		return nil, fmt.Errorf("查询空白单归属数量失败: %w", err)
+	}
+	res.Total = countRow["total"].Int()
+	if res.Total == 0 {
+		return res, nil
+	}
+
+	queryParams := append([]interface{}{}, params...)
+	queryParams = append(queryParams, (req.Page-1)*req.PageSize, req.PageSize)
+	rows, err := g.DB().GetAll(ctx, fmt.Sprintf(`
+		%s
+		WHERE %s
+		ORDER BY doa.stat_date DESC, oi.pay_finish_time DESC, doa.id DESC
+		LIMIT ?, ?
+	`, blankOrderAttributionSelectSQL(), whereSQL), queryParams...)
+	if err != nil {
+		return nil, fmt.Errorf("查询空白单归属明细失败: %w", err)
+	}
+	for _, row := range rows {
+		res.Orders = append(res.Orders, financeBlankOrderAttributionFromRow(row))
+	}
+	return res, nil
+}
+
+// ExportBlankOrderAttributions 导出空白单归属明细。
+func (s *FinanceCommissionService) ExportBlankOrderAttributions(ctx context.Context, req *model.FinanceBlankOrderAttributionReq) (string, error) {
+	whereSQL, params, startDate, endDate, err := s.buildBlankOrderAttributionQuery(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	if whereSQL == "" {
+		return "", fmt.Errorf("当前范围没有空白单归属明细")
+	}
+	rows, err := g.DB().GetAll(ctx, fmt.Sprintf(`
+		%s
+		WHERE %s
+		ORDER BY doa.stat_date DESC, oi.pay_finish_time DESC, doa.id DESC
+	`, blankOrderAttributionSelectSQL(), whereSQL), params...)
+	if err != nil {
+		return "", fmt.Errorf("查询空白单归属明细失败: %w", err)
+	}
+	if len(rows) == 0 {
+		return "", fmt.Errorf("当前范围没有空白单归属明细")
+	}
+
+	f := excelize.NewFile()
+	defer f.Close()
+	sheetName := "空白单归属明细"
+	f.SetSheetName("Sheet1", sheetName)
+	headers := []string{
+		"订单号", "子订单号", "归属日期", "付款时间", "下单时间", "店铺", "投流店铺", "来源账号", "来源账号ID",
+		"归属达人", "归属达人ID", "商品ID", "商品名称", "数量", "单价", "订单金额", "货款", "订单状态", "售后状态",
+		"归属来源", "千川计划ID", "千川计划名称", "计划数量", "千川消耗", "分配比例", "分配依据", "规则版本", "计算时间",
+	}
+	headerStyle, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true},
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#CCCCCC"}, Pattern: 1},
+		Alignment: &excelize.Alignment{Horizontal: "center"},
+	})
+	sw, err := f.NewStreamWriter(sheetName)
+	if err != nil {
+		return "", err
+	}
+	widths := []float64{22, 22, 12, 20, 20, 22, 22, 22, 12, 16, 12, 16, 40, 8, 12, 14, 14, 12, 12, 14, 16, 28, 10, 12, 12, 14, 18, 20}
+	for i, width := range widths {
+		_ = sw.SetColWidth(i+1, i+1, width)
+	}
+	headerRow := make([]interface{}, len(headers))
+	for i, header := range headers {
+		headerRow[i] = header
+	}
+	_ = sw.SetRow("A1", headerRow, excelize.RowOpts{StyleID: headerStyle})
+	for i, row := range rows {
+		item := financeBlankOrderAttributionFromRow(row)
+		cell, _ := excelize.CoordinatesToCellName(1, i+2)
+		sourceAccount := orderListFirstNonEmpty(item.SourceAccountNickname, item.SourceAccountName)
+		if err := sw.SetRow(cell, []interface{}{
+			item.MainOrderNo,
+			item.SubOrderNo,
+			item.StatDate,
+			item.PayFinishTime,
+			item.OrderSubmitTime,
+			item.ShopName,
+			item.AllocatedStoreName,
+			sourceAccount,
+			item.SourceAccountId,
+			item.OwnerTraderName,
+			item.OwnerTraderId,
+			item.ProductId,
+			item.ProductName,
+			item.ProductNum,
+			item.ProductPrice,
+			item.OrderPayAmount,
+			item.ProductCost,
+			item.OrderStatus,
+			item.AfterSaleStatus,
+			item.AttributionSource,
+			item.QianchuanPlanId,
+			item.QianchuanPlanName,
+			item.QianchuanPlanCount,
+			item.QianchuanStatCost,
+			item.AllocationRatio,
+			item.AllocationBasis,
+			item.RuleVersion,
+			item.CalculatedAt,
+		}); err != nil {
+			return "", err
+		}
+	}
+	_ = sw.Flush()
+
+	exportDir := "./exports"
+	os.MkdirAll(exportDir, 0755)
+	fileName := sanitizeFileName(fmt.Sprintf("空白单归属明细_%s_%s", startDate, endDate)) + ".xlsx"
+	filePath := filepath.Join(exportDir, fileName)
+	if err := f.SaveAs(filePath); err != nil {
+		return "", fmt.Errorf("保存Excel失败: %w", err)
+	}
+	return filePath, nil
+}
+
+// ============================================
+// 有效订单归属核验明细
+// ============================================
+
+type financeValidOrderAuditAccount struct {
+	ID               int64
+	UID              string
+	AccountName      string
+	PlatformNickname string
+	TraderID         int64
+	TraderName       string
+}
+
+type financeValidOrderQianchuanMatch struct {
+	planID             int64
+	planName           string
+	planCount          int
+	allocatedStoreName string
+	statCost           float64
+	payOrderCount      int
+	allocationRatio    float64
+	allocationBasis    string
+	perOrderCost       float64
+}
+
+func loadFinanceValidOrderAuditAccounts(ctx context.Context, accountIDs []int) (map[int64]financeValidOrderAuditAccount, map[string]financeValidOrderAuditAccount, error) {
+	query := g.DB().Model("account a").Ctx(ctx).
+		Where("a.platform", "douyin").
+		Where("a.status", 1).
+		Fields(`
+			a.id,
+			a.uid,
+			a.account_name,
+			a.platform_nickname,
+			COALESCE((SELECT tar.trader_id FROM trader_account_relation tar WHERE tar.account_id = a.id ORDER BY tar.trader_id LIMIT 1), 0) AS trader_id,
+			COALESCE((SELECT t.name FROM trader_account_relation tar LEFT JOIN trader t ON t.id = tar.trader_id WHERE tar.account_id = a.id ORDER BY tar.trader_id LIMIT 1), '') AS trader_name
+		`)
+	if len(accountIDs) > 0 {
+		query = query.WhereIn("a.id", accountIDs)
+	}
+	rows, err := query.All()
+	if err != nil {
+		return nil, nil, err
+	}
+	byID := make(map[int64]financeValidOrderAuditAccount, len(rows))
+	byUID := make(map[string]financeValidOrderAuditAccount, len(rows))
+	for _, row := range rows {
+		info := financeValidOrderAuditAccount{
+			ID:               row["id"].Int64(),
+			UID:              row["uid"].String(),
+			AccountName:      row["account_name"].String(),
+			PlatformNickname: row["platform_nickname"].String(),
+			TraderID:         row["trader_id"].Int64(),
+			TraderName:       row["trader_name"].String(),
+		}
+		byID[info.ID] = info
+		if uid := orderListNormalizedTalentID(info.UID); uid != "" {
+			if existing, ok := byUID[uid]; !ok || info.ID < existing.ID {
+				byUID[uid] = info
+			}
+		}
+	}
+	return byID, byUID, nil
+}
+
+func loadFinanceValidOrderAuditTraderNames(ctx context.Context, traderIDs map[int64]struct{}) (map[int64]string, error) {
+	result := make(map[int64]string, len(traderIDs))
+	if len(traderIDs) == 0 {
+		return result, nil
+	}
+	ids := make([]int64, 0, len(traderIDs))
+	for id := range traderIDs {
+		if id > 0 {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return result, nil
+	}
+	rows, err := g.DB().Model("trader").Ctx(ctx).WhereIn("id", ids).Fields("id, name").All()
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row["id"].Int64()] = row["name"].String()
+	}
+	return result, nil
+}
+
+func firstFinanceAccountByTrader(accounts map[int64]financeValidOrderAuditAccount) map[int64]int64 {
+	result := make(map[int64]int64)
+	for accountID, account := range accounts {
+		if account.TraderID <= 0 {
+			continue
+		}
+		if existing, ok := result[account.TraderID]; !ok || accountID < existing {
+			result[account.TraderID] = accountID
+		}
+	}
+	return result
+}
+
+func financeValidOrderAttributionSourceLabel(source string, specialMatched bool, originalTraderID, attributedTraderID int64) string {
+	source = strings.TrimSpace(source)
+	switch source {
+	case "qianchuan_plan":
+		return "千川计划反推"
+	case "shop_account", "shop_account_blank":
+		return "借号规则归属"
+	}
+	if specialMatched && attributedTraderID > 0 && originalTraderID > 0 && attributedTraderID != originalTraderID {
+		return "借号规则归属"
+	}
+	return "正常归属"
+}
+
+func financeValidOrderAuditTime(value string) string {
+	if len(value) >= 19 {
+		return value[:19]
+	}
+	return value
+}
+
+func financeValidOrderAuditOrderKey(item model.FinanceValidOrderAttribution) string {
+	return orderListFirstNonEmpty(item.MainOrderNo, item.SubOrderNo, fmt.Sprintf("%d", item.OrderInfoId))
+}
+
+func financeValidOrderQianchuanScopeKey(item model.FinanceValidOrderAttribution) string {
+	return strings.Join([]string{
+		strings.TrimSpace(item.StatDate),
+		strings.TrimSpace(item.ShopName),
+		strings.TrimSpace(item.ProductId),
+		orderListNormalizedLookupKey(item.OriginalTalentId),
+		orderListNormalizedLookupKey(item.SourceAccountNickname),
+	}, "\x00")
+}
+
+func financeValidOrderQianchuanRatio(matches []financeValidOrderQianchuanMatch) []financeValidOrderQianchuanMatch {
+	var totalCost float64
+	var totalPayOrders int
+	for _, match := range matches {
+		totalCost += match.statCost
+		totalPayOrders += match.payOrderCount
+	}
+	for i := range matches {
+		if totalCost > 0 {
+			matches[i].allocationRatio = orderListWeightedRatio(totalCost, matches[i].statCost)
+			matches[i].allocationBasis = "stat_cost"
+		} else if totalPayOrders > 0 {
+			matches[i].allocationRatio = orderListWeightedRatio(float64(totalPayOrders), float64(matches[i].payOrderCount))
+			matches[i].allocationBasis = "pay_order_count_fallback"
+		}
+		if matches[i].payOrderCount > 0 {
+			matches[i].perOrderCost = matches[i].statCost / float64(matches[i].payOrderCount)
+		}
+		matches[i].planCount = len(matches)
+	}
+	return matches
+}
+
+func fillFinanceValidOrderQianchuanAudit(ctx context.Context, rows []model.FinanceValidOrderAttribution) error {
+	type requestItem struct {
+		scopeKey    string
+		statDate    string
+		nextDate    string
+		shopName    string
+		productID   string
+		awemeUID    string
+		awemeShowID string
+	}
+
+	requests := make([]requestItem, 0, len(rows))
+	requestSet := make(map[string]struct{}, len(rows))
+	orderKeysByScope := make(map[string][]string)
+	rowIndexByOrderKey := make(map[string]int, len(rows))
+	for i, item := range rows {
+		if item.QianchuanPlanId > 0 || item.QianchuanPlanCount > 0 || item.QianchuanStatCost > 0 {
+			continue
+		}
+		statDate := strings.TrimSpace(item.StatDate)
+		if statDate == "" {
+			statDate = financeDatePart(item.PayFinishTime)
+		}
+		shopName := strings.TrimSpace(item.ShopName)
+		productID := strings.TrimSpace(item.ProductId)
+		if statDate == "" || shopName == "" || productID == "" {
+			continue
+		}
+		parsedDate, parseErr := time.Parse(financeDateLayout, statDate)
+		if parseErr != nil {
+			continue
+		}
+		item.StatDate = statDate
+		scopeKey := financeValidOrderQianchuanScopeKey(item)
+		orderKey := financeValidOrderAuditOrderKey(item)
+		if scopeKey == "" || orderKey == "" {
+			continue
+		}
+		orderKeysByScope[scopeKey] = append(orderKeysByScope[scopeKey], orderKey)
+		rowIndexByOrderKey[orderKey] = i
+		if _, exists := requestSet[scopeKey]; exists {
+			continue
+		}
+		requestSet[scopeKey] = struct{}{}
+		requests = append(requests, requestItem{
+			scopeKey:    scopeKey,
+			statDate:    statDate,
+			nextDate:    parsedDate.AddDate(0, 0, 1).Format(financeDateLayout),
+			shopName:    shopName,
+			productID:   productID,
+			awemeUID:    orderListNormalizedTalentID(item.OriginalTalentId),
+			awemeShowID: strings.TrimSpace(item.SourceAccountNickname),
+		})
+	}
+	if len(requests) == 0 {
+		return nil
+	}
+
+	matchesByScope := make(map[string][]financeValidOrderQianchuanMatch, len(requests))
+	const batchSize = 80
+	for start := 0; start < len(requests); start += batchSize {
+		end := start + batchSize
+		if end > len(requests) {
+			end = len(requests)
+		}
+		batch := requests[start:end]
+		reqSelects := make([]string, 0, len(batch))
+		reqParams := make([]interface{}, 0, len(batch)*8)
+		for _, req := range batch {
+			reqSelects = append(reqSelects, "SELECT ? AS scope_key, ? AS stat_date, ? AS next_date, ? AS shop_name, ? AS product_id_text, CAST(? AS UNSIGNED) AS product_id_num, ? AS aweme_uid, ? AS aweme_show_id")
+			reqParams = append(reqParams, req.scopeKey, req.statDate, req.nextDate, req.shopName, req.productID, req.productID, req.awemeUID, req.awemeShowID)
+		}
+		sql := fmt.Sprintf(`
+			SELECT
+				req.scope_key,
+				COALESCE(mapped_shop.shop_name, account_shop.account_name) AS allocated_store_name,
+				qar.ad_id,
+				MAX(qar.ad_name) AS ad_name,
+				COALESCE(SUM(qar.stat_cost), 0) AS stat_cost,
+				COALESCE(SUM(qar.pay_order_count), 0) AS pay_order_count
+			FROM qianchuan_ad_report qar
+			INNER JOIN (
+				%s
+			) req
+			  ON qar.product_id = req.product_id_num
+			 AND qar.stat_datetime >= req.stat_date
+			 AND qar.stat_datetime < req.next_date
+			INNER JOIN account account_shop
+			  ON account_shop.id = qar.account_id
+			 AND account_shop.platform = 'douyin'
+			 AND account_shop.status = 1
+			LEFT JOIN (
+				SELECT
+					sqm.qianchuan_advertiser_id,
+					MAX(s.store_name) AS shop_name
+				FROM store_qianchuan_mapping sqm
+				INNER JOIN store s ON s.id = sqm.store_id
+				GROUP BY sqm.qianchuan_advertiser_id
+			) mapped_shop ON mapped_shop.qianchuan_advertiser_id = qar.advertiser_id
+			WHERE qar.product_id IS NOT NULL
+			  AND qar.product_id != ''
+			  AND (qar.stat_cost > 0 OR qar.pay_order_count > 0 OR qar.create_order_count > 0)
+			  AND COALESCE(mapped_shop.shop_name, account_shop.account_name) COLLATE utf8mb4_unicode_ci = req.shop_name COLLATE utf8mb4_unicode_ci
+			  AND (
+				(req.aweme_uid = '' AND req.aweme_show_id = '')
+				OR (req.aweme_uid != '' AND (
+					CAST(qar.aweme_id AS CHAR) COLLATE utf8mb4_unicode_ci = req.aweme_uid COLLATE utf8mb4_unicode_ci
+					OR qar.aweme_show_id COLLATE utf8mb4_unicode_ci = req.aweme_uid COLLATE utf8mb4_unicode_ci
+				))
+				OR (req.aweme_show_id != '' AND (
+					qar.aweme_show_id COLLATE utf8mb4_unicode_ci = req.aweme_show_id COLLATE utf8mb4_unicode_ci
+					OR CAST(qar.aweme_id AS CHAR) COLLATE utf8mb4_unicode_ci = req.aweme_show_id COLLATE utf8mb4_unicode_ci
+					OR qar.aweme_name COLLATE utf8mb4_unicode_ci = req.aweme_show_id COLLATE utf8mb4_unicode_ci
+				))
+			  )
+			GROUP BY req.scope_key, COALESCE(mapped_shop.shop_name, account_shop.account_name), qar.ad_id
+			ORDER BY req.scope_key, stat_cost DESC, pay_order_count DESC, qar.ad_id ASC`,
+			strings.Join(reqSelects, " UNION ALL "),
+		)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		result, err := g.DB().GetAll(ctx, sql, reqParams...)
+		if err != nil {
+			return fmt.Errorf("查询有效订单千川计划匹配失败: %w", err)
+		}
+		for _, row := range result {
+			scopeKey := row["scope_key"].String()
+			if scopeKey == "" {
+				continue
+			}
+			matchesByScope[scopeKey] = append(matchesByScope[scopeKey], financeValidOrderQianchuanMatch{
+				planID:             row["ad_id"].Int64(),
+				planName:           row["ad_name"].String(),
+				allocatedStoreName: row["allocated_store_name"].String(),
+				statCost:           row["stat_cost"].Float64(),
+				payOrderCount:      row["pay_order_count"].Int(),
+			})
+		}
+	}
+
+	for scopeKey, matches := range matchesByScope {
+		matches = financeValidOrderQianchuanRatio(matches)
+		if len(matches) == 0 {
+			continue
+		}
+		orderKeys := orderKeysByScope[scopeKey]
+		ratios := make([]float64, len(matches))
+		caps := make([]int, len(matches))
+		for i, match := range matches {
+			ratios[i] = match.allocationRatio
+			caps[i] = match.payOrderCount
+			if caps[i] <= 0 {
+				caps[i] = len(orderKeys)
+			}
+			if ratios[i] <= 0 {
+				ratios[i] = 1
+			}
+		}
+		assignments := orderListExactWeightedAssignmentsWithCaps(scopeKey, orderKeys, ratios, caps)
+		for _, orderKey := range orderKeys {
+			matchIndex, ok := assignments[orderKey]
+			if !ok {
+				matchIndex = orderListWeightedIndex(scopeKey+"\x00"+orderKey, ratios)
+			}
+			if matchIndex < 0 || matchIndex >= len(matches) {
+				continue
+			}
+			rowIndex, ok := rowIndexByOrderKey[orderKey]
+			if !ok {
+				continue
+			}
+			match := matches[matchIndex]
+			if match.perOrderCost <= 0 && len(orderKeys) > 0 {
+				match.perOrderCost = match.statCost / float64(len(orderKeys))
+			}
+			rows[rowIndex].QianchuanPlanId = match.planID
+			rows[rowIndex].QianchuanPlanName = match.planName
+			rows[rowIndex].QianchuanPlanCount = match.planCount
+			rows[rowIndex].QianchuanStatCost = roundFloatFinance(match.perOrderCost, 2)
+			rows[rowIndex].AllocationRatio = roundFloatFinance(match.allocationRatio, 6)
+			rows[rowIndex].AllocationBasis = match.allocationBasis
+			rows[rowIndex].AllocatedStoreName = match.allocatedStoreName
+			rows[rowIndex].QianchuanAllocationHint = orderListAllocationPercent(match.allocationRatio)
+		}
+	}
+	return nil
+}
+
+func (s *FinanceCommissionService) financeValidOrderAuditRows(ctx context.Context, req *model.FinanceValidOrderAttributionReq) ([]model.FinanceValidOrderAttribution, string, string, error) {
+	if req == nil {
+		return nil, "", "", fmt.Errorf("请求不能为空")
+	}
+	startDate, endDate := s.ParseTimeRange(req.TimeType, req.StartDate, req.EndDate)
+	nodeType := normalizeBlankOrderNodeType(req.NodeType)
+	traderIDs, err := s.getBlankOrderOwnerTraderIDsByNode(ctx, req.NodeId, nodeType)
+	if err != nil {
+		return nil, startDate, endDate, err
+	}
+	if len(traderIDs) == 0 {
+		return []model.FinanceValidOrderAttribution{}, startDate, endDate, nil
+	}
+	targetTraderSet := make(map[int64]struct{}, len(traderIDs))
+	for _, traderID := range traderIDs {
+		if traderID > 0 {
+			targetTraderSet[traderID] = struct{}{}
+		}
+	}
+
+	scopeAccountIDs, err := s.getAccountIdsByNode(ctx, req.NodeId, nodeType, "douyin")
+	if err != nil {
+		return nil, startDate, endDate, err
+	}
+	if req.AccountId > 0 {
+		found := false
+		for _, accountID := range scopeAccountIDs {
+			if accountID == req.AccountId {
+				found = true
+				break
+			}
+		}
+		if !found {
+			scopeAccountIDs = append(scopeAccountIDs, req.AccountId)
+		}
+	}
+	allAccountsByID, allAccountsByUID, err := loadFinanceValidOrderAuditAccounts(ctx, nil)
+	if err != nil {
+		return nil, startDate, endDate, fmt.Errorf("加载抖音账号失败: %w", err)
+	}
+	scopeAccountsByID, _, err := loadFinanceValidOrderAuditAccounts(ctx, scopeAccountIDs)
+	if err != nil {
+		return nil, startDate, endDate, fmt.Errorf("加载范围账号失败: %w", err)
+	}
+	firstScopeAccountByTrader := firstFinanceAccountByTrader(scopeAccountsByID)
+
+	qianchuanBlankOrderInferenceEnabled := IsQianchuanPlanBlankOrderInferenceEnabled(ctx)
+	ctx = withQianchuanPlanBlankOrderInferenceSetting(ctx, qianchuanBlankOrderInferenceEnabled)
+	orders, err := NewOrderService().loadEnrichedDouyinOrders(ctx, startDate, endDate)
+	if err != nil {
+		return nil, startDate, endDate, err
+	}
+
+	traderNameIDs := make(map[int64]struct{}, len(targetTraderSet))
+	for traderID := range targetTraderSet {
+		traderNameIDs[traderID] = struct{}{}
+	}
+	candidates := make([]g.Map, 0)
+	seenOrderKeys := make(map[string]struct{})
+	for _, order := range orders {
+		source := strings.TrimSpace(gconv.String(order["profitAttributionSource"]))
+		originalTalentID := orderListNormalizedTalentID(gconv.String(order["originalTalentId"]))
+		if !qianchuanBlankOrderInferenceEnabled && (source == "qianchuan_plan" || originalTalentID == "") {
+			continue
+		}
+		orderStatus := gconv.String(order["rawOrderStatus"])
+		afterSaleStatus := gconv.String(order["afterSaleStatus"])
+		if !IsValidOrderForStats(orderStatus, afterSaleStatus) {
+			continue
+		}
+
+		originalAccount := financeValidOrderAuditAccount{}
+		if originalTalentID != "" {
+			originalAccount = allAccountsByUID[originalTalentID]
+		}
+		attributedAccountID := gconv.Int64(order["attributedAccountId"])
+		attributedAccount := allAccountsByID[attributedAccountID]
+		attributedTraderID := gconv.Int64(order["attributedTraderId"])
+		if attributedTraderID <= 0 {
+			attributedTraderID = attributedAccount.TraderID
+		}
+		if _, ok := targetTraderSet[attributedTraderID]; !ok {
+			continue
+		}
+
+		if req.AccountId > 0 {
+			displayAccountID := int64(0)
+			if gconv.Bool(order["specialAttributionMatched"]) {
+				displayAccountID = firstScopeAccountByTrader[attributedTraderID]
+			} else {
+				displayAccountID = originalAccount.ID
+				if attributedTraderID > 0 && originalAccount.TraderID > 0 && originalAccount.TraderID != attributedTraderID {
+					continue
+				}
+			}
+			if displayAccountID != int64(req.AccountId) {
+				continue
+			}
+		}
+
+		orderKey := orderListFirstNonEmpty(gconv.String(order["mainOrderNo"]), gconv.String(order["subOrderNo"]), gconv.String(order["id"]))
+		if orderKey == "" {
+			continue
+		}
+		if _, exists := seenOrderKeys[orderKey]; exists {
+			continue
+		}
+		seenOrderKeys[orderKey] = struct{}{}
+		if originalAccount.TraderID > 0 {
+			traderNameIDs[originalAccount.TraderID] = struct{}{}
+		}
+		if attributedTraderID > 0 {
+			traderNameIDs[attributedTraderID] = struct{}{}
+		}
+		candidates = append(candidates, order)
+	}
+
+	traderNames, err := loadFinanceValidOrderAuditTraderNames(ctx, traderNameIDs)
+	if err != nil {
+		return nil, startDate, endDate, err
+	}
+
+	rows := make([]model.FinanceValidOrderAttribution, 0, len(candidates))
+	for _, order := range candidates {
+		source := strings.TrimSpace(gconv.String(order["profitAttributionSource"]))
+		originalTalentID := orderListNormalizedTalentID(gconv.String(order["originalTalentId"]))
+		originalAccount := financeValidOrderAuditAccount{}
+		if originalTalentID != "" {
+			originalAccount = allAccountsByUID[originalTalentID]
+		}
+		attributedAccountID := gconv.Int64(order["attributedAccountId"])
+		attributedAccount := allAccountsByID[attributedAccountID]
+		attributedTraderID := gconv.Int64(order["attributedTraderId"])
+		if attributedTraderID <= 0 {
+			attributedTraderID = attributedAccount.TraderID
+		}
+		originalTraderName := originalAccount.TraderName
+		if originalTraderName == "" && originalAccount.TraderID > 0 {
+			originalTraderName = traderNames[originalAccount.TraderID]
+		}
+		attributedTraderName := traderNames[attributedTraderID]
+		if attributedTraderName == "" {
+			attributedTraderName = attributedAccount.TraderName
+		}
+		productNum := gconv.Int(order["productNum"])
+		productPrice := gconv.Float64(order["productPrice"])
+		payAmount := roundFloatFinance(productPrice*float64(productNum), 2)
+		productCost := roundFloatFinance(gconv.Float64(order["productCost"]), 2)
+		reserveAmount := roundFloatFinance(payAmount*FinanceReserveRate, 2)
+		shopServiceFee := roundFloatFinance(payAmount*DouyinShopServiceFeeRate, 2)
+		commission := roundFloatFinance(payAmount-productCost-reserveAmount-shopServiceFee, 2)
+		originalTalentName := orderListFirstNonEmpty(gconv.String(order["talentName"]), originalAccount.PlatformNickname, originalAccount.AccountName)
+		if originalTalentID == "" && source == "qianchuan_plan" {
+			originalTalentName = "空白单"
+		}
+		allocationRatio := gconv.Float64(order["allocationRatio"])
+		if allocationRatio <= 0 {
+			allocationRatio = 1
+		}
+		rows = append(rows, model.FinanceValidOrderAttribution{
+			OrderInfoId:             gconv.Int64(order["id"]),
+			MainOrderNo:             gconv.String(order["mainOrderNo"]),
+			SubOrderNo:              gconv.String(order["subOrderNo"]),
+			StatDate:                gconv.String(order["attributionStatDate"]),
+			ShopName:                gconv.String(order["shopName"]),
+			SourceAccountId:         originalAccount.ID,
+			SourceAccountName:       originalAccount.AccountName,
+			SourceAccountNickname:   originalAccount.PlatformNickname,
+			AttributedAccountId:     attributedAccount.ID,
+			AttributedAccountName:   attributedAccount.AccountName,
+			AttributedAccountNick:   attributedAccount.PlatformNickname,
+			OriginalTalentId:        originalTalentID,
+			OriginalTalentName:      originalTalentName,
+			OriginalTraderId:        originalAccount.TraderID,
+			OriginalTraderName:      originalTraderName,
+			AttributedTalentId:      orderListNormalizedTalentID(gconv.String(order["talentId"])),
+			AttributedTraderId:      attributedTraderID,
+			AttributedTraderName:    attributedTraderName,
+			AttributionSource:       financeValidOrderAttributionSourceLabel(source, gconv.Bool(order["specialAttributionMatched"]), originalAccount.TraderID, attributedTraderID),
+			AttributionSourceCode:   source,
+			MatchedBy:               gconv.String(order["matchedBy"]),
+			ProductId:               gconv.String(order["productId"]),
+			ProductName:             gconv.String(order["productName"]),
+			ProductNum:              productNum,
+			ProductPrice:            roundFloatFinance(productPrice, 2),
+			OrderPayAmount:          payAmount,
+			ProductCost:             productCost,
+			ReserveAmount:           reserveAmount,
+			ShopServiceFee:          shopServiceFee,
+			Commission:              commission,
+			OrderStatus:             gconv.String(order["rawOrderStatus"]),
+			AfterSaleStatus:         gconv.String(order["afterSaleStatus"]),
+			PayFinishTime:           financeValidOrderAuditTime(gconv.String(order["payFinishTime"])),
+			OrderSubmitTime:         financeValidOrderAuditTime(gconv.String(order["orderSubmitTime"])),
+			QianchuanPlanId:         gconv.Int64(order["qianchuanPlanId"]),
+			QianchuanPlanName:       gconv.String(order["qianchuanPlanName"]),
+			QianchuanPlanCount:      gconv.Int(order["qianchuanPlanCount"]),
+			QianchuanStatCost:       roundFloatFinance(gconv.Float64(order["qianchuanStatCost"]), 2),
+			AllocationRatio:         roundFloatFinance(allocationRatio, 6),
+			AllocationBasis:         gconv.String(order["qianchuanAllocationBasis"]),
+			AllocatedStoreName:      gconv.String(order["qianchuanAllocatedStoreName"]),
+			QianchuanAllocationHint: gconv.String(order["allocationPercent"]),
+		})
+	}
+	if err := fillFinanceValidOrderQianchuanAudit(ctx, rows); err != nil {
+		return nil, startDate, endDate, err
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].PayFinishTime == rows[j].PayFinishTime {
+			return rows[i].OrderInfoId > rows[j].OrderInfoId
+		}
+		return rows[i].PayFinishTime > rows[j].PayFinishTime
+	})
+	return rows, startDate, endDate, nil
+}
+
+// GetValidOrderAttributionList 获取抖音有效订单归属核验明细。
+func (s *FinanceCommissionService) GetValidOrderAttributionList(ctx context.Context, req *model.FinanceValidOrderAttributionReq) (*model.FinanceValidOrderAttributionRes, error) {
+	if req.Page < 1 {
+		req.Page = 1
+	}
+	if req.PageSize < 1 || req.PageSize > 200 {
+		req.PageSize = 20
+	}
+	rows, startDate, endDate, err := s.financeValidOrderAuditRows(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	res := &model.FinanceValidOrderAttributionRes{
+		NodeId:    req.NodeId,
+		NodeType:  normalizeBlankOrderNodeType(req.NodeType),
+		AccountId: req.AccountId,
+		TimeType:  req.TimeType,
+		StartDate: startDate,
+		EndDate:   endDate,
+		Total:     len(rows),
+		Page:      req.Page,
+		PageSize:  req.PageSize,
+		Orders:    []model.FinanceValidOrderAttribution{},
+	}
+	offset := (req.Page - 1) * req.PageSize
+	if offset >= len(rows) {
+		return res, nil
+	}
+	end := offset + req.PageSize
+	if end > len(rows) {
+		end = len(rows)
+	}
+	res.Orders = rows[offset:end]
+	return res, nil
+}
+
+// ExportValidOrderAttributions 导出抖音有效订单归属核验明细。
+func (s *FinanceCommissionService) ExportValidOrderAttributions(ctx context.Context, req *model.FinanceValidOrderAttributionReq) (string, error) {
+	rows, startDate, endDate, err := s.financeValidOrderAuditRows(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	if len(rows) == 0 {
+		return "", fmt.Errorf("当前范围没有有效订单归属核验明细")
+	}
+
+	f := excelize.NewFile()
+	defer f.Close()
+	sheetName := "有效订单归属核验"
+	f.SetSheetName("Sheet1", sheetName)
+	headers := []string{
+		"订单号", "子订单号", "归属日期", "付款时间", "下单时间", "店铺", "原始达人UID", "原始达人",
+		"原应归属达人", "最终归属达人", "归属类型", "命中规则", "归属账号", "归属账号ID", "商品ID", "商品名称",
+		"数量", "单价", "销售额", "货款", "留底", "小店服务费", "佣金", "订单状态", "售后状态",
+		"千川计划ID", "千川计划名称", "计划数量", "千川消耗", "分配比例", "分配依据", "投流店铺",
+	}
+	headerStyle, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true},
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#CCCCCC"}, Pattern: 1},
+		Alignment: &excelize.Alignment{Horizontal: "center"},
+	})
+	sw, err := f.NewStreamWriter(sheetName)
+	if err != nil {
+		return "", err
+	}
+	widths := []float64{22, 22, 12, 20, 20, 22, 16, 18, 16, 16, 14, 22, 20, 12, 16, 40, 8, 12, 14, 14, 12, 12, 14, 12, 12, 16, 28, 10, 12, 12, 18, 22}
+	for i, width := range widths {
+		_ = sw.SetColWidth(i+1, i+1, width)
+	}
+	headerRow := make([]interface{}, len(headers))
+	for i, header := range headers {
+		headerRow[i] = header
+	}
+	_ = sw.SetRow("A1", headerRow, excelize.RowOpts{StyleID: headerStyle})
+	for i, item := range rows {
+		cell, _ := excelize.CoordinatesToCellName(1, i+2)
+		attributedAccount := orderListFirstNonEmpty(item.AttributedAccountNick, item.AttributedAccountName)
+		if err := sw.SetRow(cell, []interface{}{
+			item.MainOrderNo,
+			item.SubOrderNo,
+			item.StatDate,
+			item.PayFinishTime,
+			item.OrderSubmitTime,
+			item.ShopName,
+			item.OriginalTalentId,
+			item.OriginalTalentName,
+			item.OriginalTraderName,
+			item.AttributedTraderName,
+			item.AttributionSource,
+			item.MatchedBy,
+			attributedAccount,
+			item.AttributedAccountId,
+			item.ProductId,
+			item.ProductName,
+			item.ProductNum,
+			item.ProductPrice,
+			item.OrderPayAmount,
+			item.ProductCost,
+			item.ReserveAmount,
+			item.ShopServiceFee,
+			item.Commission,
+			item.OrderStatus,
+			item.AfterSaleStatus,
+			item.QianchuanPlanId,
+			item.QianchuanPlanName,
+			item.QianchuanPlanCount,
+			item.QianchuanStatCost,
+			item.AllocationRatio,
+			item.AllocationBasis,
+			item.AllocatedStoreName,
+		}); err != nil {
+			return "", err
+		}
+	}
+	if err := sw.Flush(); err != nil {
+		return "", err
+	}
+	exportDir := "./exports"
+	os.MkdirAll(exportDir, 0755)
+	fileName := sanitizeFileName(fmt.Sprintf("有效订单归属核验_%s_%s", startDate, endDate)) + ".xlsx"
+	filePath := filepath.Join(exportDir, fileName)
+	if err := f.SaveAs(filePath); err != nil {
+		return "", fmt.Errorf("保存Excel失败: %w", err)
+	}
+	return filePath, nil
+}
+
 func (s *FinanceCommissionService) getNodeCurrentQianchuanCost(ctx context.Context, nodeID int64, nodeType, startDate, endDate string) (float64, error) {
 	if nodeType != "company" && nodeType != "department" && nodeType != "trader" {
 		return 0, nil

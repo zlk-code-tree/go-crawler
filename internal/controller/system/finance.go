@@ -391,6 +391,120 @@ func (c *FinanceController) AccountOrders(ctx context.Context, req *v1.FinanceAc
 	return result, nil
 }
 
+// BlankOrderAttributions 获取空白单归属明细 GET /api/finance/blank-order-attributions
+func (c *FinanceController) BlankOrderAttributions(ctx context.Context, req *v1.FinanceBlankOrderAttributionReq) (res *v1.FinanceBlankOrderAttributionRes, err error) {
+	financeService := service.NewFinanceCommissionService()
+	result, err := financeService.GetBlankOrderAttributionList(ctx, &model.FinanceBlankOrderAttributionReq{
+		NodeId:    req.NodeId,
+		NodeType:  req.NodeType,
+		AccountId: req.AccountId,
+		TimeType:  req.TimeType,
+		StartDate: req.StartDate,
+		EndDate:   req.EndDate,
+		Page:      req.Page,
+		PageSize:  req.PageSize,
+	})
+	if err != nil {
+		return nil, gerror.New("查询失败: " + err.Error())
+	}
+	return result, nil
+}
+
+// BlankOrderAttributionExport 导出空白单归属明细 GET /api/finance/blank-order-attributions-export
+func (c *FinanceController) BlankOrderAttributionExport(r *ghttp.Request) {
+	nodeId := r.Get("nodeId").Int64()
+	nodeType := r.Get("nodeType").String()
+	accountId := r.Get("accountId").Int()
+	timeType := r.Get("timeType").String()
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+
+	if nodeId == 0 {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "节点ID不能为空"})
+		return
+	}
+	if strings.TrimSpace(nodeType) == "" {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "节点类型不能为空"})
+		return
+	}
+
+	financeService := service.NewFinanceCommissionService()
+	filename, err := financeService.ExportBlankOrderAttributions(r.Context(), &model.FinanceBlankOrderAttributionReq{
+		NodeId:    nodeId,
+		NodeType:  nodeType,
+		AccountId: accountId,
+		TimeType:  timeType,
+		StartDate: startDate,
+		EndDate:   endDate,
+	})
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
+		return
+	}
+
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+	defer os.Remove(filename)
+}
+
+// ValidOrderAttributions 获取有效订单归属核验明细 GET /api/finance/valid-order-attributions
+func (c *FinanceController) ValidOrderAttributions(ctx context.Context, req *v1.FinanceValidOrderAttributionReq) (res *v1.FinanceValidOrderAttributionRes, err error) {
+	financeService := service.NewFinanceCommissionService()
+	result, err := financeService.GetValidOrderAttributionList(ctx, &model.FinanceValidOrderAttributionReq{
+		NodeId:    req.NodeId,
+		NodeType:  req.NodeType,
+		AccountId: req.AccountId,
+		TimeType:  req.TimeType,
+		StartDate: req.StartDate,
+		EndDate:   req.EndDate,
+		Page:      req.Page,
+		PageSize:  req.PageSize,
+	})
+	if err != nil {
+		return nil, gerror.New("查询失败: " + err.Error())
+	}
+	return result, nil
+}
+
+// ValidOrderAttributionExport 导出有效订单归属核验明细 GET /api/finance/valid-order-attributions-export
+func (c *FinanceController) ValidOrderAttributionExport(r *ghttp.Request) {
+	nodeId := r.Get("nodeId").Int64()
+	nodeType := r.Get("nodeType").String()
+	accountId := r.Get("accountId").Int()
+	timeType := r.Get("timeType").String()
+	startDate := r.Get("startDate").String()
+	endDate := r.Get("endDate").String()
+
+	if nodeId == 0 {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "节点ID不能为空"})
+		return
+	}
+	if strings.TrimSpace(nodeType) == "" {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "节点类型不能为空"})
+		return
+	}
+
+	financeService := service.NewFinanceCommissionService()
+	filename, err := financeService.ExportValidOrderAttributions(r.Context(), &model.FinanceValidOrderAttributionReq{
+		NodeId:    nodeId,
+		NodeType:  nodeType,
+		AccountId: accountId,
+		TimeType:  timeType,
+		StartDate: startDate,
+		EndDate:   endDate,
+	})
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "导出失败: " + err.Error()})
+		return
+	}
+
+	r.Response.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
+	r.Response.ServeFile(filename)
+	defer os.Remove(filename)
+}
+
 // AccountExport 导出账号订单明细 GET /api/finance/account-export
 func (c *FinanceController) AccountExport(r *ghttp.Request) {
 	accountId := r.Get("accountId").Int()

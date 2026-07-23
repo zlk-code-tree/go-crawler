@@ -179,3 +179,61 @@ type FinanceAccountOrdersReq struct {
 
 // FinanceAccountOrdersRes 账号订单列表响应
 type FinanceAccountOrdersRes = model.FinanceAccountOrdersRes
+
+// ==================== 空白单归属明细 ====================
+
+// FinanceBlankOrderAttributionReq 空白单归属明细请求
+type FinanceBlankOrderAttributionReq struct {
+	g.Meta    `path:"/finance/blank-order-attributions" method:"get" tags:"Finance" summary:"获取空白单归属明细"`
+	NodeId    int64  `json:"nodeId" in:"query" v:"required#节点ID不能为空" dc:"节点ID"`
+	NodeType  string `json:"nodeType" in:"query" v:"required#节点类型不能为空" dc:"节点类型"`
+	AccountId int    `json:"accountId" in:"query" dc:"账号ID，账号行点击时传入"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
+	StartDate string `json:"startDate" in:"query" dc:"开始日期"`
+	EndDate   string `json:"endDate" in:"query" dc:"结束日期"`
+	Page      int    `json:"page" in:"query" d:"1" dc:"页码"`
+	PageSize  int    `json:"pageSize" in:"query" d:"20" dc:"每页数量"`
+}
+
+// FinanceBlankOrderAttributionRes 空白单归属明细响应
+type FinanceBlankOrderAttributionRes = model.FinanceBlankOrderAttributionRes
+
+// FinanceBlankOrderAttributionExportReq 导出空白单归属明细请求
+type FinanceBlankOrderAttributionExportReq struct {
+	g.Meta    `path:"/finance/blank-order-attributions-export" method:"get" tags:"Finance" summary:"导出空白单归属明细"`
+	NodeId    int64  `json:"nodeId" in:"query" v:"required#节点ID不能为空" dc:"节点ID"`
+	NodeType  string `json:"nodeType" in:"query" v:"required#节点类型不能为空" dc:"节点类型"`
+	AccountId int    `json:"accountId" in:"query" dc:"账号ID，账号行导出时传入"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
+	StartDate string `json:"startDate" in:"query" dc:"开始日期"`
+	EndDate   string `json:"endDate" in:"query" dc:"结束日期"`
+}
+
+// ==================== 有效订单归属核验明细 ====================
+
+// FinanceValidOrderAttributionReq 有效订单归属核验请求
+type FinanceValidOrderAttributionReq struct {
+	g.Meta    `path:"/finance/valid-order-attributions" method:"get" tags:"Finance" summary:"获取有效订单归属核验明细"`
+	NodeId    int64  `json:"nodeId" in:"query" v:"required#节点ID不能为空" dc:"节点ID"`
+	NodeType  string `json:"nodeType" in:"query" v:"required#节点类型不能为空" dc:"节点类型"`
+	AccountId int    `json:"accountId" in:"query" dc:"账号ID，账号行点击时传入"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
+	StartDate string `json:"startDate" in:"query" dc:"开始日期"`
+	EndDate   string `json:"endDate" in:"query" dc:"结束日期"`
+	Page      int    `json:"page" in:"query" d:"1" dc:"页码"`
+	PageSize  int    `json:"pageSize" in:"query" d:"20" dc:"每页数量"`
+}
+
+// FinanceValidOrderAttributionRes 有效订单归属核验响应
+type FinanceValidOrderAttributionRes = model.FinanceValidOrderAttributionRes
+
+// FinanceValidOrderAttributionExportReq 导出有效订单归属核验请求
+type FinanceValidOrderAttributionExportReq struct {
+	g.Meta    `path:"/finance/valid-order-attributions-export" method:"get" tags:"Finance" summary:"导出有效订单归属核验明细"`
+	NodeId    int64  `json:"nodeId" in:"query" v:"required#节点ID不能为空" dc:"节点ID"`
+	NodeType  string `json:"nodeType" in:"query" v:"required#节点类型不能为空" dc:"节点类型"`
+	AccountId int    `json:"accountId" in:"query" dc:"账号ID，账号行导出时传入"`
+	TimeType  string `json:"timeType" in:"query" d:"today" dc:"时间类型"`
+	StartDate string `json:"startDate" in:"query" dc:"开始日期"`
+	EndDate   string `json:"endDate" in:"query" dc:"结束日期"`
+}

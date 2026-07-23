@@ -298,3 +298,144 @@ type FinanceAccountOrdersRes struct {
 	PageSize    int                 `json:"pageSize"`
 	Orders      []FinanceOrderItem  `json:"orders"`
 }
+
+// ============================================
+// 空白单归属明细
+// ============================================
+
+// FinanceBlankOrderAttributionReq 空白单归属明细请求
+type FinanceBlankOrderAttributionReq struct {
+	NodeId    int64  `json:"nodeId"`
+	NodeType  string `json:"nodeType"`
+	AccountId int    `json:"accountId"`
+	TimeType  string `json:"timeType"`
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+	Page      int    `json:"page" d:"1"`
+	PageSize  int    `json:"pageSize" d:"20"`
+}
+
+// FinanceBlankOrderAttributionRes 空白单归属明细响应
+type FinanceBlankOrderAttributionRes struct {
+	NodeId    int64                          `json:"nodeId"`
+	NodeType  string                         `json:"nodeType"`
+	AccountId int                            `json:"accountId"`
+	TimeType  string                         `json:"timeType"`
+	StartDate string                         `json:"startDate"`
+	EndDate   string                         `json:"endDate"`
+	Total     int                            `json:"total"`
+	Page      int                            `json:"page"`
+	PageSize  int                            `json:"pageSize"`
+	Orders    []FinanceBlankOrderAttribution `json:"orders"`
+}
+
+// FinanceBlankOrderAttribution 空白单归属明细项
+type FinanceBlankOrderAttribution struct {
+	AttributionId         int64   `json:"attributionId"`
+	OrderInfoId           int64   `json:"orderInfoId"`
+	MainOrderNo           string  `json:"mainOrderNo"`
+	SubOrderNo            string  `json:"subOrderNo"`
+	StatDate              string  `json:"statDate"`
+	ShopName              string  `json:"shopName"`
+	AllocatedStoreName    string  `json:"allocatedStoreName"`
+	SourceAccountId       int64   `json:"sourceAccountId"`
+	SourceAccountName     string  `json:"sourceAccountName"`
+	SourceAccountNickname string  `json:"sourceAccountNickname"`
+	OwnerTraderId         int64   `json:"ownerTraderId"`
+	OwnerTraderName       string  `json:"ownerTraderName"`
+	ProductId             string  `json:"productId"`
+	ProductName           string  `json:"productName"`
+	ProductNum            int     `json:"productNum"`
+	ProductPrice          float64 `json:"productPrice"`
+	OrderPayAmount        float64 `json:"orderPayAmount"`
+	ProductCost           float64 `json:"productCost"`
+	OrderStatus           string  `json:"orderStatus"`
+	AfterSaleStatus       string  `json:"afterSaleStatus"`
+	PayFinishTime         string  `json:"payFinishTime"`
+	OrderSubmitTime       string  `json:"orderSubmitTime"`
+	QianchuanPlanId       int64   `json:"qianchuanPlanId"`
+	QianchuanPlanName     string  `json:"qianchuanPlanName"`
+	QianchuanPlanCount    int     `json:"qianchuanPlanCount"`
+	QianchuanStatCost     float64 `json:"qianchuanStatCost"`
+	AllocationRatio       float64 `json:"allocationRatio"`
+	AllocationBasis       string  `json:"allocationBasis"`
+	RuleVersion           string  `json:"ruleVersion"`
+	CalculatedAt          string  `json:"calculatedAt"`
+	AttributionSource     string  `json:"attributionSource"`
+}
+
+// ============================================
+// 有效订单归属核验明细
+// ============================================
+
+// FinanceValidOrderAttributionReq 有效订单归属核验请求
+type FinanceValidOrderAttributionReq struct {
+	NodeId    int64  `json:"nodeId"`
+	NodeType  string `json:"nodeType"`
+	AccountId int    `json:"accountId"`
+	TimeType  string `json:"timeType"`
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+	Page      int    `json:"page" d:"1"`
+	PageSize  int    `json:"pageSize" d:"20"`
+}
+
+// FinanceValidOrderAttributionRes 有效订单归属核验响应
+type FinanceValidOrderAttributionRes struct {
+	NodeId    int64                          `json:"nodeId"`
+	NodeType  string                         `json:"nodeType"`
+	AccountId int                            `json:"accountId"`
+	TimeType  string                         `json:"timeType"`
+	StartDate string                         `json:"startDate"`
+	EndDate   string                         `json:"endDate"`
+	Total     int                            `json:"total"`
+	Page      int                            `json:"page"`
+	PageSize  int                            `json:"pageSize"`
+	Orders    []FinanceValidOrderAttribution `json:"orders"`
+}
+
+// FinanceValidOrderAttribution 有效订单归属核验明细项
+type FinanceValidOrderAttribution struct {
+	OrderInfoId             int64   `json:"orderInfoId"`
+	MainOrderNo             string  `json:"mainOrderNo"`
+	SubOrderNo              string  `json:"subOrderNo"`
+	StatDate                string  `json:"statDate"`
+	ShopName                string  `json:"shopName"`
+	SourceAccountId         int64   `json:"sourceAccountId"`
+	SourceAccountName       string  `json:"sourceAccountName"`
+	SourceAccountNickname   string  `json:"sourceAccountNickname"`
+	AttributedAccountId     int64   `json:"attributedAccountId"`
+	AttributedAccountName   string  `json:"attributedAccountName"`
+	AttributedAccountNick   string  `json:"attributedAccountNickname"`
+	OriginalTalentId        string  `json:"originalTalentId"`
+	OriginalTalentName      string  `json:"originalTalentName"`
+	OriginalTraderId        int64   `json:"originalTraderId"`
+	OriginalTraderName      string  `json:"originalTraderName"`
+	AttributedTalentId      string  `json:"attributedTalentId"`
+	AttributedTraderId      int64   `json:"attributedTraderId"`
+	AttributedTraderName    string  `json:"attributedTraderName"`
+	AttributionSource       string  `json:"attributionSource"`
+	AttributionSourceCode   string  `json:"attributionSourceCode"`
+	MatchedBy               string  `json:"matchedBy"`
+	ProductId               string  `json:"productId"`
+	ProductName             string  `json:"productName"`
+	ProductNum              int     `json:"productNum"`
+	ProductPrice            float64 `json:"productPrice"`
+	OrderPayAmount          float64 `json:"orderPayAmount"`
+	ProductCost             float64 `json:"productCost"`
+	ReserveAmount           float64 `json:"reserveAmount"`
+	ShopServiceFee          float64 `json:"shopServiceFee"`
+	Commission              float64 `json:"commission"`
+	OrderStatus             string  `json:"orderStatus"`
+	AfterSaleStatus         string  `json:"afterSaleStatus"`
+	PayFinishTime           string  `json:"payFinishTime"`
+	OrderSubmitTime         string  `json:"orderSubmitTime"`
+	QianchuanPlanId         int64   `json:"qianchuanPlanId"`
+	QianchuanPlanName       string  `json:"qianchuanPlanName"`
+	QianchuanPlanCount      int     `json:"qianchuanPlanCount"`
+	QianchuanStatCost       float64 `json:"qianchuanStatCost"`
+	AllocationRatio         float64 `json:"allocationRatio"`
+	AllocationBasis         string  `json:"allocationBasis"`
+	AllocatedStoreName      string  `json:"allocatedStoreName"`
+	QianchuanAllocationHint string  `json:"qianchuanAllocationHint"`
+}

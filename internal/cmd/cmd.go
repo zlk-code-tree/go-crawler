@@ -1372,6 +1372,8 @@ var (
 				financeCtrl := system.NewFinanceController()
 				group.GET("/finance/trader-export", financeCtrl.TraderExport)
 				group.GET("/finance/account-export", financeCtrl.AccountExport)
+				group.GET("/finance/blank-order-attributions-export", financeCtrl.BlankOrderAttributionExport)
+				group.GET("/finance/valid-order-attributions-export", financeCtrl.ValidOrderAttributionExport)
 				group.GET("/finance/cost-ranking-export", financeCtrl.CostRankingExport)
 				group.GET("/finance/author-cost-ranking-export", financeCtrl.AuthorCostRankingExport)
 				group.GET("/finance/cost-detail-export", financeCtrl.CostDetailExport)
