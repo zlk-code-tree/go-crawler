@@ -282,6 +282,100 @@ func (s *ShopService) Delete(ctx context.Context, id int) error {
 	return err
 }
 
+// TrashList 回收站账号列表（仅 status=0 的软删除记录）
+func (s *ShopService) TrashList(ctx context.Context, page, pageSize int, keyword, platform, operator string) ([]g.Map, int64, error) {
+	query := "SELECT * FROM account WHERE status = 0"
+	params := []interface{}{}
+	if keyword != "" {
+		query += " AND (uid LIKE ? OR account_name LIKE ? OR platform_nickname LIKE ? OR operator LIKE ?)"
+		searchKey := "%" + keyword + "%"
+		params = append(params, searchKey, searchKey, searchKey, searchKey)
+	}
+	if platform != "" {
+		query += " AND platform = ?"
+		params = append(params, platform)
+	}
+	if operator != "" {
+		query += " AND operator LIKE ?"
+		params = append(params, "%"+operator+"%")
+	}
+
+	totalQuery := "SELECT COUNT(*) as total FROM account WHERE status = 0"
+	totalParams := []interface{}{}
+	if keyword != "" {
+		totalQuery += " AND (uid LIKE ? OR account_name LIKE ? OR platform_nickname LIKE ? OR operator LIKE ?)"
+		searchKey := "%" + keyword + "%"
+		totalParams = append(totalParams, searchKey, searchKey, searchKey, searchKey)
+	}
+	if platform != "" {
+		totalQuery += " AND platform = ?"
+		totalParams = append(totalParams, platform)
+	}
+	if operator != "" {
+		totalQuery += " AND operator LIKE ?"
+		totalParams = append(totalParams, "%"+operator+"%")
+	}
+
+	resultTotal, err := g.DB().GetOne(ctx, totalQuery, totalParams...)
+	if err != nil {
+		return nil, 0, err
+	}
+	total := resultTotal["total"].Int64()
+
+	query += " ORDER BY updated_at DESC LIMIT ? OFFSET ?"
+	offset := (page - 1) * pageSize
+	params = append(params, pageSize, offset)
+	result, err := g.DB().GetAll(ctx, query, params...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	shops := make([]g.Map, len(result))
+	for i, row := range result {
+		shops[i] = g.Map{
+			"id":               row["id"],
+			"platform":         row["platform"],
+			"uid":              row["uid"],
+			"accountName":      row["account_name"],
+			"platformNickname": row["platform_nickname"],
+			"operator":         row["operator"],
+			"status":           row["status"],
+			"createdAt":        row["created_at"],
+			"updatedAt":        row["updated_at"],
+		}
+	}
+	return shops, total, nil
+}
+
+// Restore 从回收站恢复账号（status 置回 1）
+func (s *ShopService) Restore(ctx context.Context, ids []int) (int, error) {
+	if len(ids) == 0 {
+		return 0, gerror.New("账号ID不能为空")
+	}
+	res, err := g.DB().Model("account").WhereIn("id", ids).Where("status", 0).Data(g.Map{
+		"status":     1,
+		"updated_at": time.Now(),
+	}).Update()
+	if err != nil {
+		return 0, err
+	}
+	affected, _ := res.RowsAffected()
+	return int(affected), nil
+}
+
+// Destroy 从回收站彻底删除账号（物理删除，不可恢复）
+func (s *ShopService) Destroy(ctx context.Context, ids []int) (int, error) {
+	if len(ids) == 0 {
+		return 0, gerror.New("账号ID不能为空")
+	}
+	res, err := g.DB().Model("account").WhereIn("id", ids).Where("status", 0).Delete()
+	if err != nil {
+		return 0, err
+	}
+	affected, _ := res.RowsAffected()
+	return int(affected), nil
+}
+
 // ExportTemplate 生成店铺导入模版
 func (s *ShopService) ExportTemplate(ctx context.Context) (string, error) {
 	f := excelize.NewFile()
@@ -711,26 +805,32 @@ func (s *ShopService) ImportFromExcel(ctx context.Context, filePath string, full
 
 		// 达到批次大小，执行批量插入
 		if len(batch) >= batchSize {
-			if err := s.batchUpsert(ctx, tx, batch); err != nil {
-				tx.Rollback()
-				result.FailCount += len(batch)
+			ok, rowErrs, err := s.batchUpsert(ctx, tx, batch)
+			if err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("批量插入失败: %v", err))
+				result.Errors = append(result.Errors, rowErrs...)
+				result.FailCount += len(batch) - ok
+				result.SuccessCount += ok
+				tx.Rollback()
 				return result, err
 			}
-			result.SuccessCount += len(batch)
+			result.SuccessCount += ok
 			batch = batch[:0]
 		}
 	}
 
 	// 处理剩余的数据
 	if !dryRun && len(batch) > 0 {
-		if err := s.batchUpsert(ctx, tx, batch); err != nil {
-			tx.Rollback()
-			result.FailCount += len(batch)
+		ok, rowErrs, err := s.batchUpsert(ctx, tx, batch)
+		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("批量插入失败: %v", err))
+			result.Errors = append(result.Errors, rowErrs...)
+			result.FailCount += len(batch) - ok
+			result.SuccessCount += ok
+			tx.Rollback()
 			return result, err
 		}
-		result.SuccessCount += len(batch)
+		result.SuccessCount += ok
 	}
 
 	// 全量覆盖：软删除库里活跃但不在 Excel 中的账号
@@ -819,9 +919,10 @@ func (s *ShopService) softDeleteAccounts(ctx context.Context, tx gdb.TX, ids []i
 
 // batchUpsert 使用 INSERT ... ON DUPLICATE KEY UPDATE 批量写入
 // 如果 (platform, account_name) 唯一索引冲突，自动转为 UPDATE
-func (s *ShopService) batchUpsert(ctx context.Context, tx gdb.TX, batch []g.Map) error {
+// 整批失败时降级为逐条写入并返回每条失败明细，便于定位具体账号。
+func (s *ShopService) batchUpsert(ctx context.Context, tx gdb.TX, batch []g.Map) (int, []string, error) {
 	if len(batch) == 0 {
-		return nil
+		return 0, nil, nil
 	}
 
 	// 构建批量 INSERT SQL
@@ -848,10 +949,25 @@ func (s *ShopService) batchUpsert(ctx context.Context, tx gdb.TX, batch []g.Map)
 		"updated_at = VALUES(updated_at)"
 
 	_, err := tx.Exec(sql, values...)
-	if err != nil {
-		return fmt.Errorf("批量upsert %d 条失败: %w", len(batch), err)
+	if err == nil {
+		return len(batch), nil, nil
 	}
-	return nil
+	// 整批失败：逐条写入以定位具体账号
+	success := 0
+	var rowErrs []string
+	for i, data := range batch {
+		var vals []interface{}
+		for _, col := range columns {
+			vals = append(vals, data[col])
+		}
+		if _, e := tx.Exec(sql, vals...); e != nil {
+			rowErrs = append(rowErrs, fmt.Sprintf("第%d条(平台=%s 账号=%s): %v", i+1, data["platform"], data["account_name"], e))
+			g.Log().Errorf(ctx, "账号导入逐条写入失败 平台=%s 账号=%s: %v", data["platform"], data["account_name"], e)
+		} else {
+			success++
+		}
+	}
+	return success, rowErrs, fmt.Errorf("批量upsert %d 条失败: %w", len(batch), err)
 }
 
 // normalizePlatform 将中文平台名统一转为英文标识

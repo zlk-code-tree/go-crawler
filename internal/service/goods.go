@@ -161,6 +161,82 @@ func (s *GoodsService) Delete(ctx context.Context, id int) error {
 	return err
 }
 
+// TrashList 回收站商品列表（仅 status=3 的软删除记录）
+func (s *GoodsService) TrashList(ctx context.Context, page, pageSize int, keyword string) ([]g.Map, int64, error) {
+	query := "SELECT * FROM goods WHERE status = 3"
+	params := []interface{}{}
+	if keyword != "" {
+		query += " AND (goods_name LIKE ? OR goods_code LIKE ?)"
+		searchKey := "%" + keyword + "%"
+		params = append(params, searchKey, searchKey)
+	}
+
+	totalQuery := "SELECT COUNT(*) as total FROM goods WHERE status = 3"
+	totalParams := []interface{}{}
+	if keyword != "" {
+		totalQuery += " AND (goods_name LIKE ? OR goods_code LIKE ?)"
+		searchKey := "%" + keyword + "%"
+		totalParams = append(totalParams, searchKey, searchKey)
+	}
+
+	totalRow, err := g.DB().GetOne(ctx, totalQuery, totalParams...)
+	if err != nil {
+		return nil, 0, err
+	}
+	total := totalRow["total"].Int64()
+
+	query += " ORDER BY update_time DESC LIMIT ? OFFSET ?"
+	offset := (page - 1) * pageSize
+	params = append(params, pageSize, offset)
+	result, err := g.DB().GetAll(ctx, query, params...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	goods := make([]g.Map, len(result))
+	for i, row := range result {
+		goods[i] = g.Map{
+			"id":         row["id"],
+			"goodsName":  row["goods_name"],
+			"goodsCode":  row["goods_code"],
+			"basePrice":  row["base_price"],
+			"status":     row["status"],
+			"createTime": row["create_time"],
+			"updateTime": row["update_time"],
+		}
+	}
+	return goods, total, nil
+}
+
+// Restore 从回收站恢复商品（status 置回 1）
+func (s *GoodsService) Restore(ctx context.Context, ids []int) (int, error) {
+	if len(ids) == 0 {
+		return 0, gerror.New("商品ID不能为空")
+	}
+	res, err := g.DB().Model("goods").WhereIn("id", ids).Where("status", 3).Data(g.Map{
+		"status":      1,
+		"update_time": time.Now(),
+	}).Update()
+	if err != nil {
+		return 0, err
+	}
+	affected, _ := res.RowsAffected()
+	return int(affected), nil
+}
+
+// Destroy 从回收站彻底删除商品（物理删除，不可恢复）
+func (s *GoodsService) Destroy(ctx context.Context, ids []int) (int, error) {
+	if len(ids) == 0 {
+		return 0, gerror.New("商品ID不能为空")
+	}
+	res, err := g.DB().Model("goods").WhereIn("id", ids).Where("status", 3).Delete()
+	if err != nil {
+		return 0, err
+	}
+	affected, _ := res.RowsAffected()
+	return int(affected), nil
+}
+
 // ExportToExcel 导出商品数据到Excel
 func (s *GoodsService) ExportToExcel(ctx context.Context, keyword string) (string, error) {
 	// 查询所有符合条件的商品

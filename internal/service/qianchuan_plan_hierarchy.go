@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+
+	"go-crawler/internal/model"
 
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -63,11 +66,19 @@ type QianchuanPlanHierarchyNode struct {
 	PlanCount        int64   `json:"planCount"`
 	ProductCount     int64   `json:"productCount"`
 	ProductQuantity  float64 `json:"productQuantity"`
+	TotalOrderCount  int64   `json:"totalOrderCount"`
 	PayAmount        float64 `json:"payAmount"`
 	StatCost         float64 `json:"statCost"`
+	NormalCost       float64 `json:"normalCost"`
+	GapCost          float64 `json:"gapCost"`
+	UnassignedCost   float64 `json:"unassignedCost"`
 	Commission       float64 `json:"commission"`
 	ValidOrderCount  float64 `json:"validOrderCount"`
 	CostAmount       float64 `json:"costAmount"`
+	RefundCost       float64 `json:"refundCost"`
+	ReserveAmount    float64 `json:"reserveAmount"`
+	ShopServiceFee   float64 `json:"shopServiceFee"`
+	CommissionDeduct float64 `json:"commissionDeduction"`
 	Profit           float64 `json:"profit"`
 	PayOrderCount    float64 `json:"payOrderCount"`
 	CreateOrderCount float64 `json:"createOrderCount"`
@@ -90,6 +101,9 @@ type QianchuanPlanHierarchySummary struct {
 	TotalOrderCount      int64   `json:"totalOrderCount"`
 	TotalPayAmount       float64 `json:"totalPayAmount"`
 	TotalCost            float64 `json:"totalCost"`
+	NormalCost           float64 `json:"normalCost"`
+	GapCost              float64 `json:"gapCost"`
+	UnassignedCost       float64 `json:"unassignedCost"`
 	TotalCommission      float64 `json:"totalCommission"`
 	TotalValidOrderCount float64 `json:"totalValidOrderCount"`
 	TotalOrderCost       float64 `json:"totalOrderCost"`
@@ -250,6 +264,18 @@ func (s *QianchuanPlanHierarchyService) Query(ctx context.Context, req Qianchuan
 			return nil, snapshotErr
 		}
 		applyDouyinProfitSnapshot(&result.Summary, snapshot)
+		breakdown, breakdownErr := loadQianchuanGlobalCostBreakdown(ctx, startDate, endDate)
+		if breakdownErr != nil {
+			return nil, breakdownErr
+		}
+		result.Summary.NormalCost = roundQianchuanHierarchy(breakdown.NormalCost)
+		result.Summary.GapCost = roundQianchuanHierarchy(breakdown.GapCost)
+		result.Summary.UnassignedCost = roundQianchuanHierarchy(
+			snapshot.AdCostAmount - result.Summary.NormalCost - result.Summary.GapCost,
+		)
+		if math.Abs(result.Summary.UnassignedCost) < 0.005 {
+			result.Summary.UnassignedCost = 0
+		}
 	}
 	return result, nil
 }
@@ -276,6 +302,24 @@ func applyDouyinProfitSnapshot(summary *QianchuanPlanHierarchySummary, snapshot 
 	summary.TotalCost = snapshot.AdCostAmount
 	summary.TotalProfit = snapshot.Profit
 	summary.FinancialScope = "douyin_order_snapshot"
+}
+
+func loadQianchuanGlobalCostBreakdown(ctx context.Context, startDate, endDate string) (qianchuanTalentCostStats, error) {
+	row, err := g.DB().GetOne(ctx, attributedQianchuanCostCTE+`
+		SELECT
+			COALESCE(SUM(CASE WHEN cost_type = 'normal' THEN stat_cost ELSE 0 END), 0) AS normal_cost,
+			COALESCE(SUM(CASE WHEN cost_type = 'gap' THEN stat_cost ELSE 0 END), 0) AS gap_cost,
+			COALESCE(SUM(CASE WHEN cost_type = 'unassigned' THEN stat_cost ELSE 0 END), 0) AS unassigned_cost
+		FROM attributed_qianchuan_cost`,
+		qianchuanAttributionDateArgs(startDate, endDate)...)
+	if err != nil {
+		return qianchuanTalentCostStats{}, err
+	}
+	return qianchuanTalentCostStats{
+		NormalCost:     row["normal_cost"].Float64(),
+		GapCost:        row["gap_cost"].Float64(),
+		UnassignedCost: row["unassigned_cost"].Float64(),
+	}, nil
 }
 
 func normalizeQianchuanHierarchyDates(startDate, endDate string) (string, string, string, error) {
@@ -683,54 +727,251 @@ func qianchuanTalentOwnerForAdvertiser(owners map[int64]qianchuanTalentOwner, ad
 	}
 }
 
-func (s *QianchuanPlanHierarchyService) queryTalents(ctx context.Context, req QianchuanPlanHierarchyRequest, endExclusive string) ([]QianchuanPlanHierarchyNode, error) {
-	owners, err := loadQianchuanTalentOwners(ctx)
+type qianchuanTalentCostStats struct {
+	NormalCost      float64
+	GapCost         float64
+	UnassignedCost  float64
+	AdvertiserCount int64
+	AccountCount    int64
+	StoreCount      int64
+	PlanCount       int64
+}
+
+func (s qianchuanTalentCostStats) TotalCost() float64 {
+	return s.NormalCost + s.GapCost + s.UnassignedCost
+}
+
+func loadQianchuanTalentCostStats(ctx context.Context, startDate, endDate string) (map[int64]qianchuanTalentCostStats, error) {
+	args := qianchuanAttributionDateArgs(startDate, endDate)
+	rows, err := g.DB().GetAll(ctx, attributedQianchuanCostCTE+`,
+		cost_summary AS (
+			SELECT
+				resolved_trader_id,
+				COALESCE(SUM(CASE WHEN cost_type = 'normal' THEN stat_cost ELSE 0 END), 0) AS normal_cost,
+				COALESCE(SUM(CASE WHEN cost_type = 'gap' THEN stat_cost ELSE 0 END), 0) AS gap_cost,
+				COALESCE(SUM(CASE WHEN cost_type = 'unassigned' THEN stat_cost ELSE 0 END), 0) AS unassigned_cost
+			FROM attributed_qianchuan_cost
+			GROUP BY resolved_trader_id
+		),
+		association_summary AS (
+			SELECT
+				cost.resolved_trader_id,
+				COUNT(DISTINCT cost.advertiser_id) AS advertiser_count,
+				COUNT(DISTINCT CASE WHEN cost.account_id > 0 THEN cost.account_id END) AS account_count,
+				COUNT(DISTINCT CASE WHEN mapping.store_id > 0 THEN mapping.store_id END) AS store_count
+			FROM attributed_qianchuan_cost cost
+			LEFT JOIN store_qianchuan_mapping mapping
+				ON mapping.qianchuan_advertiser_id = cost.advertiser_id
+			GROUP BY cost.resolved_trader_id
+		),
+		plan_summary AS (
+			SELECT
+				cost.resolved_trader_id,
+				COUNT(DISTINCT CONCAT(report.advertiser_id, ':', report.ad_id)) AS plan_count
+			FROM attributed_qianchuan_cost cost
+			INNER JOIN qianchuan_ad_report report
+				ON cost.cost_type = 'normal'
+				AND report.account_id = cost.account_id
+				AND report.advertiser_id = cost.advertiser_id
+				AND LEFT(report.stat_datetime, 10) = cost.stat_date
+			GROUP BY cost.resolved_trader_id
+		)
+		SELECT
+			cost.resolved_trader_id,
+			cost.normal_cost,
+			cost.gap_cost,
+			cost.unassigned_cost,
+			COALESCE(association.advertiser_count, 0) AS advertiser_count,
+			COALESCE(association.account_count, 0) AS account_count,
+			COALESCE(association.store_count, 0) AS store_count,
+			COALESCE(plan.plan_count, 0) AS plan_count
+		FROM cost_summary cost
+		LEFT JOIN association_summary association
+			ON association.resolved_trader_id = cost.resolved_trader_id
+		LEFT JOIN plan_summary plan
+			ON plan.resolved_trader_id = cost.resolved_trader_id`, args...)
 	if err != nil {
 		return nil, err
 	}
 
-	advertiserReq := req
-	advertiserReq.Level = QianchuanHierarchyLevelAdvertiser
-	advertiserReq.TalentKey = ""
-	advertiserReq.AllStores = true
-	advertisers, err := s.queryAdvertisers(ctx, advertiserReq, endExclusive)
+	result := make(map[int64]qianchuanTalentCostStats, len(rows))
+	for _, row := range rows {
+		result[row["resolved_trader_id"].Int64()] = qianchuanTalentCostStats{
+			NormalCost:      row["normal_cost"].Float64(),
+			GapCost:         row["gap_cost"].Float64(),
+			UnassignedCost:  row["unassigned_cost"].Float64(),
+			AdvertiserCount: row["advertiser_count"].Int64(),
+			AccountCount:    row["account_count"].Int64(),
+			StoreCount:      row["store_count"].Int64(),
+			PlanCount:       row["plan_count"].Int64(),
+		}
+	}
+	return result, nil
+}
+
+func qianchuanTalentNodeFromFinance(traderID int64, name string, stats model.FinanceStatsSummary, cost qianchuanTalentCostStats) QianchuanPlanHierarchyNode {
+	commissionDeduction := roundQianchuanHierarchy(stats.PayAmount * 0.005)
+	return QianchuanPlanHierarchyNode{
+		NodeKey:          fmt.Sprintf("talent:trader:%d", traderID),
+		NodeType:         QianchuanHierarchyLevelTalent,
+		Name:             name,
+		SecondaryName:    fmt.Sprintf("%d 个千川账户 · %d 个计划", cost.AdvertiserCount, cost.PlanCount),
+		TalentKey:        fmt.Sprintf("trader:%d", traderID),
+		HasChildren:      cost.AdvertiserCount > 0,
+		Matched:          true,
+		AdvertiserCount:  cost.AdvertiserCount,
+		AccountCount:     cost.AccountCount,
+		StoreCount:       cost.StoreCount,
+		PlanCount:        cost.PlanCount,
+		ProductQuantity:  float64(stats.ProductNum),
+		TotalOrderCount:  int64(stats.TotalOrderCount),
+		PayAmount:        stats.PayAmount,
+		StatCost:         cost.TotalCost(),
+		NormalCost:       cost.NormalCost,
+		GapCost:          cost.GapCost,
+		UnassignedCost:   cost.UnassignedCost,
+		Commission:       stats.Commission,
+		ValidOrderCount:  float64(stats.OrderCount),
+		CostAmount:       stats.CostAmount,
+		RefundCost:       stats.RefundCostAmount,
+		ReserveAmount:    stats.ReserveAmount,
+		ShopServiceFee:   stats.ShopServiceFee,
+		CommissionDeduct: commissionDeduction,
+		Profit:           stats.RealtimeProfit,
+	}
+}
+
+func qianchuanHierarchyNodeHasFinancialData(node QianchuanPlanHierarchyNode) bool {
+	return node.TotalOrderCount != 0 || node.ValidOrderCount != 0 || node.ProductQuantity != 0 ||
+		math.Abs(node.PayAmount) >= 0.005 || math.Abs(node.CostAmount) >= 0.005 ||
+		math.Abs(node.StatCost) >= 0.005 || math.Abs(node.Profit) >= 0.005
+}
+
+func qianchuanResidualTalentNode(snapshot *DouyinProfitSnapshot, assigned []QianchuanPlanHierarchyNode, cost qianchuanTalentCostStats) QianchuanPlanHierarchyNode {
+	node := QianchuanPlanHierarchyNode{
+		NodeKey:         "talent:" + qianchuanUnassignedTalentKey,
+		NodeType:        QianchuanHierarchyLevelTalent,
+		Name:            "未归属达人 / 口径差额",
+		SecondaryName:   "未匹配订单与未归属消耗",
+		TalentKey:       qianchuanUnassignedTalentKey,
+		Matched:         false,
+		HasChildren:     cost.AdvertiserCount > 0,
+		AdvertiserCount: cost.AdvertiserCount,
+		AccountCount:    cost.AccountCount,
+		StoreCount:      cost.StoreCount,
+		PlanCount:       cost.PlanCount,
+	}
+	for _, item := range assigned {
+		node.TotalOrderCount -= item.TotalOrderCount
+		node.ProductQuantity -= item.ProductQuantity
+		node.PayAmount -= item.PayAmount
+		node.StatCost -= item.StatCost
+		node.NormalCost -= item.NormalCost
+		node.GapCost -= item.GapCost
+		node.Commission -= item.Commission
+		node.ValidOrderCount -= item.ValidOrderCount
+		node.CostAmount -= item.CostAmount
+		node.RefundCost -= item.RefundCost
+		node.ReserveAmount -= item.ReserveAmount
+		node.ShopServiceFee -= item.ShopServiceFee
+		node.CommissionDeduct -= item.CommissionDeduct
+		node.Profit -= item.Profit
+	}
+	node.TotalOrderCount += snapshot.TotalOrderCount
+	node.ProductQuantity += float64(snapshot.ProductQuantity)
+	node.PayAmount += snapshot.SalesAmount
+	node.StatCost += snapshot.AdCostAmount
+	node.Commission += snapshot.Commission
+	node.ValidOrderCount += float64(snapshot.ValidOrderCount)
+	node.CostAmount += snapshot.CostAmount
+	node.RefundCost += snapshot.RefundCostAmount
+	node.ReserveAmount += snapshot.ReserveAmount
+	node.ShopServiceFee += snapshot.ShopServiceFee
+	node.CommissionDeduct += snapshot.CommissionDeduction
+	node.Profit += snapshot.Profit
+	node.NormalCost = 0
+	node.GapCost = 0
+	node.UnassignedCost = node.StatCost
+
+	node.ProductQuantity = roundQianchuanHierarchy(node.ProductQuantity)
+	node.PayAmount = roundQianchuanHierarchy(node.PayAmount)
+	node.StatCost = roundQianchuanHierarchy(node.StatCost)
+	node.NormalCost = roundQianchuanHierarchy(node.NormalCost)
+	node.GapCost = roundQianchuanHierarchy(node.GapCost)
+	node.UnassignedCost = roundQianchuanHierarchy(node.UnassignedCost)
+	node.Commission = roundQianchuanHierarchy(node.Commission)
+	node.ValidOrderCount = roundQianchuanHierarchy(node.ValidOrderCount)
+	node.CostAmount = roundQianchuanHierarchy(node.CostAmount)
+	node.RefundCost = roundQianchuanHierarchy(node.RefundCost)
+	node.ReserveAmount = roundQianchuanHierarchy(node.ReserveAmount)
+	node.ShopServiceFee = roundQianchuanHierarchy(node.ShopServiceFee)
+	node.CommissionDeduct = roundQianchuanHierarchy(node.CommissionDeduct)
+	node.Profit = roundQianchuanHierarchy(node.Profit)
+	return node
+}
+
+func (s *QianchuanPlanHierarchyService) queryTalents(ctx context.Context, req QianchuanPlanHierarchyRequest, _ string) ([]QianchuanPlanHierarchyNode, error) {
+	costStats, err := loadQianchuanTalentCostStats(ctx, req.StartDate, req.EndDate)
 	if err != nil {
 		return nil, err
 	}
 
-	keyword := strings.TrimSpace(req.Keyword)
-	matchingOwners := make(map[string]struct{})
-	if keyword != "" {
-		for _, owner := range owners {
-			if strings.Contains(strings.ToLower(owner.Name), strings.ToLower(keyword)) {
-				matchingOwners[owner.Key] = struct{}{}
-			}
-		}
+	traders, err := g.DB().Model("trader").Ctx(ctx).
+		Fields("id, name").
+		Where("status", 1).
+		Order("id ASC").
+		All()
+	if err != nil {
+		return nil, err
 	}
-	if len(matchingOwners) > 0 {
-		fullReq := advertiserReq
-		fullReq.Keyword = ""
-		fullAdvertisers, fullErr := s.queryAdvertisers(ctx, fullReq, endExclusive)
-		if fullErr != nil {
-			return nil, fullErr
+
+	keyword := strings.ToLower(strings.TrimSpace(req.Keyword))
+	financeService := NewFinanceCommissionService()
+	list := make([]QianchuanPlanHierarchyNode, 0, len(traders)+1)
+	for _, trader := range traders {
+		traderID := trader["id"].Int64()
+		name := strings.TrimSpace(trader["name"].String())
+		if traderID <= 0 || name == "" {
+			continue
 		}
-		selected := make(map[string]QianchuanPlanHierarchyNode, len(advertisers)+len(fullAdvertisers))
-		for _, item := range advertisers {
-			selected[item.NodeKey] = item
+		if keyword != "" && !strings.Contains(strings.ToLower(name), keyword) {
+			continue
 		}
-		for _, item := range fullAdvertisers {
-			owner := qianchuanTalentOwnerForAdvertiser(owners, item.AdvertiserID)
-			if _, ok := matchingOwners[owner.Key]; ok {
-				selected[item.NodeKey] = item
-			}
+		stats, statsErr := financeService.GetStats(ctx, &model.FinanceStatsReq{
+			NodeId:    model.EncodeTraderID(traderID),
+			NodeType:  "trader",
+			TimeType:  "custom",
+			StartDate: req.StartDate,
+			EndDate:   req.EndDate,
+			Platform:  "douyin",
+		})
+		if statsErr != nil {
+			return nil, fmt.Errorf("查询达人 %s 千川盈亏失败: %w", name, statsErr)
 		}
-		advertisers = advertisers[:0]
-		for _, item := range selected {
-			advertisers = append(advertisers, item)
+		node := qianchuanTalentNodeFromFinance(traderID, name, stats.Summary, costStats[traderID])
+		if qianchuanHierarchyNodeHasFinancialData(node) {
+			list = append(list, node)
 		}
 	}
 
-	return groupQianchuanTalentNodes(advertisers, owners), nil
+	if keyword == "" {
+		snapshot, snapshotErr := GetDouyinProfitSnapshot(ctx, req.StartDate, req.EndDate)
+		if snapshotErr != nil {
+			return nil, snapshotErr
+		}
+		residual := qianchuanResidualTalentNode(snapshot, list, costStats[0])
+		if qianchuanHierarchyNodeHasFinancialData(residual) {
+			list = append(list, residual)
+		}
+	}
+
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].StatCost == list[j].StatCost {
+			return list[i].Name < list[j].Name
+		}
+		return list[i].StatCost > list[j].StatCost
+	})
+	return list, nil
 }
 
 type qianchuanTalentNodeAccumulator struct {
@@ -770,11 +1011,19 @@ func groupQianchuanTalentNodes(advertisers []QianchuanPlanHierarchyNode, owners 
 		group.node.PlanCount += item.PlanCount
 		group.node.ProductCount += item.ProductCount
 		group.node.ProductQuantity += item.ProductQuantity
+		group.node.TotalOrderCount += item.TotalOrderCount
 		group.node.PayAmount += item.PayAmount
 		group.node.StatCost += item.StatCost
+		group.node.NormalCost += item.NormalCost
+		group.node.GapCost += item.GapCost
+		group.node.UnassignedCost += item.UnassignedCost
 		group.node.Commission += item.Commission
 		group.node.ValidOrderCount += item.ValidOrderCount
 		group.node.CostAmount += item.CostAmount
+		group.node.RefundCost += item.RefundCost
+		group.node.ReserveAmount += item.ReserveAmount
+		group.node.ShopServiceFee += item.ShopServiceFee
+		group.node.CommissionDeduct += item.CommissionDeduct
 		group.node.Profit += item.Profit
 		group.node.PayOrderCount += item.PayOrderCount
 		group.node.CreateOrderCount += item.CreateOrderCount
@@ -793,9 +1042,16 @@ func groupQianchuanTalentNodes(advertisers []QianchuanPlanHierarchyNode, owners 
 		group.node.ProductQuantity = roundQianchuanHierarchy(group.node.ProductQuantity)
 		group.node.PayAmount = roundQianchuanHierarchy(group.node.PayAmount)
 		group.node.StatCost = roundQianchuanHierarchy(group.node.StatCost)
+		group.node.NormalCost = roundQianchuanHierarchy(group.node.NormalCost)
+		group.node.GapCost = roundQianchuanHierarchy(group.node.GapCost)
+		group.node.UnassignedCost = roundQianchuanHierarchy(group.node.UnassignedCost)
 		group.node.Commission = roundQianchuanHierarchy(group.node.Commission)
 		group.node.ValidOrderCount = roundQianchuanHierarchy(group.node.ValidOrderCount)
 		group.node.CostAmount = roundQianchuanHierarchy(group.node.CostAmount)
+		group.node.RefundCost = roundQianchuanHierarchy(group.node.RefundCost)
+		group.node.ReserveAmount = roundQianchuanHierarchy(group.node.ReserveAmount)
+		group.node.ShopServiceFee = roundQianchuanHierarchy(group.node.ShopServiceFee)
+		group.node.CommissionDeduct = roundQianchuanHierarchy(group.node.CommissionDeduct)
 		group.node.Profit = roundQianchuanHierarchy(group.node.Profit)
 		group.node.PayOrderCount = roundQianchuanHierarchy(group.node.PayOrderCount)
 		group.node.CreateOrderCount = roundQianchuanHierarchy(group.node.CreateOrderCount)
@@ -810,6 +1066,61 @@ func groupQianchuanTalentNodes(advertisers []QianchuanPlanHierarchyNode, owners 
 		return list[i].StatCost > list[j].StatCost
 	})
 	return list
+}
+
+type qianchuanAdvertiserTalentCost struct {
+	ResolvedTraderID int64
+	AdvertiserID     int64
+	AccountID        int64
+	NormalCost       float64
+	GapCost          float64
+	UnassignedCost   float64
+}
+
+func (c qianchuanAdvertiserTalentCost) TotalCost() float64 {
+	return c.NormalCost + c.GapCost + c.UnassignedCost
+}
+
+func loadQianchuanAdvertiserTalentCosts(ctx context.Context, startDate, endDate string) (map[int64][]qianchuanAdvertiserTalentCost, error) {
+	rows, err := g.DB().GetAll(ctx, attributedQianchuanCostCTE+`
+		SELECT
+			resolved_trader_id,
+			advertiser_id,
+			MAX(CASE WHEN account_id > 0 THEN account_id ELSE 0 END) AS account_id,
+			COALESCE(SUM(CASE WHEN cost_type = 'normal' THEN stat_cost ELSE 0 END), 0) AS normal_cost,
+			COALESCE(SUM(CASE WHEN cost_type = 'gap' THEN stat_cost ELSE 0 END), 0) AS gap_cost,
+			COALESCE(SUM(CASE WHEN cost_type = 'unassigned' THEN stat_cost ELSE 0 END), 0) AS unassigned_cost
+		FROM attributed_qianchuan_cost
+		GROUP BY resolved_trader_id, advertiser_id`,
+		qianchuanAttributionDateArgs(startDate, endDate)...)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[int64][]qianchuanAdvertiserTalentCost)
+	for _, row := range rows {
+		item := qianchuanAdvertiserTalentCost{
+			ResolvedTraderID: row["resolved_trader_id"].Int64(),
+			AdvertiserID:     row["advertiser_id"].Int64(),
+			AccountID:        row["account_id"].Int64(),
+			NormalCost:       row["normal_cost"].Float64(),
+			GapCost:          row["gap_cost"].Float64(),
+			UnassignedCost:   row["unassigned_cost"].Float64(),
+		}
+		result[item.AdvertiserID] = append(result[item.AdvertiserID], item)
+	}
+	return result, nil
+}
+
+func qianchuanTalentIDFromKey(key string) (int64, bool) {
+	key = strings.TrimSpace(key)
+	if key == qianchuanUnassignedTalentKey {
+		return 0, true
+	}
+	if !strings.HasPrefix(key, "trader:") {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(strings.TrimPrefix(key, "trader:"), 10, 64)
+	return id, err == nil && id > 0
 }
 
 func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, req QianchuanPlanHierarchyRequest, endExclusive string) ([]QianchuanPlanHierarchyNode, error) {
@@ -948,9 +1259,15 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 		return nil, err
 	}
 
-	var talentOwners map[int64]qianchuanTalentOwner
+	var advertiserTalentCosts map[int64][]qianchuanAdvertiserTalentCost
+	targetTraderID := int64(0)
 	if req.TalentKey != "" {
-		talentOwners, err = loadQianchuanTalentOwners(ctx)
+		var validTalentKey bool
+		targetTraderID, validTalentKey = qianchuanTalentIDFromKey(req.TalentKey)
+		if !validTalentKey {
+			return []QianchuanPlanHierarchyNode{}, nil
+		}
+		advertiserTalentCosts, err = loadQianchuanAdvertiserTalentCosts(ctx, req.StartDate, req.EndDate)
 		if err != nil {
 			return nil, err
 		}
@@ -958,8 +1275,20 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 	list := make([]QianchuanPlanHierarchyNode, 0, len(rows))
 	for _, row := range rows {
 		advertiserID := row["advertiser_id"].Int64()
-		if req.TalentKey != "" && qianchuanTalentOwnerForAdvertiser(talentOwners, advertiserID).Key != req.TalentKey {
-			continue
+		talentCost := qianchuanAdvertiserTalentCost{}
+		allNormalCost := 0.0
+		if req.TalentKey != "" {
+			found := false
+			for _, item := range advertiserTalentCosts[advertiserID] {
+				allNormalCost += item.NormalCost
+				if item.ResolvedTraderID == targetTraderID {
+					talentCost = item
+					found = true
+				}
+			}
+			if !found || talentCost.TotalCost() < 0.005 {
+				continue
+			}
 		}
 		name := row["advertiser_name"].String()
 		if name == "" {
@@ -968,22 +1297,50 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 		statCost := row["stat_cost"].Float64()
 		commission := row["commission"].Float64()
 		payAmount := row["pay_amount"].Float64()
+		normalCost := statCost
+		gapCost := 0.0
+		unassignedCost := 0.0
+		allocationRate := 1.0
+		if req.TalentKey != "" {
+			if allNormalCost > 0 {
+				allocationRate = talentCost.NormalCost / allNormalCost
+			} else {
+				allocationRate = 0
+			}
+			statCost = talentCost.TotalCost()
+			normalCost = talentCost.NormalCost
+			gapCost = talentCost.GapCost
+			unassignedCost = talentCost.UnassignedCost
+			commission *= allocationRate
+			payAmount *= allocationRate
+		}
 		showCnt := row["show_cnt"].Int64()
 		clickCnt := row["click_cnt"].Int64()
 		convertCnt := row["convert_cnt"].Int64()
 		nodeKey := fmt.Sprintf("advertiser:%d", advertiserID)
+		if req.TalentKey != "" {
+			nodeKey += ":" + req.TalentKey
+			showCnt = int64(math.Round(float64(showCnt) * allocationRate))
+			clickCnt = int64(math.Round(float64(clickCnt) * allocationRate))
+			convertCnt = int64(math.Round(float64(convertCnt) * allocationRate))
+		}
 		if req.AwemeID > 0 {
 			nodeKey += fmt.Sprintf(":aweme:%d", req.AwemeID)
 		} else if req.AwemeShowID != "" {
 			nodeKey += ":aweme-show:" + req.AwemeShowID
 		}
 		list = append(list, QianchuanPlanHierarchyNode{
-			NodeKey:          nodeKey,
-			NodeType:         QianchuanHierarchyLevelAdvertiser,
-			Name:             name,
-			SecondaryName:    fmt.Sprintf("ID %d · %d 个计划", advertiserID, row["plan_count"].Int64()),
-			StoreID:          row["store_id"].Int64(),
-			AccountID:        row["account_id"].Int64(),
+			NodeKey:       nodeKey,
+			NodeType:      QianchuanHierarchyLevelAdvertiser,
+			Name:          name,
+			SecondaryName: fmt.Sprintf("ID %d · %d 个计划", advertiserID, row["plan_count"].Int64()),
+			StoreID:       row["store_id"].Int64(),
+			AccountID: func() int64 {
+				if req.TalentKey != "" && talentCost.AccountID > 0 {
+					return talentCost.AccountID
+				}
+				return row["account_id"].Int64()
+			}(),
 			AdvertiserID:     advertiserID,
 			AwemeID:          row["aweme_id"].Int64(),
 			AwemeName:        row["aweme_name"].String(),
@@ -993,15 +1350,18 @@ func (s *QianchuanPlanHierarchyService) queryAdvertisers(ctx context.Context, re
 			Matched:          row["store_id"].Int64() > 0,
 			PlanCount:        row["plan_count"].Int64(),
 			ProductCount:     row["product_count"].Int64(),
-			ProductQuantity:  roundQianchuanHierarchy(row["product_quantity"].Float64()),
+			ProductQuantity:  roundQianchuanHierarchy(row["product_quantity"].Float64() * allocationRate),
 			PayAmount:        roundQianchuanHierarchy(payAmount),
 			StatCost:         roundQianchuanHierarchy(statCost),
+			NormalCost:       roundQianchuanHierarchy(normalCost),
+			GapCost:          roundQianchuanHierarchy(gapCost),
+			UnassignedCost:   roundQianchuanHierarchy(unassignedCost),
 			Commission:       roundQianchuanHierarchy(commission),
-			ValidOrderCount:  roundQianchuanHierarchy(row["valid_order_count"].Float64()),
-			CostAmount:       roundQianchuanHierarchy(row["cost_amount"].Float64()),
+			ValidOrderCount:  roundQianchuanHierarchy(row["valid_order_count"].Float64() * allocationRate),
+			CostAmount:       roundQianchuanHierarchy(row["cost_amount"].Float64() * allocationRate),
 			Profit:           roundQianchuanHierarchy(commission - statCost - payAmount*0.005),
-			PayOrderCount:    roundQianchuanHierarchy(row["pay_order_count"].Float64()),
-			CreateOrderCount: roundQianchuanHierarchy(row["create_order_count"].Float64()),
+			PayOrderCount:    roundQianchuanHierarchy(row["pay_order_count"].Float64() * allocationRate),
+			CreateOrderCount: roundQianchuanHierarchy(row["create_order_count"].Float64() * allocationRate),
 			ShowCnt:          showCnt,
 			ClickCnt:         clickCnt,
 			Ctr:              ratioQianchuanHierarchy(float64(clickCnt), float64(showCnt)),
@@ -1036,6 +1396,14 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 		filterSQL += " AND daily.account_id = ?"
 		filterArgs = append(filterArgs, req.AccountID)
 	}
+	if req.TalentKey != "" {
+		traderID, validTalentKey := qianchuanTalentIDFromKey(req.TalentKey)
+		if !validTalentKey {
+			return []QianchuanPlanHierarchyNode{}, nil
+		}
+		filterSQL += " AND daily.resolved_trader_id = ?"
+		filterArgs = append(filterArgs, traderID)
+	}
 	if req.ProductID != "" {
 		filterSQL += " AND daily.product_id = ?"
 		filterArgs = append(filterArgs, req.ProductID)
@@ -1049,6 +1417,31 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 			COALESCE(NULLIF(qar.advertiser_name, ''), NULLIF(sqm.qianchuan_advertiser_name, ''), '') AS advertiser_name,
 			CAST(qar.product_id AS CHAR) AS product_id, qar.product_name,
 			qar.aweme_id, qar.aweme_name, qar.aweme_show_id,
+			COALESCE(
+				(
+					SELECT rule.target_trader_id
+					FROM qianchuan_advertiser_attribution_rule rule
+					WHERE rule.advertiser_id = qar.advertiser_id
+					  AND rule.status = 1
+					  AND LEFT(qar.stat_datetime, 10) >= rule.effective_start_date
+					  AND (rule.effective_end_date IS NULL OR LEFT(qar.stat_datetime, 10) <= rule.effective_end_date)
+					  AND FIND_IN_SET(
+						LOWER(TRIM(COALESCE(NULLIF(matched_account.account_name, ''), NULLIF(qar.aweme_name, ''), ''))) COLLATE utf8mb4_unicode_ci,
+						LOWER(REPLACE(rule.source_account_names, '，', ',')) COLLATE utf8mb4_unicode_ci
+					  ) > 0
+					ORDER BY rule.effective_start_date DESC, rule.id DESC
+					LIMIT 1
+				),
+				(
+					SELECT MIN(account_owner.trader_id)
+					FROM trader_account_relation account_owner
+					INNER JOIN trader account_trader
+						ON account_trader.id = account_owner.trader_id
+						AND account_trader.status = 1
+					WHERE account_owner.account_id = qar.account_id
+				),
+				0
+			) AS resolved_trader_id,
 			LEFT(qar.stat_datetime, 10) AS stat_date,
 			qar.stat_cost, qar.pay_order_count, qar.create_order_count,
 			qar.show_cnt, qar.click_cnt, qar.convert_cnt,
@@ -1063,6 +1456,9 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 			ON sqm.qianchuan_advertiser_id = qar.advertiser_id
 		LEFT JOIN store st
 			ON st.id = COALESCE(sqm.store_id, 0)
+		LEFT JOIN account matched_account
+			ON matched_account.id = qar.account_id
+			AND matched_account.platform = 'douyin'
 		WHERE qar.stat_datetime >= ? AND qar.stat_datetime < ?
 	) daily
 	WHERE 1 = 1%s%s%s
@@ -1166,11 +1562,32 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 		payAmountMap[mapKey] += orderStat.PayAmount * allocationRate
 	}
 
+	var auditedOrderStats map[int64]qianchuanPlanOrderStat
+	if req.TalentKey != "" {
+		traderID, validTalentKey := qianchuanTalentIDFromKey(req.TalentKey)
+		if validTalentKey && traderID > 0 {
+			auditedOrderStats, err = loadQianchuanAuditedPlanOrderStats(ctx, traderID, req.StartDate, req.EndDate)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	list := make([]QianchuanPlanHierarchyNode, 0, len(nodeMap))
 	for mapKey, node := range nodeMap {
+		if auditedOrderStats != nil {
+			audited := auditedOrderStats[node.AdID]
+			node.ValidOrderCount = audited.ValidOrderCount
+			node.ProductQuantity = audited.ProductQuantity
+			node.PayAmount = audited.PayAmount
+			node.CostAmount = audited.CostAmount
+			node.Commission = audited.Commission
+			payAmountMap[mapKey] = audited.PayAmount
+		}
 		adID := node.AdID
 		node.SecondaryName = planHierarchySecondaryNameWithStore(node.ProductName, node.ProductID, node.StoreName, adID)
 		node.StatCost = roundQianchuanHierarchy(node.StatCost)
+		node.NormalCost = node.StatCost
 		node.Commission = roundQianchuanHierarchy(node.Commission)
 		node.ValidOrderCount = roundQianchuanHierarchy(node.ValidOrderCount)
 		node.ProductQuantity = roundQianchuanHierarchy(node.ProductQuantity)
@@ -1182,6 +1599,60 @@ func (s *QianchuanPlanHierarchyService) queryPlans(ctx context.Context, req Qian
 		node.Ctr = ratioQianchuanHierarchy(float64(node.ClickCnt), float64(node.ShowCnt))
 		node.ConvertCost = ratioQianchuanHierarchy(node.StatCost, float64(node.ConvertCnt))
 		list = append(list, *node)
+	}
+	if req.TalentKey != "" && req.AdvertiserID > 0 {
+		traderID, validTalentKey := qianchuanTalentIDFromKey(req.TalentKey)
+		if validTalentKey {
+			costsByAdvertiser, costErr := loadQianchuanAdvertiserTalentCosts(ctx, req.StartDate, req.EndDate)
+			if costErr != nil {
+				return nil, costErr
+			}
+			targetCost := qianchuanAdvertiserTalentCost{}
+			for _, item := range costsByAdvertiser[req.AdvertiserID] {
+				if item.ResolvedTraderID == traderID {
+					targetCost = item
+					break
+				}
+			}
+			rawNormalCost := 0.0
+			for _, item := range list {
+				rawNormalCost += item.StatCost
+			}
+			if rawNormalCost > 0 && targetCost.NormalCost >= 0 {
+				for i := range list {
+					list[i].StatCost = roundQianchuanHierarchy(list[i].StatCost * targetCost.NormalCost / rawNormalCost)
+					list[i].NormalCost = list[i].StatCost
+					list[i].Profit = roundQianchuanHierarchy(list[i].Commission - list[i].StatCost - list[i].PayAmount*0.005)
+					list[i].ConvertCost = ratioQianchuanHierarchy(list[i].StatCost, float64(list[i].ConvertCnt))
+				}
+			}
+			if targetCost.GapCost >= 0.005 {
+				list = append(list, QianchuanPlanHierarchyNode{
+					NodeKey:       fmt.Sprintf("plan:gap:%d:%d", req.AdvertiserID, traderID),
+					NodeType:      QianchuanHierarchyLevelPlan,
+					Name:          "千川户差额消耗",
+					SecondaryName: "账户日实扣减已归属计划消耗",
+					AdvertiserID:  req.AdvertiserID,
+					StatCost:      roundQianchuanHierarchy(targetCost.GapCost),
+					GapCost:       roundQianchuanHierarchy(targetCost.GapCost),
+					Profit:        roundQianchuanHierarchy(-targetCost.GapCost),
+					Matched:       true,
+				})
+			}
+			if targetCost.UnassignedCost >= 0.005 {
+				list = append(list, QianchuanPlanHierarchyNode{
+					NodeKey:        fmt.Sprintf("plan:unassigned:%d:%d", req.AdvertiserID, traderID),
+					NodeType:       QianchuanHierarchyLevelPlan,
+					Name:           "未归属消耗",
+					SecondaryName:  "计划账号或千川户负责人未识别",
+					AdvertiserID:   req.AdvertiserID,
+					StatCost:       roundQianchuanHierarchy(targetCost.UnassignedCost),
+					UnassignedCost: roundQianchuanHierarchy(targetCost.UnassignedCost),
+					Profit:         roundQianchuanHierarchy(-targetCost.UnassignedCost),
+					Matched:        false,
+				})
+			}
+		}
 	}
 	sort.Slice(list, func(i, j int) bool {
 		if list[i].StatDate != list[j].StatDate {
@@ -1201,6 +1672,33 @@ type qianchuanPlanOrderStat struct {
 	PayAmount       float64
 	CostAmount      float64
 	Commission      float64
+}
+
+func loadQianchuanAuditedPlanOrderStats(ctx context.Context, traderID int64, startDate, endDate string) (map[int64]qianchuanPlanOrderStat, error) {
+	rows, _, _, err := NewFinanceCommissionService().financeValidOrderAuditRows(ctx, &model.FinanceValidOrderAttributionReq{
+		NodeId:    model.EncodeTraderID(traderID),
+		NodeType:  "trader",
+		TimeType:  "custom",
+		StartDate: startDate,
+		EndDate:   endDate,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("查询达人有效订单计划归属失败: %w", err)
+	}
+	result := make(map[int64]qianchuanPlanOrderStat)
+	for _, row := range rows {
+		if row.QianchuanPlanId <= 0 {
+			continue
+		}
+		item := result[row.QianchuanPlanId]
+		item.ValidOrderCount++
+		item.ProductQuantity += float64(row.ProductNum)
+		item.PayAmount += row.OrderPayAmount
+		item.CostAmount += row.ProductCost
+		item.Commission += row.Commission
+		result[row.QianchuanPlanId] = item
+	}
+	return result, nil
 }
 
 func loadQianchuanPlanOrderStats(ctx context.Context, productsByStore map[int64]map[string]struct{}, startDate, endExclusive string) (map[string]qianchuanPlanOrderStat, error) {
@@ -1291,21 +1789,45 @@ func summarizeQianchuanHierarchyNodes(list []QianchuanPlanHierarchyNode, level s
 		summary.PlanCount += item.PlanCount
 		summary.ProductCount += item.ProductCount
 		summary.ProductQuantity += int64(math.Round(item.ProductQuantity))
+		summary.TotalOrderCount += item.TotalOrderCount
 		summary.TotalPayAmount += item.PayAmount
 		summary.TotalCost += item.StatCost
+		summary.NormalCost += item.NormalCost
+		summary.GapCost += item.GapCost
+		summary.UnassignedCost += item.UnassignedCost
 		summary.TotalCommission += item.Commission
 		summary.TotalValidOrderCount += item.ValidOrderCount
 		summary.TotalOrderCost += item.CostAmount
+		summary.TotalRefundCost += item.RefundCost
+		summary.ReserveAmount += item.ReserveAmount
+		summary.ShopServiceFee += item.ShopServiceFee
+		summary.CommissionDeduction += item.CommissionDeduct
 		summary.TotalProfit += item.Profit
 	}
 	summary.TotalCost = roundQianchuanHierarchy(summary.TotalCost)
+	summary.NormalCost = roundQianchuanHierarchy(summary.NormalCost)
+	summary.GapCost = roundQianchuanHierarchy(summary.GapCost)
+	summary.UnassignedCost = roundQianchuanHierarchy(summary.UnassignedCost)
 	summary.TotalPayAmount = roundQianchuanHierarchy(summary.TotalPayAmount)
 	summary.TotalCommission = roundQianchuanHierarchy(summary.TotalCommission)
 	summary.TotalValidOrderCount = roundQianchuanHierarchy(summary.TotalValidOrderCount)
 	summary.TotalOrderCost = roundQianchuanHierarchy(summary.TotalOrderCost)
-	summary.ReserveAmount = CalculateReserveAmount(summary.TotalPayAmount)
-	summary.ShopServiceFee = CalculateDouyinShopServiceFee(summary.TotalPayAmount)
-	summary.CommissionDeduction = roundQianchuanHierarchy(summary.TotalPayAmount * 0.005)
+	summary.TotalRefundCost = roundQianchuanHierarchy(summary.TotalRefundCost)
+	if math.Abs(summary.ReserveAmount) < 0.005 {
+		summary.ReserveAmount = CalculateReserveAmount(summary.TotalPayAmount)
+	} else {
+		summary.ReserveAmount = roundQianchuanHierarchy(summary.ReserveAmount)
+	}
+	if math.Abs(summary.ShopServiceFee) < 0.005 {
+		summary.ShopServiceFee = CalculateDouyinShopServiceFee(summary.TotalPayAmount)
+	} else {
+		summary.ShopServiceFee = roundQianchuanHierarchy(summary.ShopServiceFee)
+	}
+	if math.Abs(summary.CommissionDeduction) < 0.005 {
+		summary.CommissionDeduction = roundQianchuanHierarchy(summary.TotalPayAmount * 0.005)
+	} else {
+		summary.CommissionDeduction = roundQianchuanHierarchy(summary.CommissionDeduction)
+	}
 	summary.TotalProfit = roundQianchuanHierarchy(summary.TotalProfit)
 	summary.FinancialScope = "allocated_plan_orders"
 	return summary

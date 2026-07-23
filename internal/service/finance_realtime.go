@@ -527,9 +527,21 @@ const attributedQianchuanCostCTE = `WITH RECURSIVE
 		WHERE resolved.resolved_trader_id > 0
 		  AND resolved.stat_cost >= 0.005
 	),
+	unassigned_plan_cost AS (
+		SELECT
+			resolved.*,
+			'unassigned' AS cost_type
+		FROM resolved_plan_cost resolved
+		WHERE COALESCE(resolved.resolved_trader_id, 0) <= 0
+		  AND resolved.stat_cost >= 0.005
+	),
 	attributed_plan_by_advertiser AS (
 		SELECT advertiser_id, stat_date, COALESCE(SUM(stat_cost), 0) AS stat_cost
-		FROM attributed_plan_cost
+		FROM (
+			SELECT advertiser_id, stat_date, stat_cost FROM attributed_plan_cost
+			UNION ALL
+			SELECT advertiser_id, stat_date, stat_cost FROM unassigned_plan_cost
+		) effective_plan_cost
 		GROUP BY advertiser_id, stat_date
 	),
 	advertiser_daily_gap AS (
@@ -538,17 +550,17 @@ const attributedQianchuanCostCTE = `WITH RECURSIVE
 			daily.advertiser_id,
 			0 AS aweme_id,
 			CONCAT('千川户差额消耗:', COALESCE(daily.advertiser_name, CAST(daily.advertiser_id AS CHAR))) AS aweme_name,
-			owner.company_id,
-			owner.department_id,
-			owner.trader_id,
+			COALESCE(owner.company_id, 0) AS company_id,
+			COALESCE(owner.department_id, 0) AS department_id,
+			COALESCE(owner.trader_id, 0) AS trader_id,
 			daily.stat_date,
 			daily.stat_cost - COALESCE(attributed.stat_cost, 0) AS stat_cost,
 			0 AS pay_order_gmv,
 			0 AS pay_order_count,
-			owner.trader_id AS resolved_trader_id,
-			'gap' AS cost_type
+			COALESCE(owner.trader_id, 0) AS resolved_trader_id,
+			CASE WHEN COALESCE(owner.trader_id, 0) > 0 THEN 'gap' ELSE 'unassigned' END AS cost_type
 		FROM advertiser_daily daily
-		INNER JOIN active_owner owner
+		LEFT JOIN active_owner owner
 			ON owner.advertiser_id = daily.advertiser_id
 		LEFT JOIN attributed_plan_by_advertiser attributed
 			ON attributed.advertiser_id = daily.advertiser_id
@@ -557,6 +569,8 @@ const attributedQianchuanCostCTE = `WITH RECURSIVE
 	),
 	attributed_qianchuan_cost AS (
 		SELECT * FROM attributed_plan_cost
+		UNION ALL
+		SELECT * FROM unassigned_plan_cost
 		UNION ALL
 		SELECT * FROM advertiser_daily_gap
 	)

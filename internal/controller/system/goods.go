@@ -107,6 +107,57 @@ func (c *GoodsController) GoodsDelete(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": nil, "msg": "ok"})
 }
 
+// GoodsTrashList 回收站商品列表 GET /api/goods-trash-list
+func (c *GoodsController) GoodsTrashList(r *ghttp.Request) {
+	page := r.Get("page", 1).Int()
+	pageSize := r.Get("pageSize", 10).Int()
+	keyword := r.Get("keyword").String()
+
+	goodsService := service.NewGoodsService()
+	goods, total, err := goodsService.TrashList(r.Context(), page, pageSize, keyword)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})
+		return
+	}
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": goods, "msg": "ok", "total": total})
+}
+
+// GoodsTrashRestore 恢复回收站商品 POST /api/goods-trash-restore
+func (c *GoodsController) GoodsTrashRestore(r *ghttp.Request) {
+	var req struct {
+		Ids []int `json:"ids" v:"required#商品ID不能为空"`
+	}
+	if err := r.Parse(&req); err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "参数解析错误"})
+		return
+	}
+	goodsService := service.NewGoodsService()
+	affected, err := goodsService.Restore(r.Context(), req.Ids)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
+		return
+	}
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"affected": affected}, "msg": fmt.Sprintf("恢复%d条", affected)})
+}
+
+// GoodsTrashDestroy 彻底删除回收站商品 POST /api/goods-trash-destroy
+func (c *GoodsController) GoodsTrashDestroy(r *ghttp.Request) {
+	var req struct {
+		Ids []int `json:"ids" v:"required#商品ID不能为空"`
+	}
+	if err := r.Parse(&req); err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "参数解析错误"})
+		return
+	}
+	goodsService := service.NewGoodsService()
+	affected, err := goodsService.Destroy(r.Context(), req.Ids)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
+		return
+	}
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"affected": affected}, "msg": fmt.Sprintf("彻底删除%d条", affected)})
+}
+
 // GoodsExport 导出商品Excel接口 GET /system/goods/export
 func (c *GoodsController) GoodsExport(r *ghttp.Request) {
 	keyword := r.Get("keyword").String()

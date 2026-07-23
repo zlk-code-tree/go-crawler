@@ -121,6 +121,59 @@ func (c *AccountController) ShopDelete(r *ghttp.Request) {
 	r.Response.WriteJsonExit(g.Map{"code": 0, "data": nil, "msg": "ok"})
 }
 
+// ShopTrashList 回收站账号列表 GET /api/shop-trash-list
+func (c *AccountController) ShopTrashList(r *ghttp.Request) {
+	page := r.Get("page", 1).Int()
+	pageSize := r.Get("pageSize", 10).Int()
+	keyword := r.Get("keyword").String()
+	platform := r.Get("platform").String()
+	operator := r.Get("operator").String()
+
+	shopService := service.NewShopService()
+	shops, total, err := shopService.TrashList(r.Context(), page, pageSize, keyword, platform, operator)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": "查询失败: " + err.Error()})
+		return
+	}
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": shops, "msg": "ok", "total": total})
+}
+
+// ShopTrashRestore 恢复回收站账号 POST /api/shop-trash-restore
+func (c *AccountController) ShopTrashRestore(r *ghttp.Request) {
+	var req struct {
+		Ids []int `json:"ids" v:"required#账号ID不能为空"`
+	}
+	if err := r.Parse(&req); err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "参数解析错误"})
+		return
+	}
+	shopService := service.NewShopService()
+	affected, err := shopService.Restore(r.Context(), req.Ids)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
+		return
+	}
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"affected": affected}, "msg": fmt.Sprintf("恢复%d条", affected)})
+}
+
+// ShopTrashDestroy 彻底删除回收站账号 POST /api/shop-trash-destroy
+func (c *AccountController) ShopTrashDestroy(r *ghttp.Request) {
+	var req struct {
+		Ids []int `json:"ids" v:"required#账号ID不能为空"`
+	}
+	if err := r.Parse(&req); err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "参数解析错误"})
+		return
+	}
+	shopService := service.NewShopService()
+	affected, err := shopService.Destroy(r.Context(), req.Ids)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 500, "data": nil, "msg": err.Error()})
+		return
+	}
+	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"affected": affected}, "msg": fmt.Sprintf("彻底删除%d条", affected)})
+}
+
 // ShopExport 导出账号Excel接口 GET /system/shop/export
 func (c *AccountController) ShopExport(r *ghttp.Request) {
 	keyword := r.Get("keyword").String()

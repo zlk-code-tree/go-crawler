@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -141,6 +142,43 @@ func TestQianchuanPlanTalentDatabaseDiagnostics(t *testing.T) {
 		statDate, matched.TalentKey, matched.Name, matched.AdvertiserCount, matched.StoreCount, matched.PlanCount,
 		matched.PayAmount, matched.StatCost, matched.Commission, matched.PayAmount*0.005, matched.Profit,
 		matched.ValidOrderCount, matched.CostAmount)
+
+	advertisers, err := NewQianchuanPlanHierarchyService().Query(ctx, QianchuanPlanHierarchyRequest{
+		Level:     QianchuanHierarchyLevelAdvertiser,
+		StartDate: statDate,
+		EndDate:   statDate,
+		TalentKey: talentKey,
+		AllStores: true,
+	})
+	if err != nil {
+		t.Fatalf("query attributed advertisers failed: %v", err)
+	}
+	if len(advertisers.List) == 0 {
+		t.Fatalf("expected attributed advertisers for %s", talentKey)
+	}
+	advertiser := advertisers.List[0]
+	plans, err := NewQianchuanPlanHierarchyService().Query(ctx, QianchuanPlanHierarchyRequest{
+		Level:        QianchuanHierarchyLevelPlan,
+		StartDate:    statDate,
+		EndDate:      statDate,
+		AdvertiserID: advertiser.AdvertiserID,
+		StoreID:      advertiser.StoreID,
+		TalentKey:    talentKey,
+	})
+	if err != nil {
+		t.Fatalf("query attributed plans failed: %v", err)
+	}
+	planCost := 0.0
+	planOrders := 0.0
+	for _, plan := range plans.List {
+		planCost += plan.StatCost
+		planOrders += plan.ValidOrderCount
+	}
+	if math.Abs(planCost-advertiser.StatCost) > 0.02 {
+		t.Fatalf("plan cost does not reconcile advertiser: advertiser=%.2f plans=%.2f", advertiser.StatCost, planCost)
+	}
+	t.Logf("drilldown advertiser=%d account=%d cost=%.2f plans=%d auditedOrders=%.0f",
+		advertiser.AdvertiserID, advertiser.AccountID, advertiser.StatCost, len(plans.List), planOrders)
 }
 
 func TestFinanceVsQianchuanPlanOrderPoolDiagnostics(t *testing.T) {
