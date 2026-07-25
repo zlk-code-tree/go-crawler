@@ -616,13 +616,17 @@ func (c *Client) GetUniPromotionPlanReport(ctx context.Context, advertiserID int
 								EndTime(endTime).
 								MarketingGoal(goal).
 								Fields(fields).
-								Filtering(models.QianchuanUniPromotionListV10Filtering{
-									Status: models.ALL_INCLUDE_DELETED_QianchuanUniPromotionListV10FilteringStatus.Ptr(),
-								}).
 								AdlabScene(scene.scene).
 								Page(page).
 								PageSize(models.Enum_100_QianchuanUniPromotionListV10PageSize).
 								AccessToken(c.accessToken)
+							// 千川仅允许视频带货目标使用 status 筛选；直播目标携带该
+							// 参数会返回 40000，既拿不到数据又额外消耗接口配额。
+							if goal == models.VIDEO_PROM_GOODS_QianchuanUniPromotionListV10MarketingGoal {
+								req = req.Filtering(models.QianchuanUniPromotionListV10Filtering{
+									Status: models.ALL_INCLUDE_DELETED_QianchuanUniPromotionListV10FilteringStatus.Ptr(),
+								})
+							}
 							resp, rawResp, e = req.Execute()
 							return e
 						})
@@ -649,11 +653,11 @@ func (c *Client) GetUniPromotionPlanReport(ctx context.Context, advertiserID int
 						g.Log().Infof(ctx, "[Qianchuan] 全域计划列表API: advID=%d, HTTP=%d, code=%d, msg=%s, list=%d",
 							advertiserID, httpStatus, codeVal, msgVal, listLen)
 
-						if codeVal == 40100 && rateLimitRetries < 4 {
+						if (codeVal == 40100 || codeVal == 51010) && rateLimitRetries < 4 {
 							backoff := time.Duration(rateLimitRetries+1) * 3 * time.Second
 							rateLimitRetries++
-							g.Log().Warningf(ctx, "[Qianchuan] 全域计划列表触发限流，等待重试 advID=%d scene=%s goal=%s page=%d retry=%d backoff=%v",
-								advertiserID, scene.scene, goal, page, rateLimitRetries, backoff)
+							g.Log().Warningf(ctx, "[Qianchuan] 全域计划列表暂时不可用(code=%d)，等待重试 advID=%d scene=%s goal=%s page=%d retry=%d backoff=%v",
+								codeVal, advertiserID, scene.scene, goal, page, rateLimitRetries, backoff)
 							select {
 							case <-ctx.Done():
 								return nil, ctx.Err()
@@ -671,6 +675,7 @@ func (c *Client) GetUniPromotionPlanReport(ctx context.Context, advertiserID int
 						}
 						break
 					}
+					time.Sleep(250 * time.Millisecond)
 
 					if resp.Data != nil {
 						for _, item := range resp.Data.AdList {

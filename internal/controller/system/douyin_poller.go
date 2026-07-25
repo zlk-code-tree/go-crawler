@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"go-crawler/internal/service"
@@ -14,6 +15,8 @@ import (
 )
 
 type DouyinPollerController struct{}
+
+var manualOrderAllianceSyncRunning atomic.Bool
 
 func NewDouyinPollerController() *DouyinPollerController {
 	return &DouyinPollerController{}
@@ -60,8 +63,17 @@ func (c *DouyinPollerController) TriggerOrder(r *ghttp.Request) {
 		StartTime:     r.Get("startTime").String(),
 		EndTime:       r.Get("endTime").String(),
 		StartPage:     r.Get("startPage", 0).Int(),
-		Concurrency:   r.Get("concurrency", 5).Int(),
+		Concurrency:   r.Get("concurrency", 3).Int(),
 		UseUpdateTime: r.Get("useUpdateTime", false).Bool(),
+	}
+	windowCount, err := validateOrderAllianceRange(opt.StartTime, opt.EndTime)
+	if err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": err.Error()})
+		return
+	}
+	if douyinSvc.IsOrderAllianceSyncRunning() || !manualOrderAllianceSyncRunning.CompareAndSwap(false, true) {
+		r.Response.WriteJsonExit(g.Map{"code": 409, "data": nil, "msg": douyinSvc.ErrOrderAllianceSyncRunning.Error()})
+		return
 	}
 
 	reqParams, _ := json.Marshal(g.Map{
@@ -79,7 +91,11 @@ func (c *DouyinPollerController) TriggerOrder(r *ghttp.Request) {
 	g.Log().Infof(r.Context(), "[DouyinPoller] 收到订单及达人匹配请求: startTime=%s endTime=%s logId=%d",
 		opt.StartTime, opt.EndTime, logID)
 	go c.runOrderAllianceSync(context.Background(), opt, logID, r.GetCtxVar("userId").Int64())
-	r.Response.WriteJsonExit(g.Map{"code": 0, "data": g.Map{"logId": logID}, "msg": "任务已启动，订单拉取完成后将自动匹配达人"})
+	r.Response.WriteJsonExit(g.Map{
+		"code": 0,
+		"data": g.Map{"logId": logID, "windowCount": windowCount},
+		"msg":  fmt.Sprintf("任务已启动，已自动拆分为%d个日窗口依次拉取并匹配达人", windowCount),
+	})
 }
 
 // TriggerRefund 手动触发售后/退款订单拉取 POST /api/douyin-poller/trigger-refund
@@ -111,7 +127,11 @@ func (c *DouyinPollerController) TriggerRefund(r *ghttp.Request) {
 }
 
 func (c *DouyinPollerController) runOrderAllianceSync(ctx context.Context, opt douyinSvc.PollParams, logID, userID int64) {
+	defer manualOrderAllianceSyncRunning.Store(false)
 	startedAt := time.Now()
+	opt.Progress = func(progress douyinSvc.OrderAllianceSyncProgress) {
+		service.TaskLogProgress(ctx, logID, progress, int(time.Since(startedAt).Milliseconds()))
+	}
 	result, err := douyinSvc.NewOrderAllianceSyncService().Sync(ctx, opt)
 	durationMs := int(time.Since(startedAt).Milliseconds())
 	respBody, _ := json.Marshal(result)
@@ -129,6 +149,28 @@ func (c *DouyinPollerController) runOrderAllianceSync(ctx context.Context, opt d
 		service.CreateNotification(ctx, "抖店订单及达人匹配完成", string(respBody),
 			"task_result", "douyin_order_pull", logID, service.NotifyLevelNormal, userID)
 	}
+}
+
+func validateOrderAllianceRange(startValue, endValue string) (int, error) {
+	location := time.FixedZone("CST", 8*60*60)
+	const layout = "2006-01-02 15:04:05"
+	startTime, err := time.ParseInLocation(layout, startValue, location)
+	if err != nil {
+		return 0, fmt.Errorf("请选择正确的开始时间")
+	}
+	endTime, err := time.ParseInLocation(layout, endValue, location)
+	if err != nil {
+		return 0, fmt.Errorf("请选择正确的结束时间")
+	}
+	if !startTime.Before(endTime) {
+		return 0, fmt.Errorf("开始时间必须早于结束时间")
+	}
+	if endTime.Sub(startTime) > 31*24*time.Hour {
+		return 0, fmt.Errorf("单次最多拉取31天，请缩短时间范围")
+	}
+	startDate := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), 0, 0, 0, 0, location)
+	endDate := time.Date(endTime.Year(), endTime.Month(), endTime.Day(), 0, 0, 0, 0, location)
+	return int(endDate.Sub(startDate)/(24*time.Hour)) + 1, nil
 }
 
 func (c *DouyinPollerController) runRefundPull(ctx context.Context, opt douyinSvc.RefundPullParams, logID, userID int64) {
@@ -181,19 +223,23 @@ func (c *DouyinPollerController) QueryShopAllianceOrder(r *ghttp.Request) {
 func (c *DouyinPollerController) TriggerAlliance(r *ghttp.Request) {
 	startTime := r.Get("startTime").String()
 	endTime := r.Get("endTime").String()
-	if startTime == "" || endTime == "" {
-		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "startTime和endTime不能为空"})
+	if _, err := validateOrderAllianceRange(startTime, endTime); err != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": err.Error()})
 		return
 	}
 
-	concurrency := r.Get("concurrency", g.Cfg().MustGet(r.Context(), "task.concurrency", 10).Int()).Int()
+	concurrency := r.Get("concurrency", g.Cfg().MustGet(r.Context(), "task.concurrency", 3).Int()).Int()
 	if concurrency <= 0 {
-		concurrency = 10
+		concurrency = 3
 	}
 	storeCount, err := g.DB().Model("store").Ctx(r.Context()).
 		Where("platform", "douyin").Where("status", 1).Where("author", 1).Count()
 	if err != nil || storeCount == 0 {
 		r.Response.WriteJsonExit(g.Map{"code": 400, "data": nil, "msg": "没有启用且已授权的抖音店铺"})
+		return
+	}
+	if douyinSvc.IsOrderAllianceSyncRunning() || !manualOrderAllianceSyncRunning.CompareAndSwap(false, true) {
+		r.Response.WriteJsonExit(g.Map{"code": 409, "data": nil, "msg": douyinSvc.ErrOrderAllianceSyncRunning.Error()})
 		return
 	}
 
@@ -212,6 +258,7 @@ func (c *DouyinPollerController) TriggerAlliance(r *ghttp.Request) {
 }
 
 func (c *DouyinPollerController) runAlliancePullByTime(ctx context.Context, startTime, endTime string, concurrency int, logID, userID int64) {
+	defer manualOrderAllianceSyncRunning.Store(false)
 	startedAt := time.Now()
 	result, err := douyinSvc.NewOrderAllianceSyncService().PullAllianceByTime(ctx, startTime, endTime, concurrency)
 	durationMs := int(time.Since(startedAt).Milliseconds())

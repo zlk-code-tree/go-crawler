@@ -128,8 +128,8 @@ func GetDouyinProfitSnapshot(ctx context.Context, startDate, endDate string) (*D
 	}
 
 	adRow, err := g.DB().Model("qianchuan_advertiser_daily_report").Ctx(ctx).
-		Where("LEFT(stat_datetime, 10) >= ?", startDate).
-		Where("LEFT(stat_datetime, 10) <= ?", endDate).
+		Where("stat_datetime >= ?", startDate).
+		Where("stat_datetime < DATE_ADD(?, INTERVAL 1 DAY)", endDate).
 		Fields("COALESCE(SUM(stat_cost), 0) AS ad_cost").One()
 	if err != nil {
 		return nil, fmt.Errorf("查询千川账户实扣消耗失败: %w", err)
@@ -174,8 +174,8 @@ func getNodeQianchuanAdvertiserDailyCost(ctx context.Context, nodeID int64, node
 	startDate, endDate = NormalizeFinanceDateRange(startDate, endDate)
 	if nodeID <= 0 {
 		row, err := g.DB().Model("qianchuan_advertiser_daily_report").Ctx(ctx).
-			Where("LEFT(stat_datetime, 10) >= ?", startDate).
-			Where("LEFT(stat_datetime, 10) <= ?", endDate).
+			Where("stat_datetime >= ?", startDate).
+			Where("stat_datetime < DATE_ADD(?, INTERVAL 1 DAY)", endDate).
 			Fields("COALESCE(SUM(stat_cost), 0) AS ad_cost").One()
 		if err != nil {
 			return 0, fmt.Errorf("查询千川账户实扣消耗失败: %w", err)

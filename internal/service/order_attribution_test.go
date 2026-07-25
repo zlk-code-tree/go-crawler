@@ -458,6 +458,27 @@ func TestOrderListOfflineCommissionAmountOnlyCountsValidExternalRate(t *testing.
 	}
 }
 
+func TestNormalizeOrderListTimeRangeExpandsSameDayMidnight(t *testing.T) {
+	startTime, endTime := normalizeOrderListTimeRange(
+		"2026-07-21 00:00:00",
+		"2026-07-21 00:00:00",
+	)
+	if startTime != "2026-07-21 00:00:00" {
+		t.Fatalf("startTime = %q", startTime)
+	}
+	if endTime != "2026-07-21 23:59:59" {
+		t.Fatalf("endTime = %q, want full-day end", endTime)
+	}
+
+	startTime, endTime = normalizeOrderListTimeRange(
+		"2026-07-21 08:00:00",
+		"2026-07-21 08:00:00",
+	)
+	if startTime != endTime || endTime != "2026-07-21 08:00:00" {
+		t.Fatalf("explicit instant range changed to %q - %q", startTime, endTime)
+	}
+}
+
 func TestStatsFromEnrichedOrdersIncludesOfflineCommissionForExternalOrders(t *testing.T) {
 	orders := []g.Map{
 		{

@@ -538,6 +538,7 @@ var (
 			addColumnIfMissing("qianchuan_ad_report", "pay_order_count", "pay_order_count BIGINT(20) NOT NULL DEFAULT 0 COMMENT '成交订单数' AFTER `convert_cost`")
 			addColumnIfMissing("qianchuan_ad_report", "create_order_count", "create_order_count BIGINT(20) NOT NULL DEFAULT 0 COMMENT '下单数' AFTER `pay_order_count`")
 			addIndexIfMissing("qianchuan_ad_report", "idx_product_stat_advertiser_ad", "KEY `idx_product_stat_advertiser_ad` (`product_id`, `stat_datetime`, `advertiser_id`, `ad_id`)")
+			addIndexIfMissing("order_info", "idx_order_submit_time", "KEY `idx_order_submit_time` (`order_submit_time`)")
 			addIndexIfMissing("order_info", "idx_product_submit_shop_order", "KEY `idx_product_submit_shop_order` (`product_id`, `order_submit_time`, `shop_name`, `main_order_no`)")
 			addIndexIfMissing("order_info", "idx_store_product_pay_time", "KEY `idx_store_product_pay_time` (`store_id`, `product_id`, `pay_finish_time`)")
 

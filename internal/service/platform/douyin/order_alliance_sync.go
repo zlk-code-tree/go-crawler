@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go-crawler/internal/model"
@@ -14,13 +15,34 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-const allianceOrderBatchSize = 20
+const (
+	allianceOrderBatchSize       = 20
+	orderAllianceMaxConcurrency  = 8
+	orderAllianceChannelBuffer   = 32
+	orderAllianceTimeLayout      = "2006-01-02 15:04:05"
+	orderAllianceTimezoneSeconds = 8 * 60 * 60
+)
+
+var ErrOrderAllianceSyncRunning = errors.New("已有抖音订单或精选联盟拉取任务正在运行，请等待当前任务完成")
+var orderAllianceSyncRunning atomic.Bool
 
 // OrderAllianceSyncResult 是订单、精选联盟和达人匹配三个阶段的统一结果。
 type OrderAllianceSyncResult struct {
-	Orders     *PollResult         `json:"orders"`
-	Alliance   *AlliancePullResult `json:"alliance"`
-	DurationMs int                 `json:"durationMs"`
+	Orders           *PollResult         `json:"orders"`
+	Alliance         *AlliancePullResult `json:"alliance"`
+	WindowCount      int                 `json:"windowCount"`
+	CompletedWindows int                 `json:"completedWindows"`
+	DurationMs       int                 `json:"durationMs"`
+}
+
+type OrderAllianceSyncProgress struct {
+	WindowIndex  int    `json:"windowIndex"`
+	WindowCount  int    `json:"windowCount"`
+	StartTime    string `json:"startTime"`
+	EndTime      string `json:"endTime"`
+	TotalOrders  int    `json:"totalOrders"`
+	TotalSaved   int    `json:"totalSaved"`
+	TotalMatched int    `json:"totalMatched"`
 }
 
 // AlliancePullResult 记录精选联盟拉取及达人匹配结果。
@@ -79,12 +101,59 @@ func NewOrderAllianceSyncService() *OrderAllianceSyncService {
 	return &OrderAllianceSyncService{}
 }
 
-// Sync 先拉取订单，再仅按本次实际获取的子订单号拉取精选联盟并匹配达人。
-// 订单部分失败时仍处理已成功的订单，但最终会返回部分失败错误供任务系统告警。
+func IsOrderAllianceSyncRunning() bool {
+	return orderAllianceSyncRunning.Load()
+}
+
+// Sync 将大时间范围自动拆成逐日窗口。每个窗口完成订单入库和联盟匹配后，
+// 当天的订单号、联盟任务和匹配映射即可被回收，避免整月数据同时驻留内存。
 func (s *OrderAllianceSyncService) Sync(ctx context.Context, opt PollParams) (*OrderAllianceSyncResult, error) {
+	if !orderAllianceSyncRunning.CompareAndSwap(false, true) {
+		return nil, ErrOrderAllianceSyncRunning
+	}
+	defer orderAllianceSyncRunning.Store(false)
+
+	startedAt := time.Now()
+	windows, err := splitOrderAllianceWindows(opt)
+	if err != nil {
+		return nil, err
+	}
+	result := newOrderAllianceSyncResult(len(windows))
+	var syncErrors []error
+	for index, window := range windows {
+		if err := ctx.Err(); err != nil {
+			syncErrors = append(syncErrors, err)
+			break
+		}
+		windowResult, windowErr := s.syncWindow(ctx, window)
+		mergeOrderAllianceSyncResult(result, windowResult)
+		result.CompletedWindows++
+		if opt.Progress != nil {
+			opt.Progress(OrderAllianceSyncProgress{
+				WindowIndex:  index + 1,
+				WindowCount:  len(windows),
+				StartTime:    window.StartTime,
+				EndTime:      window.EndTime,
+				TotalOrders:  result.Orders.TotalOrders,
+				TotalSaved:   result.Orders.TotalSaved,
+				TotalMatched: result.Alliance.MatchedOrders,
+			})
+		}
+		if windowErr != nil {
+			syncErrors = append(syncErrors, fmt.Errorf("%s 至 %s: %w", window.StartTime, window.EndTime, windowErr))
+		}
+	}
+	result.DurationMs = int(time.Since(startedAt).Milliseconds())
+	return result, errors.Join(syncErrors...)
+}
+
+// syncWindow 先拉取单个时间窗口的订单，再仅按本窗口实际获取的子订单号
+// 拉取精选联盟并匹配达人。
+func (s *OrderAllianceSyncService) syncWindow(ctx context.Context, opt PollParams) (*OrderAllianceSyncResult, error) {
 	startedAt := time.Now()
 	orderResult, orderErr := GetPoller().ManualTrigger(ctx, opt)
-	result := &OrderAllianceSyncResult{Orders: orderResult}
+	result := newOrderAllianceSyncResult(1)
+	result.Orders = orderResult
 	if orderResult == nil {
 		result.DurationMs = int(time.Since(startedAt).Milliseconds())
 		return result, orderErr
@@ -108,8 +177,163 @@ func (s *OrderAllianceSyncService) Sync(ctx context.Context, opt PollParams) (*O
 	return result, errors.Join(orderErr, allianceErr)
 }
 
+func newOrderAllianceSyncResult(windowCount int) *OrderAllianceSyncResult {
+	return &OrderAllianceSyncResult{
+		Orders:      &PollResult{},
+		Alliance:    &AlliancePullResult{},
+		WindowCount: windowCount,
+	}
+}
+
+func splitOrderAllianceWindows(opt PollParams) ([]PollParams, error) {
+	opt.Concurrency = normalizeOrderAllianceConcurrency(opt.Concurrency)
+	if strings.TrimSpace(opt.StartTime) == "" || strings.TrimSpace(opt.EndTime) == "" {
+		opt.Progress = nil
+		return []PollParams{opt}, nil
+	}
+
+	location := time.FixedZone("CST", orderAllianceTimezoneSeconds)
+	startTime, err := time.ParseInLocation(orderAllianceTimeLayout, opt.StartTime, location)
+	if err != nil {
+		return nil, fmt.Errorf("开始时间格式错误: %w", err)
+	}
+	endTime, err := time.ParseInLocation(orderAllianceTimeLayout, opt.EndTime, location)
+	if err != nil {
+		return nil, fmt.Errorf("结束时间格式错误: %w", err)
+	}
+	if !startTime.Before(endTime) {
+		return nil, fmt.Errorf("开始时间必须早于结束时间")
+	}
+	if endTime.Sub(startTime) > 31*24*time.Hour {
+		return nil, fmt.Errorf("单次最多拉取31天，请缩短时间范围")
+	}
+
+	windows := make([]PollParams, 0, int(endTime.Sub(startTime).Hours()/24)+1)
+	cursor := startTime
+	for cursor.Before(endTime) {
+		nextDay := time.Date(cursor.Year(), cursor.Month(), cursor.Day()+1, 0, 0, 0, 0, location)
+		windowEnd := endTime
+		if nextDay.Before(endTime) {
+			windowEnd = nextDay.Add(-time.Second)
+		}
+		window := opt
+		window.StartTime = cursor.Format(orderAllianceTimeLayout)
+		window.EndTime = windowEnd.Format(orderAllianceTimeLayout)
+		window.Progress = nil
+		if len(windows) > 0 {
+			window.StartPage = 0
+		}
+		windows = append(windows, window)
+		if !nextDay.Before(endTime) {
+			break
+		}
+		cursor = nextDay
+	}
+	return windows, nil
+}
+
+func normalizeOrderAllianceConcurrency(concurrency int) int {
+	if concurrency <= 0 {
+		return 3
+	}
+	if concurrency > orderAllianceMaxConcurrency {
+		return orderAllianceMaxConcurrency
+	}
+	return concurrency
+}
+
+func mergeOrderAllianceSyncResult(target, source *OrderAllianceSyncResult) {
+	if target == nil || source == nil {
+		return
+	}
+	if source.Orders != nil {
+		if target.Orders == nil {
+			target.Orders = &PollResult{}
+		}
+		if source.Orders.StoreCount > target.Orders.StoreCount {
+			target.Orders.StoreCount = source.Orders.StoreCount
+		}
+		target.Orders.FailedStores += source.Orders.FailedStores
+		target.Orders.FailedPages += source.Orders.FailedPages
+		target.Orders.TotalOrders += source.Orders.TotalOrders
+		target.Orders.TotalSaved += source.Orders.TotalSaved
+		target.Orders.DurationMs += source.Orders.DurationMs
+		for _, sourceStore := range source.Orders.StoreResults {
+			storeIndex := -1
+			for index := range target.Orders.StoreResults {
+				if target.Orders.StoreResults[index].StoreID == sourceStore.StoreID {
+					storeIndex = index
+					break
+				}
+			}
+			if storeIndex < 0 {
+				sourceStore.OrderIDs = nil
+				target.Orders.StoreResults = append(target.Orders.StoreResults, sourceStore)
+				continue
+			}
+			targetStore := &target.Orders.StoreResults[storeIndex]
+			targetStore.TotalOrders += sourceStore.TotalOrders
+			targetStore.TotalSaved += sourceStore.TotalSaved
+			targetStore.FailedPages = append(targetStore.FailedPages, sourceStore.FailedPages...)
+			if sourceStore.Error != "" {
+				targetStore.Error = sourceStore.Error
+			}
+		}
+	}
+	if source.Alliance != nil {
+		if target.Alliance == nil {
+			target.Alliance = &AlliancePullResult{}
+		}
+		if source.Alliance.StoreCount > target.Alliance.StoreCount {
+			target.Alliance.StoreCount = source.Alliance.StoreCount
+		}
+		target.Alliance.SubOrderCount += source.Alliance.SubOrderCount
+		target.Alliance.TotalBatches += source.Alliance.TotalBatches
+		target.Alliance.SuccessBatches += source.Alliance.SuccessBatches
+		target.Alliance.FailedBatches += source.Alliance.FailedBatches
+		target.Alliance.TotalOrders += source.Alliance.TotalOrders
+		target.Alliance.TotalSaved += source.Alliance.TotalSaved
+		target.Alliance.MatchedOrders += source.Alliance.MatchedOrders
+		target.Alliance.UnmatchedOrders += source.Alliance.UnmatchedOrders
+		target.Alliance.DurationMs += source.Alliance.DurationMs
+		for _, message := range source.Alliance.Errors {
+			if len(target.Alliance.Errors) >= 20 {
+				break
+			}
+			target.Alliance.Errors = append(target.Alliance.Errors, message)
+		}
+	}
+}
+
 // PullAllianceByTime 保留精选联盟手工补拉能力，按下单时间查出订单号后复用统一匹配流程。
 func (s *OrderAllianceSyncService) PullAllianceByTime(ctx context.Context, startTime, endTime string, concurrency int) (*AlliancePullResult, error) {
+	if !orderAllianceSyncRunning.CompareAndSwap(false, true) {
+		return nil, ErrOrderAllianceSyncRunning
+	}
+	defer orderAllianceSyncRunning.Store(false)
+
+	windows, err := splitOrderAllianceWindows(PollParams{
+		StartTime: startTime, EndTime: endTime, Concurrency: concurrency,
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := &AlliancePullResult{}
+	var pullErrors []error
+	for _, window := range windows {
+		windowResult, windowErr := s.pullAllianceByTimeWindow(ctx, window.StartTime, window.EndTime, window.Concurrency)
+		mergeOrderAllianceSyncResult(
+			&OrderAllianceSyncResult{Alliance: result},
+			&OrderAllianceSyncResult{Alliance: windowResult},
+		)
+		if windowErr != nil {
+			pullErrors = append(pullErrors, fmt.Errorf("%s 至 %s: %w", window.StartTime, window.EndTime, windowErr))
+		}
+	}
+	return result, errors.Join(pullErrors...)
+}
+
+func (s *OrderAllianceSyncService) pullAllianceByTimeWindow(ctx context.Context, startTime, endTime string, concurrency int) (*AlliancePullResult, error) {
 	stores, err := g.DB().Model("store").Ctx(ctx).
 		Where("platform", "douyin").Where("status", 1).Where("author", 1).All()
 	if err != nil {
@@ -159,26 +383,23 @@ func (s *OrderAllianceSyncService) PullAllianceByTime(ctx context.Context, start
 func (s *OrderAllianceSyncService) pullAlliance(ctx context.Context, stores []allianceStoreOrders, concurrency int) (*AlliancePullResult, error) {
 	startedAt := time.Now()
 	result := &AlliancePullResult{StoreCount: len(stores)}
-	if concurrency <= 0 {
-		concurrency = 5
-	}
-	if concurrency > 45 {
-		concurrency = 45
-	}
+	concurrency = normalizeOrderAllianceConcurrency(concurrency)
 
 	allOrderIDs := make([]string, 0)
-	tasks := make([]allianceBatchTask, 0)
+	normalizedStores := make([]allianceStoreOrders, 0, len(stores))
 	for _, store := range stores {
 		orderIDs := uniqueStrings(store.OrderIDs)
-		allOrderIDs = append(allOrderIDs, orderIDs...)
-		for _, batch := range chunkStrings(orderIDs, allianceOrderBatchSize) {
-			tasks = append(tasks, allianceBatchTask{StoreID: store.StoreID, StoreName: store.StoreName, OrderIDs: batch})
+		if len(orderIDs) == 0 {
+			continue
 		}
+		store.OrderIDs = orderIDs
+		normalizedStores = append(normalizedStores, store)
+		allOrderIDs = append(allOrderIDs, orderIDs...)
+		result.TotalBatches += (len(orderIDs) + allianceOrderBatchSize - 1) / allianceOrderBatchSize
 	}
 	allOrderIDs = uniqueStrings(allOrderIDs)
 	result.SubOrderCount = len(allOrderIDs)
-	result.TotalBatches = len(tasks)
-	if len(tasks) == 0 {
+	if result.TotalBatches == 0 {
 		result.DurationMs = int(time.Since(startedAt).Milliseconds())
 		return result, nil
 	}
@@ -193,11 +414,18 @@ func (s *OrderAllianceSyncService) pullAlliance(ctx context.Context, stores []al
 	}
 
 	workerCount := concurrency
-	if workerCount > len(tasks) {
-		workerCount = len(tasks)
+	if workerCount > result.TotalBatches {
+		workerCount = result.TotalBatches
 	}
-	taskCh := make(chan allianceBatchTask, len(tasks))
-	resultCh := make(chan allianceBatchResult, len(tasks))
+	channelBuffer := workerCount * 2
+	if channelBuffer < 1 {
+		channelBuffer = 1
+	}
+	if channelBuffer > orderAllianceChannelBuffer {
+		channelBuffer = orderAllianceChannelBuffer
+	}
+	taskCh := make(chan allianceBatchTask, channelBuffer)
+	resultCh := make(chan allianceBatchResult, channelBuffer)
 	var wg sync.WaitGroup
 	var dbMu sync.Mutex
 
@@ -207,16 +435,40 @@ func (s *OrderAllianceSyncService) pullAlliance(ctx context.Context, stores []al
 			defer wg.Done()
 			client := NewService()
 			for task := range taskCh {
-				resultCh <- pullAllianceBatch(ctx, client, task, orderInfoMap, accountMap, &dbMu)
+				batchResult := pullAllianceBatch(ctx, client, task, orderInfoMap, accountMap, &dbMu)
+				select {
+				case resultCh <- batchResult:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}()
 	}
-	for _, task := range tasks {
-		taskCh <- task
-	}
-	close(taskCh)
-	wg.Wait()
-	close(resultCh)
+	go func() {
+		defer close(taskCh)
+		for _, store := range normalizedStores {
+			for start := 0; start < len(store.OrderIDs); start += allianceOrderBatchSize {
+				end := start + allianceOrderBatchSize
+				if end > len(store.OrderIDs) {
+					end = len(store.OrderIDs)
+				}
+				task := allianceBatchTask{
+					StoreID:   store.StoreID,
+					StoreName: store.StoreName,
+					OrderIDs:  store.OrderIDs[start:end],
+				}
+				select {
+				case taskCh <- task:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+	go func() {
+		wg.Wait()
+		close(resultCh)
+	}()
 
 	matchedOrderIDs := make(map[string]struct{})
 	for batchResult := range resultCh {
@@ -443,7 +695,11 @@ func backfillAllianceTalent(ctx context.Context, groups map[allianceAccount][]st
 
 func logAllianceThirdParty(task allianceBatchTask, durationMs int, response interface{}, requestErr error) {
 	requestJSON, _ := json.Marshal(g.Map{"storeId": task.StoreID, "orderIds": task.OrderIDs, "size": allianceOrderBatchSize})
-	responseJSON, _ := json.Marshal(response)
+	responseBody := response
+	if apiResult, ok := response.(*model.PlatformAllianceOrderListResult); ok && apiResult != nil {
+		responseBody = g.Map{"orderCount": len(apiResult.Orders)}
+	}
+	responseJSON, _ := json.Marshal(responseBody)
 	status := 1
 	if requestErr != nil {
 		status = 0

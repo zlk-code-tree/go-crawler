@@ -317,7 +317,7 @@ func qianchuanAdReportJoinCond(date string) string {
 }
 
 func qianchuanAdReportJoinCondRange(startDate, endDate string) string {
-	return fmt.Sprintf("aqm.qianchuan_advertiser_id = qar.advertiser_id AND LEFT(qar.stat_datetime, 10) BETWEEN '%s' AND '%s'", startDate, endDate)
+	return fmt.Sprintf("aqm.qianchuan_advertiser_id = qar.advertiser_id AND qar.stat_datetime >= '%s' AND qar.stat_datetime < DATE_ADD('%s', INTERVAL 1 DAY)", startDate, endDate)
 }
 
 // effectiveQianchuanCostCTE 生成账号每日有效消耗：达人日报优先；当天无达人日报时，
@@ -338,8 +338,8 @@ const effectiveQianchuanCostCTE = `WITH RECURSIVE
 			COALESCE(SUM(pay_order_count), 0) AS pay_order_count
 		FROM qianchuan_author_daily_report
 		WHERE account_id > 0
-		  AND LEFT(stat_datetime, 10) >= ?
-		  AND LEFT(stat_datetime, 10) <= ?
+		  AND stat_datetime >= ?
+		  AND stat_datetime < DATE_ADD(?, INTERVAL 1 DAY)
 		GROUP BY account_id, advertiser_id, company_id, department_id, trader_id, LEFT(stat_datetime, 10)
 	),
 	plan_daily AS (
@@ -369,8 +369,8 @@ const effectiveQianchuanCostCTE = `WITH RECURSIVE
 					AND LOWER(TRIM(matched_account.account_name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(qar.aweme_name)) COLLATE utf8mb4_unicode_ci)
 			)
 		WHERE qar.account_id > 0
-		  AND LEFT(qar.stat_datetime, 10) >= ?
-		  AND LEFT(qar.stat_datetime, 10) <= ?
+		  AND qar.stat_datetime >= ?
+		  AND qar.stat_datetime < DATE_ADD(?, INTERVAL 1 DAY)
 		GROUP BY qar.account_id, qar.advertiser_id, qar.company_id, qar.department_id, qar.trader_id, LEFT(qar.stat_datetime, 10)
 	),
 	effective_qianchuan_cost AS (
@@ -410,8 +410,8 @@ const attributedQianchuanCostCTE = `WITH RECURSIVE
 			LEFT(stat_datetime, 10) AS stat_date,
 			COALESCE(SUM(stat_cost), 0) AS stat_cost
 		FROM qianchuan_ad_report
-		WHERE LEFT(stat_datetime, 10) >= ?
-		  AND LEFT(stat_datetime, 10) <= ?
+		WHERE stat_datetime >= ?
+		  AND stat_datetime < DATE_ADD(?, INTERVAL 1 DAY)
 		  AND stat_cost > 0
 		GROUP BY advertiser_id, LEFT(stat_datetime, 10)
 	),
@@ -443,8 +443,8 @@ const attributedQianchuanCostCTE = `WITH RECURSIVE
 					AND LOWER(TRIM(matched_account.account_name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(qar.aweme_name)) COLLATE utf8mb4_unicode_ci)
 			)
 		WHERE qar.account_id > 0
-		  AND LEFT(qar.stat_datetime, 10) >= ?
-		  AND LEFT(qar.stat_datetime, 10) <= ?
+		  AND qar.stat_datetime >= ?
+		  AND qar.stat_datetime < DATE_ADD(?, INTERVAL 1 DAY)
 		  AND qar.stat_cost > 0
 		GROUP BY qar.account_id, qar.advertiser_id, LEFT(qar.stat_datetime, 10)
 	),
@@ -455,8 +455,8 @@ const attributedQianchuanCostCTE = `WITH RECURSIVE
 			LEFT(stat_datetime, 10) AS stat_date,
 			COALESCE(SUM(stat_cost), 0) AS stat_cost
 		FROM qianchuan_advertiser_daily_report
-		WHERE LEFT(stat_datetime, 10) >= ?
-		  AND LEFT(stat_datetime, 10) <= ?
+		WHERE stat_datetime >= ?
+		  AND stat_datetime < DATE_ADD(?, INTERVAL 1 DAY)
 		GROUP BY advertiser_id, LEFT(stat_datetime, 10)
 	),
 	plan_scaled AS (
@@ -956,8 +956,8 @@ func (s *FinanceCommissionService) GetStoreCostStats(ctx context.Context, startD
 				COALESCE(SUM(pay_order_amount), 0) AS pay_order_amount,
 				COALESCE(SUM(all_order_pay_gmv_7days), 0) AS all_order_pay_gmv
 			FROM qianchuan_advertiser_daily_report
-			WHERE LEFT(stat_datetime, 10) >= ?
-			  AND LEFT(stat_datetime, 10) <= ?
+			WHERE stat_datetime >= ?
+			  AND stat_datetime < DATE_ADD(?, INTERVAL 1 DAY)
 			GROUP BY advertiser_id
 		) adv
 		LEFT JOIN store_qianchuan_mapping sqm
@@ -1093,7 +1093,7 @@ func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, start
 			FROM (
 				SELECT advertiser_id
 				FROM qianchuan_advertiser_daily_report
-				WHERE LEFT(stat_datetime, 10) >= ? AND LEFT(stat_datetime, 10) <= ?
+				WHERE stat_datetime >= ? AND stat_datetime < DATE_ADD(?, INTERVAL 1 DAY)
 				GROUP BY advertiser_id
 			) adv
 			LEFT JOIN store_qianchuan_mapping sqm ON sqm.qianchuan_advertiser_id = adv.advertiser_id
@@ -1143,7 +1143,7 @@ func (s *FinanceCommissionService) GetStoreCostDetail(ctx context.Context, start
 				COALESCE(SUM(click_cnt), 0) AS click_cnt,
 				COALESCE(SUM(pay_order_count), 0) AS pay_order_count
 			FROM qianchuan_advertiser_daily_report
-			WHERE LEFT(stat_datetime, 10) >= ? AND LEFT(stat_datetime, 10) <= ?
+			WHERE stat_datetime >= ? AND stat_datetime < DATE_ADD(?, INTERVAL 1 DAY)
 			GROUP BY advertiser_id
 		) adv
 		LEFT JOIN store_qianchuan_mapping sqm ON sqm.qianchuan_advertiser_id = adv.advertiser_id
@@ -1254,7 +1254,7 @@ func (s *FinanceCommissionService) GetAllStoreCostDetail(ctx context.Context, st
 				COALESCE(SUM(click_cnt), 0) AS click_cnt,
 				COALESCE(SUM(pay_order_count), 0) AS pay_order_count
 			FROM qianchuan_advertiser_daily_report
-			WHERE LEFT(stat_datetime, 10) >= ? AND LEFT(stat_datetime, 10) <= ?
+			WHERE stat_datetime >= ? AND stat_datetime < DATE_ADD(?, INTERVAL 1 DAY)
 			GROUP BY advertiser_id
 		) adv
 		LEFT JOIN store_qianchuan_mapping sqm ON sqm.qianchuan_advertiser_id = adv.advertiser_id

@@ -23,6 +23,7 @@ type PollParams struct {
 	Concurrency   int    // 并发数，默认1（串行），最大45
 	RecordLog     bool   // 是否记录任务执行日志（仅定时任务为true）
 	UseUpdateTime bool   // 按订单更新时间查询，用于回补退款、发货等状态变化
+	Progress      func(OrderAllianceSyncProgress)
 }
 
 // PollResult 拉取结果
@@ -176,6 +177,7 @@ func (p *Poller) tick(ctx context.Context) {
 	if len(stores) == 0 {
 		return
 	}
+	priceMap := loadDouyinGoodsPriceMap(ctx)
 
 	// 遍历所有店铺，每个店铺翻页拉取其增量订单
 	cst := time.FixedZone("CST", 8*3600)
@@ -275,7 +277,7 @@ func (p *Poller) tick(ctx context.Context) {
 				service.TaskLogSuccess(ctx, logId, "10000", string(respSummary), dur)
 			}
 
-			saved, _ := p.saveOrders(ctx, result.Orders)
+			saved, _ := p.saveOrders(ctx, result.Orders, priceMap)
 			storeSaved += saved
 			storeOrders += len(result.Orders)
 
@@ -309,22 +311,19 @@ func (p *Poller) tick(ctx context.Context) {
 		len(stores), totalOrdersAll, totalSavedAll, durationMs, used, p.dailyLimit)
 }
 
-// saveOrders 保存订单到 order_info，按 sub_order_no 去重
-func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderItem) (int, []string) {
+// saveOrders 批量写入订单。order_info.sub_order_no 有唯一索引，因此一个分页只需
+// 一条 INSERT ... ON DUPLICATE KEY UPDATE；失败时递归拆批以隔离异常行。
+func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderItem, priceMap map[string]float64) (int, []string) {
 	if len(orders) == 0 {
 		return 0, nil
 	}
 
-	// 批量查询 seller_code → base_price 映射
-	priceMap := make(map[string]float64)
-	rows, _ := g.DB().Model("goods").Ctx(ctx).Fields("goods_code, base_price").All()
-	for _, r := range rows {
-		priceMap[r["goods_code"].String()] = r["base_price"].Float64()
-	}
-
-	saved := 0
-	savedOrderIDs := make([]string, 0, len(orders))
+	rows := make([]map[string]interface{}, 0, len(orders))
 	for _, order := range orders {
+		if strings.TrimSpace(order.SubOrderNo) == "" {
+			g.Log().Warningf(ctx, "[DouyinPoller] 跳过无子订单号的订单 product_name=%s", truncateStr(order.ProductName, 100))
+			continue
+		}
 		data := p.orderToMap(order)
 		// 商品成本 = base_price × product_num
 		if bp, ok := priceMap[order.Code]; ok && bp > 0 {
@@ -332,32 +331,124 @@ func (p *Poller) saveOrders(ctx context.Context, orders []model.PlatformOrderIte
 		}
 		// 小店服务费按商品原价总额计算，优惠后的实付金额不参与该口径。
 		data["shop_service_fee"] = order.ProductPrice * float64(order.ProductNum) * service.DouyinShopServiceFeeRate
+		data["create_time"] = time.Now().Format(orderAllianceTimeLayout)
+		rows = append(rows, data)
+	}
+	savedOrderIDs := upsertDouyinOrderRows(ctx, rows)
+	return len(savedOrderIDs), savedOrderIDs
+}
 
-		count, _ := g.DB().Model("order_info").Ctx(ctx).
-			Where("sub_order_no", order.SubOrderNo).Count()
-		if count > 0 {
-			_, err := g.DB().Model("order_info").Ctx(ctx).
-				Where("sub_order_no", order.SubOrderNo).
-				Data(data).Update()
-			if err != nil {
-				g.Log().Errorf(ctx, "[DouyinPoller] 更新订单失败 sub_order_no=%s: %v", order.SubOrderNo, err)
-				continue
-			}
-		} else {
-			data["create_time"] = time.Now().Format("2006-01-02 15:04:05")
-			_, err := g.DB().Model("order_info").Ctx(ctx).Data(data).Insert()
-			if err != nil {
-				g.Log().Errorf(ctx, "[DouyinPoller] 插入订单失败 sub_order_no=%s product_name=%s: %v",
-					order.SubOrderNo, truncateStr(order.ProductName, 100), err)
-				continue
-			}
+func loadDouyinGoodsPriceMap(ctx context.Context) map[string]float64 {
+	result := make(map[string]float64)
+	rows, err := g.DB().Model("goods").Ctx(ctx).Fields("goods_code, base_price").All()
+	if err != nil {
+		g.Log().Warningf(ctx, "[DouyinPoller] 加载商品成本映射失败: %v", err)
+		return result
+	}
+	for _, row := range rows {
+		result[row["goods_code"].String()] = row["base_price"].Float64()
+	}
+	return result
+}
+
+func upsertDouyinOrderRows(ctx context.Context, rows []map[string]interface{}) []string {
+	if len(rows) == 0 {
+		return nil
+	}
+	if err := upsertDouyinOrderBatch(ctx, rows); err == nil {
+		orderIDs := make([]string, 0, len(rows))
+		for _, row := range rows {
+			orderIDs = append(orderIDs, fmt.Sprint(row["sub_order_no"]))
 		}
-		saved++
-		if order.SubOrderNo != "" {
-			savedOrderIDs = append(savedOrderIDs, order.SubOrderNo)
+		return orderIDs
+	} else if len(rows) == 1 {
+		g.Log().Errorf(ctx, "[DouyinPoller] 订单写入失败 sub_order_no=%v product_name=%s: %v",
+			rows[0]["sub_order_no"], truncateStr(fmt.Sprint(rows[0]["product_name"]), 100), err)
+		return nil
+	}
+
+	middle := len(rows) / 2
+	saved := upsertDouyinOrderRows(ctx, rows[:middle])
+	return append(saved, upsertDouyinOrderRows(ctx, rows[middle:])...)
+}
+
+func upsertDouyinOrderBatch(ctx context.Context, rows []map[string]interface{}) error {
+	columns := []string{
+		"sub_order_no", "main_order_no", "shop_name", "product_name", "product_num",
+		"product_id", "seller_code", "product_price", "order_pay_amount", "shipping_fee",
+		"total_discount", "platform_discount", "talent_discount", "seller_change_price", "pay_discount",
+		"pay_type", "receiver_name", "receiver_phone", "province", "city", "district",
+		"address_detail", "buyer_note", "order_submit_time", "seller_note", "order_finish_time",
+		"pay_finish_time", "flow_source", "order_status", "talent_id", "talent_name", "store_id",
+		"after_sale_status", "cancel_reason", "send_time", "product_cost", "shop_service_fee", "create_time",
+	}
+	dateColumns := map[string]struct{}{
+		"order_submit_time": {}, "order_finish_time": {}, "pay_finish_time": {}, "send_time": {},
+	}
+	numericColumns := map[string]struct{}{
+		"product_num": {}, "product_price": {}, "order_pay_amount": {}, "shipping_fee": {},
+		"total_discount": {}, "platform_discount": {}, "talent_discount": {},
+		"seller_change_price": {}, "pay_discount": {}, "product_cost": {}, "shop_service_fee": {},
+	}
+
+	placeholders := make([]string, 0, len(rows))
+	args := make([]interface{}, 0, len(rows)*len(columns))
+	rowPlaceholder := "(" + strings.TrimRight(strings.Repeat("?,", len(columns)), ",") + ")"
+	for _, row := range rows {
+		placeholders = append(placeholders, rowPlaceholder)
+		for _, column := range columns {
+			value := row[column]
+			if _, ok := dateColumns[column]; ok {
+				value = nilIfEmpty(value)
+			} else if _, ok := numericColumns[column]; ok {
+				value = valueOr(value, 0)
+			} else {
+				value = valueOr(value, "")
+			}
+			args = append(args, value)
 		}
 	}
-	return saved, savedOrderIDs
+
+	sql := "INSERT INTO order_info (" + strings.Join(columns, ",") + ") VALUES " + strings.Join(placeholders, ",") + `
+		ON DUPLICATE KEY UPDATE
+		main_order_no = COALESCE(NULLIF(VALUES(main_order_no), ''), main_order_no),
+		shop_name = VALUES(shop_name),
+		product_name = VALUES(product_name),
+		product_num = VALUES(product_num),
+		product_id = COALESCE(NULLIF(VALUES(product_id), ''), product_id),
+		seller_code = COALESCE(NULLIF(VALUES(seller_code), ''), seller_code),
+		product_price = VALUES(product_price),
+		order_pay_amount = VALUES(order_pay_amount),
+		shipping_fee = VALUES(shipping_fee),
+		total_discount = VALUES(total_discount),
+		platform_discount = VALUES(platform_discount),
+		talent_discount = VALUES(talent_discount),
+		seller_change_price = VALUES(seller_change_price),
+		pay_discount = VALUES(pay_discount),
+		pay_type = COALESCE(NULLIF(VALUES(pay_type), ''), pay_type),
+		receiver_name = COALESCE(NULLIF(VALUES(receiver_name), ''), receiver_name),
+		receiver_phone = COALESCE(NULLIF(VALUES(receiver_phone), ''), receiver_phone),
+		province = COALESCE(NULLIF(VALUES(province), ''), province),
+		city = COALESCE(NULLIF(VALUES(city), ''), city),
+		district = COALESCE(NULLIF(VALUES(district), ''), district),
+		address_detail = COALESCE(NULLIF(VALUES(address_detail), ''), address_detail),
+		buyer_note = COALESCE(NULLIF(VALUES(buyer_note), ''), buyer_note),
+		order_submit_time = COALESCE(VALUES(order_submit_time), order_submit_time),
+		seller_note = COALESCE(NULLIF(VALUES(seller_note), ''), seller_note),
+		order_finish_time = COALESCE(VALUES(order_finish_time), order_finish_time),
+		pay_finish_time = COALESCE(VALUES(pay_finish_time), pay_finish_time),
+		flow_source = COALESCE(NULLIF(VALUES(flow_source), ''), flow_source),
+		order_status = VALUES(order_status),
+		talent_id = COALESCE(NULLIF(NULLIF(VALUES(talent_id), ''), '0'), talent_id),
+		talent_name = COALESCE(NULLIF(VALUES(talent_name), ''), talent_name),
+		store_id = COALESCE(NULLIF(VALUES(store_id), ''), store_id),
+		after_sale_status = COALESCE(NULLIF(VALUES(after_sale_status), ''), after_sale_status),
+		cancel_reason = COALESCE(NULLIF(VALUES(cancel_reason), ''), cancel_reason),
+		send_time = COALESCE(VALUES(send_time), send_time),
+		product_cost = IF(VALUES(product_cost) > 0, VALUES(product_cost), product_cost),
+		shop_service_fee = VALUES(shop_service_fee)`
+	_, err := g.DB().Exec(ctx, sql, args...)
+	return err
 }
 
 func douyinOrderStatusDesc(order model.PlatformOrderItem) string {
@@ -437,6 +528,7 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (*PollResul
 	if len(stores) == 0 {
 		return result, nil
 	}
+	priceMap := loadDouyinGoodsPriceMap(ctx)
 
 	cst := time.FixedZone("CST", 8*3600)
 	now := time.Now().In(cst)
@@ -518,7 +610,7 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (*PollResul
 			result.StoreResults = append(result.StoreResults, storeResult)
 			continue
 		}
-		saved, savedOrderIDs := p.saveOrders(ctx, firstResult.Orders)
+		saved, savedOrderIDs := p.saveOrders(ctx, firstResult.Orders, priceMap)
 		appendOrderIDs(savedOrderIDs)
 		g.Log().Infof(ctx, "[DouyinPoller] %s 第%d页: %d条保存, total=%d", storeName, firstPage, len(firstResult.Orders), firstResult.Total)
 
@@ -595,7 +687,7 @@ func (p *Poller) tickWithParams(ctx context.Context, opt PollParams) (*PollResul
 						mu.Unlock()
 						continue
 					}
-					saved, savedOrderIDs := p.saveOrders(ctx, result.Orders)
+					saved, savedOrderIDs := p.saveOrders(ctx, result.Orders, priceMap)
 					mu.Lock()
 					storeOrders += len(result.Orders)
 					storeSaved += saved

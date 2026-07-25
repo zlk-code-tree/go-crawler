@@ -124,6 +124,24 @@ func TaskLogStart(ctx context.Context, taskName, taskType, apiUrl, requestParams
 	return id, nil
 }
 
+// TaskLogProgress 更新后台任务进度，status 保持为运行中。
+func TaskLogProgress(ctx context.Context, logID int64, progress interface{}, durationMs int) {
+	if logID <= 0 {
+		return
+	}
+	responseBody, err := json.Marshal(progress)
+	if err != nil {
+		return
+	}
+	if len(responseBody) > 50000 {
+		responseBody = append(responseBody[:50000], []byte("...[truncated]")...)
+	}
+	_, _ = g.DB().Ctx(ctx).Model("task_execution_log").Where("id", logID).Data(g.Map{
+		"duration_ms":   durationMs,
+		"response_body": string(responseBody),
+	}).Update()
+}
+
 // TaskLogSuccess 标记任务成功
 func TaskLogSuccess(ctx context.Context, logId int64, responseCode, responseBody string, durationMs int) {
 	// 截断过长的响应体（保留前50000字符）
