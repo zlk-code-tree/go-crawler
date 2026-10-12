@@ -59,7 +59,7 @@ services:
     ports:
       - "5556:5556"
     volumes:
-      - /Users/zhanglikun/WorkSpace/service/docker/www/ly_crawler_web:/app
+      - ../ly_crawler_web:/app
       - web_node_modules:/app/node_modules
     environment:
       - NODE_ENV=development

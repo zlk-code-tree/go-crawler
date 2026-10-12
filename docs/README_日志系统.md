@@ -20,7 +20,7 @@
 
 ### 启动服务
 ```bash
-cd /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler
+cd /Users/zhanglikun/workspace/app/go-crawler
 ./main
 ```
 

@@ -1,11 +1,13 @@
 # 编译产物
 main
+bin/
 myapp-*
 *.exe
 *.exe~
 *.test
 *.out
 *.prof
+*.pid
 
 # 日志文件
 logs/

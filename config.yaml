@@ -30,7 +30,7 @@ jwt:
 database:
   default:
     type: "mysql"
-    link: "ly_admin:4qPbP%dd#aQs8wR@tcp(rm-2zeyw894ggx6yj3i2yo.mysql.rds.aliyuncs.com:3306)/ly_crawler?charset=utf8mb4&parseTime=True&loc=Local"
+    link: "admin:admin@tcp(127.0.0.1:3306)/go_crawler?charset=utf8mb4&parseTime=True&loc=Local"
     # 财务统计会生成大批量 IN 查询；生产环境打印完整 SQL 会产生大量日志 I/O 并导致接口超时。
     debug: false
     maxIdle: 10

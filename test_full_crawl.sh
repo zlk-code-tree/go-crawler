@@ -7,8 +7,8 @@ echo "  🕷️  抖音电商罗盘爬虫 - 完整测试流程"
 echo "=============================================="
 echo ""
 
-PROJECT_DIR="/Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler"
-cd "$PROJECT_DIR"
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)" || exit 1
+cd "$PROJECT_DIR" || exit 1
 
 # 1. 检查服务状态
 echo "=============================================="

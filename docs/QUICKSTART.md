@@ -12,7 +12,7 @@
 
 ```bash
 # 如果已有项目，跳过此步
-cd /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler
+cd /Users/zhanglikun/workspace/app/go-crawler
 ```
 
 ---

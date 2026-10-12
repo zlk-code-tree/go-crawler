@@ -79,7 +79,7 @@ if firstList == 0 {
 ### 1. 运行爬虫测试
 
 ```bash
-cd /Users/zhanglikun/WorkSpace/app/goCode/ly-project/go-crawler
+cd /Users/zhanglikun/workspace/app/go-crawler
 go run main.go
 ```
 
