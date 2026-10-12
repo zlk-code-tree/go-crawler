@@ -2,10 +2,9 @@ package service
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
-
-	"github.com/gogf/gf/v2/frame/g"
 )
 
 // CrawlerStatus 爬虫服务全局状态
@@ -19,10 +18,22 @@ type CrawlerStatus struct {
 
 // crawlerStatusManager 全局爬虫服务状态管理器（单例）
 type crawlerStatusManager struct {
-	mu       sync.RWMutex
-	status   CrawlerStatus
-	cancelFn context.CancelFunc // 用于强制停止爬虫任务
+	mu     sync.RWMutex
+	status CrawlerStatus
+	active *crawlerTaskLease
 }
+
+// The private context key proves ownership; a matching task ID alone does not.
+type crawlerTaskLeaseKey struct{}
+
+type crawlerTaskLease struct {
+	manager  *crawlerStatusManager
+	taskID   string
+	cancel   context.CancelFunc
+	stopping bool
+}
+
+var ErrCrawlerBusy = errors.New("爬虫服务正在运行或停止中，请稍后再试")
 
 var (
 	statusInstance *crawlerStatusManager
@@ -44,10 +55,27 @@ func (m *crawlerStatusManager) GetStatus() CrawlerStatus {
 	return m.status
 }
 
-// SetOnline 标记服务上线
-func (m *crawlerStatusManager) SetOnline(taskId, loginType string, cancelFn context.CancelFunc) {
+// AcquireTask atomically reserves the crawler until finish is called after cleanup.
+// A controller may pass the returned context to the task runner, which can reuse
+// the same lease. Only the original owner receives a release function.
+func (m *crawlerStatusManager) AcquireTask(ctx context.Context, taskId, loginType string) (context.Context, func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if lease, ok := ctx.Value(crawlerTaskLeaseKey{}).(*crawlerTaskLease); ok {
+		if lease == m.active && lease.manager == m && lease.taskID == taskId && !lease.stopping {
+			return ctx, func() {}, nil
+		}
+		return nil, nil, ErrCrawlerBusy
+	}
+	if m.active != nil {
+		return nil, nil, ErrCrawlerBusy
+	}
+	taskCtx, cancel := context.WithCancel(ctx)
+	lease := &crawlerTaskLease{manager: m, taskID: taskId, cancel: cancel}
+	m.active = lease
 	m.status = CrawlerStatus{
 		IsOnline:  true,
 		TaskId:    taskId,
@@ -55,47 +83,44 @@ func (m *crawlerStatusManager) SetOnline(taskId, loginType string, cancelFn cont
 		StartTime: time.Now(),
 		Message:   "运行中",
 	}
-	m.cancelFn = cancelFn
-	g.Log().Infof(context.Background(), "[CrawlerStatus] 服务上线 taskId=%s loginType=%s", taskId, loginType)
-}
-
-// SetOffline 标记服务下线
-func (m *crawlerStatusManager) SetOffline() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	oldTaskId := m.status.TaskId
-	m.status = CrawlerStatus{}
-	m.cancelFn = nil
-	g.Log().Infof(context.Background(), "[CrawlerStatus] 服务下线 taskId=%s", oldTaskId)
+	var once sync.Once
+	finish := func() {
+		once.Do(func() {
+			cancel()
+			m.mu.Lock()
+			defer m.mu.Unlock()
+			if m.active == lease {
+				m.active = nil
+				m.status = CrawlerStatus{}
+			}
+		})
+	}
+	return context.WithValue(taskCtx, crawlerTaskLeaseKey{}, lease), finish, nil
 }
 
 // SetMessage 更新状态消息（如"登录中"、"爬取中"等）
-func (m *crawlerStatusManager) SetMessage(msg string) {
+func (m *crawlerStatusManager) SetMessage(ctx context.Context, msg string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.status.Message = msg
+	lease, _ := ctx.Value(crawlerTaskLeaseKey{}).(*crawlerTaskLease)
+	if lease != nil && lease == m.active && !lease.stopping && ctx.Err() == nil {
+		m.status.Message = msg
+	}
 }
 
-// ForceOffline 强制下线（取消正在运行的任务）
+// ForceOffline requests cancellation. The task stays occupied until its owner
+// finishes browser cleanup, so another task cannot overlap the stopping task.
 func (m *crawlerStatusManager) ForceOffline() {
 	m.mu.Lock()
-	cancelFn := m.cancelFn
-	taskId := m.status.TaskId
-	m.status = CrawlerStatus{}
-	m.cancelFn = nil
+	lease := m.active
+	if lease != nil {
+		lease.stopping = true
+		m.status.Message = "正在停止，等待浏览器清理"
+	}
 	m.mu.Unlock()
-
-	if cancelFn != nil {
-		cancelFn()
+	if lease != nil {
+		lease.cancel()
 	}
-
-	// 更新数据库中的任务状态
-	if taskId != "" {
-		_, _ = g.DB().Model("crawl_tasks").Where("task_id", taskId).
-			Where("status", "running").
-			Update(g.Map{"status": "stopped", "end_time": time.Now()})
-	}
-	g.Log().Infof(context.Background(), "[CrawlerStatus] 强制下线 taskId=%s", taskId)
 }
 
 // IsOnline 快速检查是否在线

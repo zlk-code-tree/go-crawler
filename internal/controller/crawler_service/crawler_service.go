@@ -49,12 +49,6 @@ func (c *Controller) CrawlerServiceStatus(ctx context.Context, req *v1.CrawlerSe
 func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerServiceLoginReq) (res *v1.CrawlerServiceLoginRes, err error) {
 	r := g.RequestFromCtx(ctx)
 	mgr := service.GetCrawlerStatusManager()
-	isRunning := mgr.IsOnline()
-
-	if isRunning {
-		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "爬虫服务已在运行中，请先强制下线", "data": nil})
-		return
-	}
 
 	loginType := req.LoginType
 	if loginType == "" {
@@ -81,9 +75,25 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 		resumed = true
 	}
 
-	if taskId == "" {
+	newTask := taskId == ""
+	if newTask {
 		taskId = grand.S(16)
-		_, dbErr := g.DB().Model("crawl_tasks").Insert(g.Map{
+	}
+	// Reserve before changing persistent task state or starting the goroutine.
+	taskCtx, finish, acquireErr := mgr.AcquireTask(context.Background(), taskId, loginType)
+	if acquireErr != nil {
+		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": acquireErr.Error(), "data": nil})
+		return
+	}
+	started := false
+	defer func() {
+		if !started {
+			finish()
+		}
+	}()
+
+	if newTask {
+		_, dbErr := g.DB().Model("crawl_tasks").Ctx(ctx).Insert(g.Map{
 			"task_id":    taskId,
 			"status":     "running",
 			"login_type": loginType,
@@ -95,7 +105,7 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 			return
 		}
 	} else {
-		_, dbErr := g.DB().Model("crawl_tasks").Where("task_id", taskId).Update(g.Map{
+		_, dbErr := g.DB().Model("crawl_tasks").Ctx(ctx).Where("task_id", taskId).Update(g.Map{
 			"status":     "running",
 			"login_type": loginType,
 			"start_time": time.Now(),
@@ -107,13 +117,10 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 		}
 	}
 
-	taskCtx, cancelFn := context.WithCancel(context.Background())
-
-	mgr.SetOnline(taskId, loginType, cancelFn)
-	mgr.SetMessage("登录中...")
+	mgr.SetMessage(taskCtx, "登录中...")
 
 	go func() {
-		defer mgr.SetOffline()
+		defer finish()
 
 		logic := crawler.New()
 		crawlReq := &crawler.CrawlReq{
@@ -123,13 +130,20 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 			Password:  req.Password,
 		}
 
-		mgr.SetMessage("爬虫运行中")
+		mgr.SetMessage(taskCtx, "爬虫运行中")
 
 		results, runErr := logic.RunBrowserTask(taskCtx, crawlReq)
-		if runErr != nil {
-			g.Log().Errorf(taskCtx, "[CrawlerService] task %s failed: %v", taskId, runErr)
-			_, _ = g.DB().Model("crawl_tasks").Where("task_id", taskId).Update(g.Map{
-				"status":   "failed",
+		// Cancellation must not prevent recording the final stopped state.
+		terminalCtx, terminalCancel := context.WithTimeout(context.WithoutCancel(taskCtx), 10*time.Second)
+		defer terminalCancel()
+		if runErr != nil || taskCtx.Err() != nil {
+			status := "failed"
+			if taskCtx.Err() != nil {
+				status = "stopped"
+			}
+			g.Log().Infof(terminalCtx, "[CrawlerService] task %s %s: %v", taskId, status, runErr)
+			_, _ = g.DB().Model("crawl_tasks").Ctx(terminalCtx).Where("task_id", taskId).Update(g.Map{
+				"status":   status,
 				"end_time": time.Now(),
 			})
 			return
@@ -143,8 +157,8 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 				status = "paused"
 			}
 		}
-		productCount, _ := g.DB().Model("tiktok_ranking_list").Ctx(taskCtx).Where("task_id", taskId).Count()
-		videoCount, _ := g.DB().Model("video_analysis_data").Ctx(taskCtx).Where("task_id", taskId).Count()
+		productCount, _ := g.DB().Model("tiktok_ranking_list").Ctx(terminalCtx).Where("task_id", taskId).Count()
+		videoCount, _ := g.DB().Model("video_analysis_data").Ctx(terminalCtx).Where("task_id", taskId).Count()
 		updateData := g.Map{
 			"status":        status,
 			"product_count": productCount,
@@ -156,9 +170,10 @@ func (c *Controller) CrawlerServiceLogin(ctx context.Context, req *v1.CrawlerSer
 				updateData["export_files"] = string(encoded)
 			}
 		}
-		_, _ = g.DB().Model("crawl_tasks").Where("task_id", taskId).Update(updateData)
+		_, _ = g.DB().Model("crawl_tasks").Ctx(terminalCtx).Where("task_id", taskId).Update(updateData)
 		g.Log().Infof(taskCtx, "[CrawlerService] task %s %s", taskId, status)
 	}()
+	started = true
 
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
@@ -183,7 +198,7 @@ func (c *Controller) CrawlerServiceForceOffline(ctx context.Context, req *v1.Cra
 
 	r.Response.WriteJsonExit(g.Map{
 		"code": 0,
-		"msg":  "ok",
+		"msg":  "已请求停止，正在清理浏览器",
 		"data": nil,
 	})
 	return

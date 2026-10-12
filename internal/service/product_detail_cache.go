@@ -18,9 +18,10 @@ const (
 )
 
 type ProductDetailCache struct {
-	records   map[string]*ProductDetailRecord
-	lock      sync.RWMutex
-	cachePath string
+	records     map[string]*ProductDetailRecord
+	lock        sync.RWMutex
+	persistLock sync.Mutex // Serialize snapshots and file replacement, separately from cache reads.
+	cachePath   string
 }
 
 type ProductDetailRecord struct {
@@ -73,6 +74,8 @@ func NewProductDetailCache() *ProductDetailCache {
 }
 
 func (c *ProductDetailCache) loadRecords() {
+	c.persistLock.Lock()
+	defer c.persistLock.Unlock()
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -92,29 +95,74 @@ func (c *ProductDetailCache) loadRecords() {
 		return
 	}
 
+	if records == nil {
+		records = make(map[string]*ProductDetailRecord)
+	}
 	c.records = records
 }
 
-func (c *ProductDetailCache) saveRecords() {
+func (c *ProductDetailCache) saveRecords() error {
+	// Take the snapshot only after acquiring the persistence lock. Otherwise a
+	// delayed writer could overwrite a newer on-disk snapshot with older data.
+	c.persistLock.Lock()
+	defer c.persistLock.Unlock()
 	c.lock.RLock()
-	data, err := json.MarshalIndent(c.records, "", "  ")
+	records := make(map[string]*ProductDetailRecord, len(c.records))
+	for id, record := range c.records {
+		records[id] = record
+	}
 	c.lock.RUnlock()
 
+	// Stored records are immutable; readers and writers receive their own copies.
+	data, err := json.MarshalIndent(records, "", "  ")
 	if err != nil {
-		fmt.Printf("序列化缓存数据失败: %v\n", err)
-		return
+		return fmt.Errorf("序列化缓存数据失败: %w", err)
 	}
 
-	if err := os.WriteFile(c.cachePath, data, 0644); err != nil {
-		fmt.Printf("写入缓存文件失败: %v\n", err)
+	// Write alongside the destination and atomically replace it only when the
+	// complete JSON is on disk. Failed writes leave the previous cache intact.
+	file, err := os.CreateTemp(filepath.Dir(c.cachePath), ".product_detail_cache-*")
+	if err != nil {
+		return fmt.Errorf("创建缓存临时文件失败: %w", err)
 	}
+	temporaryPath := file.Name()
+	defer os.Remove(temporaryPath)
+	defer file.Close()
+	if err := file.Chmod(0644); err != nil {
+		return fmt.Errorf("设置缓存文件权限失败: %w", err)
+	}
+	if _, err := file.Write(data); err != nil {
+		return fmt.Errorf("写入缓存文件失败: %w", err)
+	}
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("同步缓存文件失败: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("关闭缓存文件失败: %w", err)
+	}
+	if err := os.Rename(temporaryPath, c.cachePath); err != nil {
+		return fmt.Errorf("替换缓存文件失败: %w", err)
+	}
+	return nil
+}
+
+func cloneProductDetailRecord(record *ProductDetailRecord) *ProductDetailRecord {
+	if record == nil {
+		return nil
+	}
+	cloned := *record
+	if record.HasShippingInsurance != nil {
+		insurance := *record.HasShippingInsurance
+		cloned.HasShippingInsurance = &insurance
+	}
+	return &cloned
 }
 
 func (c *ProductDetailCache) GetRecord(productID string) *ProductDetailRecord {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	return c.records[strings.TrimSpace(productID)]
+	return cloneProductDetailRecord(c.records[strings.TrimSpace(productID)])
 }
 
 func (c *ProductDetailCache) GetRecords(productIDs []string) map[string]*ProductDetailRecord {
@@ -123,30 +171,48 @@ func (c *ProductDetailCache) GetRecords(productIDs []string) map[string]*Product
 
 	result := make(map[string]*ProductDetailRecord)
 	for _, id := range productIDs {
-		if record, ok := c.records[strings.TrimSpace(id)]; ok {
-			result[id] = record
+		if record := c.records[strings.TrimSpace(id)]; record != nil {
+			result[id] = cloneProductDetailRecord(record)
 		}
 	}
 	return result
 }
 
 func (c *ProductDetailCache) UpsertRecord(record *ProductDetailRecord) *ProductDetailRecord {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	stored, err := c.UpsertRecordWithError(record)
+	if err != nil {
+		fmt.Printf("更新商品详情缓存失败: %v\n", err)
+	}
+	return stored
+}
 
+// UpsertRecordWithError updates the in-memory cache and persists a snapshot.
+// On a persistence error the in-memory entry is retained and returned with the error.
+func (c *ProductDetailCache) UpsertRecordWithError(record *ProductDetailRecord) (*ProductDetailRecord, error) {
+	if record == nil {
+		return nil, fmt.Errorf("商品详情缓存记录不能为空")
+	}
 	key := strings.TrimSpace(record.ProductID)
 	if key == "" {
-		return nil
+		return nil, fmt.Errorf("商品详情缓存商品 ID 不能为空")
 	}
 
-	record.UpdatedAt = time.Now()
-	c.records[key] = record
-	c.saveRecords()
-	return record
+	stored := cloneProductDetailRecord(record)
+	stored.ProductID = key
+	stored.UpdatedAt = time.Now()
+	c.lock.Lock()
+	if c.records == nil {
+		c.records = make(map[string]*ProductDetailRecord)
+	}
+	c.records[key] = stored
+	c.lock.Unlock()
+
+	err := c.saveRecords()
+	return cloneProductDetailRecord(stored), err
 }
 
 func (c *ProductDetailCache) IsRecordStale(record *ProductDetailRecord) bool {
-	return time.Since(record.UpdatedAt) >= DetailCacheTTL
+	return record == nil || time.Since(record.UpdatedAt) >= DetailCacheTTL
 }
 
 func (c *ProductDetailCache) ShouldRefreshRecord(record *ProductDetailRecord, item *model.TikTokRankingListInput) bool {
@@ -166,6 +232,9 @@ func (c *ProductDetailCache) ShouldRefreshRecord(record *ProductDetailRecord, it
 }
 
 func (c *ProductDetailCache) IsRecordComplete(record *ProductDetailRecord) bool {
+	if record == nil {
+		return false
+	}
 	if record.DetailAccessStatus == "removed" || record.DetailAccessStatus == "category_mismatch" {
 		return true
 	}

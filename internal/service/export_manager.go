@@ -159,10 +159,10 @@ func (em *ExportManager) ExportToExcel(ctx context.Context, taskId string, produ
 func (em *ExportManager) ExportVideoAnalysisToCSV(ctx context.Context, taskId string, videos []model.VideoAnalysisData) (string, error) {
 	latestVideos, err := em.loadLatestVideoAnalysisFromDB(ctx, taskId)
 	if err != nil {
-		glog.Warning(ctx, fmt.Sprintf("[%s] 刷新视频分析导出数据失败，使用内存数据导出：%v", taskId, err))
-	} else if len(latestVideos) > 0 {
-		videos = latestVideos
+		return "", fmt.Errorf("读取任务完整视频数据失败：%w", err)
 	}
+	// 续跑时传入的 videos 只包含本轮结果；数据库中的任务记录才是完整集合。
+	videos = latestVideos
 
 	if len(videos) == 0 {
 		return "", fmt.Errorf("没有数据可导出")
@@ -262,10 +262,19 @@ func (em *ExportManager) ExportAll(ctx context.Context, taskId string, products 
 
 	// 导出视频分析数据。视频直链解析是后台异步的，传入的内存数据可能为空或滞后；
 	// 只要数据库里已有当前任务的视频行，就允许导出器刷新 DB 后导出。
-	if len(videos) > 0 || em.hasVideoAnalysisRows(ctx, taskId) {
+	hasVideos := len(videos) > 0
+	if !hasVideos {
+		var err error
+		hasVideos, err = em.hasVideoAnalysisRows(ctx, taskId)
+		if err != nil {
+			return results, fmt.Errorf("检查任务视频数据失败：%w", err)
+		}
+	}
+	if hasVideos {
 		csvFile, err := em.ExportVideoAnalysisToCSV(ctx, taskId, videos)
 		if err != nil {
 			glog.Error(ctx, fmt.Sprintf("[%s] 导出视频分析 CSV 失败：%v", taskId, err))
+			return results, err
 		} else {
 			results["video_csv"] = csvFile
 		}
@@ -274,10 +283,13 @@ func (em *ExportManager) ExportAll(ctx context.Context, taskId string, products 
 	return results, nil
 }
 
-func (em *ExportManager) hasVideoAnalysisRows(ctx context.Context, taskId string) bool {
+func (em *ExportManager) hasVideoAnalysisRows(ctx context.Context, taskId string) (bool, error) {
 	if taskId == "" {
-		return false
+		return false, nil
 	}
 	count, err := g.DB().Model("video_analysis_data").Ctx(ctx).Where("task_id", taskId).Count()
-	return err == nil && count > 0
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

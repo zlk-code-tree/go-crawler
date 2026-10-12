@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/gogf/gf/v2/os/glog"
@@ -14,7 +15,9 @@ import (
 // CrawlTask 爬取任务状态
 type CrawlTask struct {
 	TaskId              string    `json:"task_id"`
-	Status              string    `json:"status"` // pending, running, paused, completed, failed
+	TaskType            string    `json:"task_type,omitempty"`
+	SourceTaskId        string    `json:"source_task_id,omitempty"` // 视频池恢复时固定使用原榜单快照
+	Status              string    `json:"status"`                   // pending, running, paused, completed, failed
 	CurrentStep         int       `json:"current_step"`
 	CurrentPage         int       `json:"current_page"`
 	TotalPages          int       `json:"total_pages"`
@@ -33,6 +36,15 @@ type CheckpointManager struct {
 	checkpointDir string
 }
 
+var checkpointTaskIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+func (cm *CheckpointManager) checkpointFilename(taskId string) (string, error) {
+	if !checkpointTaskIDPattern.MatchString(taskId) {
+		return "", fmt.Errorf("无效的任务 ID")
+	}
+	return filepath.Join(cm.checkpointDir, "task_"+taskId+".json"), nil
+}
+
 // NewCheckpointManager 创建断点管理器
 func NewCheckpointManager(checkpointDir string) *CheckpointManager {
 	checkpointDir = filepath.Join(checkpointDir)
@@ -46,15 +58,37 @@ func NewCheckpointManager(checkpointDir string) *CheckpointManager {
 
 // SaveCheckpoint 保存任务进度
 func (cm *CheckpointManager) SaveCheckpoint(ctx context.Context, task *CrawlTask) error {
-	filename := filepath.Join(cm.checkpointDir, fmt.Sprintf("task_%s.json", task.TaskId))
+	if task == nil {
+		return fmt.Errorf("任务断点为空")
+	}
+	filename, err := cm.checkpointFilename(task.TaskId)
+	if err != nil {
+		return err
+	}
 
 	data, err := json.MarshalIndent(task, "", "  ")
 	if err != nil {
 		return fmt.Errorf("序列化任务失败：%w", err)
 	}
 
-	if err := os.WriteFile(filename, data, 0644); err != nil {
+	// 读者只能看到完整的旧断点或新断点，进程中断不会截断已有文件。
+	file, err := os.CreateTemp(cm.checkpointDir, ".checkpoint-*")
+	if err != nil {
+		return fmt.Errorf("创建断点临时文件失败：%w", err)
+	}
+	defer os.Remove(file.Name())
+	if _, err = file.Write(data); err == nil {
+		err = file.Sync()
+	}
+	closeErr := file.Close()
+	if err != nil {
 		return fmt.Errorf("写入断点文件失败：%w", err)
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if err := os.Rename(file.Name(), filename); err != nil {
+		return fmt.Errorf("替换断点文件失败：%w", err)
 	}
 
 	glog.Info(ctx, fmt.Sprintf("[%s] 💾 保存任务进度：步骤=%d, 页码=%d/%d, 已抓取=%d 条",
@@ -64,7 +98,10 @@ func (cm *CheckpointManager) SaveCheckpoint(ctx context.Context, task *CrawlTask
 
 // LoadCheckpoint 加载任务进度
 func (cm *CheckpointManager) LoadCheckpoint(ctx context.Context, taskId string) (*CrawlTask, error) {
-	filename := filepath.Join(cm.checkpointDir, fmt.Sprintf("task_%s.json", taskId))
+	filename, err := cm.checkpointFilename(taskId)
+	if err != nil {
+		return nil, err
+	}
 
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return nil, nil // 没有断点
@@ -98,6 +135,15 @@ func (cm *CheckpointManager) LoadCheckpoint(ctx context.Context, taskId string) 
 
 // FindLatestResumableCheckpoint 查找最近一个可恢复的断点任务。
 func (cm *CheckpointManager) FindLatestResumableCheckpoint(ctx context.Context) (*CrawlTask, error) {
+	return cm.findLatestResumableCheckpoint(ctx, "")
+}
+
+// FindLatestVideoPoolCheckpoint 不与手动完整采集任务共用恢复位置。
+func (cm *CheckpointManager) FindLatestVideoPoolCheckpoint(ctx context.Context) (*CrawlTask, error) {
+	return cm.findLatestResumableCheckpoint(ctx, string(TaskTypeVideoPool))
+}
+
+func (cm *CheckpointManager) findLatestResumableCheckpoint(ctx context.Context, taskType string) (*CrawlTask, error) {
 	entries, err := os.ReadDir(cm.checkpointDir)
 	if err != nil {
 		return nil, err
@@ -121,10 +167,11 @@ func (cm *CheckpointManager) FindLatestResumableCheckpoint(ctx context.Context) 
 		if err := json.Unmarshal(data, &task); err != nil {
 			continue
 		}
-		if task.TaskId == "" || task.Status == "completed" || task.Status == "failed" {
+		if task.TaskId == "" || task.Status == "completed" || task.TaskType != taskType {
 			continue
 		}
-		if task.CurrentStep < 8 || task.CurrentProductIndex <= 0 {
+		// 榜单任务可以在分页阶段恢复；视频池任务需要已建立视频断点。
+		if taskType == string(TaskTypeVideoPool) && (task.CurrentStep < 8 || task.CurrentProductIndex < 0) {
 			continue
 		}
 		if latest == nil || info.ModTime().After(latestMod) {
@@ -190,6 +237,8 @@ func (cm *CheckpointManager) UpdateVideoProgress(ctx context.Context, taskId str
 	task.VideoCount = videoCount
 	task.Status = status
 	task.StopReason = reason
+	task.Error = ""
+	task.EndTime = time.Time{}
 	if status == "paused" {
 		task.EndTime = time.Now()
 	}
@@ -215,9 +264,12 @@ func (cm *CheckpointManager) CompleteTask(ctx context.Context, taskId string, sc
 	task.EndTime = time.Now()
 
 	// 保存完成后删除断点文件
-	filename := filepath.Join(cm.checkpointDir, fmt.Sprintf("task_%s.json", taskId))
-	if _, err := os.Stat(filename); err == nil {
-		os.Remove(filename)
+	filename, err := cm.checkpointFilename(taskId)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("删除完成任务断点失败：%w", err)
 	}
 
 	glog.Info(ctx, fmt.Sprintf("[%s] ✅ 任务完成，共抓取 %d 条数据", taskId, scrapedCount))
