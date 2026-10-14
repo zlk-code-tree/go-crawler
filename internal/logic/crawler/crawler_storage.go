@@ -76,6 +76,11 @@ func deduplicateVideos(videos []VideoAnalysis) []VideoAnalysis {
 
 // saveVideoAnalysis 保存视频分析数据到数据库
 func (s *sCrawler) saveVideoAnalysis(ctx context.Context, taskId string, videos []VideoAnalysis) error {
+	initialStatus := "discovered"
+	if g.Cfg().MustGet(ctx, "crawler.video.autoDownload", true).Bool() {
+		initialStatus = "pending"
+	}
+
 	videos = deduplicateVideos(videos)
 	if len(videos) == 0 {
 		return nil
@@ -108,7 +113,7 @@ func (s *sCrawler) saveVideoAnalysis(ctx context.Context, taskId string, videos 
 				"cover_url":           video.CoverURL,
 				"publish_time":        video.PublishTime,
 				"source_url":          video.SourceURL,
-				"download_status":     "pending",
+				"download_status":     initialStatus,
 				"download_url":        "",
 				"resolve_strategy":    "",
 				"payment_amount":      video.PaymentAmount,

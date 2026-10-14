@@ -69,8 +69,8 @@ func (s *sCrawler) persistAndQueueVideos(ctx context.Context, taskId string, vid
 		videoIDs = append(videoIDs, video.VideoId)
 	}
 	result := GetVideoDownloadManager().EnqueueBatch(ctx, videoIDs)
-	logInfo(ctx, taskId, fmt.Sprintf("🎬 视频已入库并排队解析下载直链：新排队=%d，已解析=%d，跳过=%d，失败=%d",
-		result.Queued, result.Completed, result.Skipped, result.Failed))
+	logInfo(ctx, taskId, fmt.Sprintf("🎬 视频已入库并安排解析下载直链：新排队=%d，待补投=%d，已解析=%d，跳过=%d，失败=%d",
+		result.Queued, result.Pending, result.Completed, result.Skipped, result.Failed))
 	return nil
 }
 

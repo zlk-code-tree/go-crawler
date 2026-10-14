@@ -23,10 +23,11 @@ import (
 
 type Controller struct{}
 
-var downloadManager = crawler.GetVideoDownloadManager()
 var validVideoID = regexp.MustCompile(`^[0-9]{6,32}$`)
 
 func New() *Controller { return &Controller{} }
+
+func downloadManager() *crawler.VideoDownloadManager { return crawler.GetVideoDownloadManager() }
 
 func (c *Controller) DownloadTask(ctx context.Context, req *v1.VideoDownloadTaskReq) (res *v1.VideoDownloadTaskRes, err error) {
 	r := g.RequestFromCtx(ctx)
@@ -34,7 +35,7 @@ func (c *Controller) DownloadTask(ctx context.Context, req *v1.VideoDownloadTask
 		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "video_id 格式不正确", "data": nil})
 		return
 	}
-	status, queueErr := downloadManager.Enqueue(ctx, req.VideoId)
+	status, queueErr := downloadManager().Enqueue(ctx, req.VideoId)
 	if queueErr != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 1, "msg": queueErr.Error(), "data": nil})
 		return
@@ -68,13 +69,14 @@ func (c *Controller) DownloadTicket(ctx context.Context, req *v1.VideoDownloadTi
 
 func (c *Controller) RetryFailed(ctx context.Context, req *v1.VideoDownloadRetryFailedReq) (res *v1.VideoDownloadRetryFailedRes, err error) {
 	r := g.RequestFromCtx(ctx)
-	result, retryErr := downloadManager.RetryFailed(ctx, strings.TrimSpace(req.TaskId), req.Limit)
+	result, retryErr := downloadManager().RetryFailed(ctx, strings.TrimSpace(req.TaskId), req.Limit)
 	if retryErr != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": retryErr.Error(), "data": nil})
 		return
 	}
-	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "失败视频直链解析已重新入队", "data": g.Map{
+	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "失败视频直链解析已安排重试", "data": g.Map{
 		"queued":    result.Queued,
+		"pending":   result.Pending,
 		"completed": result.Completed,
 		"skipped":   result.Skipped,
 		"failed":    result.Failed,
@@ -105,23 +107,39 @@ func (c *Controller) Import(ctx context.Context, req *v1.VideoImportReq) (res *v
 		VideoDesc:   strings.TrimSpace(req.VideoDesc),
 		SourceURL:   sourceURL,
 	}
-	_, ensureErr := downloadManager.EnsureVideoRecord(ctx, video, "manual")
+	_, ensureErr := downloadManager().EnsureVideoRecord(ctx, video, "manual")
 	if ensureErr != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 500, "msg": ensureErr.Error(), "data": nil})
 		return
 	}
 
-	status := "pending"
+	status := "discovered"
 	shouldResolve := req.ResolveNow == nil || *req.ResolveNow
 	if shouldResolve {
-		status, ensureErr = downloadManager.Enqueue(ctx, videoID)
+		status, ensureErr = downloadManager().Enqueue(ctx, videoID)
 		if ensureErr != nil {
 			r.Response.WriteJsonExit(g.Map{"code": 1, "msg": ensureErr.Error(), "data": nil})
 			return
 		}
+	} else {
+		// 仅保存时也返回实际状态，避免已存在的已解析视频被展示为新发现。
+		row, queryErr := g.DB().Model("video_analysis_data").Ctx(ctx).
+			Fields("download_status").Where("video_id", videoID).OrderDesc("created_at").One()
+		if queryErr != nil {
+			r.Response.WriteJsonExit(g.Map{"code": 500, "msg": queryErr.Error(), "data": nil})
+			return
+		}
+		if !row.IsEmpty() && row["download_status"].String() != "" {
+			status = row["download_status"].String()
+		}
+	}
+	pending := 0
+	if shouldResolve && status == "pending" {
+		pending = 1
 	}
 	r.Response.WriteJsonExit(g.Map{"code": 0, "msg": "视频已补录", "data": g.Map{
 		"video_id": videoID, "source_url": sourceURL, "download_status": status,
+		"pending": pending,
 	}})
 	return
 }
@@ -205,7 +223,7 @@ func (c *Controller) DownloadLink(ctx context.Context, req *v1.VideoDownloadLink
 		return
 	}
 
-	downloadURL, strategy, err := downloadManager.ResolveNow(ctx, videoId)
+	downloadURL, strategy, err := downloadManager().ResolveNow(ctx, videoId)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 404, "msg": err.Error(), "data": nil})
 		return
@@ -232,7 +250,7 @@ func (c *Controller) DownloadProxy(ctx context.Context, req *v1.VideoDownloadPro
 		r.Response.WriteJsonExit(g.Map{"code": 400, "msg": "video_id 格式不正确", "data": nil})
 		return
 	}
-	downloadURL, strategy, err := downloadManager.ResolveNow(ctx, videoId)
+	downloadURL, strategy, err := downloadManager().ResolveNow(ctx, videoId)
 	if err != nil {
 		r.Response.WriteJsonExit(g.Map{"code": 404, "msg": err.Error(), "data": nil})
 		return
@@ -330,7 +348,7 @@ func getResolvedDownloadURL(ctx context.Context, videoId string) (string, error)
 }
 
 func forceResolveDownloadURL(ctx context.Context, videoId string) (string, error) {
-	downloadURL, _, err := downloadManager.ResolveNow(ctx, videoId)
+	downloadURL, _, err := downloadManager().ResolveNow(ctx, videoId)
 	return downloadURL, err
 }
 

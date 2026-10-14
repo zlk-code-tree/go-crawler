@@ -26,11 +26,11 @@ func closeBrowser(browser *rod.Browser) {
 	close := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		err := browser.Context(ctx).Close()
+		_ = browser.Context(ctx).Close()
 		if lifecycle != nil && lifecycle.launcher != nil {
-			if err != nil {
-				lifecycle.launcher.Kill()
-			}
+			// A successful DevTools response does not guarantee process exit.
+			// Kill the owned process before Cleanup waits for its exit channel.
+			lifecycle.launcher.Kill()
 			lifecycle.launcher.Cleanup()
 		}
 	}

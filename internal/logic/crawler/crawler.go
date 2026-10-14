@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -321,7 +322,20 @@ func (s *sCrawler) RunBrowserTask(ctx context.Context, req *CrawlReq) (res []Res
 			logWarn(ctx, taskId, fmt.Sprintf("⚠️ 商品详情查看存在官方额度限制，本次仅访问前 %d/%d 个商品详情", len(detailProducts), len(products)))
 		}
 		logInfo(ctx, taskId, "🔍 步骤 9: 获取商品详情数据（首次上架时间、最低到手价）")
-		productDetails = s.scrapeProductDetails(ctx, browser, detailProducts, taskId)
+		productDetails, err = s.scrapeProductDetails(ctx, browser, detailProducts, taskId)
+		if err != nil {
+			// Persist only completed/status-bearing items before returning the
+			// original stop cause. A cancelled task must not cancel this cleanup.
+			if len(productDetails) > 0 {
+				cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+				saveErr := s.saveAllData(cleanupCtx, taskId, products, productDetails, nil)
+				cleanupCancel()
+				if saveErr != nil {
+					err = errors.Join(err, fmt.Errorf("保存已采集商品详情失败：%w", saveErr))
+				}
+			}
+			return res, fmt.Errorf("商品详情采集停止：%w", err)
+		}
 		logInfo(ctx, taskId, fmt.Sprintf("✅ 详情抓取完成，共获取 %d 条详情数据", len(productDetails)))
 	} else {
 		logInfo(ctx, taskId, "⏭️ 步骤 9: 已跳过商品详情访问，避免消耗官方详情查看次数")

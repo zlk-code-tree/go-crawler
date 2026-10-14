@@ -6,11 +6,11 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-rod/rod"
@@ -23,61 +23,69 @@ import (
 	"go-crawler/internal/service"
 )
 
-// scrapeProductDetails 获取商品详情数据（并发版本）
-func (s *sCrawler) scrapeProductDetails(ctx context.Context, browser *rod.Browser, products []ProductInfo, taskId string) []ProductDetail {
-	var details []ProductDetail
-	var mu sync.Mutex
-
-	pool := NewWorkerPool(crawlerWorkerConcurrency)
-
-	startTime := time.Now()
-	logInfo(ctx, taskId, fmt.Sprintf("🚀 开始并发获取商品详情（并发数=%d，总数=%d）", crawlerWorkerConcurrency, len(products)))
-
-	for i, product := range products {
-		// 复制循环变量，避免闭包问题
-		index := i
-		p := product
-
-		pool.Submit(func() {
-			if ctx.Err() != nil {
-				return
-			}
-			detail := s.scrapeSingleProductDetail(ctx, browser, p, taskId)
-			if detail != nil {
-				mu.Lock()
-				details = append(details, *detail)
-				mu.Unlock()
-				logDebug(ctx, taskId, fmt.Sprintf("✅ [%d/%d] 详情获取完成：%s", index+1, len(products), p.ProductName))
-			} else {
-				logWarn(ctx, taskId, fmt.Sprintf("⚠️ [%d/%d] 详情获取失败：%s", index+1, len(products), p.ProductName))
-			}
-		})
+// scrapeProductDetails 按输入顺序汇总详情；单项失败继续，致命错误或取消停止整批。
+func (s *sCrawler) scrapeProductDetails(ctx context.Context, browser *rod.Browser, products []ProductInfo, taskId string) ([]ProductDetail, error) {
+	options, err := productDetailBatchOptions(ctx)
+	if err != nil {
+		return nil, err
 	}
+	startTime := time.Now()
+	logInfo(ctx, taskId, fmt.Sprintf("开始获取商品详情：并发数=%d，总数=%d，单项超时=%s", options.Concurrency, len(products), options.TaskTimeout))
+	results, batchErr := runCrawlerBatch(ctx, products, options, func(taskCtx context.Context, index int, product ProductInfo) (*ProductDetail, error) {
+		return s.scrapeSingleProductDetail(taskCtx, browser, product, taskId)
+	})
+	details := make([]ProductDetail, 0, len(products))
+	failed := 0
+	for index, result := range results {
+		if !result.Executed {
+			continue
+		}
+		if result.Value != nil {
+			details = append(details, *result.Value)
+		}
+		if result.Err != nil {
+			var panicErr *crawlerTaskPanicError
+			if errors.As(result.Err, &panicErr) {
+				logWarn(ctx, taskId, fmt.Sprintf("商品详情异常堆栈：%s", panicErr.Stack))
+			}
+			failed++
+			logWarn(ctx, taskId, fmt.Sprintf("[%d/%d] 商品详情获取失败：%s，原因：%v", index+1, len(products), products[index].ProductName, result.Err))
+		} else {
+			logDebug(ctx, taskId, fmt.Sprintf("[%d/%d] 详情获取完成：%s", index+1, len(products), products[index].ProductName))
+		}
+	}
+	logInfo(ctx, taskId, fmt.Sprintf("商品详情批次结束：保留 %d 条详情，失败 %d 项，未执行 %d 项，耗时 %.1f 秒", len(details), failed, countUnexecutedDetails(results), time.Since(startTime).Seconds()))
+	return details, batchErr
+}
 
-	// 等待所有任务完成
-	pool.Wait()
-
-	elapsed := time.Since(startTime)
-	logInfo(ctx, taskId, fmt.Sprintf("✅ 商品详情获取完成：%d 条，耗时 %.1f 秒（相比串行节省 %.0f 秒）",
-		len(details), elapsed.Seconds(), float64(len(products))*2-elapsed.Seconds()))
-
-	return details
+func countUnexecutedDetails(results []crawlerBatchResult[*ProductDetail]) int {
+	count := 0
+	for _, result := range results {
+		if !result.Executed {
+			count++
+		}
+	}
+	return count
 }
 
 // scrapeSingleProductDetail 获取单个商品详情（DOM 文本正则提取，与 Python 版本一致）
-func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.Browser, product ProductInfo, taskId string) *ProductDetail {
+func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.Browser, product ProductInfo, taskId string) (*ProductDetail, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	// 1. 检查缓存
 	cache := service.GetProductDetailCache()
 	cachedRecord := cache.GetRecord(product.ProductID)
 	if cachedRecord != nil && !cache.IsRecordStale(cachedRecord) && cache.IsRecordComplete(cachedRecord) {
 		logInfo(ctx, taskId, fmt.Sprintf("✅ 从缓存获取商品详情：%s", product.ProductName))
 		return &ProductDetail{
-			ProductID:      product.ProductID,
-			ProductName:    product.ProductName,
-			FirstShelfTime: cachedRecord.FirstShelfTime,
-			MinPrice:       cachedRecord.MinPrice,
-			PriceRange:     product.PriceRange,
-		}
+			ProductID:          product.ProductID,
+			ProductName:        product.ProductName,
+			FirstShelfTime:     cachedRecord.FirstShelfTime,
+			MinPrice:           cachedRecord.MinPrice,
+			PriceRange:         product.PriceRange,
+			DetailAccessStatus: cachedRecord.DetailAccessStatus,
+		}, nil
 	}
 
 	// 2. 优先使用罗盘站内详情页。榜单返回的 product_detail_h5_url 常指向
@@ -89,35 +97,41 @@ func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.B
 		detailURL = product.ProductURL
 	}
 	if detailURL == "" {
-		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 商品 [%s] 无详情 URL，跳过详情获取", product.ProductName))
-		return &ProductDetail{ProductName: product.ProductName}
+		return nil, fmt.Errorf("商品 [%s] 无详情 URL", product.ProductName)
+	}
+	if browser == nil {
+		return nil, fatalCrawlerError(fmt.Errorf("商品详情浏览器未初始化"))
 	}
 
 	// 3. 打开新标签页
 	var page *rod.Page
 	retryErr := s.retryWithBackoff(ctx, func() error {
 		var pageErr error
-		page, pageErr = browser.Page(proto.TargetCreateTarget{URL: ""})
+		page, pageErr = openProductDetailPage(ctx, browser)
 		return pageErr
 	}, 3)
 	if retryErr != nil {
-		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 无法打开浏览器页面：%v", retryErr))
-		return nil
+		return nil, fmt.Errorf("无法打开浏览器页面：%w", retryErr)
 	}
-	defer page.Close()
+	page = page.Context(ctx)
+	defer closeProductDetailPage(page)
 
 	// 4. 导航到详情页，使用账号的真实授权和查看配额。
 	logDebug(ctx, taskId, fmt.Sprintf("🔗 正在打开商品详情：%s", detailURL))
 	if err := s.retryWithBackoff(ctx, func() error {
 		return page.Navigate(detailURL)
 	}, 3); err != nil {
-		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 打开商品详情失败：%v", err))
-		return nil
+		return nil, fmt.Errorf("打开商品详情失败：%w", err)
 	}
-	page.WaitLoad()
+	if err := page.WaitLoad(); err != nil {
+		return nil, fmt.Errorf("等待商品详情加载失败：%w", err)
+	}
 
 	// 6. 纯 DOM 文本正则提取（核心方式，与 Python 版本一致）
-	detail := s.scrapeSingleProductDetailByParsing(ctx, page, product, taskId)
+	detail, err := s.scrapeSingleProductDetailByParsing(ctx, page, product, taskId)
+	if err != nil {
+		return detail, err
+	}
 
 	// 7. 保存到缓存
 	if detail != nil && (detail.FirstShelfTime != "" || detail.MinPrice != "") {
@@ -135,21 +149,69 @@ func (s *sCrawler) scrapeSingleProductDetail(ctx context.Context, browser *rod.B
 		}
 	}
 
-	return detail
+	return detail, nil
+}
+
+// A cancelled task context cannot close its page, so cleanup gets a short,
+// independent deadline. runCrawlerBatch joins this cleanup before browser close.
+func closeProductDetailPage(page *rod.Page) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := page.Context(ctx).Close(); err != nil {
+		closeProductDetailTarget(page.Browser(), page.TargetID)
+	}
+}
+
+func openProductDetailPage(ctx context.Context, browser *rod.Browser) (*rod.Page, error) {
+	browser = browser.Context(ctx)
+	target, err := (proto.TargetCreateTarget{URL: "about:blank", BrowserContextID: browser.BrowserContextID}).Call(browser)
+	if err != nil {
+		return nil, err
+	}
+	attached := false
+	defer func() {
+		if !attached {
+			// This also runs if page attachment panics. Cleanup must not inherit
+			// the context that may have been cancelled during attachment.
+			closeProductDetailTarget(browser, target.TargetID)
+		}
+	}()
+	page, err := browser.PageFromTarget(target.TargetID)
+	if err != nil {
+		return nil, err
+	}
+	attached = true
+	return page, nil
+}
+
+func closeProductDetailTarget(browser *rod.Browser, targetID proto.TargetTargetID) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, _ = (proto.TargetCloseTarget{TargetID: targetID}).Call(browser.Context(ctx))
 }
 
 // scrapeSingleProductDetailByParsing 通过 DOM 文本正则提取商品详情（核心方式）
-func (s *sCrawler) scrapeSingleProductDetailByParsing(ctx context.Context, page *rod.Page, product ProductInfo, taskId string) *ProductDetail {
+func (s *sCrawler) scrapeSingleProductDetailByParsing(ctx context.Context, page *rod.Page, product ProductInfo, taskId string) (*ProductDetail, error) {
 	detail := &ProductDetail{
 		ProductID:   product.ProductID,
 		ProductName: product.ProductName,
 	}
 
 	// 随机延迟，模拟真实用户行为
-	time.Sleep(time.Duration(grand.Intn(1000)+500) * time.Millisecond)
+	if err := waitForCrawler(ctx, time.Duration(grand.Intn(1000)+500)*time.Millisecond); err != nil {
+		return nil, err
+	}
 
 	// 收集页面文本
-	texts := s.collectDetailTexts(ctx, page, taskId)
+	texts, err := s.collectDetailTexts(ctx, page.Context(ctx), taskId)
+	if err != nil {
+		return nil, err
+	}
+	status, note, accessErr := productDetailAccessIssue(texts)
+	if accessErr != nil {
+		detail.DetailAccessStatus, detail.DetailAccessNote = status, note
+		return detail, accessErr
+	}
 
 	// 1. 提取首次上架时间
 	detail.FirstShelfTime = s.extractFirstShelfTimeFromTexts(ctx, texts, taskId)
@@ -167,73 +229,102 @@ func (s *sCrawler) scrapeSingleProductDetailByParsing(ctx context.Context, page 
 	detail.DetailAccessNote = detailAccessNote
 
 	if detail.FirstShelfTime == "" && detail.MinPrice == "" {
-		logWarn(ctx, taskId, fmt.Sprintf("⚠️ 商品 [%s] 详情页未提取到数据，可能需要更新选择器", product.ProductName))
+		if detail.DetailAccessStatus == "available" {
+			return nil, fmt.Errorf("商品 [%s] 详情页未提取到数据", product.ProductName)
+		}
 	}
 
-	return detail
+	return detail, nil
 }
 
 // collectDetailTexts 收集页面文本（借鉴 Python 爬虫的 _collect_detail_texts）
-func (s *sCrawler) collectDetailTexts(ctx context.Context, page *rod.Page, taskId string) []string {
-	// 定义关键词，用于判断页面是否加载完成
+func (s *sCrawler) collectDetailTexts(ctx context.Context, page *rod.Page, taskId string) ([]string, error) {
 	keywords := []string{"首次上架", "最低到手价", "服务保障", "运费险"}
-
-	// 重试机制，最多尝试 4 次
+	var texts []string
 	for attempt := 0; attempt < 4; attempt++ {
-		var texts []string
-
-		// 尝试从多个元素获取文本
-		selectors := []string{"body", "main", "#root"}
-		for _, selector := range selectors {
-			if elem, err := page.Element(selector); err == nil {
-				if text, err := elem.Text(); err == nil && text != "" {
-					texts = append(texts, text)
-				}
-			}
+		var err error
+		texts, err = readProductDetailTexts(ctx, page)
+		if err != nil {
+			return nil, err
 		}
-
-		// 如果没有获取到文本，尝试获取页面内容
-		if len(texts) == 0 {
-			if content, err := page.HTML(); err == nil {
-				texts = append(texts, content)
-			}
+		// Access blocks and unavailable products are already complete responses.
+		if _, _, err := productDetailAccessIssue(texts); err != nil {
+			return texts, nil
 		}
-
-		// 检查是否包含关键词
+		if status, _ := s.extractDetailAccessState(ctx, texts, taskId); status != "available" {
+			return texts, nil
+		}
 		for _, text := range texts {
 			for _, keyword := range keywords {
 				if strings.Contains(text, keyword) {
 					logDebug(ctx, taskId, fmt.Sprintf("✅ 页面文本包含关键词：%s", keyword))
-					return texts
+					return texts, nil
 				}
 			}
 		}
-
-		// 等待后重试
 		if attempt < 3 {
-			time.Sleep(800 * time.Millisecond)
-		}
-	}
-
-	// 返回最后一次收集的文本
-	var texts []string
-	selectors := []string{"body", "main", "#root"}
-	for _, selector := range selectors {
-		if elem, err := page.Element(selector); err == nil {
-			if text, err := elem.Text(); err == nil && text != "" {
-				texts = append(texts, text)
-				break
+			if err := waitForCrawler(ctx, 800*time.Millisecond); err != nil {
+				return nil, err
 			}
 		}
 	}
+	return texts, nil
+}
 
+func readProductDetailTexts(ctx context.Context, page *rod.Page) ([]string, error) {
+	texts := make([]string, 0, 3)
+	for _, selector := range []string{"body", "main", "#root"} {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		// Has does not wait indefinitely for optional selectors such as main.
+		found, element, err := page.Has(selector)
+		if err != nil {
+			return nil, fmt.Errorf("读取商品详情节点 %s 失败：%w", selector, err)
+		}
+		if !found {
+			continue
+		}
+		text, err := element.Text()
+		if err != nil {
+			return nil, fmt.Errorf("读取商品详情文本失败：%w", err)
+		}
+		if text != "" {
+			texts = append(texts, text)
+		}
+	}
 	if len(texts) == 0 {
-		if content, err := page.HTML(); err == nil {
+		content, err := page.HTML()
+		if err != nil {
+			return nil, fmt.Errorf("读取商品详情页面失败：%w", err)
+		}
+		if content != "" {
 			texts = append(texts, content)
 		}
 	}
+	return texts, ctx.Err()
+}
 
-	return texts
+// Quota, login and risk-control failures affect the whole authenticated batch.
+// A target-specific permission block is retained as an item status and does not
+// prevent trying the remaining products.
+func productDetailAccessIssue(texts []string) (status, note string, err error) {
+	for _, text := range texts {
+		if marker := dailyVideoViewLimitMarker(text); marker != "" {
+			return "daily_limit", marker, fatalCrawlerError(fmt.Errorf("商品详情查看额度耗尽：%s", marker))
+		}
+		for _, marker := range []string{"登录已失效", "登录状态已失效", "登录已过期", "请重新登录", "请先登录", "扫码登录", "环境异常", "操作频繁", "请完成验证", "访问异常"} {
+			if strings.Contains(text, marker) {
+				return "restricted", marker, fatalCrawlerError(fmt.Errorf("商品详情访问需要处理账号或验证状态：%s", marker))
+			}
+		}
+	}
+	for _, text := range texts {
+		if marker := firstRestrictionMarker(text); marker != "" {
+			return "restricted", marker, fmt.Errorf("当前商品详情访问受限：%s", marker)
+		}
+	}
+	return "available", "", nil
 }
 
 // extractFirstShelfTimeFromTexts 从文本中提取首次上架时间

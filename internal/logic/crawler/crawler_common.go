@@ -6,40 +6,8 @@ import (
 	"math"
 	netUrl "net/url"
 	"strings"
-	"sync"
 	"time"
 )
-
-const crawlerWorkerConcurrency = 1
-
-// WorkerPool 工作池实现（基于 semaphore channel）
-type WorkerPool struct {
-	sem chan struct{}
-	wg  sync.WaitGroup
-}
-
-// NewWorkerPool 创建新的工作池
-func NewWorkerPool(maxWorkers int) *WorkerPool {
-	return &WorkerPool{
-		sem: make(chan struct{}, maxWorkers),
-	}
-}
-
-// Submit 提交任务到工作池
-func (wp *WorkerPool) Submit(fn func()) {
-	wp.wg.Add(1)
-	go func() {
-		defer wp.wg.Done()
-		wp.sem <- struct{}{}        // 获取许可证
-		defer func() { <-wp.sem }() // 释放许可证
-		fn()
-	}()
-}
-
-// Wait 等待所有任务完成
-func (wp *WorkerPool) Wait() {
-	wp.wg.Wait()
-}
 
 // retryWithBackoff 带指数级退避的重试函数
 func (s *sCrawler) retryWithBackoff(ctx context.Context, fn func() error, maxRetries int) error {
@@ -151,7 +119,7 @@ type ProductDetail struct {
 	MinPrice             string // 最低到手价
 	PriceRange           string // 价格带
 	HasShippingInsurance *bool  // 是否有运费险
-	DetailAccessStatus   string // 详情访问状态：available/removed/category_mismatch
+	DetailAccessStatus   string // 详情访问状态：available/removed/category_mismatch/restricted/daily_limit
 	DetailAccessNote     string // 详情访问备注
 }
 

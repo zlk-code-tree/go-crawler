@@ -4,13 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gcmd"
 	"github.com/gogf/gf/v2/os/glog"
+	"github.com/gogf/gf/v2/os/gproc"
 
 	"go-crawler/internal/controller/auth"
 	ctrlCompany "go-crawler/internal/controller/company"
@@ -250,11 +253,6 @@ var (
 			addColumnIfMissing("video_analysis_data", "last_error", "last_error TEXT NULL COMMENT '最后错误' AFTER file_size")
 			addColumnIfMissing("video_analysis_data", "retry_count", "retry_count INT NOT NULL DEFAULT 0 COMMENT '重试次数' AFTER last_error")
 			addIndexIfMissing("video_analysis_data", "idx_video_download_status", "INDEX `idx_video_download_status` (`download_status`)")
-			if resumeResult, err := crawlerLogic.GetVideoDownloadManager().ResumePending(ctx, 1000); err != nil {
-				g.Log().Warningf(ctx, "[VideoDownload] 恢复未完成直链解析失败 err=%v", err)
-			} else if resumeResult.Queued > 0 {
-				g.Log().Infof(ctx, "[VideoDownload] 已恢复 %d 个未完成视频直链解析", resumeResult.Queued)
-			}
 
 			// 自动建表：千川广告主日结报表（账户维度）
 			g.DB().Exec(ctx, `CREATE TABLE IF NOT EXISTS qianchuan_advertiser_daily_report (
@@ -1440,6 +1438,34 @@ var (
 					crawler.New(),
 				)
 			})
+
+			// 在数据库初始化完成后启动解析服务；恢复和持续补投由管理器负责。
+			videoOptions, err := crawlerLogic.VideoDownloadOptionsFromConfig(ctx)
+			if err != nil {
+				return fmt.Errorf("读取视频解析配置失败: %w", err)
+			}
+			videoManager := crawlerLogic.GetVideoDownloadManager()
+			if err := videoManager.Start(ctx, videoOptions); err != nil {
+				return fmt.Errorf("启动视频解析服务失败: %w", err)
+			}
+			g.Log().Infof(ctx, "[VideoDownload] 解析服务已启动 workers=%d queue_capacity=%d timeout=%s refill_interval=%s",
+				videoOptions.Workers, videoOptions.QueueCapacity, videoOptions.TaskTimeout, videoOptions.RefillInterval)
+			var videoShutdownOnce sync.Once
+			shutdownVideoManager := func() {
+				videoShutdownOnce.Do(func() {
+					shutdownCtx, cancel := context.WithTimeout(context.Background(), videoOptions.ShutdownTimeout)
+					defer cancel()
+					if err := videoManager.Shutdown(shutdownCtx); err != nil {
+						g.Log().Warningf(shutdownCtx, "[VideoDownload] 关闭解析服务失败 err=%v", err)
+					}
+					stats := videoManager.Stats()
+					g.Log().Infof(context.Background(), "[VideoDownload] 解析服务退出 queued=%d running=%d completed=%d failed=%d retries=%d elapsed=%s",
+						stats.Queued, stats.Running, stats.Completed, stats.Failed, stats.Retries, stats.Elapsed)
+				})
+			}
+			defer shutdownVideoManager()
+			// GoFrame 在 s.Run 中注册 HTTP 关闭处理器；先注册此处理器以等待解析清理。
+			gproc.AddSigHandlerShutdown(func(_ os.Signal) { shutdownVideoManager() })
 
 			// 注册所有内置定时任务（统一由 CronManager 管理）
 			// 约定：handler 返回 error 时由 CronManager 统一记录失败日志与通知，handler 内部不应再重复记录

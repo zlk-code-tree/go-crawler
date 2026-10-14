@@ -22,3 +22,24 @@ database:
     maxOpen: 100         # 最大打开连接数
     maxLifetime: 300     # 连接最大生命周期（秒）
     charset: "utf8mb4"
+
+# 爬虫并发与视频直链解析（配置变更需重启服务）
+crawler:
+  productDetail:
+    enabled: false
+    concurrency: 1
+    timeoutSeconds: 60
+    maxViews: 9
+  video:
+    maxDetailViews: 10
+    maxEmptyStreak: 4
+    autoDownload: true
+    resolver:
+      workers: 2
+      queueCapacity: 1000
+      timeoutSeconds: 120
+      httpTimeoutSeconds: 15
+      retryAttempts: 3
+      retryDelaySeconds: 1
+      refillIntervalSeconds: 5
+      shutdownTimeoutSeconds: 30

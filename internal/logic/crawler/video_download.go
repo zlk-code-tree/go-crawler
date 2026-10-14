@@ -1,18 +1,21 @@
 package crawler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
+	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/gogf/gf/v2/errors/gerror"
 )
@@ -44,13 +47,16 @@ func NewVideoDownloader() *VideoDownloader {
 }
 
 // Resolve 解析视频下载地址（三层降级策略）
-func (d *VideoDownloader) Resolve(videoID string) (string, error) {
-	url, _, err := d.ResolveWithStrategy(videoID)
+func (d *VideoDownloader) Resolve(ctx context.Context, videoID string) (string, error) {
+	url, _, err := d.ResolveWithStrategy(ctx, videoID)
 	return url, err
 }
 
 // ResolveWithStrategy 解析视频地址并返回实际成功的策略。
-func (d *VideoDownloader) ResolveWithStrategy(videoID string) (string, string, error) {
+func (d *VideoDownloader) ResolveWithStrategy(ctx context.Context, videoID string) (string, string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", "", err
+	}
 	// 0. 检查缓存
 	if url := d.getCache(videoID); url != "" {
 		return url, "cache", nil
@@ -58,7 +64,10 @@ func (d *VideoDownloader) ResolveWithStrategy(videoID string) (string, string, e
 
 	var failures []string
 	// 1. 移动端 HTTP（最快，成功率高）
-	url, err := d.resolveByMobileHTTP(videoID)
+	url, err := d.resolveByMobileHTTP(ctx, videoID)
+	if ctx.Err() != nil {
+		return "", "", ctx.Err()
+	}
 	if err == nil && url != "" {
 		d.setCache(videoID, url)
 		return url, "mobile_http", nil
@@ -68,7 +77,10 @@ func (d *VideoDownloader) ResolveWithStrategy(videoID string) (string, string, e
 	}
 
 	// 2. 桌面端浏览器（主页面）。该方法内部会收集多个候选并校验，避免把播放器占位 mp4 当作结果。
-	url, err = d.resolveByDesktopBrowser(videoID, false)
+	url, err = d.resolveByDesktopBrowser(ctx, videoID, false)
+	if ctx.Err() != nil {
+		return "", "", ctx.Err()
+	}
 	if err == nil && url != "" {
 		d.setCache(videoID, url)
 		return url, "desktop_browser", nil
@@ -78,7 +90,10 @@ func (d *VideoDownloader) ResolveWithStrategy(videoID string) (string, string, e
 	}
 
 	// 3. 桌面端浏览器（分享页兜底）。同样在方法内部完成候选校验。
-	url, err = d.resolveByDesktopBrowser(videoID, true)
+	url, err = d.resolveByDesktopBrowser(ctx, videoID, true)
+	if ctx.Err() != nil {
+		return "", "", ctx.Err()
+	}
 	if err == nil && url != "" {
 		d.setCache(videoID, url)
 		return url, "share_browser", nil
@@ -130,9 +145,12 @@ func (d *VideoDownloader) Invalidate(videoID string) {
 const mobileUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
 
 // resolveByMobileHTTP 用移动端 UA 请求分享页，从 HTML 中提取 videoInfoRes JSON
-func (d *VideoDownloader) resolveByMobileHTTP(videoID string) (string, error) {
+func (d *VideoDownloader) resolveByMobileHTTP(ctx context.Context, videoID string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	shareURL := fmt.Sprintf("https://www.iesdouyin.com/share/video/%s/", videoID)
-	req, err := http.NewRequest("GET", shareURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, shareURL, nil)
 	if err != nil {
 		return "", err
 	}
@@ -150,6 +168,9 @@ func (d *VideoDownloader) resolveByMobileHTTP(videoID string) (string, error) {
 	}
 
 	body, err := io.ReadAll(resp.Body)
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
 	if err != nil {
 		return "", err
 	}
@@ -164,13 +185,19 @@ func (d *VideoDownloader) resolveByMobileHTTP(videoID string) (string, error) {
 		return "", gerror.New("no video URL found in videoInfoRes")
 	}
 
-	return d.finalizeDownloadURLCandidates(candidates)
+	return d.finalizeDownloadURLCandidates(ctx, candidates)
 }
 
-func (d *VideoDownloader) finalizeDownloadURLCandidates(candidates []string) (string, error) {
+func (d *VideoDownloader) finalizeDownloadURLCandidates(ctx context.Context, candidates []string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	var failures []string
 	seen := make(map[string]struct{}, len(candidates)*2)
 	for _, candidate := range candidates {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		candidate = strings.TrimSpace(candidate)
 		if candidate == "" {
 			continue
@@ -179,7 +206,10 @@ func (d *VideoDownloader) finalizeDownloadURLCandidates(candidates []string) (st
 			continue
 		}
 		seen[candidate] = struct{}{}
-		finalURL, err := d.finalizeDownloadURL(candidate)
+		finalURL, err := d.finalizeDownloadURL(ctx, candidate)
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
 		if err == nil {
 			return finalURL, nil
 		}
@@ -191,7 +221,10 @@ func (d *VideoDownloader) finalizeDownloadURLCandidates(candidates []string) (st
 	return "", gerror.New(strings.Join(failures, "; "))
 }
 
-func (d *VideoDownloader) finalizeDownloadURL(candidate string) (string, error) {
+func (d *VideoDownloader) finalizeDownloadURL(ctx context.Context, candidate string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	candidate = strings.TrimSpace(candidate)
 	if candidate == "" {
 		return "", gerror.New("empty video URL")
@@ -205,7 +238,13 @@ func (d *VideoDownloader) finalizeDownloadURL(candidate string) (string, error) 
 
 	var failures []string
 	for _, item := range candidates {
-		finalURL, err := d.verifyDownloadURL(item)
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		finalURL, err := d.verifyDownloadURL(ctx, item)
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
 		if err == nil {
 			return finalURL, nil
 		}
@@ -214,8 +253,11 @@ func (d *VideoDownloader) finalizeDownloadURL(candidate string) (string, error) 
 	return "", gerror.New(strings.Join(failures, "; "))
 }
 
-func (d *VideoDownloader) verifyDownloadURL(candidate string) (string, error) {
-	req, err := http.NewRequest("GET", candidate, nil)
+func (d *VideoDownloader) verifyDownloadURL(ctx context.Context, candidate string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, candidate, nil)
 	if err != nil {
 		return "", err
 	}
@@ -230,7 +272,13 @@ func (d *VideoDownloader) verifyDownloadURL(candidate string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	prefix, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	prefix, err := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
+	if err != nil {
+		return "", fmt.Errorf("读取视频流失败: %w", err)
+	}
 	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
 	finalURL := resp.Request.URL.String()
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
@@ -474,7 +522,10 @@ func extractPlayAddrCandidates(parent map[string]interface{}, key string) []stri
 // resolveByDesktopBrowser 用桌面浏览器打开视频页，拦截网络请求找视频 URL。
 // 注意：页面播放器通常会先请求一个固定占位 mp4，它的 Content-Type 也是 video/mp4；
 // 因此这里必须收集多个候选并逐个校验，而不能拿到第一个 media 请求就返回。
-func (d *VideoDownloader) resolveByDesktopBrowser(videoID string, useShareURL bool) (string, error) {
+func (d *VideoDownloader) resolveByDesktopBrowser(ctx context.Context, videoID string, useShareURL bool) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	var pageURL string
 	if useShareURL {
 		pageURL = fmt.Sprintf("https://www.iesdouyin.com/share/video/%s/", videoID)
@@ -482,27 +533,52 @@ func (d *VideoDownloader) resolveByDesktopBrowser(videoID string, useShareURL bo
 		pageURL = fmt.Sprintf("https://www.douyin.com/video/%s", videoID)
 	}
 
-	l := launcher.New().Headless(true).NoSandbox(true)
+	l := launcher.New().Context(ctx).Headless(true).NoSandbox(true)
+	launcherOwned := true
+	defer func() {
+		if launcherOwned {
+			cleanupVideoResolverLauncher(l)
+		}
+	}()
 	launchURL, err := l.Launch()
 	if err != nil {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
 		return "", gerror.Wrap(err, "启动视频解析浏览器失败")
 	}
-	defer l.Kill()
-	browser := rod.New().ControlURL(launchURL)
+	// Ownership is kept in the context so closeBrowser can clean up with a fresh
+	// context even when this resolution has already been cancelled.
+	browserCtx := context.WithValue(ctx, browserLifecycleKey{}, &browserLifecycle{launcher: l})
+	browser := rod.New().Context(browserCtx).ControlURL(launchURL)
 	if err := browser.Connect(); err != nil {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
 		return "", gerror.Wrap(err, "连接视频解析浏览器失败")
 	}
-	defer browser.Close()
+	launcherOwned = false
+	defer closeBrowser(browser)
 
 	page, err := browser.Page(proto.TargetCreateTarget{URL: "about:blank"})
 	if err != nil {
 		return "", gerror.Wrap(err, "创建视频解析页面失败")
 	}
-	defer page.Close()
+	defer func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = page.Context(closeCtx).Close()
+	}()
 
 	// 设置请求拦截，查找视频 URL
 	videoCh := make(chan string, 32)
-	router := page.HijackRequests()
+	routerCtx, cancelRouter := context.WithCancel(ctx)
+	defer cancelRouter()
+	router := page.Context(routerCtx).HijackRequests()
+	defer func() {
+		cancelRouter()
+		_ = router.Stop()
+	}()
 	if err := router.Add("*", "", func(h *rod.Hijack) {
 		requestURL := h.Request.URL().String()
 		lowerURL := strings.ToLower(requestURL)
@@ -510,6 +586,7 @@ func (d *VideoDownloader) resolveByDesktopBrowser(videoID string, useShareURL bo
 			!strings.Contains(lowerURL, ".mp3") && !strings.Contains(lowerURL, "audio")
 		if (isVideoURL(requestURL) || isMediaVideo) && !isKnownPlaceholderVideoURL(lowerURL) {
 			select {
+			case <-routerCtx.Done():
 			case videoCh <- requestURL:
 			default:
 			}
@@ -518,23 +595,52 @@ func (d *VideoDownloader) resolveByDesktopBrowser(videoID string, useShareURL bo
 	}); err != nil {
 		return "", gerror.Wrap(err, "注册请求拦截失败")
 	}
-	go router.Run()
-	defer router.Stop()
+	routerDone := make(chan struct{})
+	go func() {
+		defer close(routerDone)
+		router.Run()
+	}()
+	defer func() {
+		cancelRouter()
+		<-routerDone
+	}()
 
-	page = page.Timeout(15 * time.Second)
-	if err := page.Navigate(pageURL); err != nil {
+	navigateCtx, cancelNavigate := context.WithTimeout(ctx, 15*time.Second)
+	err = page.Context(navigateCtx).Navigate(pageURL)
+	cancelNavigate()
+	if err != nil {
 		return "", gerror.Wrap(err, "打开视频页失败")
 	}
-	_ = page.WaitLoad()
+	loadCtx, cancelLoad := context.WithTimeout(ctx, 5*time.Second)
+	_ = page.Context(loadCtx).WaitLoad()
+	cancelLoad()
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	_ = page.Mouse.Scroll(0, 480, 3)
-	if playButton, err := page.Timeout(2 * time.Second).ElementX("//*[contains(text(), '播放') or contains(@aria-label, '播放')]"); err == nil {
+	playCtx, cancelPlay := context.WithTimeout(ctx, 2*time.Second)
+	if playButton, err := page.Context(playCtx).ElementX("//*[contains(text(), '播放') or contains(@aria-label, '播放')]"); err == nil {
 		_ = playButton.Click(proto.InputMouseButtonLeft, 1)
-	} else if video, err := page.Timeout(2 * time.Second).Element("video"); err == nil {
-		_ = video.Click(proto.InputMouseButtonLeft, 1)
+	} else if ctx.Err() == nil {
+		cancelPlay()
+		playCtx, cancelPlay = context.WithTimeout(ctx, 2*time.Second)
+		if video, err := page.Context(playCtx).Element("video"); err == nil {
+			_ = video.Click(proto.InputMouseButtonLeft, 1)
+		}
+	}
+	cancelPlay()
+	if err := ctx.Err(); err != nil {
+		return "", err
 	}
 
-	candidates := make([]string, 0, 16)
+	candidates, err := collectVideoCandidates(ctx, videoCh, 5*time.Second)
+	if err != nil {
+		return "", err
+	}
 	seen := make(map[string]struct{}, 16)
+	for _, candidate := range candidates {
+		seen[candidate] = struct{}{}
+	}
 	appendCandidate := func(candidate string) {
 		candidate = strings.TrimSpace(candidate)
 		if candidate == "" {
@@ -551,19 +657,9 @@ func (d *VideoDownloader) resolveByDesktopBrowser(videoID string, useShareURL bo
 		candidates = append(candidates, candidate)
 	}
 
-	deadline := time.After(5 * time.Second)
-collect:
-	for {
-		select {
-		case candidate := <-videoCh:
-			appendCandidate(candidate)
-		case <-deadline:
-			break collect
-		}
-	}
-
 	// 从 DOM 的 <video> 标签提取
-	if video, err := page.Timeout(5 * time.Second).Element("video"); err == nil {
+	domCtx, cancelDOM := context.WithTimeout(ctx, 5*time.Second)
+	if video, err := page.Context(domCtx).Element("video"); err == nil {
 		if src, err := video.Property("src"); err == nil && src.String() != "" {
 			appendCandidate(src.String())
 		}
@@ -575,10 +671,15 @@ collect:
 			}
 		}
 	}
+	cancelDOM()
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	// 补充从浏览器 Performance API 中可见的媒体请求。部分播放器请求会在
 	// hijack 启动前或 ServiceWorker 内部触发，直接读 performance entries
 	// 能捞回这些已发生的请求，仍然不重放罗盘内部接口。
-	if result, err := page.Timeout(3 * time.Second).Evaluate(rod.Eval(`
+	performanceCtx, cancelPerformance := context.WithTimeout(ctx, 3*time.Second)
+	if result, err := page.Context(performanceCtx).Evaluate(rod.Eval(`
 		() => performance.getEntriesByType('resource')
 			.map(item => item.name)
 			.filter(Boolean)
@@ -587,23 +688,76 @@ collect:
 			appendCandidate(item.String())
 		}
 	}
+	cancelPerformance()
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	// 从页面 HTML 中的 RENDER_DATA / videoInfoRes 兜底提取播放地址。
-	if pageHTML, err := page.Timeout(3 * time.Second).HTML(); err == nil {
+	htmlCtx, cancelHTML := context.WithTimeout(ctx, 3*time.Second)
+	if pageHTML, err := page.Context(htmlCtx).HTML(); err == nil {
 		if videoInfo := extractVideoInfoFromHTML(pageHTML); videoInfo != nil {
 			for _, candidate := range pickVideoURLCandidates(videoInfo) {
 				appendCandidate(candidate)
 			}
 		}
 	}
+	cancelHTML()
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 
 	if len(candidates) == 0 {
 		return "", gerror.New("no video URL found via desktop browser")
 	}
 
-	if finalURL, err := d.finalizeDownloadURLCandidates(candidates); err == nil {
+	if finalURL, err := d.finalizeDownloadURLCandidates(ctx, candidates); err == nil {
 		return finalURL, nil
 	} else {
 		return "", gerror.Wrapf(err, "no downloadable video URL found via desktop browser candidates=%d", len(candidates))
+	}
+}
+
+// A launcher that never started a process has no exit event, so Cleanup would
+// block forever. Its generated profile directory can still be removed safely.
+func cleanupVideoResolverLauncher(l *launcher.Launcher) {
+	if l.PID() != 0 {
+		l.Kill()
+		l.Cleanup()
+		return
+	}
+	if profileDir := l.Get(flags.UserDataDir); profileDir != "" {
+		_ = os.RemoveAll(profileDir)
+	}
+}
+
+func collectVideoCandidates(ctx context.Context, videoCh <-chan string, duration time.Duration) ([]string, error) {
+	candidates := make([]string, 0, 16)
+	seen := make(map[string]struct{}, 16)
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-timer.C:
+			return candidates, nil
+		case candidate, ok := <-videoCh:
+			if !ok {
+				return candidates, nil
+			}
+			candidate = strings.TrimSpace(candidate)
+			if candidate == "" || isKnownPlaceholderVideoURL(strings.ToLower(candidate)) {
+				continue
+			}
+			if _, ok := seen[candidate]; ok {
+				continue
+			}
+			seen[candidate] = struct{}{}
+			candidates = append(candidates, candidate)
+		}
 	}
 }
 
